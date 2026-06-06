@@ -16,9 +16,6 @@ npm ci
 echo "==> Generate Prisma Client"
 npx prisma generate
 
-echo "==> Apply database migrations"
-npx prisma migrate deploy
-
 echo "==> Build Next.js app"
 npm run build
 
