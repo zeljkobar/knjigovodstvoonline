@@ -29,6 +29,20 @@ fi
 pm2 save
 
 echo "==> Check local HTTP response"
-curl -fsS -I "http://127.0.0.1:${APP_PORT}" | head -n 1
+for attempt in {1..10}; do
+  if curl -fsS -I "http://127.0.0.1:${APP_PORT}" | head -n 1; then
+    echo "==> App is responding"
+    break
+  fi
+
+  if [ "$attempt" -eq 10 ]; then
+    echo "ERROR: App did not respond on port ${APP_PORT}" >&2
+    pm2 logs "$APP_NAME" --lines 40 --nostream
+    exit 1
+  fi
+
+  echo "Waiting for app to start (${attempt}/10)..."
+  sleep 2
+done
 
 echo "==> Deploy finished"
