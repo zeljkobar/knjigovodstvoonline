@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "KnjigovodstvoOnline",
+  title: "Summa Summarum",
   description: "Web sistem za knjigovodstvo i klijentski portal"
 };
 
