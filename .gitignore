@@ -16,9 +16,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Prisma
-prisma/migrations/
-
 # OS
 .DS_Store
 Thumbs.db

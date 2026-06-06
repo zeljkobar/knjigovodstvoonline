@@ -27,18 +27,20 @@ enum TipKonta {
 }
 
 model Agencija {
-  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  naziv      String
-  pib        String?    @unique
-  adresa     String?
-  grad       String?
-  telefon    String?
-  email      String?
-  aktivan    Boolean    @default(true)
-  created_at DateTime   @default(now())
-  updated_at DateTime   @updatedAt
-  firme      Firma[]
-  korisnici  Korisnik[]
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  naziv         String
+  pib           String?         @unique
+  adresa        String?
+  grad          String?
+  telefon       String?
+  email         String?
+  aktivan       Boolean         @default(true)
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @updatedAt
+  firme         Firma[]
+  korisnici     Korisnik[]
+  agencijaKonta AgencijaKonto[]
+  auditLogovi   AuditLog[]
 
   @@map("agencije")
 }
@@ -56,6 +58,7 @@ model Korisnik {
   updated_at        DateTime        @updatedAt
   firme             KorisnikFirma[]
   kreirani_nalozi   Nalog[]
+  auditLogovi       AuditLog[]
 
   @@map("korisnici")
 }
@@ -81,6 +84,7 @@ model Firma {
   komitenti       FirmaKomitent[]
   konta           FirmaKonto[]
   nalozi          Nalog[]
+  auditLogovi     AuditLog[]
 
   @@map("firme")
 }
@@ -156,10 +160,30 @@ model FirmaKomitent {
 }
 
 model Konto {
-  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sifra              String       @unique
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sifra              String          @unique
   naziv              String
   klasa              String?
+  tip_konta          TipKonta
+  analitika_obavezna Boolean         @default(false)
+  sinteticki_konto   String?
+  aktivan            Boolean         @default(true)
+  created_at         DateTime        @default(now())
+  updated_at         DateTime        @updatedAt
+  agencijaKonta      AgencijaKonto[]
+  firme              FirmaKonto[]
+
+  @@map("konta")
+}
+
+model AgencijaKonto {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id        String       @db.Uuid
+  agencija           Agencija     @relation(fields: [agencija_id], references: [id])
+  konto_id           String?      @db.Uuid
+  konto              Konto?       @relation(fields: [konto_id], references: [id])
+  sifra              String
+  naziv              String
   tip_konta          TipKonta
   analitika_obavezna Boolean      @default(false)
   sinteticki_konto   String?
@@ -168,7 +192,8 @@ model Konto {
   updated_at         DateTime     @updatedAt
   firme              FirmaKonto[]
 
-  @@map("konta")
+  @@unique([agencija_id, sifra])
+  @@map("agencija_konta")
 }
 
 model FirmaKonto {
@@ -177,6 +202,8 @@ model FirmaKonto {
   firma              Firma          @relation(fields: [firma_id], references: [id])
   konto_id           String?        @db.Uuid
   konto              Konto?         @relation(fields: [konto_id], references: [id])
+  agencija_konto_id  String?        @db.Uuid
+  agencija_konto     AgencijaKonto? @relation(fields: [agencija_konto_id], references: [id])
   sifra              String
   naziv              String
   tip_konta          TipKonta
@@ -191,15 +218,29 @@ model FirmaKonto {
   @@map("firma_konta")
 }
 
+model VrstaNaloga {
+  id      String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sifra   String  @unique
+  naziv   String
+  opis    String?
+  aktivan Boolean @default(true)
+  nalozi  Nalog[]
+
+  @@map("vrste_naloga")
+}
+
 model Nalog {
   id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   firma_id            String         @db.Uuid
   firma               Firma          @relation(fields: [firma_id], references: [id])
   poslovna_godina_id  String         @db.Uuid
   poslovna_godina     PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  vrsta_naloga_id     String         @db.Uuid
+  vrsta_naloga        VrstaNaloga    @relation(fields: [vrsta_naloga_id], references: [id])
   broj                Int
   datum               DateTime       @db.Date
   opis                String?
+  izvorni_dokument_id String?        @db.Uuid
   kreirao_korisnik_id String?        @db.Uuid
   kreirao_korisnik    Korisnik?      @relation(fields: [kreirao_korisnik_id], references: [id])
   created_at          DateTime       @default(now())
@@ -215,7 +256,7 @@ model StavkaNaloga {
   nalog_id        String     @db.Uuid
   nalog           Nalog      @relation(fields: [nalog_id], references: [id])
   konto_id        String     @db.Uuid
-  konto           FirmaKonto @relation(fields: [konto_id], references: [id])
+  firma_konto     FirmaKonto @relation(fields: [konto_id], references: [id])
   komitent_id     String?    @db.Uuid
   komitent        Komitent?  @relation(fields: [komitent_id], references: [id])
   duguje          Decimal    @default(0) @db.Decimal(14, 2)
@@ -229,4 +270,23 @@ model StavkaNaloga {
   created_at      DateTime   @default(now())
 
   @@map("stavke_naloga")
+}
+
+model AuditLog {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  korisnik_id      String?   @db.Uuid
+  korisnik         Korisnik? @relation(fields: [korisnik_id], references: [id])
+  agencija_id      String?   @db.Uuid
+  agencija         Agencija? @relation(fields: [agencija_id], references: [id])
+  firma_id         String?   @db.Uuid
+  firma            Firma?    @relation(fields: [firma_id], references: [id])
+  akcija           String
+  tip_entiteta     String
+  entitet_id       String?   @db.Uuid
+  stara_vrijednost Json?
+  nova_vrijednost  Json?
+  ip_adresa        String?
+  created_at       DateTime  @default(now())
+
+  @@map("audit_log")
 }
