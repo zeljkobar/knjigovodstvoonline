@@ -122,41 +122,93 @@ model PoslovnaGodina {
 }
 
 model Komitent {
-  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   naziv         String
-  pib           String?         @unique
+  pib           String?             @unique
   maticni_broj  String?
   pdv_broj      String?
   adresa        String?
   grad          String?
-  drzava        String?         @default("Crna Gora")
+  drzava        String?             @default("Crna Gora")
   telefon       String?
   email         String?
   web_sajt      String?
-  aktivan       Boolean         @default(true)
-  created_at    DateTime        @default(now())
-  updated_at    DateTime        @updatedAt
+  aktivan       Boolean             @default(true)
+  created_at    DateTime            @default(now())
+  updated_at    DateTime            @updatedAt
   firme         FirmaKomitent[]
+  kontakti      KomitentKontakt[]
   stavke_naloga StavkaNaloga[]
+  ziro_racuni   KomitentZiroRacun[]
 
   @@map("komitenti")
 }
 
 model FirmaKomitent {
-  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  firma_id      String       @db.Uuid
-  firma         Firma        @relation(fields: [firma_id], references: [id])
-  komitent_id   String       @db.Uuid
-  komitent      Komitent     @relation(fields: [komitent_id], references: [id])
-  tip_komitenta TipKomitenta
-  sifra_u_firmi String?
-  napomena      String?
-  aktivan       Boolean      @default(true)
-  created_at    DateTime     @default(now())
-  updated_at    DateTime     @updatedAt
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firma_id          String       @db.Uuid
+  firma             Firma        @relation(fields: [firma_id], references: [id])
+  komitent_id       String       @db.Uuid
+  komitent          Komitent     @relation(fields: [komitent_id], references: [id])
+  tip_komitenta     TipKomitenta
+  sifra_u_firmi     String?
+  rok_placanja_dana Int?
+  napomena          String?
+  aktivan           Boolean      @default(true)
+  created_at        DateTime     @default(now())
+  updated_at        DateTime     @updatedAt
 
   @@unique([firma_id, komitent_id])
   @@map("firma_komitent")
+}
+
+model Banka {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  naziv       String
+  sifra       String?             @unique
+  swift       String?
+  aktivan     Boolean             @default(true)
+  created_at  DateTime            @default(now())
+  updated_at  DateTime            @updatedAt
+  ziro_racuni KomitentZiroRacun[]
+
+  @@map("banke")
+}
+
+model KomitentZiroRacun {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  komitent_id String   @db.Uuid
+  komitent    Komitent @relation(fields: [komitent_id], references: [id])
+  banka_id    String?  @db.Uuid
+  banka       Banka?   @relation(fields: [banka_id], references: [id])
+  broj_racuna String
+  valuta      String   @default("EUR")
+  glavni      Boolean  @default(false)
+  aktivan     Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@unique([komitent_id, broj_racuna])
+  @@map("komitent_ziro_racuni")
+}
+
+model KomitentKontakt {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  komitent_id String   @db.Uuid
+  komitent    Komitent @relation(fields: [komitent_id], references: [id])
+  ime         String?
+  prezime     String?
+  naziv       String?
+  pozicija    String?
+  telefon     String?
+  email       String?
+  napomena    String?
+  glavni      Boolean  @default(false)
+  aktivan     Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("komitent_kontakti")
 }
 
 model Konto {
