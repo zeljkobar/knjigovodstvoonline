@@ -28,6 +28,9 @@ Thumbs.db
 logs/
 *.log
 
+# Local reference databases
+118OSN.MDB
+
 # TypeScript
 *.tsbuildinfo
 

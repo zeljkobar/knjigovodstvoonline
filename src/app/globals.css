@@ -37,18 +37,24 @@ body {
   padding: 40px 24px;
 }
 
-.welcome {
-  position: relative;
-  width: min(920px, 100%);
+.login-screen {
+  display: grid;
+  width: min(1120px, 100%);
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
   box-shadow: var(--shadow);
+}
+
+.login-intro {
+  position: relative;
+  overflow: hidden;
   padding: clamp(32px, 7vw, 72px);
 }
 
-.welcome::before {
+.login-intro::before {
   position: absolute;
   inset: 0 auto 0 0;
   width: 8px;
@@ -89,14 +95,85 @@ p {
   margin: 24px 0 0;
 }
 
-.status-row {
+.login-form {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  padding: clamp(28px, 5vw, 48px);
+}
+
+.form-header {
+  margin-bottom: 28px;
+}
+
+.form-header h2 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.form-header p {
+  margin: 8px 0 0;
+  font-size: 15px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.field span {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.field input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fbfdff;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+  padding: 12px 14px;
+}
+
+.field input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.login-form button {
+  min-height: 48px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--primary);
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.login-form button:hover {
+  background: var(--primary-strong);
+}
+
+.role-note {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 34px;
+  margin-top: 24px;
 }
 
-.status-row span {
+.role-note span {
   border: 1px solid var(--border);
   border-radius: 999px;
   background: #f8fcff;
@@ -113,12 +190,19 @@ p {
     padding: 18px;
   }
 
-  .welcome {
-    display: flex;
+.login-screen {
+    grid-template-columns: 1fr;
     min-height: calc(100vh - 36px);
-    flex-direction: column;
-    justify-content: center;
-    padding: 32px 24px 32px 30px;
+  }
+
+  .login-intro {
+    padding: 32px 24px 22px 30px;
+  }
+
+  .login-form {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    padding: 26px 24px 30px;
   }
 
   .brand-logo {
