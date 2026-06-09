@@ -9,7 +9,8 @@ datasource db {
 
 enum Rola {
   admin
-  agencija
+  admin_agencije
+  korisnik_agencije
   klijent
 }
 
@@ -48,6 +49,7 @@ model Agencija {
 model Korisnik {
   id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   korisnicko_ime    String          @unique
+  email             String?         @unique
   lozinka_hash      String
   rola              Rola
   agencija_id       String?         @db.Uuid
@@ -59,8 +61,21 @@ model Korisnik {
   firme             KorisnikFirma[]
   kreirani_nalozi   Nalog[]
   auditLogovi       AuditLog[]
+  pozivnice         Pozivnica[]
 
   @@map("korisnici")
+}
+
+model Pozivnica {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  korisnik_id    String    @db.Uuid
+  korisnik       Korisnik  @relation(fields: [korisnik_id], references: [id])
+  token_hash     String    @unique
+  expires_at     DateTime
+  iskorisceno_at DateTime?
+  created_at     DateTime  @default(now())
+
+  @@map("pozivnice")
 }
 
 model Firma {

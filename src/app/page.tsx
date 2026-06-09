@@ -1,6 +1,23 @@
 import Image from "next/image";
+import { login } from "./actions";
 
-export default function Home() {
+type HomeProps = {
+  searchParams?: Promise<{
+    greska?: string;
+  }>;
+};
+
+const errorMessages: Record<string, string> = {
+  prazno: "Unesite korisnicko ime i lozinku.",
+  prijava: "Korisnicko ime ili lozinka nisu ispravni.",
+  sesija: "Sesija je istekla. Prijavite se ponovo.",
+  lozinka_postavljena: "Lozinka je postavljena. Mozete se prijaviti."
+};
+
+export default async function Home({ searchParams }: HomeProps) {
+  const params = await searchParams;
+  const errorMessage = params?.greska ? errorMessages[params.greska] : null;
+
   return (
     <main className="home">
       <section className="login-screen">
@@ -21,11 +38,17 @@ export default function Home() {
           </p>
         </div>
 
-        <form className="login-form">
+        <form className="login-form" action={login}>
           <div className="form-header">
             <h2>Dobro dosli</h2>
             <p>Unesite korisnicko ime i lozinku.</p>
           </div>
+
+          {errorMessage ? (
+            <p className="form-error" role="alert">
+              {errorMessage}
+            </p>
+          ) : null}
 
           <label className="field">
             <span>Korisnicko ime</span>
@@ -34,6 +57,7 @@ export default function Home() {
               name="korisnicko_ime"
               autoComplete="username"
               placeholder="npr. admin"
+              required
             />
           </label>
 
@@ -44,6 +68,7 @@ export default function Home() {
               name="lozinka"
               autoComplete="current-password"
               placeholder="Unesite lozinku"
+              required
             />
           </label>
 
@@ -51,7 +76,8 @@ export default function Home() {
 
           <div className="role-note" aria-label="Tipovi korisnika">
             <span>admin</span>
-            <span>agencija</span>
+            <span>admin agencije</span>
+            <span>korisnik agencije</span>
             <span>klijent</span>
           </div>
         </form>
