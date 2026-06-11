@@ -28,40 +28,58 @@ enum TipKonta {
 }
 
 model Agencija {
-  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   naziv         String
-  pib           String?         @unique
+  pib           String?             @unique
   adresa        String?
   grad          String?
   telefon       String?
   email         String?
-  aktivan       Boolean         @default(true)
-  created_at    DateTime        @default(now())
-  updated_at    DateTime        @updatedAt
+  aktivan       Boolean             @default(true)
+  is_deleted    Boolean             @default(false)
+  deleted_at    DateTime?
+  deleted_by    String?             @db.Uuid
+  delete_reason String?
+  created_at    DateTime            @default(now())
+  created_by    String?             @db.Uuid
+  updated_at    DateTime            @updatedAt
+  updated_by    String?             @db.Uuid
   firme         Firma[]
   korisnici     Korisnik[]
   agencijaKonta AgencijaKonto[]
   auditLogovi   AuditLog[]
+  pretplate     AgencijaPretplata[]
+  prava         KorisnikPravo[]
+  aktivnosti    AktivnostDogadjaj[]
 
   @@map("agencije")
 }
 
 model Korisnik {
-  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  korisnicko_ime    String          @unique
-  email             String?         @unique
-  lozinka_hash      String
-  rola              Rola
-  agencija_id       String?         @db.Uuid
-  agencija          Agencija?       @relation(fields: [agencija_id], references: [id])
-  aktivan           Boolean         @default(true)
-  zadnja_prijava_at DateTime?
-  created_at        DateTime        @default(now())
-  updated_at        DateTime        @updatedAt
-  firme             KorisnikFirma[]
-  kreirani_nalozi   Nalog[]
-  auditLogovi       AuditLog[]
-  pozivnice         Pozivnica[]
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  korisnicko_ime      String              @unique
+  email               String?             @unique
+  lozinka_hash        String
+  rola                Rola
+  agencija_id         String?             @db.Uuid
+  agencija            Agencija?           @relation(fields: [agencija_id], references: [id])
+  aktivan             Boolean             @default(true)
+  zadnja_prijava_at   DateTime?
+  is_deleted          Boolean             @default(false)
+  deleted_at          DateTime?
+  deleted_by          String?             @db.Uuid
+  delete_reason       String?
+  created_at          DateTime            @default(now())
+  created_by          String?             @db.Uuid
+  updated_at          DateTime            @updatedAt
+  updated_by          String?             @db.Uuid
+  firme               KorisnikFirma[]
+  kreirani_nalozi     Nalog[]
+  auditLogovi         AuditLog[]
+  pozivnice           Pozivnica[]
+  prava               KorisnikPravo[]
+  aktivnosti          AktivnostDogadjaj[]
+  obnovljenePretplate AgencijaPretplata[] @relation("PretplatuObnovio")
 
   @@map("korisnici")
 }
@@ -79,45 +97,129 @@ model Pozivnica {
 }
 
 model Firma {
-  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  agencija_id     String           @db.Uuid
-  agencija        Agencija         @relation(fields: [agencija_id], references: [id])
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id     String              @db.Uuid
+  agencija        Agencija            @relation(fields: [agencija_id], references: [id])
   naziv           String
   pib             String?
   maticni_broj    String?
   pdv_broj        String?
   adresa          String?
   grad            String?
-  drzava          String?          @default("Crna Gora")
+  drzava          String?             @default("Crna Gora")
   telefon         String?
   email           String?
-  aktivan         Boolean          @default(true)
-  created_at      DateTime         @default(now())
-  updated_at      DateTime         @updatedAt
+  aktivan         Boolean             @default(true)
+  is_deleted      Boolean             @default(false)
+  deleted_at      DateTime?
+  deleted_by      String?             @db.Uuid
+  delete_reason   String?
+  created_at      DateTime            @default(now())
+  created_by      String?             @db.Uuid
+  updated_at      DateTime            @updatedAt
+  updated_by      String?             @db.Uuid
   korisnici       KorisnikFirma[]
   poslovne_godine PoslovnaGodina[]
   komitenti       FirmaKomitent[]
   konta           FirmaKonto[]
   nalozi          Nalog[]
   auditLogovi     AuditLog[]
+  prava           KorisnikPravo[]
+  aktivnosti      AktivnostDogadjaj[]
 
   @@map("firme")
 }
 
 model KorisnikFirma {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  korisnik_id     String   @db.Uuid
-  korisnik        Korisnik @relation(fields: [korisnik_id], references: [id])
-  firma_id        String   @db.Uuid
-  firma           Firma    @relation(fields: [firma_id], references: [id])
-  moze_da_gleda   Boolean  @default(true)
-  moze_da_unosi   Boolean  @default(false)
-  moze_da_mijenja Boolean  @default(false)
-  moze_da_brise   Boolean  @default(false)
-  created_at      DateTime @default(now())
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  korisnik_id     String    @db.Uuid
+  korisnik        Korisnik  @relation(fields: [korisnik_id], references: [id])
+  firma_id        String    @db.Uuid
+  firma           Firma     @relation(fields: [firma_id], references: [id])
+  moze_da_gleda   Boolean   @default(true)
+  moze_da_unosi   Boolean   @default(false)
+  moze_da_mijenja Boolean   @default(false)
+  moze_da_brise   Boolean   @default(false)
+  access_type     String?
+  glavni_radnik   Boolean   @default(false)
+  valid_from      DateTime?
+  valid_to        DateTime?
+  is_deleted      Boolean   @default(false)
+  deleted_at      DateTime?
+  deleted_by      String?   @db.Uuid
+  delete_reason   String?
+  created_at      DateTime  @default(now())
+  created_by      String?   @db.Uuid
+  updated_at      DateTime  @updatedAt
+  updated_by      String?   @db.Uuid
 
   @@unique([korisnik_id, firma_id])
   @@map("korisnik_firma")
+}
+
+model AgencijaPretplata {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id         String    @db.Uuid
+  agencija            Agencija  @relation(fields: [agencija_id], references: [id])
+  paket               String
+  pocinje_at          DateTime  @db.Date
+  istice_at           DateTime  @db.Date
+  status              String
+  max_firmi           Int?
+  max_korisnika       Int?
+  napomena            String?
+  zadnja_obnova_at    DateTime?
+  obnovio_korisnik_id String?   @db.Uuid
+  obnovio_korisnik    Korisnik? @relation("PretplatuObnovio", fields: [obnovio_korisnik_id], references: [id])
+  created_at          DateTime  @default(now())
+  created_by          String?   @db.Uuid
+  updated_at          DateTime  @updatedAt
+  updated_by          String?   @db.Uuid
+
+  @@index([agencija_id, status])
+  @@map("agencija_pretplate")
+}
+
+model KorisnikPravo {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String   @db.Uuid
+  agencija    Agencija @relation(fields: [agencija_id], references: [id])
+  korisnik_id String   @db.Uuid
+  korisnik    Korisnik @relation(fields: [korisnik_id], references: [id])
+  firma_id    String?  @db.Uuid
+  firma       Firma?   @relation(fields: [firma_id], references: [id])
+  modul       String
+  akcija      String
+  dozvoljeno  Boolean  @default(true)
+  created_at  DateTime @default(now())
+  created_by  String?  @db.Uuid
+  updated_at  DateTime @updatedAt
+  updated_by  String?  @db.Uuid
+
+  @@unique([agencija_id, korisnik_id, firma_id, modul, akcija])
+  @@index([korisnik_id, firma_id, modul])
+  @@map("korisnik_prava")
+}
+
+model AktivnostDogadjaj {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id   String?   @db.Uuid
+  agencija      Agencija? @relation(fields: [agencija_id], references: [id])
+  firma_id      String?   @db.Uuid
+  firma         Firma?    @relation(fields: [firma_id], references: [id])
+  korisnik_id   String?   @db.Uuid
+  korisnik      Korisnik? @relation(fields: [korisnik_id], references: [id])
+  modul         String
+  akcija        String
+  tip_entiteta  String
+  entitet_id    String?   @db.Uuid
+  activity_date DateTime  @db.Date
+  created_at    DateTime  @default(now())
+
+  @@index([agencija_id, korisnik_id, activity_date])
+  @@index([agencija_id, firma_id, activity_date])
+  @@index([agencija_id, modul, akcija])
+  @@map("aktivnost_dogadjaji")
 }
 
 model PoslovnaGodina {
@@ -348,12 +450,19 @@ model AuditLog {
   firma_id         String?   @db.Uuid
   firma            Firma?    @relation(fields: [firma_id], references: [id])
   akcija           String
+  modul            String?
   tip_entiteta     String
   entitet_id       String?   @db.Uuid
   stara_vrijednost Json?
   nova_vrijednost  Json?
   ip_adresa        String?
+  user_agent       String?
+  napomena         String?
   created_at       DateTime  @default(now())
 
+  @@index([agencija_id, created_at])
+  @@index([korisnik_id, created_at])
+  @@index([firma_id, created_at])
+  @@index([modul, akcija])
   @@map("audit_log")
 }

@@ -16,19 +16,35 @@ export async function getCurrentUser() {
     return null;
   }
 
-  return prisma.korisnik.findFirst({
+  const user = await prisma.korisnik.findFirst({
     where: {
       id: session.korisnikId,
       rola: session.rola,
-      aktivan: true
+      aktivan: true,
+      is_deleted: false
     },
     select: {
       id: true,
       korisnicko_ime: true,
       rola: true,
-      agencija_id: true
+      agencija_id: true,
+      agencija: {
+        select: {
+          aktivan: true,
+          is_deleted: true
+        }
+      }
     }
   });
+
+  if (
+    user?.rola !== "admin" &&
+    (!user?.agencija || !user.agencija.aktivan || user.agencija.is_deleted)
+  ) {
+    return null;
+  }
+
+  return user;
 }
 
 export async function requireRole(rola: SessionUser["rola"]) {
