@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "kontni-plan:import": "node prisma/import-kontni-plan.mjs",
     "db:seed": "node prisma/seed.mjs"
   },
   "dependencies": {

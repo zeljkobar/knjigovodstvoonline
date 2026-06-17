@@ -4,6 +4,7 @@ import { AgencyTopBar } from "@/components/AgencyTopBar";
 import { requireAnyRole } from "@/lib/auth";
 import { getAgencyNavigation } from "@/lib/navigation";
 import { prisma } from "@/lib/prisma";
+import { readWorkContext } from "@/lib/work-context";
 
 export default async function AgencijaLayout({
   children
@@ -12,16 +13,68 @@ export default async function AgencijaLayout({
 }>) {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const navigation = getAgencyNavigation(user.rola);
-  const agencija = user.agencija_id
-    ? await prisma.agencija.findUnique({
+  const workContext = await readWorkContext();
+  const [agencija, firme] = user.agencija_id
+    ? await Promise.all([
+        prisma.agencija.findUnique({
+          where: {
+            id: user.agencija_id
+          },
+          select: {
+            naziv: true
+          }
+        }),
+        prisma.firma.findMany({
+          where:
+            user.rola === "admin_agencije"
+              ? {
+                  agencija_id: user.agencija_id,
+                  is_deleted: false,
+                  aktivan: true
+                }
+              : {
+                  agencija_id: user.agencija_id,
+                  is_deleted: false,
+                  aktivan: true,
+                  korisnici: {
+                    some: {
+                      korisnik_id: user.id,
+                      is_deleted: false
+                    }
+                  }
+                },
+          orderBy: {
+            naziv: "asc"
+          },
+          select: {
+            id: true,
+            naziv: true,
+            pib: true
+          }
+        })
+      ])
+    : [null, []];
+  const activeFirm =
+    firme.find((firma) => firma.id === workContext.firmaId) ?? null;
+  const poslovneGodine = activeFirm
+    ? await prisma.poslovnaGodina.findMany({
         where: {
-          id: user.agencija_id
+          firma_id: activeFirm.id
+        },
+        orderBy: {
+          godina: "desc"
         },
         select: {
-          naziv: true
+          id: true,
+          godina: true,
+          zakljucena: true
         }
       })
-    : null;
+    : [];
+  const activeYear =
+    poslovneGodine.find((godina) => godina.id === workContext.poslovnaGodinaId) ??
+    poslovneGodine[0] ??
+    null;
 
   return (
     <main className="admin-app">
@@ -56,8 +109,12 @@ export default async function AgencijaLayout({
       <section className="admin-main">
         <AgencyTopBar
           agencyName={agencija?.naziv ?? "Agencija"}
-          currentYear={new Date().getFullYear()}
+          activeFirmId={activeFirm?.id ?? ""}
+          activeYearId={activeYear?.id ?? ""}
+          currentYear={activeYear?.godina ?? new Date().getFullYear()}
+          firms={firme}
           navigation={navigation}
+          years={poslovneGodine}
           userName={user.korisnicko_ime}
         />
         {children}

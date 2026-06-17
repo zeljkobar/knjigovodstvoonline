@@ -419,6 +419,10 @@ p {
   padding: 10px 12px;
 }
 
+.context-pill:has(select) {
+  min-width: 230px;
+}
+
 .context-pill span {
   color: var(--muted);
   font-size: 12px;
@@ -429,6 +433,29 @@ p {
 .context-pill strong {
   color: var(--foreground);
   font-size: 15px;
+}
+
+.context-form {
+  margin: 0;
+}
+
+.context-form select {
+  width: 100%;
+  min-height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  outline: none;
+  padding: 0;
+}
+
+.context-form select:disabled {
+  cursor: not-allowed;
+  color: var(--muted);
 }
 
 .user-context {
@@ -531,6 +558,11 @@ p {
   line-height: 1;
 }
 
+.metric .metric-text {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
 .admin-panel,
 .admin-form-section {
   padding: 22px;
@@ -581,7 +613,8 @@ p {
 }
 
 .admin-form input,
-.admin-form select {
+.admin-form select,
+.admin-form textarea {
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--border);
@@ -594,9 +627,15 @@ p {
 }
 
 .admin-form input:focus,
-.admin-form select:focus {
+.admin-form select:focus,
+.admin-form textarea:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.admin-form textarea {
+  min-height: 96px;
+  resize: vertical;
 }
 
 .admin-form button {
@@ -610,6 +649,69 @@ p {
   font: inherit;
   font-weight: 700;
   padding: 10px 14px;
+}
+
+.company-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.form-checkbox {
+  align-self: end;
+}
+
+.form-wide {
+  grid-column: span 2;
+}
+
+.company-form-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-self: end;
+}
+
+.company-form-actions button {
+  width: 100%;
+}
+
+.company-form-actions button[type="button"] {
+  border: 1px solid var(--border);
+  background: #f8fcff;
+  color: var(--primary-strong);
+}
+
+.company-form-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.irms-status {
+  align-self: end;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  min-height: 44px;
+  padding: 12px;
+}
+
+.irms-status-success {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.irms-status-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.irms-status-loading {
+  border-color: var(--primary-soft);
+  background: #f8fcff;
+  color: var(--primary-strong);
 }
 
 .table-wrap {
@@ -688,6 +790,145 @@ td small {
   background: var(--primary-soft);
 }
 
+.inline-link {
+  color: var(--primary-strong);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.inline-link:hover {
+  color: var(--primary);
+}
+
+.print-page {
+  min-height: 100vh;
+  background: #e5e7eb;
+  padding: 32px 16px;
+}
+
+.print-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 0 auto 16px;
+  width: min(210mm, 100%);
+}
+
+.print-button {
+  min-height: 34px;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  background: var(--primary);
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 12px;
+}
+
+.contract-document {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  background: #ffffff;
+  box-shadow: 0 18px 55px rgba(15, 23, 42, 0.18);
+  color: #111111;
+  font-family: "Times New Roman", Times, serif;
+  padding: 24mm 22mm;
+}
+
+.contract-header {
+  text-align: center;
+  margin-bottom: 26px;
+}
+
+.contract-header h1 {
+  max-width: none;
+  color: #111111;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 18px 0 0;
+  text-decoration: underline;
+}
+
+.contract-header p,
+.contract-section p,
+.contract-intro p,
+.contract-place p {
+  color: #111111;
+  font-size: 12pt;
+  line-height: 1.5;
+  margin: 0 0 10px;
+}
+
+.contract-intro {
+  margin: 0 0 24px;
+}
+
+.contract-document h2 {
+  color: #111111;
+  font-size: 12pt;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.contract-section {
+  margin-top: 18px;
+}
+
+.contract-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 0;
+}
+
+.contract-table th,
+.contract-table td {
+  border: 1px solid #111111;
+  color: #111111;
+  font-size: 11pt;
+  padding: 7px 9px;
+  text-align: left;
+  text-transform: none;
+}
+
+.contract-table th {
+  width: 40%;
+  background: #f3f4f6;
+  font-weight: 700;
+}
+
+.contract-place {
+  margin-top: 34px;
+}
+
+.contract-signatures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 60px;
+  margin-top: 56px;
+}
+
+.contract-signatures div {
+  display: grid;
+  gap: 26px;
+  text-align: center;
+}
+
+.contract-signatures span {
+  color: #111111;
+  font-size: 11pt;
+  font-weight: 400;
+}
+
+.contract-signatures strong {
+  color: #111111;
+  font-size: 11pt;
+  font-weight: 400;
+}
+
 .status-pill {
   display: inline-flex;
   min-height: 34px;
@@ -699,6 +940,43 @@ td small {
   font-size: 13px;
   font-weight: 700;
   padding: 7px 11px;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 20mm 18mm;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  .admin-sidebar,
+  .agency-topbar,
+  .subnav,
+  .print-toolbar {
+    display: none !important;
+  }
+
+  .print-page {
+    min-height: auto;
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .contract-document {
+    width: 100%;
+    min-height: auto;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .contract-section {
+    break-inside: avoid;
+  }
 }
 
 .user-admin-list {
@@ -727,6 +1005,36 @@ td small {
 
 .embedded-panel h4 {
   margin: 0 0 14px;
+}
+
+.detail-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.detail-list div {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.detail-list div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.detail-list dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.detail-list dd {
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 700;
+  margin: 4px 0 0;
 }
 
 .compact-panel-header {
@@ -805,6 +1113,19 @@ td small {
   margin-top: 12px;
 }
 
+.business-year-form {
+  max-width: 420px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  margin: 0 0 18px;
+}
+
+.account-filter-form {
+  grid-template-columns: minmax(280px, 0.8fr) minmax(260px, 1fr) auto;
+  align-items: end;
+  margin-top: 0;
+}
+
 .assignment-row {
   display: flex;
   align-items: center;
@@ -851,6 +1172,119 @@ td small {
 }
 
 .compact-form button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--primary);
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 12px;
+}
+
+.table-inline-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.table-inline-form input {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fbfdff;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  padding: 7px 9px;
+}
+
+.global-account-edit-form {
+  display: grid;
+  min-width: 620px;
+  grid-template-columns: minmax(180px, 1.2fr) 120px 100px 110px repeat(2, 92px) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.global-account-edit-form label {
+  display: grid;
+  gap: 5px;
+}
+
+.global-account-edit-form span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.global-account-edit-form input:not([type="checkbox"]),
+.global-account-edit-form select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fbfdff;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  padding: 7px 9px;
+}
+
+.global-account-edit-form .single-checkbox {
+  min-height: 34px;
+  align-content: center;
+}
+
+.default-account-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.default-account-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.default-account-card label {
+  display: grid;
+  gap: 7px;
+}
+
+.default-account-card span {
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.default-account-card select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  padding: 8px 10px;
+}
+
+.default-account-card button {
   min-height: 38px;
   border: 0;
   border-radius: 6px;
