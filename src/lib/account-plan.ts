@@ -1,4 +1,5 @@
 export const accountOverrideTypes = {
+  baseLink: "BASE_LINK",
   custom: "CUSTOM",
   renamed: "RENAMED",
   deactivated: "DEACTIVATED",
@@ -93,11 +94,11 @@ export function mergeCompanyAccountPlan(
   const combined: CombinedAccount[] = baseAccounts.map((account) => {
     const override = overridesByBaseId.get(account.id);
 
-    if (!override) {
+    if (!override || override.override_type === accountOverrideTypes.baseLink) {
       return {
         id: account.id,
         baseAccountId: account.id,
-        companyAccountId: null,
+        companyAccountId: override?.id ?? null,
         sifra: account.sifra,
         naziv: account.naziv,
         klasa: account.klasa,

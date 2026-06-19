@@ -1126,6 +1126,19 @@ td small {
   margin-top: 0;
 }
 
+.journal-filter-form {
+  grid-template-columns:
+    minmax(220px, 1.4fr)
+    minmax(150px, 0.8fr)
+    minmax(180px, 1fr)
+    minmax(140px, 0.8fr)
+    minmax(140px, 0.8fr)
+    auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 0;
+}
+
 .assignment-row {
   display: flex;
   align-items: center;
@@ -1222,6 +1235,125 @@ td small {
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.journal-form {
+  display: grid;
+  gap: 18px;
+}
+
+.journal-header-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.journal-type-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.journal-lines-table {
+  min-width: 1100px;
+}
+
+.journal-lines-table th:first-child,
+.journal-lines-table td:first-child {
+  width: 44px;
+}
+
+.journal-lines-table select,
+.journal-lines-table input,
+.journal-delete-form input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fbfdff;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  padding: 7px 9px;
+}
+
+.journal-lines-table td:nth-child(2) {
+  min-width: 340px;
+}
+
+.journal-lines-table td:nth-child(3) {
+  min-width: 220px;
+}
+
+.journal-lines-table td:nth-child(4) {
+  min-width: 240px;
+}
+
+.journal-lines-table td:nth-child(5),
+.journal-lines-table td:nth-child(6) {
+  min-width: 130px;
+}
+
+.journal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.journal-actions button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--primary);
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 9px 14px;
+}
+
+.journal-actions .secondary-button {
+  border: 1px solid var(--border);
+  background: #f8fcff;
+  color: var(--primary-strong);
+}
+
+.journal-actions .table-button {
+  border: 1px solid var(--border);
+  background: #f8fcff;
+  color: var(--primary-strong);
+}
+
+.journal-delete-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 8px;
+}
+
+.journal-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.journal-detail-grid div {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 14px;
+}
+
+.journal-detail-grid span,
+.journal-detail-grid small {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.journal-detail-grid strong {
+  display: block;
+  color: var(--foreground);
+  margin: 6px 0 4px;
 }
 
 .global-account-edit-form input:not([type="checkbox"]),

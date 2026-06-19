@@ -480,35 +480,61 @@ model FirmaPodrazumijevanoKonto {
 }
 
 model VrstaNaloga {
-  id      String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sifra   String  @unique
-  naziv   String
-  opis    String?
-  aktivan Boolean @default(true)
-  nalozi  Nalog[]
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String?  @db.Uuid
+  firma_id  String?  @db.Uuid
+  sifra      String   @unique
+  naziv      String
+  opis       String?
+  sistemska  Boolean  @default(false)
+  prefiks    String?
+  aktivan    Boolean  @default(true)
+  created_at DateTime @default(now())
+  created_by String?  @db.Uuid
+  updated_at DateTime @updatedAt
+  updated_by String?  @db.Uuid
+  nalozi     Nalog[]
 
   @@map("vrste_naloga")
 }
 
 model Nalog {
-  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  firma_id            String         @db.Uuid
-  firma               Firma          @relation(fields: [firma_id], references: [id])
-  poslovna_godina_id  String         @db.Uuid
-  poslovna_godina     PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
-  vrsta_naloga_id     String         @db.Uuid
-  vrsta_naloga        VrstaNaloga    @relation(fields: [vrsta_naloga_id], references: [id])
-  broj                Int
-  datum               DateTime       @db.Date
-  opis                String?
-  izvorni_dokument_id String?        @db.Uuid
-  kreirao_korisnik_id String?        @db.Uuid
-  kreirao_korisnik    Korisnik?      @relation(fields: [kreirao_korisnik_id], references: [id])
-  created_at          DateTime       @default(now())
-  updated_at          DateTime       @updatedAt
-  stavke              StavkaNaloga[]
+  id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id            String?        @db.Uuid
+  firma_id               String         @db.Uuid
+  firma                  Firma          @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id     String         @db.Uuid
+  poslovna_godina        PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  vrsta_naloga_id        String         @db.Uuid
+  vrsta_naloga           VrstaNaloga    @relation(fields: [vrsta_naloga_id], references: [id])
+  broj                   Int
+  sifra                  String?
+  datum                  DateTime       @db.Date
+  datum_knjizenja        DateTime?      @db.Date
+  opis                   String?
+  status                 String         @default("DRAFT")
+  source_type            String         @default("MANUAL")
+  source_module          String?
+  source_sync_status     String?
+  izvorni_dokument_id    String?        @db.Uuid
+  kreirao_korisnik_id    String?        @db.Uuid
+  kreirao_korisnik       Korisnik?      @relation(fields: [kreirao_korisnik_id], references: [id])
+  created_at             DateTime       @default(now())
+  created_by             String?        @db.Uuid
+  updated_at             DateTime       @updatedAt
+  updated_by             String?        @db.Uuid
+  proknjizen_at          DateTime?
+  proknjizen_by          String?        @db.Uuid
+  vracen_u_nacrt_at      DateTime?
+  vracen_u_nacrt_by      String?        @db.Uuid
+  is_deleted             Boolean        @default(false)
+  deleted_at             DateTime?
+  deleted_by             String?        @db.Uuid
+  delete_reason          String?
+  stavke                 StavkaNaloga[]
 
-  @@unique([firma_id, poslovna_godina_id, broj])
+  @@unique([firma_id, poslovna_godina_id, vrsta_naloga_id, broj])
+  @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@map("nalozi")
 }
 
@@ -529,7 +555,11 @@ model StavkaNaloga {
   datum_valute    DateTime?  @db.Date
   redni_broj      Int
   created_at      DateTime   @default(now())
+  created_by      String?    @db.Uuid
+  updated_at      DateTime   @updatedAt
+  updated_by      String?    @db.Uuid
 
+  @@unique([nalog_id, redni_broj])
   @@map("stavke_naloga")
 }
 
