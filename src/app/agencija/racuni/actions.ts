@@ -35,6 +35,23 @@ function parseDate(formData: FormData, key: string) {
   return new Date(`${data}T00:00:00.000Z`);
 }
 
+function parseFiscalDateTime(value: string) {
+  const raw = value.trim();
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.replace(/ (\d{2}:\d{2})$/, "+$1");
+  const parsed = new Date(normalized);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function normalizePib(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return digits.length === 7 ? `0${digits}` : digits;
+}
+
 function parseMoneyToCents(input: string) {
   const normalized = input.trim().replace(",", ".");
 
@@ -136,6 +153,36 @@ async function resolveCompanyAccount(
       naziv: true,
       tip_konta: true,
       override_type: true,
+      aktivan: true
+    }
+  });
+}
+
+async function saveSupplierKufDefaults(
+  tx: Prisma.TransactionClient,
+  firmaId: string,
+  supplierId: string,
+  accountCode: string,
+  vatRateCode: string | null
+) {
+  await tx.firmaKomitent.upsert({
+    where: {
+      firma_id_komitent_id: {
+        firma_id: firmaId,
+        komitent_id: supplierId
+      }
+    },
+    update: {
+      default_kuf_konto_sifra: accountCode,
+      default_kuf_pdv_stopa_sifra: vatRateCode,
+      aktivan: true
+    },
+    create: {
+      firma_id: firmaId,
+      komitent_id: supplierId,
+      tip_komitenta: "dobavljac",
+      default_kuf_konto_sifra: accountCode,
+      default_kuf_pdv_stopa_sifra: vatRateCode,
       aktivan: true
     }
   });
@@ -769,6 +816,11 @@ export async function createKufEntry(formData: FormData) {
   const note = nullableValue(formData, "note");
   const invoiceTotalCents = parseMoneyToCents(value(formData, "invoice_total"));
   const expenseAccountCode = value(formData, "expense_account_code");
+  const fiscalIic = nullableValue(formData, "fiscal_iic");
+  const fiscalFic = nullableValue(formData, "fiscal_fic");
+  const fiscalSellerTin = normalizePib(value(formData, "fiscal_seller_tin")) || null;
+  const fiscalDateTime = parseFiscalDateTime(value(formData, "fiscal_datetime"));
+  const fiscalSourceUrl = nullableValue(formData, "fiscal_source_url");
 
   if (
     !supplierId ||
@@ -868,6 +920,25 @@ export async function createKufEntry(formData: FormData) {
     redirectKuf("kuf_knjiga");
   }
 
+  if (fiscalIic && fiscalSellerTin && fiscalDateTime) {
+    const duplicateFiscalEntry = await prisma.kufEntry.findFirst({
+      where: {
+        firma_id: firma.id,
+        fiscal_iic: fiscalIic,
+        fiscal_seller_tin: fiscalSellerTin,
+        fiscal_datetime: fiscalDateTime,
+        is_deleted: false
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (duplicateFiscalEntry) {
+      redirectKufEntry(kufBook.id, "kuf_dupli_fiskalni");
+    }
+  }
+
   const vatRateIds = formData.getAll("vat_rate_id").map((item) => String(item));
   const baseValues = formData.getAll("tax_base").map((item) => String(item));
   const vatValues = formData.getAll("input_vat_amount").map((item) => String(item));
@@ -893,6 +964,8 @@ export async function createKufEntry(formData: FormData) {
   let totalInputVatCents = 0;
   let deductibleVatCents = 0;
   let nonDeductibleVatCents = 0;
+  let dominantVatRateCode: string | null = null;
+  let dominantVatAmountCents = 0;
 
   for (let index = 0; index < vatRateIds.length; index += 1) {
     const rate = ratesById.get(vatRateIds[index]);
@@ -916,6 +989,12 @@ export async function createKufEntry(formData: FormData) {
     }
 
     const deductibleCents = inputVatCents - nonDeductibleCents;
+    const lineGrossCents = baseCents + inputVatCents;
+
+    if (lineGrossCents > dominantVatAmountCents) {
+      dominantVatAmountCents = lineGrossCents;
+      dominantVatRateCode = rate.sifra;
+    }
 
     totalBaseCents += baseCents;
     totalInputVatCents += inputVatCents;
@@ -931,7 +1010,7 @@ export async function createKufEntry(formData: FormData) {
       input_vat_amount: centsToDecimal(inputVatCents),
       deductible_vat_amount: centsToDecimal(deductibleCents),
       non_deductible_vat_amount: centsToDecimal(nonDeductibleCents),
-      total_with_vat: centsToDecimal(baseCents + inputVatCents),
+      total_with_vat: centsToDecimal(lineGrossCents),
       created_by: user.id
     });
   }
@@ -949,9 +1028,17 @@ export async function createKufEntry(formData: FormData) {
   const kufEntry = await prisma.$transaction(async (tx) => {
     const expenseAccount = await resolveCompanyAccount(tx, firma.id, expenseAccountCode);
 
-    if (!expenseAccount || !expenseAccount.sifra.startsWith("5")) {
+    if (!expenseAccount) {
       return null;
     }
+
+    await saveSupplierKufDefaults(
+      tx,
+      firma.id,
+      supplier.id,
+      expenseAccount.sifra,
+      dominantVatRateCode
+    );
 
     const lastEntry = await tx.kufEntry.findFirst({
       where: {
@@ -978,6 +1065,11 @@ export async function createKufEntry(formData: FormData) {
         redni_broj: redniBroj,
         internal_kuf_number: internalNumber,
         supplier_invoice_number: supplierInvoiceNumber,
+        fiscal_iic: fiscalIic,
+        fiscal_fic: fiscalFic,
+        fiscal_seller_tin: fiscalSellerTin,
+        fiscal_datetime: fiscalDateTime,
+        fiscal_source_url: fiscalSourceUrl,
         invoice_date: invoiceDate,
         receipt_date: receiptDate,
         due_date: dueDate,
@@ -1043,6 +1135,11 @@ export async function updateKufEntry(formData: FormData) {
   const note = nullableValue(formData, "note");
   const invoiceTotalCents = parseMoneyToCents(value(formData, "invoice_total"));
   const expenseAccountCode = value(formData, "expense_account_code");
+  const fiscalIic = nullableValue(formData, "fiscal_iic");
+  const fiscalFic = nullableValue(formData, "fiscal_fic");
+  const fiscalSellerTin = normalizePib(value(formData, "fiscal_seller_tin")) || null;
+  const fiscalDateTime = parseFiscalDateTime(value(formData, "fiscal_datetime"));
+  const fiscalSourceUrl = nullableValue(formData, "fiscal_source_url");
 
   if (
     !supplierId ||
@@ -1156,6 +1253,28 @@ export async function updateKufEntry(formData: FormData) {
     redirectKufEntry(kufBookId, "kuf_greska");
   }
 
+  if (fiscalIic && fiscalSellerTin && fiscalDateTime) {
+    const duplicateFiscalEntry = await prisma.kufEntry.findFirst({
+      where: {
+        firma_id: firma.id,
+        fiscal_iic: fiscalIic,
+        fiscal_seller_tin: fiscalSellerTin,
+        fiscal_datetime: fiscalDateTime,
+        is_deleted: false,
+        NOT: {
+          id: existingEntry.id
+        }
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (duplicateFiscalEntry) {
+      redirectKufEntry(kufBook.id, "kuf_dupli_fiskalni");
+    }
+  }
+
   const vatRateIds = formData.getAll("vat_rate_id").map((item) => String(item));
   const baseValues = formData.getAll("tax_base").map((item) => String(item));
   const vatValues = formData.getAll("input_vat_amount").map((item) => String(item));
@@ -1181,6 +1300,8 @@ export async function updateKufEntry(formData: FormData) {
   let totalInputVatCents = 0;
   let deductibleVatCents = 0;
   let nonDeductibleVatCents = 0;
+  let dominantVatRateCode: string | null = null;
+  let dominantVatAmountCents = 0;
 
   for (let index = 0; index < vatRateIds.length; index += 1) {
     const rate = ratesById.get(vatRateIds[index]);
@@ -1204,6 +1325,12 @@ export async function updateKufEntry(formData: FormData) {
     }
 
     const deductibleCents = inputVatCents - nonDeductibleCents;
+    const lineGrossCents = baseCents + inputVatCents;
+
+    if (lineGrossCents > dominantVatAmountCents) {
+      dominantVatAmountCents = lineGrossCents;
+      dominantVatRateCode = rate.sifra;
+    }
 
     totalBaseCents += baseCents;
     totalInputVatCents += inputVatCents;
@@ -1219,7 +1346,7 @@ export async function updateKufEntry(formData: FormData) {
       input_vat_amount: centsToDecimal(inputVatCents),
       deductible_vat_amount: centsToDecimal(deductibleCents),
       non_deductible_vat_amount: centsToDecimal(nonDeductibleCents),
-      total_with_vat: centsToDecimal(baseCents + inputVatCents),
+      total_with_vat: centsToDecimal(lineGrossCents),
       created_by: user.id
     });
   }
@@ -1237,9 +1364,17 @@ export async function updateKufEntry(formData: FormData) {
   const updatedEntry = await prisma.$transaction(async (tx) => {
     const expenseAccount = await resolveCompanyAccount(tx, firma.id, expenseAccountCode);
 
-    if (!expenseAccount || !expenseAccount.sifra.startsWith("5")) {
+    if (!expenseAccount) {
       return null;
     }
+
+    await saveSupplierKufDefaults(
+      tx,
+      firma.id,
+      supplier.id,
+      expenseAccount.sifra,
+      dominantVatRateCode
+    );
 
     await tx.kufEntryTaxLine.deleteMany({
       where: {
@@ -1254,6 +1389,11 @@ export async function updateKufEntry(formData: FormData) {
       data: {
         dobavljac_id: supplier.id,
         supplier_invoice_number: supplierInvoiceNumber,
+        fiscal_iic: fiscalIic,
+        fiscal_fic: fiscalFic,
+        fiscal_seller_tin: fiscalSellerTin,
+        fiscal_datetime: fiscalDateTime,
+        fiscal_source_url: fiscalSourceUrl,
         invoice_date: invoiceDate,
         receipt_date: receiptDate,
         due_date: dueDate,

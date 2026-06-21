@@ -3,8 +3,8 @@ import {
   createInvoiceBookType,
   saveInvoicePostingRules
 } from "../actions";
+import { InvoicePostingRuleRow } from "@/components/InvoicePostingRuleRow";
 import {
-  invoicePostingAccountSources,
   invoicePostingDocumentTypes,
   invoicePostingFields,
   mergeCompanyAccountPlan
@@ -33,7 +33,8 @@ const poruke: Record<string, string> = {
   sema_pdv: "Definišite bar jednu aktivnu PDV stopu.",
   sema_smjer: "Izaberite ispravan smjer knjiženja.",
   sema_izvor: "Izvor konta nije ispravan.",
-  sema_konto: "Izabrano konto nije aktivno u kontnom planu firme."
+  sema_konto:
+    "Šema nije sačuvana: za svako polje sa izvorom 'Izabrano konto' morate izabrati konto."
 };
 
 function percentText(value: { toString(): string }) {
@@ -191,6 +192,10 @@ export default async function RacuniPodesavanjaPage({
   const accounts = mergeCompanyAccountPlan(baseAccounts, companyOverrides).filter(
     (account) => account.aktivan
   );
+  const accountOptions = accounts.map((account) => ({
+    sifra: account.sifra,
+    naziv: account.naziv
+  }));
   const selectedType =
     invoiceTypes.find((type) => type.id === params?.vrsta) ?? invoiceTypes[0] ?? null;
   const fields = selectedType
@@ -320,38 +325,15 @@ export default async function RacuniPodesavanjaPage({
                         const selectedAccount = savedRule?.sifra_konta ?? "";
 
                         return (
-                          <tr key={field.code}>
-                            <td>
-                              <strong>{field.label}</strong>
-                              <small>{field.code}</small>
-                            </td>
-                            <td>
-                              <select name={`smjer_${field.code}`} defaultValue={direction}>
-                                <option value="D">Duguje</option>
-                                <option value="P">Potražuje</option>
-                              </select>
-                            </td>
-                            <td>
-                              <select name={`konto_izvor_${field.code}`} defaultValue={source}>
-                                <option value={invoicePostingAccountSources.fixed}>
-                                  Izabrano konto
-                                </option>
-                                <option value={invoicePostingAccountSources.inputExpense}>
-                                  Konto iz unosa računa
-                                </option>
-                              </select>
-                            </td>
-                            <td>
-                              <select name={`sifra_konta_${field.code}`} defaultValue={selectedAccount}>
-                                <option value="">-</option>
-                                {accounts.map((account) => (
-                                  <option key={`${field.code}-${account.sifra}`} value={account.sifra}>
-                                    {account.sifra} - {account.naziv}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                          </tr>
+                          <InvoicePostingRuleRow
+                            key={field.code}
+                            accountOptions={accountOptions}
+                            accountValue={selectedAccount}
+                            code={field.code}
+                            direction={direction}
+                            label={field.label}
+                            source={source}
+                          />
                         );
                       })}
                     </tbody>

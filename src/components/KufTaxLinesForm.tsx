@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type VatRate = {
   id: string;
+  sifra: string;
   naziv: string;
   procenat: string;
 };
@@ -79,10 +80,66 @@ export function KufTaxLinesForm({
         .map((line) => [line.vatRateId, line.nonDeductibleVat])
     )
   );
+  const [preferredVatRateCode, setPreferredVatRateCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    function handleFiskalniLink(e: Event) {
+      const { total } = (e as CustomEvent<{ total: string }>).detail ?? {};
+      if (total) {
+        setInvoiceTotal(total);
+        setManualBases({});
+      }
+    }
+    document.addEventListener("fiscal-link-parsed", handleFiskalniLink);
+    return () => document.removeEventListener("fiscal-link-parsed", handleFiskalniLink);
+  }, []);
+
+  useEffect(() => {
+    function handleFiskalniPdv(e: Event) {
+      const { total, taxes } = (e as CustomEvent<{
+        total: number;
+        taxes: { vatRate: number; priceBeforeVat: number }[];
+      }>).detail ?? {};
+
+      if (!total) return;
+      setInvoiceTotal(String(total));
+
+      if (taxes?.length) {
+        const newBases: Record<string, string> = {};
+        for (const rate of rates) {
+          newBases[rate.id] = "0.00";
+        }
+        for (const tax of taxes) {
+          const rate = rates.find((r) => Number(r.procenat) === tax.vatRate);
+          if (rate) newBases[rate.id] = tax.priceBeforeVat.toFixed(2);
+        }
+        setManualBases(newBases);
+      } else {
+        setManualBases({});
+      }
+    }
+    document.addEventListener("fiscal-pdv-loaded", handleFiskalniPdv);
+    return () => document.removeEventListener("fiscal-pdv-loaded", handleFiskalniPdv);
+  }, [rates]);
+
+  useEffect(() => {
+    function handlePartnerSelected(e: Event) {
+      const { defaultKufVatRateCode } = (e as CustomEvent<{
+        defaultKufVatRateCode?: string | null;
+      }>).detail ?? {};
+
+      setPreferredVatRateCode(defaultKufVatRateCode ?? null);
+      setManualBases({});
+    }
+
+    document.addEventListener("partner-selected", handlePartnerSelected);
+    return () => document.removeEventListener("partner-selected", handlePartnerSelected);
+  }, []);
 
   const calculatedLines = useMemo(() => {
     let remainingGross = parseAmount(invoiceTotal);
     let autoFilled = false;
+    const autoFillRate = rates.find((rate) => rate.sifra === preferredVatRateCode) ?? rates[0];
 
     return rates.map((rate) => {
       const percent = Number(rate.procenat);
@@ -90,7 +147,7 @@ export function KufTaxLinesForm({
       const hasManualValue = manualValue !== undefined;
       const base = hasManualValue
         ? parseAmount(manualValue)
-        : !autoFilled && remainingGross > 0
+        : !autoFilled && remainingGross > 0 && rate.id === autoFillRate?.id
           ? baseFromGross(remainingGross, percent)
           : 0;
       const vat = Math.round(base * percent) / 100;
@@ -98,7 +155,7 @@ export function KufTaxLinesForm({
 
       if (hasManualValue) {
         remainingGross = Math.max(0, Math.round((remainingGross - gross) * 100) / 100);
-      } else if (!autoFilled && remainingGross > 0) {
+      } else if (!autoFilled && remainingGross > 0 && rate.id === autoFillRate?.id) {
         autoFilled = true;
         remainingGross = 0;
       }
@@ -109,7 +166,7 @@ export function KufTaxLinesForm({
         vat
       };
     });
-  }, [invoiceTotal, manualBases, rates]);
+  }, [invoiceTotal, manualBases, preferredVatRateCode, rates]);
 
   const totals = useMemo(
     () =>

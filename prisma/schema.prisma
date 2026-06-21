@@ -366,6 +366,8 @@ model FirmaKomitent {
   tip_komitenta     TipKomitenta
   sifra_u_firmi     String?
   rok_placanja_dana Int?
+  default_kuf_konto_sifra String?
+  default_kuf_pdv_stopa_sifra String?
   napomena          String?
   aktivan           Boolean      @default(true)
   created_at        DateTime     @default(now())
@@ -597,6 +599,11 @@ model KufEntry {
   redni_broj               Int
   internal_kuf_number      String
   supplier_invoice_number  String
+  fiscal_iic               String?
+  fiscal_fic               String?
+  fiscal_seller_tin        String?
+  fiscal_datetime          DateTime?
+  fiscal_source_url        String?
   invoice_date             DateTime          @db.Date
   receipt_date             DateTime          @db.Date
   due_date                 DateTime?         @db.Date
@@ -628,6 +635,7 @@ model KufEntry {
   @@index([kuf_book_id])
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@index([firma_id, dobavljac_id, supplier_invoice_number, invoice_date])
+  @@index([firma_id, fiscal_iic, fiscal_seller_tin, fiscal_datetime])
   @@map("kuf_entries")
 }
 

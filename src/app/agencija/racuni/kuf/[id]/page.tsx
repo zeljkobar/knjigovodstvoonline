@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { createKufEntry, updateKufEntry } from "../../actions";
+import { FiskalniLinkInput } from "@/components/FiskalniLinkInput";
+import { FiskalniUcitajButton } from "@/components/FiskalniUcitajButton";
+import { KufEntryFormShortcuts } from "@/components/KufEntryFormShortcuts";
 import { KufTaxLinesForm } from "@/components/KufTaxLinesForm";
+import { PartnerSearchInput } from "@/components/PartnerSearchInput";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -24,8 +28,9 @@ const poruke: Record<string, string> = {
   kuf_obavezno: "Dobavljač, konto troška, ukupan iznos, broj računa, datum računa i datum prijema su obavezni.",
   kuf_iznosi: "Provjerite osnovice i PDV iznose.",
   kuf_ukupno: "Ukupno računa se ne slaže sa zbirom osnovica i PDV-a.",
-  kuf_konto: "Konto troška mora biti aktivno analitičko konto klase 5.",
+  kuf_konto: "Konto mora biti aktivno analitičko konto iz kontnog plana.",
   kuf_knjiga: "KUF knjiga nije otvorena za unos.",
+  kuf_dupli_fiskalni: "Ovaj fiskalni račun je već unesen u KUF za aktivnu firmu.",
   kuf_greska: "Račun nije sačuvan. Provjerite podatke."
 };
 
@@ -136,7 +141,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
     );
   }
 
-  const [kufBook, partners, vatRates, baseAccounts, companyOverrides] = await Promise.all([
+  const [kufBook, vatRates, baseAccounts, companyOverrides] = await Promise.all([
     prisma.kufBook.findFirst({
       where: {
         id,
@@ -167,6 +172,11 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             id: true,
             internal_kuf_number: true,
             supplier_invoice_number: true,
+            fiscal_iic: true,
+            fiscal_fic: true,
+            fiscal_seller_tin: true,
+            fiscal_datetime: true,
+            fiscal_source_url: true,
             dobavljac_id: true,
             invoice_date: true,
             receipt_date: true,
@@ -187,6 +197,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             },
             dobavljac: {
               select: {
+                id: true,
                 naziv: true,
                 pib: true
               }
@@ -206,32 +217,6 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             }
           }
         }
-      }
-    }),
-    prisma.komitent.findMany({
-      where: {
-        aktivan: true,
-        OR: [
-          {
-            scope: "GLOBAL"
-          },
-          {
-            scope: "AGENCY",
-            agencija_id: user.agencija_id
-          },
-          {
-            scope: "COMPANY",
-            firma_id: activeCompany.id
-          }
-        ]
-      },
-      orderBy: {
-        naziv: "asc"
-      },
-      select: {
-        id: true,
-        naziv: true,
-        pib: true
       }
     }),
     prisma.pdvStopa.findMany({
@@ -257,8 +242,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
     prisma.konto.findMany({
       where: {
         aktivan: true,
-        tip_konta: "analiticko",
-        klasa: "5"
+        tip_konta: "analiticko"
       },
       orderBy: {
         sifra: "asc"
@@ -278,10 +262,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
     }),
     prisma.firmaKonto.findMany({
       where: {
-        firma_id: activeCompany.id,
-        sifra: {
-          startsWith: "5"
-        }
+        firma_id: activeCompany.id
       },
       orderBy: {
         sifra: "asc"
@@ -317,8 +298,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
   const expenseAccounts = mergeCompanyAccountPlan(baseAccounts, companyOverrides).filter(
     (account) =>
       account.aktivan &&
-      account.tip_konta === "analiticko" &&
-      account.sifra.startsWith("5")
+      account.tip_konta === "analiticko"
   );
 
   const totals = kufBook.entries.reduce(
@@ -338,6 +318,15 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
     ? kufBook.entries.find((entry) => entry.id === query.edit)
     : null;
   const formAction = editingEntry ? updateKufEntry : createKufEntry;
+  const editingSupplier = editingEntry
+    ? {
+        id: editingEntry.dobavljac.id,
+        naziv: editingEntry.dobavljac.naziv,
+        pib: editingEntry.dobavljac.pib,
+        scope: "RECORDED",
+        label: `${editingEntry.dobavljac.naziv}${editingEntry.dobavljac.pib ? ` (${editingEntry.dobavljac.pib})` : ""}`
+      }
+    : null;
 
   return (
     <div className="admin-stack">
@@ -393,26 +382,36 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
         ) : null}
 
         <form id="kuf-entry-form" className="admin-form kuf-entry-form" action={formAction}>
+          <KufEntryFormShortcuts formId="kuf-entry-form" />
           <input name="kuf_book_id" type="hidden" value={kufBook.id} />
           {editingEntry ? <input name="kuf_entry_id" type="hidden" value={editingEntry.id} /> : null}
-          <label>
-            <span>Dobavljač</span>
-            <select
-              name="dobavljac_id"
-              required
-              disabled={isLocked}
-              autoFocus
-              defaultValue={editingEntry?.dobavljac_id ?? ""}
-            >
-              <option value="">Izaberite dobavljača</option>
-              {partners.map((partner) => (
-                <option key={partner.id} value={partner.id}>
-                  {partner.naziv}
-                  {partner.pib ? ` (${partner.pib})` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
+          <input name="fiscal_iic" type="hidden" defaultValue={editingEntry?.fiscal_iic ?? ""} />
+          <input name="fiscal_fic" type="hidden" defaultValue={editingEntry?.fiscal_fic ?? ""} />
+          <input
+            name="fiscal_seller_tin"
+            type="hidden"
+            defaultValue={editingEntry?.fiscal_seller_tin ?? ""}
+          />
+          <input
+            name="fiscal_datetime"
+            type="hidden"
+            defaultValue={editingEntry?.fiscal_datetime?.toISOString() ?? ""}
+          />
+          <input
+            name="fiscal_source_url"
+            type="hidden"
+            defaultValue={editingEntry?.fiscal_source_url ?? ""}
+          />
+
+          {!isLocked ? <FiskalniLinkInput formId="kuf-entry-form" /> : null}
+
+          <PartnerSearchInput
+            disabled={isLocked}
+            initialPartner={editingSupplier}
+            label="Dobavljač"
+            name="dobavljac_id"
+            required
+          />
           <label>
             <span>Broj računa dobavljača</span>
             <input
@@ -452,7 +451,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             />
           </label>
           <label>
-            <span>Konto troška</span>
+            <span>Konto knjiženja</span>
             <select
               name="expense_account_code"
               defaultValue={editingEntry?.expense_account?.sifra ?? ""}
@@ -493,19 +492,23 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             }
             rates={vatRates.map((rate) => ({
               id: rate.id,
+              sifra: rate.sifra,
               naziv: rate.naziv,
               procenat: rate.procenat.toString()
             }))}
           />
 
-          <button type="submit" disabled={isLocked || vatRates.length === 0}>
-            {editingEntry ? "Sačuvaj izmjenu" : "Unesi u KUF"}
-          </button>
-          {editingEntry ? (
-            <Link className="secondary-button" href={`/agencija/racuni/kuf/${kufBook.id}`}>
-              Odustani
-            </Link>
-          ) : null}
+          <div className="kuf-form-actions">
+            {!isLocked ? <FiskalniUcitajButton formId="kuf-entry-form" /> : null}
+            <button type="submit" disabled={isLocked || vatRates.length === 0}>
+              {editingEntry ? "Sačuvaj izmjenu" : "Unesi u KUF"} F9
+            </button>
+            {editingEntry ? (
+              <Link className="secondary-button" href={`/agencija/racuni/kuf/${kufBook.id}`}>
+                Odustani
+              </Link>
+            ) : null}
+          </div>
         </form>
       </section>
 
@@ -521,7 +524,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
                 <th>KUF broj</th>
                 <th>Dobavljač</th>
                 <th>Račun</th>
-                <th>Konto troška</th>
+                <th>Konto knjiženja</th>
                 <th>Datumi</th>
                 <th>Osnovica</th>
                 <th>PDV</th>
