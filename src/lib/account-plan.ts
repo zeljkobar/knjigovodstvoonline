@@ -19,6 +19,148 @@ export const defaultAccountPurposes = [
   ["DEFAULT_PAYROLL_ACCOUNT", "Plate"]
 ] as const;
 
+export const invoicePostingAccountPurposes = {
+  kufSupplier: "KUF_SUPPLIER_ACCOUNT",
+  kufInputVat: "KUF_INPUT_VAT_ACCOUNT",
+  kifCustomer: "KIF_CUSTOMER_ACCOUNT",
+  kifOutputVat: "KIF_OUTPUT_VAT_ACCOUNT"
+} as const;
+
+export const invoicePostingDocumentTypes = {
+  kuf: "KUF",
+  kif: "KIF",
+  general: "GENERAL"
+} as const;
+
+export const invoicePostingDefaultScope = {
+  subtype: "GENERAL",
+  vatRate: "GENERAL"
+} as const;
+
+export const invoicePostingAccountSources = {
+  fixed: "FIXED",
+  inputExpense: "INPUT_EXPENSE"
+} as const;
+
+export const defaultInvoiceBookTypes = [
+  ["KUF", "VIRMANI", "Virmani", "Knjiga ulaznih faktura - virmani"],
+  ["KUF", "KARTICA", "Kartica", "Knjiga ulaznih faktura - kartica"],
+  ["KUF", "GOTOVINA", "Gotovina", "Knjiga ulaznih faktura - gotovina"],
+  ["KIF", "KIF", "KIF", "Knjiga izlaznih faktura"]
+] as const;
+
+export type InvoicePostingField = {
+  code: string;
+  label: string;
+  direction: "D" | "P";
+  accountSource: string;
+  vatRateCode: string | null;
+  order: number;
+};
+
+type VatRateForPosting = {
+  sifra: string;
+  naziv: string;
+  procenat: { toString(): string } | string | number;
+};
+
+function vatPercentNumber(rate: VatRateForPosting) {
+  const value = typeof rate.procenat === "object" ? rate.procenat.toString() : String(rate.procenat);
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function percentLabel(percent: number) {
+  return `${percent.toFixed(2).replace(".", ",")}%`;
+}
+
+export function invoicePostingFields(documentType: string, vatRates: VatRateForPosting[]) {
+  const upperType = documentType.toUpperCase();
+
+  if (upperType === invoicePostingDocumentTypes.kuf) {
+    const fields: InvoicePostingField[] = [
+      {
+        code: "UKUPAN_IZNOS",
+        label: "Ukupan iznos",
+        direction: "P",
+        accountSource: invoicePostingAccountSources.fixed,
+        vatRateCode: null,
+        order: 10
+      }
+    ];
+
+    vatRates.forEach((rate, index) => {
+      const percent = vatPercentNumber(rate);
+      const label = percent === 0 ? "Oslobođeno / osnovica 0%" : `Osnovica ${percentLabel(percent)}`;
+
+      fields.push({
+        code: percent === 0 ? `OSLOBODJENO_${rate.sifra}` : `OSNOVICA_${rate.sifra}`,
+        label,
+        direction: "D",
+        accountSource: invoicePostingAccountSources.inputExpense,
+        vatRateCode: rate.sifra,
+        order: 100 + index * 10
+      });
+
+      if (percent > 0) {
+        fields.push({
+          code: `PDV_${rate.sifra}`,
+          label: `PDV ${percentLabel(percent)}`,
+          direction: "D",
+          accountSource: invoicePostingAccountSources.fixed,
+          vatRateCode: rate.sifra,
+          order: 101 + index * 10
+        });
+      }
+    });
+
+    return fields;
+  }
+
+  if (upperType === invoicePostingDocumentTypes.kif) {
+    const fields: InvoicePostingField[] = [
+      {
+        code: "UKUPAN_IZNOS",
+        label: "Ukupan iznos",
+        direction: "D",
+        accountSource: invoicePostingAccountSources.fixed,
+        vatRateCode: null,
+        order: 10
+      }
+    ];
+
+    vatRates.forEach((rate, index) => {
+      const percent = vatPercentNumber(rate);
+      const label = percent === 0 ? "Oslobođeno / osnovica 0%" : `Osnovica ${percentLabel(percent)}`;
+
+      fields.push({
+        code: percent === 0 ? `OSLOBODJENO_${rate.sifra}` : `OSNOVICA_${rate.sifra}`,
+        label,
+        direction: "P",
+        accountSource: invoicePostingAccountSources.fixed,
+        vatRateCode: rate.sifra,
+        order: 100 + index * 10
+      });
+
+      if (percent > 0) {
+        fields.push({
+          code: `PDV_${rate.sifra}`,
+          label: `PDV ${percentLabel(percent)}`,
+          direction: "P",
+          accountSource: invoicePostingAccountSources.fixed,
+          vatRateCode: rate.sifra,
+          order: 101 + index * 10
+        });
+      }
+    });
+
+    return fields;
+  }
+
+  return [];
+}
+
 export function normalBalanceForAccountCode(code: string) {
   const accountClass = code.trim().slice(0, 1);
 

@@ -10,6 +10,12 @@ type VatRate = {
 
 type KufTaxLinesFormProps = {
   disabled?: boolean;
+  initialInvoiceTotal?: string;
+  initialLines?: {
+    vatRateId: string;
+    taxBase: string;
+    nonDeductibleVat: string;
+  }[];
   rates: VatRate[];
 };
 
@@ -52,10 +58,27 @@ function baseFromGross(gross: number, percent: number) {
   return Math.round((gross * 10000) / (100 + percent)) / 100;
 }
 
-export function KufTaxLinesForm({ disabled = false, rates }: KufTaxLinesFormProps) {
-  const [invoiceTotal, setInvoiceTotal] = useState("");
-  const [manualBases, setManualBases] = useState<Record<string, string>>({});
-  const [nonDeductible, setNonDeductible] = useState<Record<string, string>>({});
+export function KufTaxLinesForm({
+  disabled = false,
+  initialInvoiceTotal = "",
+  initialLines = [],
+  rates
+}: KufTaxLinesFormProps) {
+  const [invoiceTotal, setInvoiceTotal] = useState(initialInvoiceTotal);
+  const [manualBases, setManualBases] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      initialLines
+        .filter((line) => line.taxBase)
+        .map((line) => [line.vatRateId, line.taxBase])
+    )
+  );
+  const [nonDeductible, setNonDeductible] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      initialLines
+        .filter((line) => line.nonDeductibleVat)
+        .map((line) => [line.vatRateId, line.nonDeductibleVat])
+    )
+  );
 
   const calculatedLines = useMemo(() => {
     let remainingGross = parseAmount(invoiceTotal);

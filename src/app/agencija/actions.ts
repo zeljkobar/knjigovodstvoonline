@@ -13,6 +13,8 @@ import {
 } from "@/lib/invitations";
 import {
   accountOverrideTypes,
+  invoicePostingDefaultScope,
+  invoicePostingDocumentTypes,
   isDefaultAccountPurpose,
   mergeCompanyAccountPlan,
   normalBalanceForAccountCode
@@ -1494,14 +1496,20 @@ export async function saveDefaultCompanyAccount(formData: FormData) {
 
   const defaultAccount = await prisma.firmaPodrazumijevanoKonto.upsert({
     where: {
-      firma_id_namjena: {
+      firma_id_namjena_dokument_tip_podvrsta_pdv_stopa_sifra: {
         firma_id: firmaId,
-        namjena
+        namjena,
+        dokument_tip: invoicePostingDocumentTypes.general,
+        podvrsta: invoicePostingDefaultScope.subtype,
+        pdv_stopa_sifra: invoicePostingDefaultScope.vatRate
       }
     },
     create: {
       firma_id: firmaId,
       namjena,
+      dokument_tip: invoicePostingDocumentTypes.general,
+      podvrsta: invoicePostingDefaultScope.subtype,
+      pdv_stopa_sifra: invoicePostingDefaultScope.vatRate,
       sifra_konta: sifraKonta,
       napomena: nullableValue(formData, "napomena"),
       created_by: admin.id,

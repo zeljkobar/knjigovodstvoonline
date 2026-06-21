@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
+import mysql from "mysql2/promise";
 import { redirect } from "next/navigation";
 import { auditLog } from "@/lib/audit";
 import { requireRole } from "@/lib/auth";
@@ -337,6 +338,9 @@ export async function createGlobalPartner(formData: FormData) {
     pib,
     maticni_broj: value(formData, "maticni_broj") || null,
     pdv_broj: value(formData, "pdv_broj") || null,
+    pravna_forma: value(formData, "pravna_forma") || null,
+    sifra_djelatnosti: value(formData, "sifra_djelatnosti") || null,
+    datum_registracije: value(formData, "datum_registracije") || null,
     adresa: value(formData, "adresa") || null,
     grad: value(formData, "grad") || null,
     drzava: value(formData, "drzava") || "Crna Gora",
@@ -454,6 +458,9 @@ export async function updateGlobalPartner(formData: FormData) {
         pib,
         maticni_broj: value(formData, "maticni_broj") || null,
         pdv_broj: value(formData, "pdv_broj") || null,
+        pravna_forma: value(formData, "pravna_forma") || null,
+        sifra_djelatnosti: value(formData, "sifra_djelatnosti") || null,
+        datum_registracije: value(formData, "datum_registracije") || null,
         adresa: value(formData, "adresa") || null,
         grad: value(formData, "grad") || null,
         drzava: value(formData, "drzava") || "Crna Gora",
@@ -488,4 +495,141 @@ export async function updateGlobalPartner(formData: FormData) {
   revalidatePath("/admin");
   revalidatePath("/admin/globalni-partneri");
   redirect("/admin/globalni-partneri?poruka=partner_izmijenjen");
+}
+
+export type ImportResult = {
+  ok: boolean;
+  inserted?: number;
+  skipped?: number;
+  total?: number;
+  error?: string;
+};
+
+type MappedPartner = {
+  naziv: string;
+  scope: "GLOBAL";
+  agencija_id: null;
+  firma_id: null;
+  pib: string;
+  pravna_forma: string | null;
+  sifra_djelatnosti: string | null;
+  datum_registracije: Date | null;
+  grad: string | null;
+  drzava: string;
+  telefon: string | null;
+  email: string | null;
+  web_sajt: string | null;
+  aktivan: boolean;
+};
+
+function normalizePib(value: unknown): string {
+  const digits = String(value ?? "").trim().replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.length === 7 ? `0${digits}` : digits;
+}
+
+function nullableText(value: unknown): string | null {
+  const text = String(value ?? "").trim();
+  return text || null;
+}
+
+function normalizeActivityCode(value: unknown): string | null {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const match = text.match(/^(\d{2,6}(?:\.\d{1,2})?)/);
+  return match?.[1] ?? text.split(",")[0].trim();
+}
+
+function normalizeDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date && !isNaN(value.getTime())) return value;
+  const raw = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return new Date(`${raw.slice(0, 10)}T00:00:00.000Z`);
+  const m = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\.?$/);
+  if (m) return new Date(`${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}T00:00:00.000Z`);
+  return null;
+}
+
+export async function runGlobalPartnerImport(_prev: ImportResult): Promise<ImportResult> {
+  await requireRole("admin");
+
+  const pool = await mysql.createPool({
+    host: process.env.OLD_MYSQL_HOST ?? "localhost",
+    port: Number(process.env.OLD_MYSQL_PORT ?? 3306),
+    user: process.env.OLD_MYSQL_USER ?? "root",
+    password: process.env.OLD_MYSQL_PASSWORD ?? "",
+    database: process.env.OLD_MYSQL_DATABASE ?? "",
+    connectionLimit: 4,
+    charset: "utf8mb4",
+  });
+
+  try {
+    const [[countRow]] = await pool.execute<mysql.RowDataPacket[]>(
+      "SELECT COUNT(*) AS total FROM emails WHERE pib IS NOT NULL AND TRIM(pib) REGEXP '^[0-9]{7,8}$' AND naziv IS NOT NULL AND TRIM(naziv) <> ''"
+    );
+    const total = Number(countRow?.total ?? 0);
+    const BATCH = 1000;
+    let inserted = 0;
+    let skipped = 0;
+
+    for (let offset = 0; offset < total; offset += BATCH) {
+      const [rows] = await pool.execute<mysql.RowDataPacket[]>(
+        `SELECT pib, naziv, oblik_organizacije, datum_registracije, grad, email, telefon, web, kd
+         FROM emails
+         WHERE pib IS NOT NULL AND TRIM(pib) REGEXP '^[0-9]{7,8}$'
+           AND naziv IS NOT NULL AND TRIM(naziv) <> ''
+         ORDER BY id LIMIT ? OFFSET ?`,
+        [BATCH, offset]
+      );
+
+      const mapped = (rows as Record<string, unknown>[])
+        .map((row) => {
+          const pib = normalizePib(row.pib);
+          if (!/^\d{8}$/.test(pib)) return null;
+          const naziv = String(row.naziv ?? "").trim();
+          if (!naziv) return null;
+          return {
+            naziv,
+            scope: "GLOBAL" as const,
+            agencija_id: null,
+            firma_id: null,
+            pib,
+            pravna_forma: nullableText(row.oblik_organizacije),
+            sifra_djelatnosti: normalizeActivityCode(row.kd),
+            datum_registracije: normalizeDate(row.datum_registracije),
+            grad: nullableText(row.grad),
+            drzava: "Crna Gora",
+            telefon: nullableText(row.telefon),
+            email: nullableText(row.email),
+            web_sajt: nullableText(row.web),
+            aktivan: true,
+          };
+        })
+        .filter((r): r is MappedPartner => r !== null);
+
+      const unique = Array.from(
+        new Map(mapped.map((r) => [r.pib, r])).values()
+      );
+
+      if (!unique.length) {
+        skipped += rows.length;
+        continue;
+      }
+
+      const result = await prisma.komitent.createMany({
+        data: unique,
+        skipDuplicates: true,
+      });
+
+      inserted += result.count;
+      skipped += rows.length - result.count;
+    }
+
+    revalidatePath("/admin/globalni-partneri");
+    return { ok: true, inserted, skipped, total };
+  } catch (err) {
+    return { ok: false, error: String(err instanceof Error ? err.message : err) };
+  } finally {
+    await pool.end();
+  }
 }

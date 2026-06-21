@@ -1,5 +1,370 @@
-import { ModulePlaceholder } from "@/components/ModulePlaceholder";
+import Link from "next/link";
+import {
+  createInvoiceBookType,
+  saveInvoicePostingRules
+} from "../actions";
+import {
+  invoicePostingAccountSources,
+  invoicePostingDocumentTypes,
+  invoicePostingFields,
+  mergeCompanyAccountPlan
+} from "@/lib/account-plan";
+import { requireAnyRole } from "@/lib/auth";
+import { ensureDefaultInvoiceBookTypes } from "@/lib/invoice-books";
+import { prisma } from "@/lib/prisma";
+import { readWorkContext } from "@/lib/work-context";
 
-export default function RacuniPodesavanjaPage() {
-  return <ModulePlaceholder title="Podešavanja računa" />;
+type RacuniPodesavanjaPageProps = {
+  searchParams?: Promise<{
+    poruka?: string;
+    vrsta?: string;
+  }>;
+};
+
+const poruke: Record<string, string> = {
+  vrsta_sacuvana: "Vrsta knjige je sačuvana.",
+  vrsta_kontekst: "Izaberite aktivnu firmu.",
+  vrsta_tip: "Izaberite KIF ili KUF.",
+  vrsta_obavezno: "Šifra i naziv vrste su obavezni.",
+  vrsta_greska: "Vrsta nije sačuvana. Provjerite podatke.",
+  sema_sacuvana: "Šema kontiranja je sačuvana.",
+  sema_kontekst: "Izaberite aktivnu firmu.",
+  sema_vrsta: "Izaberite vrstu knjige.",
+  sema_pdv: "Definišite bar jednu aktivnu PDV stopu.",
+  sema_smjer: "Izaberite ispravan smjer knjiženja.",
+  sema_izvor: "Izvor konta nije ispravan.",
+  sema_konto: "Izabrano konto nije aktivno u kontnom planu firme."
+};
+
+function percentText(value: { toString(): string }) {
+  const numeric = Number(value.toString());
+
+  return Number.isFinite(numeric) ? `${numeric.toFixed(2).replace(".", ",")}%` : "0,00%";
+}
+
+export default async function RacuniPodesavanjaPage({
+  searchParams
+}: RacuniPodesavanjaPageProps) {
+  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const params = await searchParams;
+  const message = params?.poruka ? poruke[params.poruka] : null;
+  const workContext = await readWorkContext();
+
+  if (!user.agencija_id) {
+    return null;
+  }
+
+  const activeCompany = workContext.firmaId
+    ? await prisma.firma.findFirst({
+        where: {
+          id: workContext.firmaId,
+          agencija_id: user.agencija_id,
+          is_deleted: false,
+          aktivan: true,
+          ...(user.rola === "admin_agencije"
+            ? {}
+            : {
+                korisnici: {
+                  some: {
+                    korisnik_id: user.id,
+                    is_deleted: false
+                  }
+                }
+              })
+        },
+        select: {
+          id: true
+        }
+      })
+    : null;
+
+  if (activeCompany) {
+    await ensureDefaultInvoiceBookTypes(activeCompany.id, user.agencija_id, user.id);
+  }
+
+  const [baseAccounts, companyOverrides, vatRates, invoiceTypes] = activeCompany
+    ? await Promise.all([
+        prisma.konto.findMany({
+          where: {
+            aktivan: true
+          },
+          orderBy: {
+            sifra: "asc"
+          },
+          select: {
+            id: true,
+            sifra: true,
+            naziv: true,
+            klasa: true,
+            tip_konta: true,
+            analitika_obavezna: true,
+            sinteticki_konto: true,
+            normalni_saldo: true,
+            koristi_radnu_jedinicu: true,
+            aktivan: true
+          }
+        }),
+        prisma.firmaKonto.findMany({
+          where: {
+            firma_id: activeCompany.id
+          },
+          orderBy: {
+            sifra: "asc"
+          },
+          select: {
+            id: true,
+            konto_id: true,
+            sifra: true,
+            naziv: true,
+            tip_konta: true,
+            analitika_obavezna: true,
+            sinteticki_konto: true,
+            normalni_saldo: true,
+            koristi_radnu_jedinicu: true,
+            override_type: true,
+            napomena: true,
+            aktivan: true
+          }
+        }),
+        prisma.pdvStopa.findMany({
+          where: {
+            agencija_id: user.agencija_id,
+            aktivna: true
+          },
+          orderBy: [
+            {
+              procenat: "desc"
+            },
+            {
+              redosljed: "asc"
+            }
+          ],
+          select: {
+            sifra: true,
+            naziv: true,
+            procenat: true
+          }
+        }),
+        prisma.racunVrsta.findMany({
+          where: {
+            agencija_id: user.agencija_id,
+            firma_id: activeCompany.id,
+            aktivna: true
+          },
+          orderBy: [
+            {
+              dokument_tip: "desc"
+            },
+            {
+              redosljed: "asc"
+            },
+            {
+              naziv: "asc"
+            }
+          ],
+          select: {
+            id: true,
+            dokument_tip: true,
+            sifra: true,
+            naziv: true,
+            opis: true,
+            sistemska: true,
+            kontiranjePravila: {
+              where: {
+                aktivno: true
+              },
+              orderBy: {
+                redosljed: "asc"
+              },
+              select: {
+                polje_sifra: true,
+                smjer: true,
+                konto_izvor: true,
+                sifra_konta: true
+              }
+            }
+          }
+        })
+      ])
+    : [[], [], [], []];
+
+  const accounts = mergeCompanyAccountPlan(baseAccounts, companyOverrides).filter(
+    (account) => account.aktivan
+  );
+  const selectedType =
+    invoiceTypes.find((type) => type.id === params?.vrsta) ?? invoiceTypes[0] ?? null;
+  const fields = selectedType
+    ? invoicePostingFields(selectedType.dokument_tip, vatRates)
+    : [];
+  const rulesByField = new Map(
+    selectedType?.kontiranjePravila.map((rule) => [rule.polje_sifra, rule]) ?? []
+  );
+
+  return (
+    <div className="admin-stack">
+      <header className="admin-header">
+        <div>
+          <h2>Podešavanja računa</h2>
+          <p>Vrste KIF/KUF knjiga i šeme kontiranja po poljima.</p>
+        </div>
+      </header>
+
+      {message ? <p className="admin-message">{message}</p> : null}
+
+      {!activeCompany ? (
+        <section className="admin-panel">
+          <h3>Izaberite firmu</h3>
+          <p className="empty-state">
+            Vrste i šeme knjiženja se podešavaju za aktivnu firmu iz gornje trake.
+          </p>
+        </section>
+      ) : (
+        <>
+          <section className="admin-form-section">
+            <div className="panel-header">
+              <h3>Nova vrsta KIF/KUF</h3>
+              <span>Korisničke vrste se odmah mogu koristiti u unosu</span>
+            </div>
+            <form className="admin-form" action={createInvoiceBookType}>
+              <label>
+                <span>Tip</span>
+                <select name="dokument_tip" defaultValue={invoicePostingDocumentTypes.kuf}>
+                  <option value={invoicePostingDocumentTypes.kuf}>KUF</option>
+                  <option value={invoicePostingDocumentTypes.kif}>KIF</option>
+                </select>
+              </label>
+              <label>
+                <span>Šifra</span>
+                <input name="sifra" placeholder="npr. AVANSI" required />
+              </label>
+              <label>
+                <span>Naziv</span>
+                <input name="naziv" placeholder="npr. KUF avansi" required />
+              </label>
+              <label>
+                <span>Opis</span>
+                <input name="opis" placeholder="Kratka napomena" />
+              </label>
+              <button type="submit">Dodaj vrstu</button>
+            </form>
+          </section>
+
+          <section className="admin-panel">
+            <div className="panel-header">
+              <h3>Vrste knjiga</h3>
+              <span>{invoiceTypes.length} aktivnih</span>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tip</th>
+                    <th>Šifra</th>
+                    <th>Naziv</th>
+                    <th>Opis</th>
+                    <th>Šema</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoiceTypes.map((type) => (
+                    <tr key={type.id} className={selectedType?.id === type.id ? "selected-row" : ""}>
+                      <td>{type.dokument_tip}</td>
+                      <td>
+                        <strong>{type.sifra}</strong>
+                      </td>
+                      <td>{type.naziv}</td>
+                      <td>{type.opis ?? "-"}</td>
+                      <td>
+                        <Link
+                          className="table-action"
+                          href={`/agencija/racuni/podesavanja?vrsta=${type.id}`}
+                        >
+                          Otvori
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {selectedType ? (
+            <section className="admin-panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Šema kontiranja: {selectedType.naziv}</h3>
+                  <span>
+                    {selectedType.dokument_tip} · {vatRates.map((rate) => percentText(rate.procenat)).join(", ")}
+                  </span>
+                </div>
+              </div>
+
+              <form action={saveInvoicePostingRules}>
+                <input type="hidden" name="racun_vrsta_id" value={selectedType.id} />
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Polje</th>
+                        <th>D/P</th>
+                        <th>Izvor konta</th>
+                        <th>Konto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fields.map((field) => {
+                        const savedRule = rulesByField.get(field.code);
+                        const direction = savedRule?.smjer ?? field.direction;
+                        const source = savedRule?.konto_izvor ?? field.accountSource;
+                        const selectedAccount = savedRule?.sifra_konta ?? "";
+
+                        return (
+                          <tr key={field.code}>
+                            <td>
+                              <strong>{field.label}</strong>
+                              <small>{field.code}</small>
+                            </td>
+                            <td>
+                              <select name={`smjer_${field.code}`} defaultValue={direction}>
+                                <option value="D">Duguje</option>
+                                <option value="P">Potražuje</option>
+                              </select>
+                            </td>
+                            <td>
+                              <select name={`konto_izvor_${field.code}`} defaultValue={source}>
+                                <option value={invoicePostingAccountSources.fixed}>
+                                  Izabrano konto
+                                </option>
+                                <option value={invoicePostingAccountSources.inputExpense}>
+                                  Konto iz unosa računa
+                                </option>
+                              </select>
+                            </td>
+                            <td>
+                              <select name={`sifra_konta_${field.code}`} defaultValue={selectedAccount}>
+                                <option value="">-</option>
+                                {accounts.map((account) => (
+                                  <option key={`${field.code}-${account.sifra}`} value={account.sifra}>
+                                    {account.sifra} - {account.naziv}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="form-actions">
+                  <button type="submit">Sačuvaj šemu</button>
+                </div>
+              </form>
+            </section>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
 }

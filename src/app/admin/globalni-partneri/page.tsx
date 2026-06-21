@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createGlobalPartner, updateGlobalPartner } from "../actions";
+import { ImportPartnersButton } from "@/components/ImportPartnersButton";
 import { Pagination } from "@/components/Pagination";
 import { PartnerForm } from "@/components/PartnerForm";
 import { prisma } from "@/lib/prisma";
@@ -19,11 +20,11 @@ const poruke: Record<string, string> = {
   partner_izmijenjen: "Globalni partner je izmijenjen.",
   partner_obavezno: "Naziv partnera je obavezan.",
   partner_dupli: "Globalni partner sa tim PIB-om vec postoji.",
-  partner_greska: "Globalni partner nije sacuvan. Provjerite PIB ili podatke."
+  partner_greska: "Globalni partner nije sacuvan. Provjerite PIB ili podatke.",
 };
 
 export default async function GlobalniPartneriPage({
-  searchParams
+  searchParams,
 }: GlobalniPartneriPageProps) {
   const params = await searchParams;
   const message = params?.poruka ? poruke[params.poruka] : null;
@@ -37,7 +38,7 @@ export default async function GlobalniPartneriPage({
     prisma.komitent.findMany({
       where,
       orderBy: {
-        naziv: "asc"
+        naziv: "asc",
       },
       take: PAGE_SIZE,
       skip,
@@ -47,13 +48,15 @@ export default async function GlobalniPartneriPage({
         pib: true,
         pdv_broj: true,
         maticni_broj: true,
+        pravna_forma: true,
+        sifra_djelatnosti: true,
         adresa: true,
         grad: true,
         telefon: true,
         email: true,
         web_sajt: true,
-        drzava: true
-      }
+        drzava: true,
+      },
     }),
     prisma.komitent.count({ where }),
     editPartnerId
@@ -61,7 +64,7 @@ export default async function GlobalniPartneriPage({
           where: {
             id: editPartnerId,
             scope: "GLOBAL",
-            aktivan: true
+            aktivan: true,
           },
           select: {
             id: true,
@@ -69,15 +72,18 @@ export default async function GlobalniPartneriPage({
             pib: true,
             pdv_broj: true,
             maticni_broj: true,
+            pravna_forma: true,
+            sifra_djelatnosti: true,
+            datum_registracije: true,
             adresa: true,
             grad: true,
             drzava: true,
             telefon: true,
             email: true,
-            web_sajt: true
-          }
+            web_sajt: true,
+          },
         })
-      : null
+      : null,
   ]);
 
   return (
@@ -93,7 +99,11 @@ export default async function GlobalniPartneriPage({
 
       <section className="admin-form-section">
         <div className="panel-header">
-          <h3>{editPartner ? "Izmjena globalnog partnera" : "Novi globalni partner"}</h3>
+          <h3>
+            {editPartner
+              ? "Izmjena globalnog partnera"
+              : "Novi globalni partner"}
+          </h3>
           {editPartner ? (
             <Link className="table-link" href="/admin/globalni-partneri">
               Novi unos
@@ -109,6 +119,10 @@ export default async function GlobalniPartneriPage({
       </section>
 
       <section className="admin-panel">
+        <ImportPartnersButton />
+      </section>
+
+      <section className="admin-panel">
         <div className="panel-header">
           <h3>Pregled globalnih partnera</h3>
           <span>{ukupno} ukupno</span>
@@ -121,6 +135,8 @@ export default async function GlobalniPartneriPage({
                 <th>Naziv</th>
                 <th>PIB / PDV</th>
                 <th>Matični broj</th>
+                <th>Pravna forma</th>
+                <th>Šifra dj.</th>
                 <th>Kontakt</th>
                 <th>Adresa</th>
                 <th>Akcija</th>
@@ -129,7 +145,7 @@ export default async function GlobalniPartneriPage({
             <tbody>
               {partneri.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>Nema globalnih partnera.</td>
+                  <td colSpan={8}>Nema globalnih partnera.</td>
                 </tr>
               ) : (
                 partneri.map((partner) => (
@@ -142,11 +158,13 @@ export default async function GlobalniPartneriPage({
                       <small>{partner.pdv_broj ?? ""}</small>
                     </td>
                     <td>{partner.maticni_broj ?? "-"}</td>
+                    <td>{partner.pravna_forma ?? "-"}</td>
+                    <td>{partner.sifra_djelatnosti ?? "-"}</td>
+                    <td>{partner.email ?? partner.telefon ?? "-"}</td>
                     <td>
-                      {partner.email ?? partner.telefon ?? "-"}
-                    </td>
-                    <td>
-                      {[partner.adresa, partner.grad].filter(Boolean).join(", ") || "-"}
+                      {[partner.adresa, partner.grad]
+                        .filter(Boolean)
+                        .join(", ") || "-"}
                     </td>
                     <td>
                       <Link

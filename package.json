@@ -10,11 +10,13 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "kontni-plan:import": "node prisma/import-kontni-plan.mjs",
+    "partners:import-global": "node scripts/import-global-partners-from-old-site.mjs",
     "db:seed": "node prisma/seed.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
     "bcryptjs": "^3.0.3",
+    "mysql2": "^3.22.5",
     "next": "^15.0.0",
     "nodemailer": "^8.0.10",
     "react": "^19.0.0",

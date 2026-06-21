@@ -21,18 +21,24 @@ export type PartnerFormValues = {
   napomena?: string | null;
   pdv_broj?: string | null;
   pib?: string | null;
+  pravna_forma?: string | null;
   rok_placanja_dana?: number | null;
   scope?: "AGENCY" | "COMPANY" | "GLOBAL";
+  sifra_djelatnosti?: string | null;
   sifra_u_firmi?: string | null;
   telefon?: string | null;
   tip_komitenta?: string | null;
   web_sajt?: string | null;
+  datum_registracije?: Date | string | null;
 };
 
 type IrmsCompany = {
   address?: string;
+  activity?: string;
   city?: string;
   email?: string;
+  founded?: string;
+  legalForm?: string;
   legalName?: string;
   name?: string;
   phone?: string;
@@ -57,6 +63,38 @@ function setFormValue(form: HTMLFormElement, name: string, value?: string) {
   ) {
     field.value = cleanValue;
   }
+}
+
+function normalizeActivityCode(activity?: string) {
+  const cleanActivity = String(activity ?? "").trim();
+  if (!cleanActivity) {
+    return "";
+  }
+
+  const match = cleanActivity.match(/^(\d{2,6}(?:\.\d{1,2})?)/);
+  return match?.[1] ?? cleanActivity.split(",")[0].trim();
+}
+
+function normalizeDateInput(value?: Date | string | null) {
+  if (!value) {
+    return "";
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  const raw = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    return raw.slice(0, 10);
+  }
+
+  const match = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\.?$/);
+  if (match) {
+    return `${match[3]}-${match[2].padStart(2, "0")}-${match[1].padStart(2, "0")}`;
+  }
+
+  return "";
 }
 
 export function PartnerForm({
@@ -118,6 +156,9 @@ export function PartnerForm({
       setFormValue(form, "naziv", result.data.name || result.data.legalName);
       setFormValue(form, "pib", result.data.pib);
       setFormValue(form, "maticni_broj", result.data.registrationNumber);
+      setFormValue(form, "pravna_forma", result.data.legalForm);
+      setFormValue(form, "sifra_djelatnosti", normalizeActivityCode(result.data.activity));
+      setFormValue(form, "datum_registracije", normalizeDateInput(result.data.founded));
       setFormValue(form, "adresa", result.data.address);
       setFormValue(form, "grad", result.data.city);
       setFormValue(form, "telefon", result.data.phone);
@@ -183,6 +224,25 @@ export function PartnerForm({
       <label>
         <span>Matični broj</span>
         <input defaultValue={initialValues?.maticni_broj ?? ""} name="maticni_broj" />
+      </label>
+      <label>
+        <span>Pravna forma</span>
+        <input defaultValue={initialValues?.pravna_forma ?? ""} name="pravna_forma" />
+      </label>
+      <label>
+        <span>Šifra djelatnosti</span>
+        <input
+          defaultValue={initialValues?.sifra_djelatnosti ?? ""}
+          name="sifra_djelatnosti"
+        />
+      </label>
+      <label>
+        <span>Datum registracije</span>
+        <input
+          defaultValue={normalizeDateInput(initialValues?.datum_registracije)}
+          name="datum_registracije"
+          type="date"
+        />
       </label>
       <label>
         <span>Šifra u firmi</span>
