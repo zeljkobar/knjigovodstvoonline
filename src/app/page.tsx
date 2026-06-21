@@ -11,7 +11,8 @@ const errorMessages: Record<string, string> = {
   prazno: "Unesite korisnicko ime i lozinku.",
   prijava: "Korisnicko ime ili lozinka nisu ispravni.",
   sesija: "Sesija je istekla. Prijavite se ponovo.",
-  lozinka_postavljena: "Lozinka je postavljena. Mozete se prijaviti."
+  lozinka_postavljena: "Lozinka je postavljena. Mozete se prijaviti.",
+  previse_pokusaja: "Previše neuspješnih pokušaja. Pokušajte ponovo za 15 minuta."
 };
 
 export default async function Home({ searchParams }: HomeProps) {

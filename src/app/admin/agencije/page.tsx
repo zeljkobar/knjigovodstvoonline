@@ -1,9 +1,13 @@
 import { createAgencija, toggleAgencija } from "../actions";
+import { Pagination } from "@/components/Pagination";
 import { prisma } from "@/lib/prisma";
+
+const PAGE_SIZE = 25;
 
 type AgencijePageProps = {
   searchParams?: Promise<{
     poruka?: string;
+    stranica?: string;
   }>;
 };
 
@@ -16,26 +20,34 @@ const poruke: Record<string, string> = {
 export default async function AgencijePage({ searchParams }: AgencijePageProps) {
   const params = await searchParams;
   const message = params?.poruka ? poruke[params.poruka] : null;
-  const agencije = await prisma.agencija.findMany({
-    orderBy: {
-      naziv: "asc"
-    },
-    select: {
-      id: true,
-      naziv: true,
-      pib: true,
-      grad: true,
-      telefon: true,
-      email: true,
-      aktivan: true,
-      _count: {
-        select: {
-          firme: true,
-          korisnici: true
+  const currentPage = Math.max(1, parseInt(params?.stranica ?? "1"));
+  const skip = (currentPage - 1) * PAGE_SIZE;
+
+  const [agencije, ukupno] = await Promise.all([
+    prisma.agencija.findMany({
+      orderBy: {
+        naziv: "asc"
+      },
+      take: PAGE_SIZE,
+      skip,
+      select: {
+        id: true,
+        naziv: true,
+        pib: true,
+        grad: true,
+        telefon: true,
+        email: true,
+        aktivan: true,
+        _count: {
+          select: {
+            firme: true,
+            korisnici: true
+          }
         }
       }
-    }
-  });
+    }),
+    prisma.agencija.count()
+  ]);
 
   return (
     <div className="admin-stack">
@@ -82,7 +94,7 @@ export default async function AgencijePage({ searchParams }: AgencijePageProps) 
       <section className="admin-panel">
         <div className="panel-header">
           <h3>Lista agencija</h3>
-          <span>{agencije.length} ukupno</span>
+          <span>{ukupno} ukupno</span>
         </div>
 
         <div className="table-wrap">
@@ -130,6 +142,13 @@ export default async function AgencijePage({ searchParams }: AgencijePageProps) 
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          currentPage={currentPage}
+          pageSize={PAGE_SIZE}
+          searchParams={params ?? {}}
+          total={ukupno}
+        />
       </section>
     </div>
   );

@@ -319,3 +319,173 @@ export async function toggleKorisnik(formData: FormData) {
   revalidatePath("/admin");
   revalidatePath("/admin/agencijski-korisnici");
 }
+
+export async function createGlobalPartner(formData: FormData) {
+  const admin = await requireRole("admin");
+  const naziv = value(formData, "naziv");
+  const pib = value(formData, "pib") || null;
+
+  if (!naziv) {
+    redirect("/admin/globalni-partneri?poruka=partner_obavezno");
+  }
+
+  const data = {
+    naziv,
+    scope: "GLOBAL" as const,
+    agencija_id: null,
+    firma_id: null,
+    pib,
+    maticni_broj: value(formData, "maticni_broj") || null,
+    pdv_broj: value(formData, "pdv_broj") || null,
+    adresa: value(formData, "adresa") || null,
+    grad: value(formData, "grad") || null,
+    drzava: value(formData, "drzava") || "Crna Gora",
+    telefon: value(formData, "telefon") || null,
+    email: value(formData, "email") || null,
+    web_sajt: value(formData, "web_sajt") || null,
+    aktivan: true
+  };
+  let partner: { id: string; naziv: string; pib: string | null } | null = null;
+
+  if (pib) {
+    const existing = await prisma.komitent
+      .findFirst({
+        where: { pib, scope: "GLOBAL" },
+        select: { id: true }
+      })
+      .catch(() => null);
+
+    if (existing) {
+      partner = await prisma.komitent
+        .update({
+          where: { id: existing.id },
+          data,
+          select: { id: true, naziv: true, pib: true }
+        })
+        .catch(() => null);
+    } else {
+      partner = await prisma.komitent
+        .create({
+          data,
+          select: { id: true, naziv: true, pib: true }
+        })
+        .catch(() => null);
+    }
+  } else {
+    partner = await prisma.komitent
+      .create({
+        data,
+        select: { id: true, naziv: true, pib: true }
+      })
+      .catch(() => null);
+  }
+
+  if (!partner) {
+    redirect("/admin/globalni-partneri?poruka=partner_greska");
+  }
+
+  await auditLog({
+    korisnikId: admin.id,
+    modul: "admin.globalni_partneri",
+    akcija: "create",
+    tipEntiteta: "Komitent",
+    entitetId: partner.id,
+    novaVrijednost: partner,
+    upisiAktivnost: false
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/globalni-partneri");
+  redirect("/admin/globalni-partneri?poruka=partner_sacuvan");
+}
+
+export async function updateGlobalPartner(formData: FormData) {
+  const admin = await requireRole("admin");
+  const id = value(formData, "partner_id");
+  const naziv = value(formData, "naziv");
+  const pib = value(formData, "pib") || null;
+
+  if (!id || !naziv) {
+    redirect("/admin/globalni-partneri?poruka=partner_obavezno");
+  }
+
+  const existing = await prisma.komitent.findFirst({
+    where: {
+      id,
+      scope: "GLOBAL"
+    },
+    select: {
+      id: true,
+      naziv: true,
+      pib: true
+    }
+  });
+
+  if (!existing) {
+    redirect("/admin/globalni-partneri?poruka=partner_greska");
+  }
+
+  if (pib) {
+    const duplicate = await prisma.komitent.findFirst({
+      where: {
+        pib,
+        scope: "GLOBAL",
+        NOT: {
+          id
+        }
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (duplicate) {
+      redirect(`/admin/globalni-partneri?poruka=partner_dupli&partner=${id}`);
+    }
+  }
+
+  const partner = await prisma.komitent
+    .update({
+      where: {
+        id
+      },
+      data: {
+        naziv,
+        pib,
+        maticni_broj: value(formData, "maticni_broj") || null,
+        pdv_broj: value(formData, "pdv_broj") || null,
+        adresa: value(formData, "adresa") || null,
+        grad: value(formData, "grad") || null,
+        drzava: value(formData, "drzava") || "Crna Gora",
+        telefon: value(formData, "telefon") || null,
+        email: value(formData, "email") || null,
+        web_sajt: value(formData, "web_sajt") || null,
+        aktivan: true
+      },
+      select: {
+        id: true,
+        naziv: true,
+        pib: true
+      }
+    })
+    .catch(() => null);
+
+  if (!partner) {
+    redirect(`/admin/globalni-partneri?poruka=partner_greska&p=${id}`);
+  }
+
+  await auditLog({
+    korisnikId: admin.id,
+    modul: "admin.globalni_partneri",
+    akcija: "update",
+    tipEntiteta: "Komitent",
+    entitetId: partner.id,
+    staraVrijednost: existing,
+    novaVrijednost: partner,
+    upisiAktivnost: false
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/globalni-partneri");
+  redirect("/admin/globalni-partneri?poruka=partner_izmijenjen");
+}

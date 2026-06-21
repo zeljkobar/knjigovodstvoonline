@@ -26,7 +26,6 @@ export default async function NovaFirmaPage({ searchParams }: NovaFirmaPageProps
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Modul 2</p>
           <h2>Dodaj firmu</h2>
         </div>
         <Link className="primary-link" href="/agencija/firme">

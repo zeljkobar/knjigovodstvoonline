@@ -27,6 +27,12 @@ enum TipKonta {
   sinteticko
 }
 
+enum KomitentScope {
+  GLOBAL
+  AGENCY
+  COMPANY
+}
+
 model Agencija {
   id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   naziv         String
@@ -45,8 +51,10 @@ model Agencija {
   updated_at    DateTime            @updatedAt
   updated_by    String?             @db.Uuid
   firme         Firma[]
+  kufEntries    KufEntry[]
   korisnici     Korisnik[]
   agencijaKonta AgencijaKonto[]
+  pdvStope      PdvStopa[]
   auditLogovi   AuditLog[]
   pretplate     AgencijaPretplata[]
   prava         KorisnikPravo[]
@@ -133,6 +141,7 @@ model Firma {
   korisnici            KorisnikFirma[]
   poslovne_godine      PoslovnaGodina[]
   komitenti            FirmaKomitent[]
+  kufEntries           KufEntry[]
   bankovni_racuni      FirmaBankovniRacun[]
   ugovor               FirmaUgovor?
   konta                FirmaKonto[]
@@ -301,6 +310,7 @@ model PoslovnaGodina {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   nalozi     Nalog[]
+  kufEntries KufEntry[]
 
   @@unique([firma_id, godina])
   @@map("poslovne_godine")
@@ -309,7 +319,10 @@ model PoslovnaGodina {
 model Komitent {
   id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   naziv         String
-  pib           String?             @unique
+  scope         KomitentScope       @default(GLOBAL)
+  agencija_id   String?             @db.Uuid
+  firma_id      String?             @db.Uuid
+  pib           String?
   maticni_broj  String?
   pdv_broj      String?
   adresa        String?
@@ -324,6 +337,7 @@ model Komitent {
   firme         FirmaKomitent[]
   kontakti      KomitentKontakt[]
   stavke_naloga StavkaNaloga[]
+  kufEntries     KufEntry[]
   ziro_racuni   KomitentZiroRacun[]
 
   @@map("komitenti")
@@ -458,6 +472,7 @@ model FirmaKonto {
   created_at             DateTime       @default(now())
   updated_at             DateTime       @updatedAt
   stavke_naloga          StavkaNaloga[]
+  kufExpenseEntries      KufEntry[]     @relation("KufExpenseAccount")
 
   @@unique([firma_id, sifra])
   @@map("firma_konta")
@@ -477,6 +492,97 @@ model FirmaPodrazumijevanoKonto {
 
   @@unique([firma_id, namjena])
   @@map("firma_podrazumijevana_konta")
+}
+
+model PdvStopa {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String    @db.Uuid
+  agencija    Agencija  @relation(fields: [agencija_id], references: [id])
+  sifra       String
+  naziv       String
+  procenat    Decimal   @db.Decimal(5, 2)
+  opis        String?
+  redosljed   Int       @default(0)
+  aktivna     Boolean   @default(true)
+  vazi_od     DateTime? @db.Date
+  vazi_do     DateTime? @db.Date
+  created_at  DateTime  @default(now())
+  created_by  String?   @db.Uuid
+  updated_at  DateTime  @updatedAt
+  updated_by  String?   @db.Uuid
+  kufTaxLines KufEntryTaxLine[]
+
+  @@unique([agencija_id, sifra])
+  @@index([agencija_id, aktivna, redosljed])
+  @@map("pdv_stope")
+}
+
+model KufEntry {
+  id                       String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id              String            @db.Uuid
+  agencija                 Agencija          @relation(fields: [agencija_id], references: [id])
+  firma_id                 String            @db.Uuid
+  firma                    Firma             @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id       String            @db.Uuid
+  poslovna_godina          PoslovnaGodina    @relation(fields: [poslovna_godina_id], references: [id])
+  dobavljac_id             String            @db.Uuid
+  dobavljac                Komitent          @relation(fields: [dobavljac_id], references: [id])
+  redni_broj               Int
+  internal_kuf_number      String
+  supplier_invoice_number  String
+  invoice_date             DateTime          @db.Date
+  receipt_date             DateTime          @db.Date
+  due_date                 DateTime?         @db.Date
+  currency                 String            @default("EUR")
+  exchange_rate            Decimal           @default(1) @db.Decimal(14, 6)
+  total_base               Decimal           @default(0) @db.Decimal(14, 2)
+  total_input_vat          Decimal           @default(0) @db.Decimal(14, 2)
+  deductible_vat           Decimal           @default(0) @db.Decimal(14, 2)
+  non_deductible_vat       Decimal           @default(0) @db.Decimal(14, 2)
+  total_gross              Decimal           @default(0) @db.Decimal(14, 2)
+  expense_account_id       String?           @db.Uuid
+  expense_account          FirmaKonto?       @relation("KufExpenseAccount", fields: [expense_account_id], references: [id])
+  payment_status           String            @default("UNPAID")
+  posting_status           String            @default("UNPOSTED")
+  status                   String            @default("RECORDED")
+  journal_id               String?           @db.Uuid
+  note                     String?
+  is_deleted               Boolean           @default(false)
+  deleted_at               DateTime?
+  deleted_by               String?           @db.Uuid
+  delete_reason            String?
+  created_at               DateTime          @default(now())
+  created_by               String?           @db.Uuid
+  updated_at               DateTime          @updatedAt
+  updated_by               String?           @db.Uuid
+  tax_lines                KufEntryTaxLine[]
+
+  @@unique([firma_id, poslovna_godina_id, redni_broj])
+  @@index([agencija_id, firma_id, poslovna_godina_id, status])
+  @@index([firma_id, dobavljac_id, supplier_invoice_number, invoice_date])
+  @@map("kuf_entries")
+}
+
+model KufEntryTaxLine {
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kuf_entry_id               String    @db.Uuid
+  kuf_entry                  KufEntry  @relation(fields: [kuf_entry_id], references: [id], onDelete: Cascade)
+  vat_rate_id                String?   @db.Uuid
+  vat_rate                   PdvStopa? @relation(fields: [vat_rate_id], references: [id])
+  vat_rate_code              String
+  vat_rate_name              String
+  vat_rate_percent           Decimal   @db.Decimal(5, 2)
+  tax_base                   Decimal   @default(0) @db.Decimal(14, 2)
+  input_vat_amount           Decimal   @default(0) @db.Decimal(14, 2)
+  deductible_vat_amount      Decimal   @default(0) @db.Decimal(14, 2)
+  non_deductible_vat_amount  Decimal   @default(0) @db.Decimal(14, 2)
+  total_with_vat             Decimal   @default(0) @db.Decimal(14, 2)
+  created_at                 DateTime  @default(now())
+  created_by                 String?   @db.Uuid
+
+  @@index([kuf_entry_id])
+  @@index([vat_rate_id])
+  @@map("kuf_entry_tax_lines")
 }
 
 model VrstaNaloga {

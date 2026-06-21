@@ -4,14 +4,14 @@ type ModulePlaceholderProps = {
 };
 
 export function ModulePlaceholder({
-  eyebrow = "Modul",
+  eyebrow,
   title
 }: ModulePlaceholderProps) {
   return (
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">{eyebrow}</p>
+          {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
           <h2>{title}</h2>
         </div>
       </header>

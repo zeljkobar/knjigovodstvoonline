@@ -183,7 +183,6 @@ export default async function FirmaDetaljPage({
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Firma</p>
           <h2>{firma.naziv}</h2>
         </div>
         <div className="table-actions">

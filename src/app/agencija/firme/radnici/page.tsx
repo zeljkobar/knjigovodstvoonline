@@ -108,7 +108,6 @@ export default async function RadniciNaFirmamaPage({
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Firme</p>
           <h2>Radnici na firmama</h2>
         </div>
       </header>

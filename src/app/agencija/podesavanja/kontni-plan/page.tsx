@@ -97,7 +97,6 @@ export default async function GlobalKontniPlanPage({
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Podesavanja</p>
           <h2>Osnovni kontni plan</h2>
         </div>
         <Link className="table-link" href="/agencija/firme/kontni-plan">

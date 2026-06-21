@@ -884,3 +884,322 @@ export async function createJournalType(formData: FormData) {
   revalidatePath("/agencija/nalozi/vrste");
   redirect("/agencija/nalozi/vrste?poruka=vrsta_kreirana");
 }
+
+export async function createPartner(formData: FormData) {
+  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const firmaId = value(formData, "firma_id");
+  const naziv = value(formData, "naziv");
+  const pib = nullableValue(formData, "pib");
+  const scope = value(formData, "scope") === "COMPANY" ? "COMPANY" : "AGENCY";
+  const tipKomitenta = value(formData, "tip_komitenta") || "ostalo";
+
+  if (!user.agencija_id || !firmaId || !naziv) {
+    redirect("/agencija/nalozi/partneri?poruka=partner_obavezno");
+  }
+
+  const firma = await prisma.firma.findFirst({
+    where: {
+      id: firmaId,
+      agencija_id: user.agencija_id,
+      is_deleted: false,
+      aktivan: true,
+      ...(user.rola === "admin_agencije"
+        ? {}
+        : {
+            korisnici: {
+              some: {
+                korisnik_id: user.id,
+                is_deleted: false
+              }
+            }
+          })
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (!firma) {
+    redirect("/agencija/nalozi/partneri?poruka=partner_greska");
+  }
+
+  const partner = await prisma.$transaction(async (tx) => {
+    const existingPartner = pib
+      ? await tx.komitent.findFirst({
+          where: {
+            pib,
+            OR: [
+              { scope: "GLOBAL" },
+              { scope: "AGENCY", agencija_id: user.agencija_id },
+              { scope: "COMPANY", firma_id: firma.id }
+            ]
+          },
+          select: {
+            id: true
+          }
+        })
+      : null;
+    const komitent = existingPartner
+      ? await tx.komitent.findUniqueOrThrow({
+          where: {
+            id: existingPartner.id
+          },
+          select: {
+            id: true,
+            naziv: true,
+            pib: true
+          }
+        })
+      : await tx.komitent.create({
+          data: {
+            naziv,
+            scope,
+            agencija_id: user.agencija_id,
+            firma_id: scope === "COMPANY" ? firma.id : null,
+            pib,
+            maticni_broj: nullableValue(formData, "maticni_broj"),
+            pdv_broj: nullableValue(formData, "pdv_broj"),
+            adresa: nullableValue(formData, "adresa"),
+            grad: nullableValue(formData, "grad"),
+            drzava: nullableValue(formData, "drzava") ?? "Crna Gora",
+            telefon: nullableValue(formData, "telefon"),
+            email: nullableValue(formData, "email"),
+            web_sajt: nullableValue(formData, "web_sajt"),
+            aktivan: true
+          },
+          select: {
+            id: true,
+            naziv: true,
+            pib: true
+          }
+        });
+
+    await tx.firmaKomitent.upsert({
+      where: {
+        firma_id_komitent_id: {
+          firma_id: firma.id,
+          komitent_id: komitent.id
+        }
+      },
+      create: {
+        firma_id: firma.id,
+        komitent_id: komitent.id,
+        tip_komitenta: tipKomitenta as "kupac" | "dobavljac" | "kupac_dobavljac" | "radnik" | "ostalo",
+        sifra_u_firmi: nullableValue(formData, "sifra_u_firmi"),
+        rok_placanja_dana: value(formData, "rok_placanja_dana")
+          ? Number(value(formData, "rok_placanja_dana"))
+          : null,
+        napomena: nullableValue(formData, "napomena"),
+        aktivan: true
+      },
+      update: {
+        tip_komitenta: tipKomitenta as "kupac" | "dobavljac" | "kupac_dobavljac" | "radnik" | "ostalo",
+        sifra_u_firmi: nullableValue(formData, "sifra_u_firmi"),
+        rok_placanja_dana: value(formData, "rok_placanja_dana")
+          ? Number(value(formData, "rok_placanja_dana"))
+          : null,
+        napomena: nullableValue(formData, "napomena"),
+        aktivan: true
+      }
+    });
+
+    return komitent;
+  }).catch(() => null);
+
+  if (!partner) {
+    redirect("/agencija/nalozi/partneri?poruka=partner_greska");
+  }
+
+  await auditLog({
+    korisnikId: user.id,
+    agencijaId: user.agencija_id,
+    firmaId: firma.id,
+    modul: "agencija.partneri",
+    akcija: "create",
+    tipEntiteta: "Komitent",
+    entitetId: partner.id,
+    novaVrijednost: partner
+  });
+
+  revalidatePath("/agencija/nalozi/partneri");
+  revalidatePath("/agencija/nalozi/novi");
+  redirect("/agencija/nalozi/partneri?poruka=partner_sacuvan");
+}
+
+export async function updatePartner(formData: FormData) {
+  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const firmaId = value(formData, "firma_id");
+  const partnerId = value(formData, "partner_id");
+  const naziv = value(formData, "naziv");
+  const pib = nullableValue(formData, "pib");
+  const scope = value(formData, "scope") === "COMPANY" ? "COMPANY" : "AGENCY";
+  const tipKomitenta = value(formData, "tip_komitenta") || "ostalo";
+
+  if (!user.agencija_id || !firmaId || !partnerId || !naziv) {
+    redirect("/agencija/nalozi/partneri?poruka=partner_obavezno");
+  }
+
+  const firma = await prisma.firma.findFirst({
+    where: {
+      id: firmaId,
+      agencija_id: user.agencija_id,
+      is_deleted: false,
+      aktivan: true,
+      ...(user.rola === "admin_agencije"
+        ? {}
+        : {
+            korisnici: {
+              some: {
+                korisnik_id: user.id,
+                is_deleted: false
+              }
+            }
+          })
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (!firma) {
+    redirect("/agencija/nalozi/partneri?poruka=partner_greska");
+  }
+
+  const existing = await prisma.komitent.findFirst({
+    where: {
+      id: partnerId,
+      OR: [
+        {
+          scope: "AGENCY",
+          agencija_id: user.agencija_id
+        },
+        {
+          scope: "COMPANY",
+          firma_id: firma.id
+        }
+      ]
+    },
+    select: {
+      id: true,
+      naziv: true,
+      pib: true,
+      scope: true
+    }
+  });
+
+  if (!existing) {
+    redirect("/agencija/nalozi/partneri?poruka=partner_greska");
+  }
+
+  if (pib) {
+    const duplicate = await prisma.komitent.findFirst({
+      where: {
+        pib,
+        NOT: {
+          id: partnerId
+        },
+        OR: [
+          {
+            scope: "GLOBAL"
+          },
+          {
+            scope: "AGENCY",
+            agencija_id: user.agencija_id
+          },
+          {
+            scope: "COMPANY",
+            firma_id: firma.id
+          }
+        ]
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (duplicate) {
+      redirect(`/agencija/nalozi/partneri?poruka=partner_dupli&partner=${partnerId}`);
+    }
+  }
+
+  const partner = await prisma.$transaction(async (tx) => {
+    const updated = await tx.komitent.update({
+      where: {
+        id: partnerId
+      },
+      data: {
+        naziv,
+        scope,
+        agencija_id: user.agencija_id,
+        firma_id: scope === "COMPANY" ? firma.id : null,
+        pib,
+        maticni_broj: nullableValue(formData, "maticni_broj"),
+        pdv_broj: nullableValue(formData, "pdv_broj"),
+        adresa: nullableValue(formData, "adresa"),
+        grad: nullableValue(formData, "grad"),
+        drzava: nullableValue(formData, "drzava") ?? "Crna Gora",
+        telefon: nullableValue(formData, "telefon"),
+        email: nullableValue(formData, "email"),
+        web_sajt: nullableValue(formData, "web_sajt"),
+        aktivan: true
+      },
+      select: {
+        id: true,
+        naziv: true,
+        pib: true,
+        scope: true
+      }
+    });
+
+    await tx.firmaKomitent.upsert({
+      where: {
+        firma_id_komitent_id: {
+          firma_id: firma.id,
+          komitent_id: updated.id
+        }
+      },
+      create: {
+        firma_id: firma.id,
+        komitent_id: updated.id,
+        tip_komitenta: tipKomitenta as "kupac" | "dobavljac" | "kupac_dobavljac" | "radnik" | "ostalo",
+        sifra_u_firmi: nullableValue(formData, "sifra_u_firmi"),
+        rok_placanja_dana: value(formData, "rok_placanja_dana")
+          ? Number(value(formData, "rok_placanja_dana"))
+          : null,
+        napomena: nullableValue(formData, "napomena"),
+        aktivan: true
+      },
+      update: {
+        tip_komitenta: tipKomitenta as "kupac" | "dobavljac" | "kupac_dobavljac" | "radnik" | "ostalo",
+        sifra_u_firmi: nullableValue(formData, "sifra_u_firmi"),
+        rok_placanja_dana: value(formData, "rok_placanja_dana")
+          ? Number(value(formData, "rok_placanja_dana"))
+          : null,
+        napomena: nullableValue(formData, "napomena"),
+        aktivan: true
+      }
+    });
+
+    return updated;
+  }).catch(() => null);
+
+  if (!partner) {
+    redirect(`/agencija/nalozi/partneri?poruka=partner_greska&partner=${partnerId}`);
+  }
+
+  await auditLog({
+    korisnikId: user.id,
+    agencijaId: user.agencija_id,
+    firmaId: firma.id,
+    modul: "agencija.partneri",
+    akcija: "update",
+    tipEntiteta: "Komitent",
+    entitetId: partner.id,
+    staraVrijednost: existing,
+    novaVrijednost: partner
+  });
+
+  revalidatePath("/agencija/nalozi/partneri");
+  revalidatePath("/agencija/nalozi/novi");
+  redirect("/agencija/nalozi/partneri?poruka=partner_izmijenjen");
+}

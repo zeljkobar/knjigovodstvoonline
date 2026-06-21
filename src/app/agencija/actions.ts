@@ -164,6 +164,18 @@ function redirectGlobalAccountPlan(message: string, q?: string): never {
   redirect(`/agencija/podesavanja/kontni-plan?${params.toString()}`);
 }
 
+function redirectVatRates(message: string, q?: string): never {
+  const params = new URLSearchParams({
+    poruka: message
+  });
+
+  if (q) {
+    params.set("q", q);
+  }
+
+  redirect(`/agencija/podesavanja/pdv-stope?${params.toString()}`);
+}
+
 function nullableValue(formData: FormData, key: string) {
   const data = value(formData, key);
 
@@ -202,6 +214,22 @@ function nullableInt(formData: FormData, key: string) {
   const parsed = Number(data);
 
   return Number.isInteger(parsed) ? parsed : null;
+}
+
+function vatPercentValue(formData: FormData, key: string) {
+  const rawValue = value(formData, key).replace(",", ".");
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const parsed = Number(rawValue);
+
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+    return null;
+  }
+
+  return parsed.toFixed(2);
 }
 
 function parseBusinessYear(formData: FormData) {
@@ -1689,6 +1717,199 @@ export async function toggleGlobalAccount(formData: FormData) {
   revalidatePath("/agencija/podesavanja/kontni-plan");
   revalidatePath("/agencija/firme/kontni-plan");
   redirectGlobalAccountPlan(aktivan ? "konto_aktiviran" : "konto_deaktiviran", q || konto.sifra);
+}
+
+export async function createVatRate(formData: FormData) {
+  const admin = await requireRole("admin_agencije");
+  const agencijaId = admin.agencija_id;
+  const sifra = value(formData, "sifra");
+  const naziv = value(formData, "naziv");
+  const procenat = vatPercentValue(formData, "procenat");
+  const redosljed = nullableInt(formData, "redosljed") ?? 0;
+
+  if (!agencijaId) {
+    redirectVatRates("pdv_agencija_nedostaje");
+  }
+
+  if (!sifra || !naziv || procenat === null) {
+    redirectVatRates("pdv_obavezno");
+  }
+
+  const postojeca = await prisma.pdvStopa.findUnique({
+    where: {
+      agencija_id_sifra: {
+        agencija_id: agencijaId,
+        sifra
+      }
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (postojeca) {
+    redirectVatRates("pdv_postoji", sifra);
+  }
+
+  const stopa = await prisma.pdvStopa.create({
+    data: {
+      agencija_id: agencijaId,
+      sifra,
+      naziv,
+      procenat,
+      opis: nullableValue(formData, "opis"),
+      redosljed,
+      aktivna: true,
+      vazi_od: nullableDate(formData, "vazi_od"),
+      vazi_do: nullableDate(formData, "vazi_do"),
+      created_by: admin.id,
+      updated_by: admin.id
+    },
+    select: {
+      id: true,
+      sifra: true,
+      naziv: true,
+      procenat: true,
+      aktivna: true
+    }
+  });
+
+  await auditLog({
+    korisnikId: admin.id,
+    agencijaId,
+    modul: "podesavanja.pdv_stope",
+    akcija: "create_vat_rate",
+    tipEntiteta: "PdvStopa",
+    entitetId: stopa.id,
+    novaVrijednost: stopa
+  });
+
+  revalidatePath("/agencija/podesavanja/pdv-stope");
+  redirectVatRates("pdv_kreirana", sifra);
+}
+
+export async function updateVatRate(formData: FormData) {
+  const admin = await requireRole("admin_agencije");
+  const agencijaId = admin.agencija_id;
+  const stopaId = value(formData, "stopa_id");
+  const q = value(formData, "q");
+  const naziv = value(formData, "naziv");
+  const procenat = vatPercentValue(formData, "procenat");
+  const redosljed = nullableInt(formData, "redosljed") ?? 0;
+
+  if (!agencijaId || !stopaId || !naziv || procenat === null) {
+    redirectVatRates("pdv_obavezno", q);
+  }
+
+  const staraStopa = await prisma.pdvStopa.findFirst({
+    where: {
+      id: stopaId,
+      agencija_id: agencijaId
+    }
+  });
+
+  if (!staraStopa) {
+    redirectVatRates("pdv_greska", q);
+  }
+
+  const stopa = await prisma.pdvStopa.update({
+    where: {
+      id: stopaId
+    },
+    data: {
+      naziv,
+      procenat,
+      opis: nullableValue(formData, "opis"),
+      redosljed,
+      vazi_od: nullableDate(formData, "vazi_od"),
+      vazi_do: nullableDate(formData, "vazi_do"),
+      updated_by: admin.id
+    },
+    select: {
+      id: true,
+      sifra: true,
+      naziv: true,
+      procenat: true,
+      opis: true,
+      redosljed: true,
+      aktivna: true,
+      vazi_od: true,
+      vazi_do: true
+    }
+  });
+
+  await auditLog({
+    korisnikId: admin.id,
+    agencijaId,
+    modul: "podesavanja.pdv_stope",
+    akcija: "update_vat_rate",
+    tipEntiteta: "PdvStopa",
+    entitetId: stopa.id,
+    staraVrijednost: staraStopa,
+    novaVrijednost: stopa
+  });
+
+  revalidatePath("/agencija/podesavanja/pdv-stope");
+  redirectVatRates("pdv_sacuvana", q || stopa.sifra);
+}
+
+export async function toggleVatRate(formData: FormData) {
+  const admin = await requireRole("admin_agencije");
+  const agencijaId = admin.agencija_id;
+  const stopaId = value(formData, "stopa_id");
+  const q = value(formData, "q");
+  const aktivna = value(formData, "aktivna") === "true";
+
+  if (!agencijaId || !stopaId) {
+    redirectVatRates("pdv_greska", q);
+  }
+
+  const staraStopa = await prisma.pdvStopa.findFirst({
+    where: {
+      id: stopaId,
+      agencija_id: agencijaId
+    },
+    select: {
+      id: true,
+      sifra: true,
+      naziv: true,
+      aktivna: true
+    }
+  });
+
+  if (!staraStopa) {
+    redirectVatRates("pdv_greska", q);
+  }
+
+  const stopa = await prisma.pdvStopa.update({
+    where: {
+      id: stopaId
+    },
+    data: {
+      aktivna,
+      updated_by: admin.id
+    },
+    select: {
+      id: true,
+      sifra: true,
+      naziv: true,
+      aktivna: true
+    }
+  });
+
+  await auditLog({
+    korisnikId: admin.id,
+    agencijaId,
+    modul: "podesavanja.pdv_stope",
+    akcija: aktivna ? "activate_vat_rate" : "deactivate_vat_rate",
+    tipEntiteta: "PdvStopa",
+    entitetId: stopa.id,
+    staraVrijednost: staraStopa,
+    novaVrijednost: stopa
+  });
+
+  revalidatePath("/agencija/podesavanja/pdv-stope");
+  redirectVatRates(aktivna ? "pdv_aktivirana" : "pdv_deaktivirana", q || stopa.sifra);
 }
 
 export async function assignCompanyAccess(formData: FormData) {

@@ -1,10 +1,16 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auditLog } from "@/lib/audit";
 import { getRolePath } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  clearAttempts,
+  isRateLimited,
+  recordFailedAttempt
+} from "@/lib/rate-limit";
 import { createSession, destroySession, readSession } from "@/lib/session";
 
 export async function login(formData: FormData) {
@@ -13,6 +19,15 @@ export async function login(formData: FormData) {
 
   if (!korisnickoIme || !lozinka) {
     redirect("/?greska=prazno");
+  }
+
+  const ip =
+    (await headers()).get("x-forwarded-for")?.split(",")[0].trim() ??
+    "unknown";
+  const rateLimitKey = `login:${ip}`;
+
+  if (isRateLimited(rateLimitKey)) {
+    redirect("/?greska=previse_pokusaja");
   }
 
   const korisnik = await prisma.korisnik.findUnique({
@@ -36,6 +51,7 @@ export async function login(formData: FormData) {
   });
 
   if (!korisnik) {
+    recordFailedAttempt(rateLimitKey);
     await auditLog({
       modul: "auth",
       akcija: "login_failed",
@@ -49,6 +65,7 @@ export async function login(formData: FormData) {
   const lozinkaValidna = await bcrypt.compare(lozinka, korisnik.lozinka_hash);
 
   if (!lozinkaValidna) {
+    recordFailedAttempt(rateLimitKey);
     await auditLog({
       korisnikId: korisnik.id,
       agencijaId: korisnik.agencija_id,
@@ -72,6 +89,8 @@ export async function login(formData: FormData) {
   ) {
     redirect("/nalog-deaktiviran?razlog=agencija");
   }
+
+  clearAttempts(rateLimitKey);
 
   await prisma.korisnik.update({
     where: {

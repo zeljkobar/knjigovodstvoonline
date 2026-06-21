@@ -103,7 +103,6 @@ export default async function UgovoriPage({ searchParams }: UgovoriPageProps) {
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Firme</p>
           <h2>Ugovor i cijena</h2>
         </div>
         <Link className="table-link" href="/agencija/firme">

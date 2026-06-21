@@ -52,6 +52,12 @@ function money(value: number) {
   });
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
 export default async function NalogDetailPage({
   params,
   searchParams
@@ -68,6 +74,10 @@ export default async function NalogDetailPage({
 
   if (!user.agencija_id) {
     return null;
+  }
+
+  if (!isUuid(id)) {
+    notFound();
   }
 
   const nalog = await prisma.nalog.findFirst({
@@ -212,24 +222,30 @@ export default async function NalogDetailPage({
               aktivan: true
             }
           }),
-          prisma.firmaKomitent.findMany({
+          prisma.komitent.findMany({
             where: {
-              firma_id: nalog.firma_id,
-              aktivan: true
+              aktivan: true,
+              OR: [
+                {
+                  scope: "GLOBAL"
+                },
+                {
+                  scope: "AGENCY",
+                  agencija_id: user.agencija_id
+                },
+                {
+                  scope: "COMPANY",
+                  firma_id: nalog.firma_id
+                }
+              ]
             },
             orderBy: {
-              komitent: {
-                naziv: "asc"
-              }
+              naziv: "asc"
             },
             select: {
-              komitent: {
-                select: {
-                  id: true,
-                  naziv: true,
-                  pib: true
-                }
-              }
+              id: true,
+              naziv: true,
+              pib: true
             }
           })
         ])
@@ -252,7 +268,6 @@ export default async function NalogDetailPage({
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Nalog</p>
           <h2>{code}</h2>
         </div>
         <Link className="table-link" href="/agencija/nalozi">
@@ -370,7 +385,7 @@ export default async function NalogDetailPage({
               accounts={accounts}
               datalistId="konto-options"
               initialLines={initialLines}
-              partners={partners.map(({ komitent }) => komitent)}
+              partners={partners}
             />
             <div className="journal-actions">
               <button type="submit">Sačuvaj stavke</button>
@@ -387,7 +402,7 @@ export default async function NalogDetailPage({
           </div>
           <div className="journal-actions">
             {nalog.status === journalStatuses.draft ? (
-              <form action={postJournal}>
+              <form action={postJournal} data-journal-post-form="true">
                 <input name="nalog_id" type="hidden" value={nalog.id} />
                 <button type="submit">Proknjiži nalog</button>
               </form>

@@ -34,6 +34,10 @@ function createEmptyRows(count: number) {
   return Array.from({ length: count });
 }
 
+function partnerDisplay(partner: PartnerOption) {
+  return `${partner.naziv}${partner.pib ? ` (${partner.pib})` : ""}`;
+}
+
 export function JournalLinesEditor({
   accounts,
   datalistId,
@@ -45,7 +49,9 @@ export function JournalLinesEditor({
   const [rowCount, setRowCount] = useState(
     Math.max(initialLines.length + 5, minimumRows)
   );
+  const [totals, setTotals] = useState(() => calculateInitialTotals(initialLines));
   const rows = createEmptyRows(rowCount);
+  const partnerDatalistId = `${datalistId}-partneri`;
 
   function defaultLineDescription(index: number) {
     const wrapper = wrapperRef.current;
@@ -70,6 +76,47 @@ export function JournalLinesEditor({
     }
   }
 
+  function recalculateTotals() {
+    const wrapper = wrapperRef.current;
+
+    if (!wrapper) {
+      return;
+    }
+
+    const debit = sumMoneyInputs(wrapper.querySelectorAll<HTMLInputElement>('input[name="duguje"]'));
+    const credit = sumMoneyInputs(
+      wrapper.querySelectorAll<HTMLInputElement>('input[name="potrazuje"]')
+    );
+
+    setTotals({
+      credit,
+      debit
+    });
+  }
+
+  function resolvePartnerId(value: string) {
+    const searchValue = value.trim().toLowerCase();
+
+    if (!searchValue) {
+      return "";
+    }
+
+    const partner = partners.find((item) => {
+      const displayValue = partnerDisplay(item).toLowerCase();
+      const nameValue = item.naziv.toLowerCase();
+      const pibValue = item.pib?.toLowerCase();
+
+      return (
+        displayValue === searchValue ||
+        nameValue === searchValue ||
+        pibValue === searchValue ||
+        item.id === value
+      );
+    });
+
+    return partner?.id ?? "";
+  }
+
   return (
     <>
       <datalist id={datalistId}>
@@ -80,6 +127,15 @@ export function JournalLinesEditor({
               account.analitika_obavezna ? " *" : ""
             }`}
             value={account.sifra}
+          />
+        ))}
+      </datalist>
+      <datalist id={partnerDatalistId}>
+        {partners.map((partner) => (
+          <option
+            key={partner.id}
+            label={partner.pib ? `${partner.pib} - ${partner.naziv}` : partner.naziv}
+            value={partnerDisplay(partner)}
           />
         ))}
       </datalist>
@@ -99,6 +155,9 @@ export function JournalLinesEditor({
           <tbody>
             {rows.map((_, index) => {
               const initialLine = initialLines[index] ?? null;
+              const initialPartner = initialLine?.partnerId
+                ? partners.find((partner) => partner.id === initialLine.partnerId)
+                : null;
 
               return (
                 <tr key={index}>
@@ -115,20 +174,31 @@ export function JournalLinesEditor({
                     />
                   </td>
                   <td>
-                    <select
+                    <input
+                      data-partner-input="true"
+                      defaultValue={initialPartner ? partnerDisplay(initialPartner) : ""}
+                      list={partnerDatalistId}
+                      name="komitent_pretraga"
+                      onChange={(event) => {
+                        const hiddenInput =
+                          event.currentTarget.parentElement?.querySelector<HTMLInputElement>(
+                            'input[name="komitent_id"]'
+                          );
+
+                        if (hiddenInput) {
+                          hiddenInput.value = resolvePartnerId(event.currentTarget.value);
+                        }
+
+                        touchRow(index);
+                      }}
+                      onFocus={() => touchRow(index)}
+                      placeholder="Naziv ili PIB"
+                    />
+                    <input
                       defaultValue={initialLine?.partnerId ?? ""}
                       name="komitent_id"
-                      onChange={() => touchRow(index)}
-                      onFocus={() => touchRow(index)}
-                    >
-                      <option value="">-</option>
-                      {partners.map((partner) => (
-                        <option key={partner.id} value={partner.id}>
-                          {partner.naziv}
-                          {partner.pib ? ` (${partner.pib})` : ""}
-                        </option>
-                      ))}
-                    </select>
+                      type="hidden"
+                    />
                   </td>
                   <td>
                     <input
@@ -145,7 +215,10 @@ export function JournalLinesEditor({
                       defaultValue={initialLine?.debit ?? ""}
                       min="0"
                       name="duguje"
-                      onChange={() => touchRow(index)}
+                      onChange={() => {
+                        touchRow(index);
+                        recalculateTotals();
+                      }}
                       onFocus={() => touchRow(index)}
                       step="0.01"
                       type="number"
@@ -156,7 +229,10 @@ export function JournalLinesEditor({
                       defaultValue={initialLine?.credit ?? ""}
                       min="0"
                       name="potrazuje"
-                      onChange={() => touchRow(index)}
+                      onChange={() => {
+                        touchRow(index);
+                        recalculateTotals();
+                      }}
                       onFocus={() => touchRow(index)}
                       step="0.01"
                       type="number"
@@ -168,6 +244,50 @@ export function JournalLinesEditor({
           </tbody>
         </table>
       </div>
+      <div className="journal-balance-summary">
+        <div>
+          <span>Ukupno duguje</span>
+          <strong>{formatMoney(totals.debit)}</strong>
+        </div>
+        <div>
+          <span>Ukupno potražuje</span>
+          <strong>{formatMoney(totals.credit)}</strong>
+        </div>
+        <div className={totals.debit === totals.credit ? "balanced" : "unbalanced"}>
+          <span>Razlika</span>
+          <strong>{formatMoney(Math.abs(totals.debit - totals.credit))}</strong>
+        </div>
+      </div>
     </>
   );
+}
+
+function parseMoney(value: string | undefined) {
+  const parsed = Number(String(value ?? "").trim().replace(",", "."));
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function calculateInitialTotals(initialLines: JournalLineInitialValue[]) {
+  return initialLines.reduce(
+    (totals, line) => ({
+      credit: totals.credit + parseMoney(line.credit),
+      debit: totals.debit + parseMoney(line.debit)
+    }),
+    {
+      credit: 0,
+      debit: 0
+    }
+  );
+}
+
+function sumMoneyInputs(inputs: NodeListOf<HTMLInputElement>) {
+  return Array.from(inputs).reduce((sum, input) => sum + parseMoney(input.value), 0);
+}
+
+function formatMoney(value: number) {
+  return value.toLocaleString("sr-Latn", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }

@@ -83,7 +83,6 @@ export default async function PoslovneGodinePage({
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Firme</p>
           <h2>Poslovne godine</h2>
         </div>
       </header>

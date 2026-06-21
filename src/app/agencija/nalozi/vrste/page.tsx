@@ -83,7 +83,6 @@ export default async function VrsteNalogaPage({ searchParams }: VrsteNalogaPageP
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Nalozi</p>
           <h2>Vrste naloga</h2>
         </div>
       </header>

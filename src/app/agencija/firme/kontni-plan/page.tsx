@@ -153,7 +153,6 @@ export default async function KontniPlanPage({ searchParams }: KontniPlanPagePro
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Firme</p>
           <h2>Kontni plan</h2>
         </div>
         <Link className="table-link" href="/agencija/firme">

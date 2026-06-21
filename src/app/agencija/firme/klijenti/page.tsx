@@ -106,7 +106,6 @@ export default async function KlijentiNaFirmamaPage({
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Firme</p>
           <h2>Klijentski korisnici</h2>
         </div>
       </header>

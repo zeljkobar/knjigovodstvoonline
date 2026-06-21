@@ -72,7 +72,6 @@ export default async function AgencijaPage() {
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">{agencija?.naziv ?? "Agencija"}</p>
           <h2>Pregled agencije</h2>
         </div>
         {user.rola === "admin_agencije" ? (

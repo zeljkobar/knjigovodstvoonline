@@ -37,6 +37,9 @@ export default async function AdminPage() {
         <Link className="primary-link" href="/admin/agencije">
           Nova agencija
         </Link>
+        <Link className="table-link" href="/admin/globalni-partneri">
+          Globalni partneri
+        </Link>
       </header>
 
       <section className="metric-grid" aria-label="Statistika sistema">

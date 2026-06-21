@@ -3,11 +3,15 @@ import {
   resendAgencijskiPoziv,
   toggleKorisnik
 } from "../actions";
+import { Pagination } from "@/components/Pagination";
 import { prisma } from "@/lib/prisma";
+
+const PAGE_SIZE = 25;
 
 type AgencijskiKorisniciPageProps = {
   searchParams?: Promise<{
     poruka?: string;
+    stranica?: string;
   }>;
 };
 
@@ -24,7 +28,10 @@ export default async function AgencijskiKorisniciPage({
 }: AgencijskiKorisniciPageProps) {
   const params = await searchParams;
   const message = params?.poruka ? poruke[params.poruka] : null;
-  const [agencije, korisnici] = await Promise.all([
+  const currentPage = Math.max(1, parseInt(params?.stranica ?? "1"));
+  const skip = (currentPage - 1) * PAGE_SIZE;
+
+  const [agencije, korisnici, ukupno] = await Promise.all([
     prisma.agencija.findMany({
       where: {
         aktivan: true
@@ -44,6 +51,8 @@ export default async function AgencijskiKorisniciPage({
       orderBy: {
         created_at: "desc"
       },
+      take: PAGE_SIZE,
+      skip,
       select: {
         id: true,
         korisnicko_ime: true,
@@ -66,7 +75,8 @@ export default async function AgencijskiKorisniciPage({
           }
         }
       }
-    })
+    }),
+    prisma.korisnik.count({ where: { rola: "admin_agencije" } })
   ]);
 
   return (
@@ -109,7 +119,7 @@ export default async function AgencijskiKorisniciPage({
       <section className="admin-panel">
         <div className="panel-header">
           <h3>Lista admina agencija</h3>
-          <span>{korisnici.length} ukupno</span>
+          <span>{ukupno} ukupno</span>
         </div>
 
         <div className="table-wrap">
@@ -170,6 +180,13 @@ export default async function AgencijskiKorisniciPage({
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          currentPage={currentPage}
+          pageSize={PAGE_SIZE}
+          searchParams={params ?? {}}
+          total={ukupno}
+        />
       </section>
     </div>
   );

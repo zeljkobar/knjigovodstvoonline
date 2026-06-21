@@ -157,24 +157,30 @@ export default async function NoviNalogPage({ searchParams }: NoviNalogPageProps
               aktivan: true
             }
           }),
-          prisma.firmaKomitent.findMany({
+          prisma.komitent.findMany({
             where: {
-              firma_id: activeCompany.id,
-              aktivan: true
+              aktivan: true,
+              OR: [
+                {
+                  scope: "GLOBAL"
+                },
+                {
+                  scope: "AGENCY",
+                  agencija_id: user.agencija_id
+                },
+                {
+                  scope: "COMPANY",
+                  firma_id: activeCompany.id
+                }
+              ]
             },
             orderBy: {
-              komitent: {
-                naziv: "asc"
-              }
+              naziv: "asc"
             },
             select: {
-              komitent: {
-                select: {
-                  id: true,
-                  naziv: true,
-                  pib: true
-                }
-              }
+              id: true,
+              naziv: true,
+              pib: true
             }
           })
         ])
@@ -191,7 +197,6 @@ export default async function NoviNalogPage({ searchParams }: NoviNalogPageProps
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Nalozi</p>
           <h2>Novi nalog</h2>
         </div>
         <Link className="table-link" href="/agencija/nalozi">
@@ -257,7 +262,7 @@ export default async function NoviNalogPage({ searchParams }: NoviNalogPageProps
             <JournalLinesEditor
               accounts={accounts}
               datalistId="konto-options"
-              partners={partners.map(({ komitent }) => komitent)}
+              partners={partners}
             />
 
             <div className="journal-actions">

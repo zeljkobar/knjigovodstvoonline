@@ -48,11 +48,11 @@ export const agencyNavigation: NavigationItem[] = [
     section: "robno"
   },
   {
-    href: "/agencija/fakture",
+    href: "/agencija/racuni",
     icon: "▥",
-    label: "Fakture",
+    label: "Računi",
     roles: agencyRoles,
-    section: "fakture"
+    section: "racuni"
   },
   {
     href: "/agencija/pdv",
@@ -152,16 +152,14 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/robno/nivelacija", label: "Nivelacija" },
     { href: "/agencija/robno/izvjestaji", label: "Robni izvještaji" }
   ],
-  fakture: [
-    { href: "/agencija/fakture", label: "Izlazne fakture" },
-    { href: "/agencija/fakture/nova", label: "Nova faktura" },
-    { href: "/agencija/fakture/kupci", label: "Kupci" },
-    { href: "/agencija/fakture/predracuni", label: "Predračuni" },
-    { href: "/agencija/fakture/odobrenja", label: "Odobrenja" },
-    { href: "/agencija/fakture/fiskalizacija", label: "Fiskalizacija" },
-    { href: "/agencija/fakture/nefiskalizovane", label: "Nefiskalizovane" },
-    { href: "/agencija/fakture/naplata", label: "Naplata" },
-    { href: "/agencija/fakture/podesavanja", label: "Podešavanja faktura" }
+  racuni: [
+    { href: "/agencija/racuni/kif", label: "KIF" },
+    { href: "/agencija/racuni/kuf", label: "KUF" },
+    { href: "/agencija/racuni/pregled-kif", label: "Pregled KIF" },
+    { href: "/agencija/racuni/pregled-kuf", label: "Pregled KUF" },
+    { href: "/agencija/racuni/neproknjizeno", label: "Neproknjiženo" },
+    { href: "/agencija/racuni/import", label: "Import" },
+    { href: "/agencija/racuni/podesavanja", label: "Podešavanja" }
   ],
   pdv: [
     { href: "/agencija/pdv", label: "PDV pregled" },

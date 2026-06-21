@@ -93,7 +93,6 @@ export default async function BankovniRacuniPage({
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Firme</p>
           <h2>Bankovni racuni</h2>
         </div>
         <Link className="table-link" href="/agencija/firme">

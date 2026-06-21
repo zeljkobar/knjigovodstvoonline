@@ -1,10 +1,13 @@
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
+import { Pagination } from "@/components/Pagination";
 import { requireAnyRole } from "@/lib/auth";
 import { formatJournalCode, journalStatusLabel, journalStatuses } from "@/lib/journals";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
+
+const PAGE_SIZE = 50;
 
 type NaloziPageProps = {
   searchParams?: Promise<{
@@ -13,6 +16,7 @@ type NaloziPageProps = {
     poruka?: string;
     q?: string;
     status?: string;
+    stranica?: string;
     vrsta?: string;
   }>;
 };
@@ -51,6 +55,8 @@ export default async function NaloziPage({ searchParams }: NaloziPageProps) {
   const statusFilter = params?.status ?? "";
   const typeFilter = params?.vrsta ?? "";
   const message = params?.poruka ? poruke[params.poruka] : null;
+  const currentPage = Math.max(1, parseInt(params?.stranica ?? "1"));
+  const skip = (currentPage - 1) * PAGE_SIZE;
 
   if (!user.agencija_id) {
     return null;
@@ -123,6 +129,7 @@ export default async function NaloziPage({ searchParams }: NaloziPageProps) {
           }
         })
       : [];
+
   const journalWhere: Prisma.NalogWhereInput =
     activeCompany && activeYear
       ? {
@@ -176,73 +183,64 @@ export default async function NaloziPage({ searchParams }: NaloziPageProps) {
         }
       : {};
 
-  const nalozi =
+  const [nalozi, ukupnoNaloga, sumePrometa] =
     activeCompany && activeYear
-      ? await prisma.nalog.findMany({
-          where: journalWhere,
-          orderBy: [
-            {
-              datum: "desc"
-            },
-            {
-              created_at: "desc"
+      ? await Promise.all([
+          prisma.nalog.findMany({
+            where: journalWhere,
+            orderBy: [
+              {
+                datum: "desc"
+              },
+              {
+                created_at: "desc"
+              }
+            ],
+            take: PAGE_SIZE,
+            skip,
+            select: {
+              id: true,
+              sifra: true,
+              broj: true,
+              datum: true,
+              opis: true,
+              status: true,
+              vrsta_naloga: {
+                select: {
+                  naziv: true,
+                  prefiks: true
+                }
+              },
+              poslovna_godina: {
+                select: {
+                  godina: true
+                }
+              },
+              stavke: {
+                select: {
+                  duguje: true,
+                  potrazuje: true
+                }
+              }
             }
-          ],
-          select: {
-            id: true,
-            sifra: true,
-            broj: true,
-            datum: true,
-            opis: true,
-            status: true,
-            vrsta_naloga: {
-              select: {
-                naziv: true,
-                prefiks: true
-              }
-            },
-            poslovna_godina: {
-              select: {
-                godina: true
-              }
-            },
-            stavke: {
-              select: {
-                duguje: true,
-                potrazuje: true
-              }
-            }
-          }
-        })
-      : [];
+          }),
+          prisma.nalog.count({ where: journalWhere }),
+          prisma.stavkaNaloga.aggregate({
+            where: { nalog: journalWhere },
+            _sum: { duguje: true, potrazuje: true }
+          })
+        ])
+      : [[], 0, null];
 
-  const totals = nalozi.reduce(
-    (sum, nalog) => {
-      const duguje = nalog.stavke.reduce(
-        (lineSum, line) => lineSum + Number(line.duguje),
-        0
-      );
-      const potrazuje = nalog.stavke.reduce(
-        (lineSum, line) => lineSum + Number(line.potrazuje),
-        0
-      );
-
-      return {
-        duguje: sum.duguje + duguje,
-        potrazuje: sum.potrazuje + potrazuje
-      };
-    },
-    {
-      duguje: 0,
-      potrazuje: 0
-    }
-  );
+  const totals = {
+    duguje: Number(sumePrometa?._sum?.duguje ?? 0),
+    potrazuje: Number(sumePrometa?._sum?.potrazuje ?? 0)
+  };
 
   return (
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Modul 3</p>
           <h2>Nalozi za knjiženje</h2>
         </div>
         {activeCompany && activeYear && !activeYear.zakljucena ? (
@@ -389,6 +387,13 @@ export default async function NaloziPage({ searchParams }: NaloziPageProps) {
                 </tbody>
               </table>
             </div>
+
+            <Pagination
+              currentPage={currentPage}
+              pageSize={PAGE_SIZE}
+              searchParams={params ?? {}}
+              total={ukupnoNaloga}
+            />
           </section>
         </>
       )}

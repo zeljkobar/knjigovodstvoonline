@@ -172,7 +172,6 @@ export default async function AgencijskiKorisniciPage({
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <p className="eyebrow">Agencija</p>
           <h2>Korisnici i prava</h2>
         </div>
       </header>
