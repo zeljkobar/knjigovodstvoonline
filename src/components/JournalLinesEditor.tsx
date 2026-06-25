@@ -16,6 +16,9 @@ type PartnerOption = {
 
 export type JournalLineInitialValue = {
   accountCode?: string;
+  documentDate?: string;
+  documentDueDate?: string;
+  documentNumber?: string;
   credit?: string;
   debit?: string;
   description?: string;
@@ -148,6 +151,9 @@ export function JournalLinesEditor({
               <th>Konto</th>
               <th>Partner</th>
               <th>Opis</th>
+              <th>Broj dok.</th>
+              <th>Datum dok.</th>
+              <th>Valuta</th>
               <th>Duguje</th>
               <th>Potražuje</th>
             </tr>
@@ -208,6 +214,33 @@ export function JournalLinesEditor({
                       onChange={() => touchRow(index)}
                       onFocus={() => touchRow(index)}
                       placeholder="Opis stavke"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      defaultValue={initialLine?.documentNumber ?? ""}
+                      name="broj_dokumenta"
+                      onChange={() => touchRow(index)}
+                      onFocus={() => touchRow(index)}
+                      placeholder="Broj"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      defaultValue={initialLine?.documentDate ?? ""}
+                      name="datum_dokumenta"
+                      onChange={() => touchRow(index)}
+                      onFocus={() => touchRow(index)}
+                      type="date"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      defaultValue={initialLine?.documentDueDate ?? ""}
+                      name="datum_valute"
+                      onChange={() => touchRow(index)}
+                      onFocus={() => touchRow(index)}
+                      type="date"
                     />
                   </td>
                   <td>

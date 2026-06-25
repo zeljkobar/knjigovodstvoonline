@@ -15,6 +15,7 @@ const poruke: Record<string, string> = {
   kuf_kontekst: "Izaberite aktivnu firmu i poslovnu godinu.",
   kuf_mjesec: "Izaberite ispravan mjesec.",
   kuf_vrsta: "Izaberite ispravnu vrstu KUF-a.",
+  prava: "Nemate pravo za ovu akciju nad ulaznim računima.",
   kuf_greska: "KUF knjiga nije sačuvana. Provjerite podatke."
 };
 

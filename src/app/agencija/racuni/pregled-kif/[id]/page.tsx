@@ -4,7 +4,7 @@ import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
-type PregledKufDetailPageProps = {
+type PregledKifDetailPageProps = {
   params: Promise<{
     id: string;
   }>;
@@ -72,7 +72,7 @@ function entryPostingLabel(status: string) {
   return status === "POSTED" ? "Knjiženo" : "Otvorena";
 }
 
-export default async function PregledKufDetailPage({ params }: PregledKufDetailPageProps) {
+export default async function PregledKifDetailPage({ params }: PregledKifDetailPageProps) {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const { id } = await params;
   const workContext = await readWorkContext();
@@ -124,12 +124,12 @@ export default async function PregledKufDetailPage({ params }: PregledKufDetailP
   if (!activeCompany || !activeYear) {
     return (
       <div className="admin-stack">
-        <p className="admin-message">KUF knjiga nije dostupna za aktivni kontekst.</p>
+        <p className="admin-message">KIF knjiga nije dostupna za aktivni kontekst.</p>
       </div>
     );
   }
 
-  const kufBook = await prisma.kufBook.findFirst({
+  const kifBook = await prisma.kifBook.findFirst({
     where: {
       id,
       agencija_id: user.agencija_id,
@@ -139,14 +139,14 @@ export default async function PregledKufDetailPage({ params }: PregledKufDetailP
     },
     select: {
       id: true,
-      internal_kuf_number: true,
+      internal_kif_number: true,
       racun_vrsta: {
         select: {
           naziv: true
         }
       },
       mjesec: true,
-      kuf_date: true,
+      kif_date: true,
       status: true,
       entries: {
         where: {
@@ -157,24 +157,22 @@ export default async function PregledKufDetailPage({ params }: PregledKufDetailP
         },
         select: {
           id: true,
-          internal_kuf_number: true,
-          supplier_invoice_number: true,
+          internal_kif_number: true,
+          customer_invoice_number: true,
           invoice_date: true,
-          receipt_date: true,
           total_base: true,
-          total_input_vat: true,
-          non_deductible_vat: true,
+          total_output_vat: true,
           total_gross: true,
           status: true,
           posting_status: true,
           note: true,
-          expense_account: {
+          revenue_account: {
             select: {
               sifra: true,
               naziv: true
             }
           },
-          dobavljac: {
+          kupac: {
             select: {
               naziv: true,
               pib: true
@@ -188,7 +186,7 @@ export default async function PregledKufDetailPage({ params }: PregledKufDetailP
               id: true,
               vat_rate_percent: true,
               tax_base: true,
-              input_vat_amount: true
+              output_vat_amount: true
             }
           }
         }
@@ -196,21 +194,21 @@ export default async function PregledKufDetailPage({ params }: PregledKufDetailP
     }
   });
 
-  if (!kufBook) {
+  if (!kifBook) {
     return (
       <div className="admin-stack">
-        <p className="admin-message">KUF knjiga nije pronađena.</p>
-        <Link className="secondary-button" href="/agencija/racuni/pregled-kuf">
+        <p className="admin-message">KIF knjiga nije pronađena.</p>
+        <Link className="secondary-button" href="/agencija/racuni/pregled-kif">
           Nazad na pregled
         </Link>
       </div>
     );
   }
 
-  const totals = kufBook.entries.reduce(
+  const totals = kifBook.entries.reduce(
     (sum, entry) => ({
       base: sum.base + Number(entry.total_base.toString()),
-      vat: sum.vat + Number(entry.total_input_vat.toString()),
+      vat: sum.vat + Number(entry.total_output_vat.toString()),
       gross: sum.gross + Number(entry.total_gross.toString())
     }),
     {
@@ -219,24 +217,24 @@ export default async function PregledKufDetailPage({ params }: PregledKufDetailP
       gross: 0
     }
   );
-  const bookStatusLabel = bookPostingLabel(kufBook.entries);
+  const bookStatusLabel = bookPostingLabel(kifBook.entries);
 
   return (
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <h2>{kufBook.internal_kuf_number}</h2>
+          <h2>{kifBook.internal_kif_number}</h2>
           <p>
-            Pregled KUF knjige · {mjeseci[kufBook.mjesec - 1] ?? kufBook.mjesec}{" "}
-            {activeYear.godina} · {kufBook.racun_vrsta.naziv} · datum KUF-a{" "}
-            {displayDate(kufBook.kuf_date)}
+            Pregled KIF knjige · {mjeseci[kifBook.mjesec - 1] ?? kifBook.mjesec}{" "}
+            {activeYear.godina} · {kifBook.racun_vrsta.naziv} · datum KIF-a{" "}
+            {displayDate(kifBook.kif_date)}
           </p>
         </div>
         <div className="table-actions">
-          <Link className="secondary-button" href="/agencija/racuni/pregled-kuf">
+          <Link className="secondary-button" href="/agencija/racuni/pregled-kif">
             Nazad
           </Link>
-          <Link className="secondary-button" href={`/agencija/racuni/kuf/${kufBook.id}`}>
+          <Link className="secondary-button" href={`/agencija/racuni/kif/${kifBook.id}`}>
             Dodaj račun/e
           </Link>
         </div>
@@ -245,7 +243,7 @@ export default async function PregledKufDetailPage({ params }: PregledKufDetailP
       <section className="metric-grid">
         <div className="metric">
           <span>Računa</span>
-          <strong>{kufBook.entries.length}</strong>
+          <strong>{kifBook.entries.length}</strong>
           <small>{bookStatusLabel}</small>
         </div>
         <div className="metric">
@@ -256,24 +254,24 @@ export default async function PregledKufDetailPage({ params }: PregledKufDetailP
         <div className="metric">
           <span>PDV / Ukupno</span>
           <strong>{decimalText(totals.vat)} / {decimalText(totals.gross)}</strong>
-          <small>ulazni PDV i bruto iznos</small>
+          <small>izlazni PDV i bruto iznos</small>
         </div>
       </section>
 
       <section className="admin-panel">
         <div className="panel-header">
-          <h3>Računi u KUF knjizi</h3>
-          <span>{kufBook.entries.length} redova</span>
+          <h3>Računi u KIF knjizi</h3>
+          <span>{kifBook.entries.length} redova</span>
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>KUF broj</th>
-                <th>Dobavljač</th>
+                <th>KIF broj</th>
+                <th>Kupac</th>
                 <th>Račun</th>
-                <th>Konto troška</th>
-                <th>Datumi</th>
+                <th>Konto prihoda</th>
+                <th>Datum</th>
                 <th>Osnovica</th>
                 <th>PDV</th>
                 <th>Ukupno</th>
@@ -282,47 +280,39 @@ export default async function PregledKufDetailPage({ params }: PregledKufDetailP
               </tr>
             </thead>
             <tbody>
-              {kufBook.entries.length === 0 ? (
+              {kifBook.entries.length === 0 ? (
                 <tr>
-                  <td colSpan={10}>Nema unesenih računa u ovoj KUF knjizi.</td>
+                  <td colSpan={10}>Nema unesenih računa u ovoj KIF knjizi.</td>
                 </tr>
               ) : (
-                kufBook.entries.map((entry) => {
+                kifBook.entries.map((entry) => {
                   const entryStatus = entryPostingLabel(entry.posting_status);
 
                   return (
                   <tr key={entry.id}>
                     <td>
-                      <strong>{entry.internal_kuf_number}</strong>
+                      <strong>{entry.internal_kif_number}</strong>
                       {entry.note ? <small>{entry.note}</small> : null}
                     </td>
                     <td>
-                      {entry.dobavljac.naziv}
-                      <small>{entry.dobavljac.pib ?? ""}</small>
+                      {entry.kupac.naziv}
+                      <small>{entry.kupac.pib ?? ""}</small>
                     </td>
-                    <td>{normalizeFiscalInvoiceNumber(entry.supplier_invoice_number)}</td>
+                    <td>{normalizeFiscalInvoiceNumber(entry.customer_invoice_number)}</td>
                     <td>
-                      {entry.expense_account
-                        ? `${entry.expense_account.sifra} - ${entry.expense_account.naziv}`
+                      {entry.revenue_account
+                        ? `${entry.revenue_account.sifra} - ${entry.revenue_account.naziv}`
                         : "-"}
                     </td>
-                    <td>
-                      {displayDate(entry.invoice_date)}
-                      <small>prijem {displayDate(entry.receipt_date)}</small>
-                    </td>
+                    <td>{displayDate(entry.invoice_date)}</td>
                     <td>{decimalText(entry.total_base)}</td>
-                    <td>
-                      {decimalText(entry.total_input_vat)}
-                      {Number(entry.non_deductible_vat.toString()) > 0 ? (
-                        <small>neodbitni {decimalText(entry.non_deductible_vat)}</small>
-                      ) : null}
-                    </td>
+                    <td>{decimalText(entry.total_output_vat)}</td>
                     <td>{decimalText(entry.total_gross)}</td>
                     <td>
                       {entry.tax_lines.map((line) => (
                         <small key={line.id}>
                           {decimalText(line.vat_rate_percent)}%: {decimalText(line.tax_base)} +{" "}
-                          {decimalText(line.input_vat_amount)}
+                          {decimalText(line.output_vat_amount)}
                         </small>
                       ))}
                     </td>

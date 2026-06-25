@@ -33,6 +33,8 @@ const poruke: Record<string, string> = {
   sema_pdv: "Definišite bar jednu aktivnu PDV stopu.",
   sema_smjer: "Izaberite ispravan smjer knjiženja.",
   sema_izvor: "Izvor konta nije ispravan.",
+  sema_vrsta_naloga: "Izaberite vrstu naloga za ovu vrstu knjige.",
+  prava: "Nemate pravo za upravljanje podešavanjima KIF/KUF knjiga.",
   sema_konto:
     "Šema nije sačuvana: za svako polje sa izvorom 'Izabrano konto' morate izabrati konto."
 };
@@ -83,7 +85,7 @@ export default async function RacuniPodesavanjaPage({
     await ensureDefaultInvoiceBookTypes(activeCompany.id, user.agencija_id, user.id);
   }
 
-  const [baseAccounts, companyOverrides, vatRates, invoiceTypes] = activeCompany
+  const [baseAccounts, companyOverrides, vatRates, invoiceTypes, journalTypes] = activeCompany
     ? await Promise.all([
         prisma.konto.findMany({
           where: {
@@ -165,6 +167,7 @@ export default async function RacuniPodesavanjaPage({
           ],
           select: {
             id: true,
+            vrsta_naloga_id: true,
             dokument_tip: true,
             sifra: true,
             naziv: true,
@@ -185,9 +188,39 @@ export default async function RacuniPodesavanjaPage({
               }
             }
           }
+        }),
+        prisma.vrstaNaloga.findMany({
+          where: {
+            aktivan: true,
+            OR: [
+              {
+                sistemska: true
+              },
+              {
+                agencija_id: user.agencija_id
+              },
+              {
+                firma_id: activeCompany.id
+              }
+            ]
+          },
+          orderBy: [
+            {
+              sistemska: "desc"
+            },
+            {
+              naziv: "asc"
+            }
+          ],
+          select: {
+            id: true,
+            sifra: true,
+            naziv: true,
+            prefiks: true
+          }
         })
       ])
-    : [[], [], [], []];
+    : [[], [], [], [], []];
 
   const accounts = mergeCompanyAccountPlan(baseAccounts, companyOverrides).filter(
     (account) => account.aktivan
@@ -267,6 +300,7 @@ export default async function RacuniPodesavanjaPage({
                     <th>Šifra</th>
                     <th>Naziv</th>
                     <th>Opis</th>
+                    <th>Vrsta naloga</th>
                     <th>Šema</th>
                   </tr>
                 </thead>
@@ -279,6 +313,10 @@ export default async function RacuniPodesavanjaPage({
                       </td>
                       <td>{type.naziv}</td>
                       <td>{type.opis ?? "-"}</td>
+                      <td>
+                        {journalTypes.find((journalType) => journalType.id === type.vrsta_naloga_id)
+                          ?.naziv ?? "-"}
+                      </td>
                       <td>
                         <Link
                           className="table-action"
@@ -307,6 +345,20 @@ export default async function RacuniPodesavanjaPage({
 
               <form action={saveInvoicePostingRules}>
                 <input type="hidden" name="racun_vrsta_id" value={selectedType.id} />
+                <div className="admin-form single-row-form">
+                  <label>
+                    <span>Vrsta naloga</span>
+                    <select name="vrsta_naloga_id" defaultValue={selectedType.vrsta_naloga_id ?? ""} required>
+                      <option value="">Izaberite vrstu naloga</option>
+                      {journalTypes.map((journalType) => (
+                        <option key={journalType.id} value={journalType.id}>
+                          {journalType.naziv}
+                          {journalType.prefiks ? ` (${journalType.prefiks})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
                 <div className="table-wrap">
                   <table>
                     <thead>

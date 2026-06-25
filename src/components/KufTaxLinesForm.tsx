@@ -83,6 +83,25 @@ export function KufTaxLinesForm({
   const [preferredVatRateCode, setPreferredVatRateCode] = useState<string | null>(null);
 
   useEffect(() => {
+    setInvoiceTotal(initialInvoiceTotal);
+    setManualBases(
+      Object.fromEntries(
+        initialLines
+          .filter((line) => line.taxBase)
+          .map((line) => [line.vatRateId, line.taxBase])
+      )
+    );
+    setNonDeductible(
+      Object.fromEntries(
+        initialLines
+          .filter((line) => line.nonDeductibleVat)
+          .map((line) => [line.vatRateId, line.nonDeductibleVat])
+      )
+    );
+    setPreferredVatRateCode(null);
+  }, [initialInvoiceTotal, initialLines]);
+
+  useEffect(() => {
     function handleFiskalniLink(e: Event) {
       const { total } = (e as CustomEvent<{ total: string }>).detail ?? {};
       if (total) {
@@ -137,27 +156,35 @@ export function KufTaxLinesForm({
   }, []);
 
   const calculatedLines = useMemo(() => {
-    let remainingGross = parseAmount(invoiceTotal);
-    let autoFilled = false;
+    const invoiceGross = parseAmount(invoiceTotal);
+    const manualRateIndexes = rates
+      .map((rate, index) => (manualBases[rate.id] !== undefined ? index : -1))
+      .filter((index) => index >= 0);
+    const lastManualRateIndex =
+      manualRateIndexes.length > 0 ? Math.max(...manualRateIndexes) : -1;
     const autoFillRate = rates.find((rate) => rate.sifra === preferredVatRateCode) ?? rates[0];
+    const autoFillRateIndex =
+      lastManualRateIndex >= 0
+        ? lastManualRateIndex + 1
+        : rates.findIndex((rate) => rate.id === autoFillRate?.id);
+    let usedGross = 0;
 
-    return rates.map((rate) => {
+    return rates.map((rate, index) => {
       const percent = Number(rate.procenat);
       const manualValue = manualBases[rate.id];
       const hasManualValue = manualValue !== undefined;
+      const remainingGross = Math.max(0, Math.round((invoiceGross - usedGross) * 100) / 100);
+      const shouldAutoFill = !hasManualValue && index === autoFillRateIndex && remainingGross > 0;
       const base = hasManualValue
         ? parseAmount(manualValue)
-        : !autoFilled && remainingGross > 0 && rate.id === autoFillRate?.id
+        : shouldAutoFill
           ? baseFromGross(remainingGross, percent)
           : 0;
       const vat = Math.round(base * percent) / 100;
       const gross = grossFromBase(base, percent);
 
-      if (hasManualValue) {
-        remainingGross = Math.max(0, Math.round((remainingGross - gross) * 100) / 100);
-      } else if (!autoFilled && remainingGross > 0 && rate.id === autoFillRate?.id) {
-        autoFilled = true;
-        remainingGross = 0;
+      if (hasManualValue || shouldAutoFill) {
+        usedGross = Math.round((usedGross + gross) * 100) / 100;
       }
 
       return {

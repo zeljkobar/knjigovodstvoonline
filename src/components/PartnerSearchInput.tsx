@@ -42,6 +42,13 @@ export function PartnerSearchInput({
   const selectedLabel = useMemo(() => selected?.label ?? "", [selected]);
 
   useEffect(() => {
+    setSelected(initialPartner);
+    setQuery(initialPartner?.label ?? "");
+    setResults([]);
+    setStatus("");
+  }, [initialPartner]);
+
+  useEffect(() => {
     if (selected && query === selectedLabel) {
       return;
     }

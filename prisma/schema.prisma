@@ -519,6 +519,8 @@ model RacunVrsta {
   agencija_id        String                    @db.Uuid
   firma_id           String                    @db.Uuid
   firma              Firma                     @relation(fields: [firma_id], references: [id])
+  vrsta_naloga_id    String?                   @db.Uuid
+  vrsta_naloga       VrstaNaloga?              @relation(fields: [vrsta_naloga_id], references: [id])
   dokument_tip       String
   sifra              String
   naziv              String
@@ -536,6 +538,7 @@ model RacunVrsta {
 
   @@unique([firma_id, dokument_tip, sifra])
   @@index([agencija_id, firma_id, dokument_tip, aktivna])
+  @@index([vrsta_naloga_id])
   @@map("racun_vrste")
 }
 
@@ -807,6 +810,7 @@ model VrstaNaloga {
   updated_at DateTime @updatedAt
   updated_by String?  @db.Uuid
   nalozi     Nalog[]
+  racunVrste RacunVrsta[]
 
   @@map("vrste_naloga")
 }

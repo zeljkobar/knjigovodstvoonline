@@ -15,6 +15,7 @@ const poruke: Record<string, string> = {
   kif_kontekst: "Izaberite aktivnu firmu i poslovnu godinu.",
   kif_mjesec: "Izaberite ispravan mjesec.",
   kif_vrsta: "Izaberite ispravnu vrstu KIF-a.",
+  prava: "Nemate pravo za ovu akciju nad izlaznim računima.",
   kif_greska: "KIF knjiga nije sačuvana. Provjerite podatke."
 };
 

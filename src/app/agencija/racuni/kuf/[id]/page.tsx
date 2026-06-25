@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createKufEntry, updateKufEntry } from "../../actions";
+import { createKufEntry, deleteKufEntry, postInvoiceBook, updateKufEntry } from "../../actions";
 import { FiskalniLinkInput } from "@/components/FiskalniLinkInput";
 import { FiskalniUcitajButton } from "@/components/FiskalniUcitajButton";
 import { KufEntryFormShortcuts } from "@/components/KufEntryFormShortcuts";
@@ -7,6 +7,7 @@ import { KufTaxLinesForm } from "@/components/KufTaxLinesForm";
 import { PartnerSearchInput } from "@/components/PartnerSearchInput";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
+import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -24,13 +25,23 @@ const poruke: Record<string, string> = {
   kuf_knjiga_sacuvana: "KUF knjiga je otvorena.",
   kuf_sacuvan: "Račun je dodat u KUF.",
   kuf_izmijenjen: "Račun je izmijenjen.",
+  kuf_obrisan: "Račun je obrisan iz KUF-a.",
   kuf_kontekst: "Izaberite aktivnu firmu i poslovnu godinu.",
   kuf_obavezno: "Dobavljač, konto troška, ukupan iznos, broj računa, datum računa i datum prijema su obavezni.",
   kuf_iznosi: "Provjerite osnovice i PDV iznose.",
   kuf_ukupno: "Ukupno računa se ne slaže sa zbirom osnovica i PDV-a.",
   kuf_konto: "Konto mora biti aktivno analitičko konto iz kontnog plana.",
   kuf_knjiga: "KUF knjiga nije otvorena za unos.",
+  kuf_dupli_broj: "Račun sa istim dobavljačem, brojem i datumom već postoji u KUF-u.",
   kuf_dupli_fiskalni: "Ovaj fiskalni račun je već unesen u KUF za aktivnu firmu.",
+  prava: "Nemate pravo za ovu akciju nad ulaznim računima.",
+  knjizenje_kreiran: "Nalog je kreiran.",
+  knjizenje_dodato: "Novi računi su dodati na postojeći nalog.",
+  knjizenje_vrsta_naloga: "Za ovu vrstu KUF knjige prvo izaberite vrstu naloga u podešavanjima.",
+  knjizenje_sema: "Šema kontiranja nije kompletna za ovu vrstu knjige.",
+  knjizenje_konto: "Neko konto iz šeme nije aktivno analitičko konto.",
+  knjizenje_nalog_zakljucan: "Postojeći nalog je već proknjižen i ne može se dopuniti.",
+  knjizenje_nema: "Nema neproknjiženih računa za ovu knjigu.",
   kuf_greska: "Račun nije sačuvan. Provjerite podatke."
 };
 
@@ -78,6 +89,38 @@ function decimalInput(value: { toString(): string } | number) {
 
 function displayDate(date: Date) {
   return date.toLocaleDateString("sr-Latn-ME");
+}
+
+function postingStatusLabel(total: number, posted: number, unposted: number) {
+  if (total === 0) {
+    return "Prazno";
+  }
+
+  if (posted > 0 && unposted > 0) {
+    return "Djelimično knjižena";
+  }
+
+  if (posted > 0 && unposted === 0) {
+    return "Knjiženo";
+  }
+
+  return "Otvorena";
+}
+
+function postingStatusClass(label: string) {
+  if (label === "Knjiženo") {
+    return "status-pill status-pill--success";
+  }
+
+  if (label === "Djelimično knjižena") {
+    return "status-pill status-pill--warning";
+  }
+
+  if (label === "Prazno") {
+    return "status-pill status-pill--muted";
+  }
+
+  return "status-pill";
 }
 
 export default async function KufBookPage({ params, searchParams }: KufBookPageProps) {
@@ -188,6 +231,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             total_gross: true,
             status: true,
             posting_status: true,
+            journal_id: true,
             note: true,
             expense_account: {
               select: {
@@ -318,6 +362,12 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
     ? kufBook.entries.find((entry) => entry.id === query.edit)
     : null;
   const formAction = editingEntry ? updateKufEntry : createKufEntry;
+  const journalId = kufBook.entries.find((entry) => entry.journal_id)?.journal_id ?? null;
+  const unpostedCount = kufBook.entries.filter(
+    (entry) => entry.posting_status === "UNPOSTED" && !entry.journal_id
+  ).length;
+  const postedCount = kufBook.entries.filter((entry) => entry.posting_status === "POSTED").length;
+  const postingLabel = postingStatusLabel(kufBook.entries.length, postedCount, unpostedCount);
   const editingSupplier = editingEntry
     ? {
         id: editingEntry.dobavljac.id,
@@ -345,11 +395,42 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
 
       {message ? <p className="admin-message">{message}</p> : null}
 
+      <section className="admin-panel">
+        <div className="panel-header">
+          <div>
+            <h3>Knjiženje KUF-a</h3>
+            <span>
+              {journalId
+                ? `${unpostedCount} računa čeka dodavanje na postojeći nalog`
+                : `${unpostedCount} računa čeka knjiženje`}
+            </span>
+          </div>
+          <div className="button-row">
+            <span className={postingStatusClass(postingLabel)}>{postingLabel}</span>
+            {journalId ? (
+              <Link className="secondary-button" href={`/agencija/nalozi/${journalId}`}>
+                Vidi nalog
+              </Link>
+            ) : null}
+            {unpostedCount > 0 ? (
+              <form action={postInvoiceBook}>
+                <input type="hidden" name="dokument_tip" value="KUF" />
+                <input type="hidden" name="book_id" value={kufBook.id} />
+                <input type="hidden" name="return_to" value={`/agencija/racuni/kuf/${kufBook.id}`} />
+                <button className="primary-button" type="submit">
+                  {journalId ? "Dodaj na nalog" : "Proknjiži KUF"}
+                </button>
+              </form>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
       <section className="metric-grid">
         <div className="metric">
           <span>Računa</span>
           <strong>{kufBook.entries.length}</strong>
-          <small>{kufBook.status}</small>
+          <small>{postingLabel}</small>
         </div>
         <div className="metric">
           <span>Osnovica</span>
@@ -381,7 +462,12 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
           </p>
         ) : null}
 
-        <form id="kuf-entry-form" className="admin-form kuf-entry-form" action={formAction}>
+        <form
+          key={editingEntry?.id ?? "new-kuf-entry"}
+          id="kuf-entry-form"
+          className="admin-form kuf-entry-form"
+          action={formAction}
+        >
           <KufEntryFormShortcuts formId="kuf-entry-form" />
           <input name="kuf_book_id" type="hidden" value={kufBook.id} />
           {editingEntry ? <input name="kuf_entry_id" type="hidden" value={editingEntry.id} /> : null}
@@ -416,7 +502,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             <span>Broj računa dobavljača</span>
             <input
               name="supplier_invoice_number"
-              defaultValue={editingEntry?.supplier_invoice_number ?? ""}
+              defaultValue={normalizeFiscalInvoiceNumber(editingEntry?.supplier_invoice_number)}
               required
               disabled={isLocked}
             />
@@ -550,7 +636,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
                       {entry.dobavljac.naziv}
                       <small>{entry.dobavljac.pib ?? ""}</small>
                     </td>
-                    <td>{entry.supplier_invoice_number}</td>
+                    <td>{normalizeFiscalInvoiceNumber(entry.supplier_invoice_number)}</td>
                     <td>
                       {entry.expense_account
                         ? `${entry.expense_account.sifra} - ${entry.expense_account.naziv}`
@@ -577,14 +663,30 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
                       ))}
                     </td>
                     <td>
-                      {entry.status}
-                      <small>{entry.posting_status}</small>
+                      <span
+                        className={
+                          entry.posting_status === "POSTED"
+                            ? "status-pill status-pill--success"
+                            : "status-pill"
+                        }
+                      >
+                        {entry.posting_status === "POSTED" ? "Knjiženo" : "Otvorena"}
+                      </span>
                     </td>
                     <td>
                       {entry.posting_status === "UNPOSTED" && !isLocked ? (
-                        <Link className="table-action" href={`/agencija/racuni/kuf/${kufBook.id}?edit=${entry.id}#kuf-entry-form`}>
-                          Izmijeni
-                        </Link>
+                        <div className="table-actions">
+                          <Link className="table-button" href={`/agencija/racuni/kuf/${kufBook.id}?edit=${entry.id}#kuf-entry-form`}>
+                            Izmijeni
+                          </Link>
+                          <form action={deleteKufEntry}>
+                            <input type="hidden" name="kuf_book_id" value={kufBook.id} />
+                            <input type="hidden" name="kuf_entry_id" value={entry.id} />
+                            <button className="table-button table-button-danger" type="submit">
+                              Obriši
+                            </button>
+                          </form>
+                        </div>
                       ) : (
                         "-"
                       )}

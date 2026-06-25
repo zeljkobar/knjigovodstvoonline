@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { useState } from "react";
 
 type Status = { type: "ok" | "warn" | "error" | ""; message: string };
@@ -97,7 +98,7 @@ export function FiskalniLinkInput({ formId }: { formId: string }) {
 
     // Broj računa
     const year = crtd.slice(0, 4);
-    const invoiceNumber = `${bu}/${ord}/${year}/${cr}`;
+    const invoiceNumber = normalizeFiscalInvoiceNumber(`${bu}/${ord}/${year}/${cr}`);
     const invNumInput = form.querySelector<HTMLInputElement>('input[name="supplier_invoice_number"]');
     if (invNumInput) invNumInput.value = invoiceNumber;
 

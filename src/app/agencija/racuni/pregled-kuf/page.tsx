@@ -29,9 +29,71 @@ function displayDate(date: Date) {
   return date.toLocaleDateString("sr-Latn-ME");
 }
 
-export default async function PregledKufPage() {
+function bookPostingLabel(entries: Array<{ posting_status: string }>) {
+  if (entries.length === 0) {
+    return "Otvorena";
+  }
+
+  const posted = entries.filter((entry) => entry.posting_status === "POSTED").length;
+
+  if (posted === entries.length) {
+    return "Knjiženo";
+  }
+
+  if (posted > 0) {
+    return "Djelimično knjiženo";
+  }
+
+  return "Otvorena";
+}
+
+function bookPostingClass(label: string) {
+  if (label === "Knjiženo") {
+    return "status-pill status-pill--success";
+  }
+
+  if (label === "Djelimično knjiženo") {
+    return "status-pill status-pill--warning";
+  }
+
+  return "status-pill";
+}
+
+type PregledKufPageProps = {
+  searchParams?: Promise<{
+    datum_do?: string;
+    datum_od?: string;
+  }>;
+};
+
+function parseDateFilter(value?: string) {
+  if (!value) {
+    return null;
+  }
+
+  return new Date(`${value}T00:00:00.000Z`);
+}
+
+function printHref(params?: { datum_do?: string; datum_od?: string }) {
+  const query = new URLSearchParams();
+
+  if (params?.datum_od) {
+    query.set("datum_od", params.datum_od);
+  }
+
+  if (params?.datum_do) {
+    query.set("datum_do", params.datum_do);
+  }
+
+  return `/stampa/kuf${query.toString() ? `?${query.toString()}` : ""}`;
+}
+
+export default async function PregledKufPage({ searchParams }: PregledKufPageProps) {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const workContext = await readWorkContext();
+  const params = await searchParams;
+  const dateFrom = parseDateFilter(params?.datum_od);
+  const dateTo = parseDateFilter(params?.datum_do);
 
   if (!user.agencija_id) {
     return null;
@@ -82,7 +144,15 @@ export default async function PregledKufPage() {
             agencija_id: user.agencija_id,
             firma_id: activeCompany.id,
             poslovna_godina_id: activeYear.id,
-            is_deleted: false
+            is_deleted: false,
+            ...(dateFrom || dateTo
+              ? {
+                  kuf_date: {
+                    ...(dateFrom ? { gte: dateFrom } : {}),
+                    ...(dateTo ? { lte: dateTo } : {})
+                  }
+                }
+              : {})
           },
           orderBy: {
             redni_broj: "desc"
@@ -106,7 +176,8 @@ export default async function PregledKufPage() {
                 id: true,
                 total_base: true,
                 total_input_vat: true,
-                total_gross: true
+                total_gross: true,
+                posting_status: true
               }
             }
           }
@@ -139,6 +210,11 @@ export default async function PregledKufPage() {
           <h2>Pregled KUF</h2>
           <p>Pregled otvorenih i unesenih knjiga ulaznih faktura.</p>
         </div>
+        {activeCompany && activeYear ? (
+          <Link className="secondary-button" href={printHref(params)} target="_blank">
+            Štampa
+          </Link>
+        ) : null}
       </header>
 
       {!activeCompany || !activeYear ? (
@@ -168,6 +244,23 @@ export default async function PregledKufPage() {
               <strong>{activeYear.godina}</strong>
               <small>Aktivni kontekst</small>
             </div>
+          </section>
+
+          <section className="admin-panel">
+            <form className="admin-form inline-filter-form" method="get">
+              <label>
+                Datum KUF-a od
+                <input name="datum_od" type="date" defaultValue={params?.datum_od ?? ""} />
+              </label>
+              <label>
+                Datum KUF-a do
+                <input name="datum_do" type="date" defaultValue={params?.datum_do ?? ""} />
+              </label>
+              <button type="submit">Prikaži</button>
+              <Link className="secondary-button" href="/agencija/racuni/pregled-kuf">
+                Svi periodi
+              </Link>
+            </form>
           </section>
 
           <section className="admin-panel">
@@ -210,6 +303,7 @@ export default async function PregledKufPage() {
                           gross: 0
                         }
                       );
+                      const statusLabel = bookPostingLabel(book.entries);
 
                       return (
                         <tr key={book.id}>
@@ -223,7 +317,9 @@ export default async function PregledKufPage() {
                           <td>{decimalText(bookTotals.base)}</td>
                           <td>{decimalText(bookTotals.vat)}</td>
                           <td>{decimalText(bookTotals.gross)}</td>
-                          <td>{book.status}</td>
+                          <td>
+                            <span className={bookPostingClass(statusLabel)}>{statusLabel}</span>
+                          </td>
                           <td>
                             <Link className="table-action" href={`/agencija/racuni/pregled-kuf/${book.id}`}>
                               Otvori

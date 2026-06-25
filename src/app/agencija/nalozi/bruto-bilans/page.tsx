@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
 import { BalanceLevelCheckboxes } from "@/components/BalanceLevelCheckboxes";
 import { requireAnyRole } from "@/lib/auth";
+import { standardJournalTypes } from "@/lib/journals";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -51,6 +52,38 @@ function analyticsHref(
   return `/agencija/nalozi/analiticke-kartice?${query.toString()}`;
 }
 
+function printHref(params?: Awaited<BrutoBilansPageProps["searchParams"]>) {
+  const query = new URLSearchParams();
+
+  if (params?.klasa) {
+    query.set("klasa", params.klasa);
+  }
+
+  if (params?.konto) {
+    query.set("konto", params.konto);
+  }
+
+  if (params?.datum_od) {
+    query.set("datum_od", params.datum_od);
+  }
+
+  if (params?.datum_do) {
+    query.set("datum_do", params.datum_do);
+  }
+
+  if (params?.nivo) {
+    query.set("nivo", params.nivo);
+  }
+
+  if (params?.samo_zbir) {
+    query.set("samo_zbir", params.samo_zbir);
+  }
+
+  const suffix = query.toString();
+
+  return `/stampa/bruto-bilans${suffix ? `?${suffix}` : ""}`;
+}
+
 function parseAggregationLevel(value?: string) {
   if (!value) {
     return null;
@@ -60,6 +93,8 @@ function parseAggregationLevel(value?: string) {
 
   return [1, 2, 3, 4].includes(level) ? level : null;
 }
+
+const openingBalanceType = standardJournalTypes[0][0];
 
 export default async function BrutoBilansPage({ searchParams }: BrutoBilansPageProps) {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
@@ -165,6 +200,15 @@ export default async function BrutoBilansPage({ searchParams }: BrutoBilansPageP
       select: {
         duguje: true,
         potrazuje: true,
+        nalog: {
+          select: {
+            vrsta_naloga: {
+              select: {
+                sifra: true
+              }
+            }
+          }
+        },
         firma_konto: {
           select: {
             id: true,
@@ -191,20 +235,28 @@ export default async function BrutoBilansPage({ searchParams }: BrutoBilansPageP
     stavke
       .reduce((map, stavka) => {
         const key = stavka.firma_konto.sifra;
+        const isOpeningBalance = stavka.nalog.vrsta_naloga.sifra === openingBalanceType;
         const existing = map.get(key) ?? {
-          klasa: key.charAt(0),
           naziv: stavka.firma_konto.naziv,
           sifra: key,
+          pocetnoDuguje: 0,
+          pocetnoPotrazuje: 0,
           duguje: 0,
           potrazuje: 0
         };
 
-        existing.duguje += Number(stavka.duguje);
-        existing.potrazuje += Number(stavka.potrazuje);
+        if (isOpeningBalance) {
+          existing.pocetnoDuguje += Number(stavka.duguje);
+          existing.pocetnoPotrazuje += Number(stavka.potrazuje);
+        } else {
+          existing.duguje += Number(stavka.duguje);
+          existing.potrazuje += Number(stavka.potrazuje);
+        }
+
         map.set(key, existing);
 
         return map;
-      }, new Map<string, { klasa: string; sifra: string; naziv: string; duguje: number; potrazuje: number }>())
+      }, new Map<string, { sifra: string; naziv: string; pocetnoDuguje: number; pocetnoPotrazuje: number; duguje: number; potrazuje: number }>())
       .values()
   ).sort((a, b) => a.sifra.localeCompare(b.sifra));
   const summaryRows =
@@ -215,21 +267,24 @@ export default async function BrutoBilansPage({ searchParams }: BrutoBilansPageP
             .reduce((map, row) => {
               const key = row.sifra.slice(0, aggregationLevel);
               const existing = map.get(key) ?? {
-                klasa: key.charAt(0),
                 naziv:
                   accountNamesByCode.get(key) ??
                   (aggregationLevel === 1 ? `Zbir klase ${key}` : `Zbir konta ${key}`),
                 sifra: key,
+                pocetnoDuguje: 0,
+                pocetnoPotrazuje: 0,
                 duguje: 0,
                 potrazuje: 0
               };
 
+              existing.pocetnoDuguje += row.pocetnoDuguje;
+              existing.pocetnoPotrazuje += row.pocetnoPotrazuje;
               existing.duguje += row.duguje;
               existing.potrazuje += row.potrazuje;
               map.set(key, existing);
 
               return map;
-            }, new Map<string, { klasa: string; sifra: string; naziv: string; duguje: number; potrazuje: number }>())
+            }, new Map<string, { sifra: string; naziv: string; pocetnoDuguje: number; pocetnoPotrazuje: number; duguje: number; potrazuje: number }>())
             .values()
         ).sort((a, b) => a.sifra.localeCompare(b.sifra));
   const displayRows = summaryOnly
@@ -264,9 +319,11 @@ export default async function BrutoBilansPage({ searchParams }: BrutoBilansPageP
         return [detailRow];
       });
 
+  const totalOpeningDebit = detailedRows.reduce((sum, row) => sum + row.pocetnoDuguje, 0);
+  const totalOpeningCredit = detailedRows.reduce((sum, row) => sum + row.pocetnoPotrazuje, 0);
   const totalDebit = detailedRows.reduce((sum, row) => sum + row.duguje, 0);
   const totalCredit = detailedRows.reduce((sum, row) => sum + row.potrazuje, 0);
-  const totalBalance = totalDebit - totalCredit;
+  const totalBalance = totalOpeningDebit + totalDebit - totalOpeningCredit - totalCredit;
 
   return (
     <div className="admin-stack">
@@ -274,6 +331,9 @@ export default async function BrutoBilansPage({ searchParams }: BrutoBilansPageP
         <div>
           <h1>Bruto bilans</h1>
         </div>
+        <Link className="secondary-button" href={printHref(params)} target="_blank">
+          Štampa
+        </Link>
       </header>
 
       <section className="stats-grid">
@@ -363,7 +423,8 @@ export default async function BrutoBilansPage({ searchParams }: BrutoBilansPageP
               <tr>
                 <th>Konto</th>
                 <th>Naziv</th>
-                <th>Klasa</th>
+                <th>Početno duguje</th>
+                <th>Početno potražuje</th>
                 <th>Duguje</th>
                 <th>Potražuje</th>
                 <th>Saldo duguje</th>
@@ -372,7 +433,8 @@ export default async function BrutoBilansPage({ searchParams }: BrutoBilansPageP
             </thead>
             <tbody>
               {displayRows.map((row) => {
-                const saldo = row.duguje - row.potrazuje;
+                const saldo =
+                  row.pocetnoDuguje + row.duguje - row.pocetnoPotrazuje - row.potrazuje;
 
                 return (
                   <tr
@@ -389,7 +451,8 @@ export default async function BrutoBilansPage({ searchParams }: BrutoBilansPageP
                         {row.naziv}
                       </Link>
                     </td>
-                    <td>{row.klasa ?? "-"}</td>
+                    <td>{money(row.pocetnoDuguje)}</td>
+                    <td>{money(row.pocetnoPotrazuje)}</td>
                     <td>{money(row.duguje)}</td>
                     <td>{money(row.potrazuje)}</td>
                     <td>{saldo > 0 ? money(saldo) : "0,00"}</td>
@@ -399,13 +462,15 @@ export default async function BrutoBilansPage({ searchParams }: BrutoBilansPageP
               })}
               {displayRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>Nema proknjiženih stavki za izabrane uslove.</td>
+                  <td colSpan={8}>Nema proknjiženih stavki za izabrane uslove.</td>
                 </tr>
               ) : null}
             </tbody>
             <tfoot>
               <tr className="balance-total-row">
-                <td colSpan={3}>Ukupno</td>
+                <td colSpan={2}>Ukupno</td>
+                <td>{money(totalOpeningDebit)}</td>
+                <td>{money(totalOpeningCredit)}</td>
                 <td>{money(totalDebit)}</td>
                 <td>{money(totalCredit)}</td>
                 <td>{totalBalance > 0 ? money(totalBalance) : "0,00"}</td>

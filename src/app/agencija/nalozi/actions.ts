@@ -78,6 +78,16 @@ function parseDate(formData: FormData, key: string) {
   return new Date(`${data}T00:00:00.000Z`);
 }
 
+function parseLineDate(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
 function parseMoneyToCents(input: string) {
   const normalized = input.trim().replace(",", ".");
 
@@ -101,6 +111,9 @@ function centsToDecimal(cents: number) {
 function parseJournalLines(formData: FormData) {
   const accountCodes = formData.getAll("konto_sifra").map((item) => String(item).trim());
   const descriptions = formData.getAll("stavka_opis").map((item) => String(item).trim());
+  const documentNumbers = formData.getAll("broj_dokumenta").map((item) => String(item).trim());
+  const documentDates = formData.getAll("datum_dokumenta").map((item) => String(item).trim());
+  const dueDates = formData.getAll("datum_valute").map((item) => String(item).trim());
   const debitValues = formData.getAll("duguje").map((item) => String(item));
   const creditValues = formData.getAll("potrazuje").map((item) => String(item));
   const partnerIds = formData.getAll("komitent_id").map((item) => String(item).trim());
@@ -109,15 +122,33 @@ function parseJournalLines(formData: FormData) {
   for (let index = 0; index < accountCodes.length; index += 1) {
     const accountCode = accountCodes[index] ?? "";
     const description = descriptions[index] ?? "";
+    const documentNumber = documentNumbers[index] || null;
+    const documentDate = parseLineDate(documentDates[index] ?? "");
+    const dueDate = parseLineDate(dueDates[index] ?? "");
     const debit = parseMoneyToCents(debitValues[index] ?? "");
     const credit = parseMoneyToCents(creditValues[index] ?? "");
     const partnerId = partnerIds[index] || null;
 
-    if (!accountCode && !partnerId && !debitValues[index] && !creditValues[index]) {
+    if (
+      !accountCode &&
+      !partnerId &&
+      !description &&
+      !documentNumber &&
+      !documentDates[index] &&
+      !dueDates[index] &&
+      !debitValues[index] &&
+      !creditValues[index]
+    ) {
       continue;
     }
 
-    if (!accountCode || debit === null || credit === null) {
+    if (
+      !accountCode ||
+      debit === null ||
+      credit === null ||
+      documentDate === undefined ||
+      dueDate === undefined
+    ) {
       return {
         error: "stavke_nevalidne" as const,
         lines: []
@@ -134,6 +165,9 @@ function parseJournalLines(formData: FormData) {
     lines.push({
       accountCode,
       description,
+      documentDate,
+      documentNumber,
+      dueDate,
       debit,
       credit,
       partnerId,
@@ -409,6 +443,9 @@ export async function createJournal(formData: FormData) {
           duguje: centsToDecimal(line.debit),
           potrazuje: centsToDecimal(line.credit),
           opis: line.description || opis,
+          broj_dokumenta: line.documentNumber,
+          datum_dokumenta: line.documentDate,
+          datum_valute: line.dueDate,
           redni_broj: line.lineNumber,
           created_by: user.id,
           updated_by: user.id
@@ -524,6 +561,9 @@ export async function updateDraftJournalLines(formData: FormData) {
           duguje: centsToDecimal(line.debit),
           potrazuje: centsToDecimal(line.credit),
           opis: line.description,
+          broj_dokumenta: line.documentNumber,
+          datum_dokumenta: line.documentDate,
+          datum_valute: line.dueDate,
           redni_broj: line.lineNumber,
           created_by: user.id,
           updated_by: user.id

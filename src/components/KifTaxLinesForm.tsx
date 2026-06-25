@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type VatRate = {
   id: string;
@@ -10,6 +10,11 @@ type VatRate = {
 
 type KifTaxLinesFormProps = {
   disabled?: boolean;
+  initialInvoiceTotal?: string;
+  initialLines?: {
+    vatRateId: string;
+    taxBase: string;
+  }[];
   rates: VatRate[];
 };
 
@@ -40,9 +45,31 @@ function money(value: number) {
   });
 }
 
-export function KifTaxLinesForm({ disabled = false, rates }: KifTaxLinesFormProps) {
-  const [invoiceTotal, setInvoiceTotal] = useState("");
-  const [manualBases, setManualBases] = useState<Record<string, string>>({});
+export function KifTaxLinesForm({
+  disabled = false,
+  initialInvoiceTotal = "",
+  initialLines = [],
+  rates
+}: KifTaxLinesFormProps) {
+  const [invoiceTotal, setInvoiceTotal] = useState(initialInvoiceTotal);
+  const [manualBases, setManualBases] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      initialLines
+        .filter((line) => line.taxBase.trim() !== "")
+        .map((line) => [line.vatRateId, line.taxBase])
+    )
+  );
+
+  useEffect(() => {
+    setInvoiceTotal(initialInvoiceTotal);
+    setManualBases(
+      Object.fromEntries(
+        initialLines
+          .filter((line) => line.taxBase.trim() !== "")
+          .map((line) => [line.vatRateId, line.taxBase])
+      )
+    );
+  }, [initialInvoiceTotal, initialLines]);
 
   const calculatedLines = useMemo(() => {
     const total = parseMoney(invoiceTotal);

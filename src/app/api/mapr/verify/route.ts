@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 
 function fiscalSearchParams(qrUrl: string) {
   let url: URL;
@@ -116,6 +117,6 @@ export async function POST(req: NextRequest) {
       vatAmount: Number(t.vatAmount),
     })),
     total: Number(invoice.totalPriceToPay ?? invoice.totalPrice ?? 0),
-    invoiceNumber: String(invoice.invoiceNumber ?? ""),
+    invoiceNumber: normalizeFiscalInvoiceNumber(String(invoice.invoiceNumber ?? "")),
   });
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createKifEntry } from "../../actions";
+import { createKifEntry, deleteKifEntry, postInvoiceBook, updateKifEntry } from "../../actions";
 import { KifTaxLinesForm } from "@/components/KifTaxLinesForm";
 import {
   invoicePostingAccountSources,
@@ -7,6 +7,7 @@ import {
   mergeCompanyAccountPlan
 } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
+import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -15,6 +16,7 @@ type KifBookPageProps = {
     id: string;
   }>;
   searchParams?: Promise<{
+    edit?: string;
     poruka?: string;
   }>;
 };
@@ -22,6 +24,8 @@ type KifBookPageProps = {
 const poruke: Record<string, string> = {
   kif_knjiga_sacuvana: "KIF knjiga je otvorena.",
   kif_sacuvan: "Račun je dodat u KIF.",
+  kif_izmijenjen: "Račun je izmijenjen.",
+  kif_obrisan: "Račun je obrisan iz KIF-a.",
   kif_kontekst: "Izaberite aktivnu firmu i poslovnu godinu.",
   kif_obavezno: "Kupac, broj računa, datum računa i ukupan iznos su obavezni.",
   kif_konto_obavezan: "Konto prihoda je obavezno jer šema koristi konto iz unosa računa.",
@@ -29,6 +33,15 @@ const poruke: Record<string, string> = {
   kif_ukupno: "Ukupno računa se ne slaže sa zbirom osnovica i PDV-a.",
   kif_konto: "Konto prihoda mora biti aktivno analitičko konto.",
   kif_knjiga: "KIF knjiga nije otvorena za unos.",
+  kif_dupli_broj: "Račun sa istim kupcem, brojem i datumom već postoji u KIF-u.",
+  prava: "Nemate pravo za ovu akciju nad izlaznim računima.",
+  knjizenje_kreiran: "Nalog je kreiran.",
+  knjizenje_dodato: "Novi računi su dodati na postojeći nalog.",
+  knjizenje_vrsta_naloga: "Za ovu vrstu KIF knjige prvo izaberite vrstu naloga u podešavanjima.",
+  knjizenje_sema: "Šema kontiranja nije kompletna za ovu vrstu knjige.",
+  knjizenje_konto: "Neko konto iz šeme nije aktivno analitičko konto.",
+  knjizenje_nalog_zakljucan: "Postojeći nalog je već proknjižen i ne može se dopuniti.",
+  knjizenje_nema: "Nema neproknjiženih računa za ovu knjigu.",
   kif_greska: "Račun nije dodat u KIF. Provjerite podatke."
 };
 
@@ -66,6 +79,48 @@ function decimalText(value: { toString(): string } | number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+}
+
+function decimalInput(value: { toString(): string } | number) {
+  const numeric = typeof value === "number" ? value : Number(value.toString());
+
+  if (!Number.isFinite(numeric) || numeric === 0) {
+    return "";
+  }
+
+  return numeric.toFixed(2);
+}
+
+function postingStatusLabel(total: number, posted: number, unposted: number) {
+  if (total === 0) {
+    return "Prazno";
+  }
+
+  if (posted > 0 && unposted > 0) {
+    return "Djelimično knjižena";
+  }
+
+  if (posted > 0 && unposted === 0) {
+    return "Knjiženo";
+  }
+
+  return "Otvorena";
+}
+
+function postingStatusClass(label: string) {
+  if (label === "Knjiženo") {
+    return "status-pill status-pill--success";
+  }
+
+  if (label === "Djelimično knjižena") {
+    return "status-pill status-pill--warning";
+  }
+
+  if (label === "Prazno") {
+    return "status-pill status-pill--muted";
+  }
+
+  return "status-pill";
 }
 
 export default async function KifBookPage({ params, searchParams }: KifBookPageProps) {
@@ -172,11 +227,14 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             internal_kif_number: true,
             customer_invoice_number: true,
             invoice_date: true,
+            due_date: true,
             total_base: true,
             total_output_vat: true,
             total_gross: true,
             status: true,
             posting_status: true,
+            journal_id: true,
+            note: true,
             revenue_account: {
               select: {
                 sifra: true,
@@ -185,6 +243,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             },
             kupac: {
               select: {
+                id: true,
                 naziv: true,
                 pib: true
               }
@@ -195,6 +254,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
               },
               select: {
                 id: true,
+                vat_rate_id: true,
                 vat_rate_percent: true,
                 tax_base: true,
                 output_vat_amount: true
@@ -325,6 +385,23 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
     )
   );
   const defaultRevenueAccount = revenueAccountRequired ? "" : fixedRevenueAccounts[0] ?? "";
+  const editingEntry = query?.edit
+    ? kifBook.entries.find((entry) => entry.id === query.edit)
+    : null;
+  const formAction = editingEntry ? updateKifEntry : createKifEntry;
+  const formRevenueAccount =
+    editingEntry?.revenue_account?.sifra ?? defaultRevenueAccount;
+  const formHint = editingEntry
+    ? editingEntry.internal_kif_number
+    : revenueAccountRequired
+      ? "Konto prihoda je obavezno po šemi"
+      : "Konto prihoda je preuzet iz šeme ako je podešen";
+  const journalId = kifBook.entries.find((entry) => entry.journal_id)?.journal_id ?? null;
+  const unpostedCount = kifBook.entries.filter(
+    (entry) => entry.posting_status === "UNPOSTED" && !entry.journal_id
+  ).length;
+  const postedCount = kifBook.entries.filter((entry) => entry.posting_status === "POSTED").length;
+  const postingLabel = postingStatusLabel(kifBook.entries.length, postedCount, unpostedCount);
   const totals = kifBook.entries.reduce(
     (sum, entry) => ({
       base: sum.base + Number(entry.total_base.toString()),
@@ -355,11 +432,42 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
 
       {message ? <p className="admin-message">{message}</p> : null}
 
+      <section className="admin-panel">
+        <div className="panel-header">
+          <div>
+            <h3>Knjiženje KIF-a</h3>
+            <span>
+              {journalId
+                ? `${unpostedCount} računa čeka dodavanje na postojeći nalog`
+                : `${unpostedCount} računa čeka knjiženje`}
+            </span>
+          </div>
+          <div className="button-row">
+            <span className={postingStatusClass(postingLabel)}>{postingLabel}</span>
+            {journalId ? (
+              <Link className="secondary-button" href={`/agencija/nalozi/${journalId}`}>
+                Vidi nalog
+              </Link>
+            ) : null}
+            {unpostedCount > 0 ? (
+              <form action={postInvoiceBook}>
+                <input type="hidden" name="dokument_tip" value="KIF" />
+                <input type="hidden" name="book_id" value={kifBook.id} />
+                <input type="hidden" name="return_to" value={`/agencija/racuni/kif/${kifBook.id}`} />
+                <button className="primary-button" type="submit">
+                  {journalId ? "Dodaj na nalog" : "Proknjiži KIF"}
+                </button>
+              </form>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
       <section className="metric-grid">
         <div className="metric">
           <span>Računa</span>
           <strong>{kifBook.entries.length}</strong>
-          <small>{kifBook.status}</small>
+          <small>{postingLabel}</small>
         </div>
         <div className="metric">
           <span>Osnovica</span>
@@ -375,12 +483,8 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
 
       <section className="admin-form-section">
         <div className="panel-header">
-          <h3>Unos izlaznog računa</h3>
-          <span>
-            {revenueAccountRequired
-              ? "Konto prihoda je obavezno po šemi"
-              : "Konto prihoda je preuzet iz šeme ako je podešen"}
-          </span>
+          <h3>{editingEntry ? "Izmjena izlaznog računa" : "Unos izlaznog računa"}</h3>
+          <span>{formHint}</span>
         </div>
 
         {vatRates.length === 0 ? (
@@ -389,11 +493,23 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
           </p>
         ) : null}
 
-        <form id="kif-entry-form" className="admin-form kuf-entry-form" action={createKifEntry}>
+        <form
+          key={editingEntry?.id ?? "new-kif-entry"}
+          id="kif-entry-form"
+          className="admin-form kuf-entry-form"
+          action={formAction}
+        >
           <input name="kif_book_id" type="hidden" value={kifBook.id} />
+          {editingEntry ? <input name="kif_entry_id" type="hidden" value={editingEntry.id} /> : null}
           <label>
             <span>Kupac</span>
-            <select name="kupac_id" required disabled={isLocked} autoFocus>
+            <select
+              name="kupac_id"
+              defaultValue={editingEntry?.kupac.id ?? ""}
+              required
+              disabled={isLocked}
+              autoFocus
+            >
               <option value="">Izaberite kupca</option>
               {partners.map((partner) => (
                 <option key={partner.id} value={partner.id}>
@@ -405,21 +521,37 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
           </label>
           <label>
             <span>Broj izlaznog računa</span>
-            <input name="customer_invoice_number" required disabled={isLocked} />
+            <input
+              name="customer_invoice_number"
+              defaultValue={normalizeFiscalInvoiceNumber(editingEntry?.customer_invoice_number)}
+              required
+              disabled={isLocked}
+            />
           </label>
           <label>
             <span>Datum računa</span>
-            <input name="invoice_date" type="date" defaultValue={inputDate()} required disabled={isLocked} />
+            <input
+              name="invoice_date"
+              type="date"
+              defaultValue={editingEntry ? inputDate(editingEntry.invoice_date) : inputDate()}
+              required
+              disabled={isLocked}
+            />
           </label>
           <label>
             <span>Datum dospijeća</span>
-            <input name="due_date" type="date" disabled={isLocked} />
+            <input
+              name="due_date"
+              type="date"
+              defaultValue={editingEntry?.due_date ? inputDate(editingEntry.due_date) : ""}
+              disabled={isLocked}
+            />
           </label>
           <label>
             <span>Konto prihoda/osnovice</span>
             <select
               name="revenue_account_code"
-              defaultValue={defaultRevenueAccount}
+              defaultValue={formRevenueAccount}
               required={revenueAccountRequired}
               disabled={isLocked}
             >
@@ -433,11 +565,27 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
           </label>
           <label className="form-wide">
             <span>Napomena</span>
-            <input name="note" placeholder="Opis ili interna napomena" disabled={isLocked} />
+            <input
+              name="note"
+              defaultValue={editingEntry?.note ?? ""}
+              placeholder="Opis ili interna napomena"
+              disabled={isLocked}
+            />
           </label>
 
           <KifTaxLinesForm
             disabled={isLocked}
+            initialInvoiceTotal={editingEntry ? decimalInput(editingEntry.total_gross) : ""}
+            initialLines={
+              editingEntry
+                ? editingEntry.tax_lines
+                    .filter((line) => line.vat_rate_id)
+                    .map((line) => ({
+                      vatRateId: line.vat_rate_id!,
+                      taxBase: decimalInput(line.tax_base)
+                    }))
+                : []
+            }
             rates={vatRates.map((rate) => ({
               id: rate.id,
               naziv: rate.naziv,
@@ -445,9 +593,16 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             }))}
           />
 
-          <button type="submit" disabled={isLocked || vatRates.length === 0}>
-            Unesi u KIF
-          </button>
+          <div className="kuf-form-actions">
+            <button type="submit" disabled={isLocked || vatRates.length === 0}>
+              {editingEntry ? "Sačuvaj izmjenu" : "Unesi u KIF"}
+            </button>
+            {editingEntry ? (
+              <Link className="secondary-button" href={`/agencija/racuni/kif/${kifBook.id}`}>
+                Odustani
+              </Link>
+            ) : null}
+          </div>
         </form>
       </section>
 
@@ -470,12 +625,13 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                 <th>Ukupno</th>
                 <th>Razrada</th>
                 <th>Status</th>
+                <th>Akcija</th>
               </tr>
             </thead>
             <tbody>
               {kifBook.entries.length === 0 ? (
                 <tr>
-                  <td colSpan={10}>Nema unesenih računa u ovoj KIF knjizi.</td>
+                  <td colSpan={11}>Nema unesenih računa u ovoj KIF knjizi.</td>
                 </tr>
               ) : (
                 kifBook.entries.map((entry) => (
@@ -487,7 +643,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                       {entry.kupac.naziv}
                       <small>{entry.kupac.pib ?? "-"}</small>
                     </td>
-                    <td>{entry.customer_invoice_number}</td>
+                    <td>{normalizeFiscalInvoiceNumber(entry.customer_invoice_number)}</td>
                     <td>
                       {entry.revenue_account
                         ? `${entry.revenue_account.sifra} - ${entry.revenue_account.naziv}`
@@ -506,8 +662,33 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                       ))}
                     </td>
                     <td>
-                      {entry.status}
-                      <small>{entry.posting_status}</small>
+                      <span
+                        className={
+                          entry.posting_status === "POSTED"
+                            ? "status-pill status-pill--success"
+                            : "status-pill"
+                        }
+                      >
+                        {entry.posting_status === "POSTED" ? "Knjiženo" : "Otvorena"}
+                      </span>
+                    </td>
+                    <td>
+                      {entry.posting_status === "UNPOSTED" && !isLocked ? (
+                        <div className="table-actions">
+                          <Link className="table-button" href={`/agencija/racuni/kif/${kifBook.id}?edit=${entry.id}#kif-entry-form`}>
+                            Izmijeni
+                          </Link>
+                          <form action={deleteKifEntry}>
+                            <input type="hidden" name="kif_book_id" value={kifBook.id} />
+                            <input type="hidden" name="kif_entry_id" value={entry.id} />
+                            <button className="table-button table-button-danger" type="submit">
+                              Obriši
+                            </button>
+                          </form>
+                        </div>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                   </tr>
                 ))

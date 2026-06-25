@@ -45,6 +45,10 @@ function formatDate(date: Date | null) {
   return date ? date.toLocaleDateString("sr-Latn") : "-";
 }
 
+function inputDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
 function money(value: number) {
   return value.toLocaleString("sr-Latn", {
     minimumFractionDigits: 2,
@@ -142,6 +146,9 @@ export default async function NalogDetailPage({
           duguje: true,
           potrazuje: true,
           opis: true,
+          broj_dokumenta: true,
+          datum_dokumenta: true,
+          datum_valute: true,
           firma_konto: {
             select: {
               sifra: true,
@@ -256,11 +263,14 @@ export default async function NalogDetailPage({
   const requiredAnalyticsAccounts = accounts
     .filter((account) => account.analitika_obavezna)
     .map((account) => account.sifra);
-  const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
+const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
     accountCode: stavka.firma_konto.sifra,
     credit: Number(stavka.potrazuje) > 0 ? Number(stavka.potrazuje).toFixed(2) : "",
     debit: Number(stavka.duguje) > 0 ? Number(stavka.duguje).toFixed(2) : "",
     description: stavka.opis ?? "",
+    documentDate: stavka.datum_dokumenta ? inputDate(stavka.datum_dokumenta) : "",
+    documentDueDate: stavka.datum_valute ? inputDate(stavka.datum_valute) : "",
+    documentNumber: stavka.broj_dokumenta ?? "",
     partnerId: stavka.komitent?.id ?? ""
   }));
 
@@ -270,9 +280,14 @@ export default async function NalogDetailPage({
         <div>
           <h2>{code}</h2>
         </div>
-        <Link className="table-link" href="/agencija/nalozi">
-          Pregled naloga
-        </Link>
+        <div className="button-row">
+          <Link className="secondary-button" href={`/stampa/nalozi/${nalog.id}`} target="_blank">
+            Štampa
+          </Link>
+          <Link className="table-link" href="/agencija/nalozi">
+            Pregled naloga
+          </Link>
+        </div>
       </header>
 
       {message ? <p className="admin-message">{message}</p> : null}
@@ -344,6 +359,9 @@ export default async function NalogDetailPage({
                 <th>Konto</th>
                 <th>Partner</th>
                 <th>Opis</th>
+                <th>Dokument</th>
+                <th>Datum dok.</th>
+                <th>Valuta</th>
                 <th>Duguje</th>
                 <th>Potražuje</th>
               </tr>
@@ -361,6 +379,9 @@ export default async function NalogDetailPage({
                     <small>{stavka.komitent?.pib ?? ""}</small>
                   </td>
                   <td>{stavka.opis ?? "-"}</td>
+                  <td>{stavka.broj_dokumenta ?? "-"}</td>
+                  <td>{formatDate(stavka.datum_dokumenta)}</td>
+                  <td>{formatDate(stavka.datum_valute)}</td>
                   <td>{money(Number(stavka.duguje))}</td>
                   <td>{money(Number(stavka.potrazuje))}</td>
                 </tr>
