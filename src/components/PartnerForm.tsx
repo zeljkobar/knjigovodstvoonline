@@ -16,6 +16,10 @@ export type PartnerFormValues = {
   email?: string | null;
   grad?: string | null;
   id?: string;
+  is_foreign?: boolean | null;
+  country_code?: string | null;
+  country_name?: string | null;
+  foreign_tax_number?: string | null;
   maticni_broj?: string | null;
   naziv?: string | null;
   napomena?: string | null;
@@ -268,6 +272,25 @@ export function PartnerForm({
       <label>
         <span>Država</span>
         <input defaultValue={initialValues?.drzava ?? "Crna Gora"} name="drzava" />
+      </label>
+      <label>
+        <span>Tip prometa</span>
+        <select name="is_foreign" defaultValue={initialValues?.is_foreign ? "1" : "0"}>
+          <option value="0">Domaći komitent</option>
+          <option value="1">Ino komitent</option>
+        </select>
+      </label>
+      <label>
+        <span>Šifra države</span>
+        <input defaultValue={initialValues?.country_code ?? ""} name="country_code" placeholder="npr. DE" />
+      </label>
+      <label>
+        <span>Naziv države</span>
+        <input defaultValue={initialValues?.country_name ?? ""} name="country_name" />
+      </label>
+      <label>
+        <span>Inostrani poreski broj</span>
+        <input defaultValue={initialValues?.foreign_tax_number ?? ""} name="foreign_tax_number" />
       </label>
       <label>
         <span>Telefon</span>

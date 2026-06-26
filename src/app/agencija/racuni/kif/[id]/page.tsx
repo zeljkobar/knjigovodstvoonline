@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createKifEntry, deleteKifEntry, postInvoiceBook, updateKifEntry } from "../../actions";
 import { KifTaxLinesForm } from "@/components/KifTaxLinesForm";
+import { PartnerSearchInput } from "@/components/PartnerSearchInput";
+import { VatTransactionTypeSelect } from "@/components/VatTransactionTypeSelect";
 import {
   invoicePostingAccountSources,
   invoicePostingFields,
@@ -9,6 +11,7 @@ import {
 import { requireAnyRole } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { prisma } from "@/lib/prisma";
+import { vatTransactionLabels } from "@/lib/vat-transaction";
 import { readWorkContext } from "@/lib/work-context";
 
 type KifBookPageProps = {
@@ -34,6 +37,7 @@ const poruke: Record<string, string> = {
   kif_konto: "Konto prihoda mora biti aktivno analitičko konto.",
   kif_knjiga: "KIF knjiga nije otvorena za unos.",
   kif_dupli_broj: "Račun sa istim kupcem, brojem i datumom već postoji u KIF-u.",
+  kif_export_pdv: "Izvoz ne smije imati obračunat izlazni PDV.",
   prava: "Nemate pravo za ovu akciju nad izlaznim računima.",
   knjizenje_kreiran: "Nalog je kreiran.",
   knjizenje_dodato: "Novi računi su dodati na postojeći nalog.",
@@ -184,7 +188,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
     );
   }
 
-  const [kifBook, partners, vatRates, baseAccounts, companyOverrides] = await Promise.all([
+  const [kifBook, vatRates, baseAccounts, companyOverrides] = await Promise.all([
     prisma.kifBook.findFirst({
       where: {
         id,
@@ -228,6 +232,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             customer_invoice_number: true,
             invoice_date: true,
             due_date: true,
+            vat_transaction_type: true,
             total_base: true,
             total_output_vat: true,
             total_gross: true,
@@ -245,7 +250,8 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
               select: {
                 id: true,
                 naziv: true,
-                pib: true
+                pib: true,
+                is_foreign: true
               }
             },
             tax_lines: {
@@ -262,32 +268,6 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             }
           }
         }
-      }
-    }),
-    prisma.komitent.findMany({
-      where: {
-        aktivan: true,
-        OR: [
-          {
-            scope: "GLOBAL"
-          },
-          {
-            scope: "AGENCY",
-            agencija_id: user.agencija_id
-          },
-          {
-            scope: "COMPANY",
-            firma_id: activeCompany.id
-          }
-        ]
-      },
-      orderBy: {
-        naziv: "asc"
-      },
-      select: {
-        id: true,
-        naziv: true,
-        pib: true
       }
     }),
     prisma.pdvStopa.findMany({
@@ -389,6 +369,16 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
     ? kifBook.entries.find((entry) => entry.id === query.edit)
     : null;
   const formAction = editingEntry ? updateKifEntry : createKifEntry;
+  const editingBuyer = editingEntry
+    ? {
+        id: editingEntry.kupac.id,
+        naziv: editingEntry.kupac.naziv,
+        pib: editingEntry.kupac.pib,
+        scope: "RECORDED",
+        isForeign: editingEntry.kupac.is_foreign,
+        label: `${editingEntry.kupac.naziv}${editingEntry.kupac.pib ? ` (${editingEntry.kupac.pib})` : ""}`
+      }
+    : null;
   const formRevenueAccount =
     editingEntry?.revenue_account?.sifra ?? defaultRevenueAccount;
   const formHint = editingEntry
@@ -501,24 +491,18 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
         >
           <input name="kif_book_id" type="hidden" value={kifBook.id} />
           {editingEntry ? <input name="kif_entry_id" type="hidden" value={editingEntry.id} /> : null}
-          <label>
-            <span>Kupac</span>
-            <select
-              name="kupac_id"
-              defaultValue={editingEntry?.kupac.id ?? ""}
-              required
-              disabled={isLocked}
-              autoFocus
-            >
-              <option value="">Izaberite kupca</option>
-              {partners.map((partner) => (
-                <option key={partner.id} value={partner.id}>
-                  {partner.naziv}
-                  {partner.pib ? ` (${partner.pib})` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
+          <PartnerSearchInput
+            disabled={isLocked}
+            initialPartner={editingBuyer}
+            label="Kupac"
+            name="kupac_id"
+            required
+          />
+          <VatTransactionTypeSelect
+            disabled={isLocked}
+            documentType="KIF"
+            initialValue={editingEntry?.vat_transaction_type}
+          />
           <label>
             <span>Broj izlaznog računa</span>
             <input
@@ -618,6 +602,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                 <th>KIF broj</th>
                 <th>Kupac</th>
                 <th>Račun</th>
+                <th>Tip prometa</th>
                 <th>Konto prihoda</th>
                 <th>Datum</th>
                 <th>Osnovica</th>
@@ -631,7 +616,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             <tbody>
               {kifBook.entries.length === 0 ? (
                 <tr>
-                  <td colSpan={11}>Nema unesenih računa u ovoj KIF knjizi.</td>
+                  <td colSpan={12}>Nema unesenih računa u ovoj KIF knjizi.</td>
                 </tr>
               ) : (
                 kifBook.entries.map((entry) => (
@@ -644,6 +629,11 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                       <small>{entry.kupac.pib ?? "-"}</small>
                     </td>
                     <td>{normalizeFiscalInvoiceNumber(entry.customer_invoice_number)}</td>
+                    <td>
+                      {vatTransactionLabels[
+                        entry.vat_transaction_type as keyof typeof vatTransactionLabels
+                      ] ?? entry.vat_transaction_type}
+                    </td>
                     <td>
                       {entry.revenue_account
                         ? `${entry.revenue_account.sifra} - ${entry.revenue_account.naziv}`

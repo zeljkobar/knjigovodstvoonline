@@ -8,6 +8,9 @@ type PartnerResult = {
   naziv: string;
   pib: string | null;
   scope: string;
+  isForeign?: boolean;
+  countryCode?: string | null;
+  countryName?: string | null;
   defaultKufAccountCode?: string | null;
   defaultKufVatRateCode?: string | null;
 };
@@ -151,6 +154,9 @@ export function PartnerSearchInput({
       new CustomEvent("partner-selected", {
         detail: {
           partnerId: partner.id,
+          isForeign: partner.isForeign ?? false,
+          countryCode: partner.countryCode ?? null,
+          countryName: partner.countryName ?? null,
           defaultKufAccountCode: partner.defaultKufAccountCode ?? null,
           defaultKufVatRateCode: partner.defaultKufVatRateCode ?? null
         }

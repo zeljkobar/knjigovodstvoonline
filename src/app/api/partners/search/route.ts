@@ -81,6 +81,9 @@ export async function GET(request: Request) {
       naziv: true,
       pib: true,
       scope: true,
+      is_foreign: true,
+      country_code: true,
+      country_name: true,
       firme: {
         where: {
           firma_id: workContext.firmaId,
@@ -104,6 +107,9 @@ export async function GET(request: Request) {
         naziv: partner.naziv,
         pib: partner.pib,
         scope: partner.scope,
+        isForeign: partner.is_foreign,
+        countryCode: partner.country_code,
+        countryName: partner.country_name,
         label: `${partner.naziv}${partner.pib ? ` (${partner.pib})` : ""}`,
         defaultKufAccountCode: companyDefaults?.default_kuf_konto_sifra ?? null,
         defaultKufVatRateCode: companyDefaults?.default_kuf_pdv_stopa_sifra ?? null

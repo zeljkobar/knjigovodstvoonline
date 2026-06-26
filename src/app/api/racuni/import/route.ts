@@ -9,6 +9,7 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { prisma } from "@/lib/prisma";
+import { vatTransactionTypes } from "@/lib/vat-transaction";
 import { readWorkContext } from "@/lib/work-context";
 
 const batchSize = 5;
@@ -332,6 +333,7 @@ async function saveKufInvoice(
           scope: "AGENCY",
           agencija_id: agencijaId,
           drzava: "Crna Gora",
+          is_foreign: false,
           aktivan: true
         },
         select: {
@@ -491,6 +493,7 @@ async function saveKufInvoice(
         invoice_date: invoiceDate,
         receipt_date: invoiceDate,
         due_date: null,
+        vat_transaction_type: vatTransactionTypes.domestic,
         total_base: centsToDecimal(totalBaseCents),
         total_input_vat: centsToDecimal(totalVatCents),
         deductible_vat: centsToDecimal(totalVatCents),
@@ -722,6 +725,7 @@ async function saveKifInvoice(
           scope: "AGENCY",
           agencija_id: agencijaId,
           drzava: "Crna Gora",
+          is_foreign: false,
           aktivan: true
         },
         select: {
@@ -854,6 +858,7 @@ async function saveKifInvoice(
         customer_invoice_number: invoiceNumber,
         invoice_date: invoiceDate,
         due_date: null,
+        vat_transaction_type: vatTransactionTypes.domestic,
         total_base: centsToDecimal(totalBaseCents),
         total_output_vat: centsToDecimal(totalVatCents),
         total_gross: centsToDecimal(totalGrossCents),

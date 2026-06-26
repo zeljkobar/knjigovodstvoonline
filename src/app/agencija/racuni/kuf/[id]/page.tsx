@@ -5,10 +5,12 @@ import { FiskalniUcitajButton } from "@/components/FiskalniUcitajButton";
 import { KufEntryFormShortcuts } from "@/components/KufEntryFormShortcuts";
 import { KufTaxLinesForm } from "@/components/KufTaxLinesForm";
 import { PartnerSearchInput } from "@/components/PartnerSearchInput";
+import { VatTransactionTypeSelect } from "@/components/VatTransactionTypeSelect";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { prisma } from "@/lib/prisma";
+import { vatTransactionLabels } from "@/lib/vat-transaction";
 import { readWorkContext } from "@/lib/work-context";
 
 type KufBookPageProps = {
@@ -224,6 +226,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             invoice_date: true,
             receipt_date: true,
             due_date: true,
+            vat_transaction_type: true,
             total_base: true,
             total_input_vat: true,
             deductible_vat: true,
@@ -243,7 +246,8 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
               select: {
                 id: true,
                 naziv: true,
-                pib: true
+                pib: true,
+                is_foreign: true
               }
             },
             tax_lines: {
@@ -374,6 +378,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
         naziv: editingEntry.dobavljac.naziv,
         pib: editingEntry.dobavljac.pib,
         scope: "RECORDED",
+        isForeign: editingEntry.dobavljac.is_foreign,
         label: `${editingEntry.dobavljac.naziv}${editingEntry.dobavljac.pib ? ` (${editingEntry.dobavljac.pib})` : ""}`
       }
     : null;
@@ -498,6 +503,11 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             name="dobavljac_id"
             required
           />
+          <VatTransactionTypeSelect
+            disabled={isLocked}
+            documentType="KUF"
+            initialValue={editingEntry?.vat_transaction_type}
+          />
           <label>
             <span>Broj računa dobavljača</span>
             <input
@@ -610,6 +620,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
                 <th>KUF broj</th>
                 <th>Dobavljač</th>
                 <th>Račun</th>
+                <th>Tip prometa</th>
                 <th>Konto knjiženja</th>
                 <th>Datumi</th>
                 <th>Osnovica</th>
@@ -623,7 +634,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             <tbody>
               {kufBook.entries.length === 0 ? (
                 <tr>
-                  <td colSpan={11}>Nema unesenih računa u ovoj KUF knjizi.</td>
+                  <td colSpan={12}>Nema unesenih računa u ovoj KUF knjizi.</td>
                 </tr>
               ) : (
                 kufBook.entries.map((entry) => (
@@ -637,6 +648,11 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
                       <small>{entry.dobavljac.pib ?? ""}</small>
                     </td>
                     <td>{normalizeFiscalInvoiceNumber(entry.supplier_invoice_number)}</td>
+                    <td>
+                      {vatTransactionLabels[
+                        entry.vat_transaction_type as keyof typeof vatTransactionLabels
+                      ] ?? entry.vat_transaction_type}
+                    </td>
                     <td>
                       {entry.expense_account
                         ? `${entry.expense_account.sifra} - ${entry.expense_account.naziv}`

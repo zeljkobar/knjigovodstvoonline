@@ -338,6 +338,10 @@ model Komitent {
   pravna_forma  String?
   sifra_djelatnosti String?
   datum_registracije DateTime?           @db.Date
+  is_foreign    Boolean             @default(false)
+  country_code  String?
+  country_name  String?
+  foreign_tax_number String?
   adresa        String?
   grad          String?
   drzava        String?             @default("Crna Gora")
@@ -354,6 +358,7 @@ model Komitent {
   kifEntries     KifEntry[]
   ziro_racuni   KomitentZiroRacun[]
 
+  @@index([is_foreign])
   @@map("komitenti")
 }
 
@@ -602,6 +607,7 @@ model KufEntry {
   redni_broj               Int
   internal_kuf_number      String
   supplier_invoice_number  String
+  vat_transaction_type     String            @default("DOMESTIC")
   fiscal_iic               String?
   fiscal_fic               String?
   fiscal_seller_tin        String?
@@ -639,6 +645,7 @@ model KufEntry {
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@index([firma_id, dobavljac_id, supplier_invoice_number, invoice_date])
   @@index([firma_id, fiscal_iic, fiscal_seller_tin, fiscal_datetime])
+  @@index([firma_id, poslovna_godina_id, vat_transaction_type])
   @@map("kuf_entries")
 }
 
@@ -712,6 +719,7 @@ model KifEntry {
   redni_broj               Int
   internal_kif_number      String
   customer_invoice_number  String
+  vat_transaction_type     String            @default("DOMESTIC")
   invoice_date             DateTime          @db.Date
   due_date                 DateTime?         @db.Date
   currency                 String            @default("EUR")
@@ -740,6 +748,7 @@ model KifEntry {
   @@index([kif_book_id])
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@index([firma_id, kupac_id, customer_invoice_number, invoice_date])
+  @@index([firma_id, poslovna_godina_id, vat_transaction_type])
   @@map("kif_entries")
 }
 
