@@ -230,32 +230,60 @@ export default async function KufPrintPage({ searchParams }: KufPrintPageProps) 
         </div>
 
         <table className="ledger-print-table ledger-print-table--kuf">
+          <colgroup>
+            <col style={{ width: "3%" }} />
+            <col style={{ width: "5%" }} />
+            <col style={{ width: "5%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "5%" }} />
+            <col style={{ width: "16%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "5%" }} />
+            <col style={{ width: "5%" }} />
+            <col style={{ width: "5%" }} />
+            <col style={{ width: "4%" }} />
+            <col style={{ width: "4%" }} />
+            <col style={{ width: "4%" }} />
+            <col style={{ width: "5%" }} />
+          </colgroup>
           <thead>
             <tr>
               <th rowSpan={3}>Red. broj</th>
               <th colSpan={2}>DATUM</th>
               <th colSpan={2}>RAČUN</th>
-              <th colSpan={2}>ISPORUČILAC PROIZVODA ILI USLUGE</th>
-              <th rowSpan={2}>Vrijednost nabavke oslobođene PDV</th>
-              <th rowSpan={2}>Vrijednost oporezive nabavke</th>
-              <th rowSpan={2}>UKUPAN IZNOS PDV</th>
+              <th colSpan={2}>ISPORUČILAC PROIZVODA ILI USLUGE (DOBAVLJAČ)</th>
+              <th rowSpan={3}>Vrijednost nabavke oslobođene PDV</th>
+              <th rowSpan={3}>Vrijednost oporezive nabavke</th>
+              <th rowSpan={3}>UKUPAN IZNOS PDV (11 do 17)</th>
               <th colSpan={7}>STRUKTURA ULAZNOG PDV</th>
             </tr>
             <tr>
-              <th>Prijem računa</th>
-              <th>Knjiženje računa</th>
-              <th>Broj</th>
-              <th>Datum izdavanja</th>
-              <th>Naziv, ime i prezime, sjedište</th>
-              <th>PDV broj</th>
+              <th rowSpan={2}>Prijem računa</th>
+              <th rowSpan={2}>Knjiženje računa</th>
+              <th rowSpan={2}>Broj</th>
+              <th rowSpan={2}>Datum izdavanja</th>
+              <th rowSpan={2}>Naziv, ime i prezime, sjedište</th>
+              <th rowSpan={2}>PDV broj</th>
               <th colSpan={3}>PDV-a na domaće nabavke</th>
               <th colSpan={3}>PDV na usluge inostranih lica</th>
               <th>Paušalna nadoknada</th>
             </tr>
             <tr>
+              <th>po stopi 7%</th>
+              <th>po stopi 15%</th>
+              <th>po stopi 21%</th>
+              <th>po stopi 7%</th>
+              <th>po stopi 15%</th>
+              <th>po stopi 21%</th>
+              <th>po stopi 8%</th>
+            </tr>
+            <tr>
               {Array.from({ length: 17 }, (_, index) => (
                 <th key={index}>{index + 1}</th>
-              )).slice(1)}
+              ))}
             </tr>
           </thead>
           <tbody>

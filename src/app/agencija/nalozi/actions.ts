@@ -1005,6 +1005,10 @@ export async function createPartner(formData: FormData) {
             telefon: nullableValue(formData, "telefon"),
             email: nullableValue(formData, "email"),
             web_sajt: nullableValue(formData, "web_sajt"),
+            is_foreign: value(formData, "is_foreign") === "1",
+            country_code: nullableValue(formData, "country_code"),
+            country_name: nullableValue(formData, "country_name"),
+            foreign_tax_number: nullableValue(formData, "foreign_tax_number"),
             aktivan: true
           },
           select: {
@@ -1181,6 +1185,10 @@ export async function updatePartner(formData: FormData) {
         telefon: nullableValue(formData, "telefon"),
         email: nullableValue(formData, "email"),
         web_sajt: nullableValue(formData, "web_sajt"),
+        is_foreign: value(formData, "is_foreign") === "1",
+        country_code: nullableValue(formData, "country_code"),
+        country_name: nullableValue(formData, "country_name"),
+        foreign_tax_number: nullableValue(formData, "foreign_tax_number"),
         aktivan: true
       },
       select: {

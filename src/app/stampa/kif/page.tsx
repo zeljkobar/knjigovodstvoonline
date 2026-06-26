@@ -231,10 +231,27 @@ export default async function KifPrintPage({ searchParams }: KifPrintPageProps) 
         </div>
 
         <table className="ledger-print-table ledger-print-table--kif">
+          <colgroup>
+            <col style={{ width: "3%" }} />
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "18%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "4%" }} />
+            <col style={{ width: "4%" }} />
+            <col style={{ width: "4%" }} />
+            <col style={{ width: "4%" }} />
+            <col style={{ width: "9%" }} />
+          </colgroup>
           <thead>
             <tr>
-              <th rowSpan={3}>Red. broj</th>
-              <th rowSpan={3}>Datum knjiženja računa</th>
+              <th rowSpan={2}>Red. broj</th>
+              <th rowSpan={2}>Datum knjiženja računa</th>
               <th colSpan={2}>RAČUN</th>
               <th colSpan={2}>Kupac (primalac) proizvoda ili usluga</th>
               <th rowSpan={2}>Vrijednost oslobođenog prometa</th>
@@ -258,7 +275,7 @@ export default async function KifPrintPage({ searchParams }: KifPrintPageProps) 
             <tr>
               {Array.from({ length: 15 }, (_, index) => (
                 <th key={index}>{index + 1}</th>
-              )).slice(2)}
+              ))}
             </tr>
           </thead>
           <tbody>

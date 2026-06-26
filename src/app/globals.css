@@ -1741,6 +1741,26 @@ td small {
   font-weight: 800;
 }
 
+.ledger-print-table--kuf {
+  table-layout: fixed;
+}
+
+.ledger-print-table--kuf th,
+.ledger-print-table--kuf td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ledger-print-table--kif {
+  table-layout: fixed;
+}
+
+.ledger-print-table--kif th,
+.ledger-print-table--kif td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .ledger-month-row td {
   background: #f6f8fb;
   font-size: 9px;
