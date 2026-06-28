@@ -16,9 +16,7 @@ export const defaultAccountPurposes = [
   ["DEFAULT_REVENUE_ACCOUNT", "Prihod"],
   ["DEFAULT_EXPENSE_ACCOUNT", "Trosak"],
   ["DEFAULT_GOODS_ACCOUNT", "Roba"],
-  ["DEFAULT_PAYROLL_ACCOUNT", "Plate"],
-  ["DEFAULT_CUSTOMS_DUTY_ACCOUNT", "Carina (uvozne dazbine)"],
-  ["DEFAULT_IMPORT_VAT_ACCOUNT", "Carinski PDV (uvoz)"]
+  ["DEFAULT_PAYROLL_ACCOUNT", "Plate"]
 ] as const;
 
 export const invoicePostingAccountPurposes = {
@@ -29,9 +27,24 @@ export const invoicePostingAccountPurposes = {
 } as const;
 
 export const importAccountPurposes = {
-  customsDuty: "DEFAULT_CUSTOMS_DUTY_ACCOUNT",
-  importVat: "DEFAULT_IMPORT_VAT_ACCOUNT"
+  goods: "IMPORT_GOODS_ACCOUNT",
+  customsDutyCost: "IMPORT_CUSTOMS_DUTY_COST_ACCOUNT",
+  customsVat: "IMPORT_CUSTOMS_VAT_ACCOUNT",
+  supplier: "IMPORT_SUPPLIER_ACCOUNT",
+  customsPayable: "IMPORT_CUSTOMS_PAYABLE_ACCOUNT"
 } as const;
+
+export const importPostingSchemeFields = [
+  ["IMPORT_GOODS_ACCOUNT", "Konto robe / troška (roba)", "D"],
+  ["IMPORT_CUSTOMS_DUTY_COST_ACCOUNT", "Carina (trošak)", "D"],
+  ["IMPORT_CUSTOMS_VAT_ACCOUNT", "Carinski PDV", "D"],
+  ["IMPORT_SUPPLIER_ACCOUNT", "Ino dobavljač", "P"],
+  ["IMPORT_CUSTOMS_PAYABLE_ACCOUNT", "Dobavljač carina (carinska obaveza)", "P"]
+] as const;
+
+export function isImportAccountPurpose(value: string) {
+  return importPostingSchemeFields.some(([purpose]) => purpose === value);
+}
 
 export const invoicePostingDocumentTypes = {
   kuf: "KUF",

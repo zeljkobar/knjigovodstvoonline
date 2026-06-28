@@ -824,6 +824,96 @@ p {
   overflow-x: auto;
 }
 
+/* Stranica podešavanja računa: sve staje u jednu širinu ekrana */
+.racuni-podesavanja .table-wrap {
+  overflow-x: hidden;
+}
+
+.racuni-podesavanja table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.racuni-podesavanja th,
+.racuni-podesavanja td {
+  padding: 10px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.racuni-podesavanja select,
+.racuni-podesavanja input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.racuni-podesavanja .single-row-form {
+  max-width: 100%;
+}
+
+.import-scheme-table th:nth-child(1),
+.import-scheme-table td:nth-child(1) {
+  width: 24%;
+}
+
+.import-scheme-table th:nth-child(2),
+.import-scheme-table td:nth-child(2) {
+  width: 14%;
+}
+
+.import-scheme-table th:nth-child(3),
+.import-scheme-table td:nth-child(3) {
+  width: 34%;
+}
+
+.import-scheme-table th:nth-child(4),
+.import-scheme-table td:nth-child(4) {
+  width: 28%;
+}
+
+.posting-scheme-table th:nth-child(1),
+.posting-scheme-table td:nth-child(1) {
+  width: 26%;
+}
+
+.posting-scheme-table th:nth-child(2),
+.posting-scheme-table td:nth-child(2) {
+  width: 14%;
+}
+
+.posting-scheme-table th:nth-child(3),
+.posting-scheme-table td:nth-child(3) {
+  width: 26%;
+}
+
+.posting-scheme-table th:nth-child(4),
+.posting-scheme-table td:nth-child(4) {
+  width: 34%;
+}
+
+.posting-scheme-table td:nth-child(1) small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.book-types-table th:nth-child(1),
+.book-types-table td:nth-child(1) {
+  width: 8%;
+}
+
+.book-types-table th:nth-child(2),
+.book-types-table td:nth-child(2) {
+  width: 16%;
+}
+
+.book-types-table th:nth-child(6),
+.book-types-table td:nth-child(6) {
+  width: 10%;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

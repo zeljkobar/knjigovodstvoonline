@@ -1,12 +1,15 @@
 import Link from "next/link";
 import {
   createInvoiceBookType,
+  saveImportPostingScheme,
   saveInvoicePostingRules
 } from "../actions";
 import { InvoicePostingRuleRow } from "@/components/InvoicePostingRuleRow";
 import {
+  invoicePostingDefaultScope,
   invoicePostingDocumentTypes,
   invoicePostingFields,
+  importPostingSchemeFields,
   mergeCompanyAccountPlan
 } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
@@ -36,7 +39,11 @@ const poruke: Record<string, string> = {
   sema_vrsta_naloga: "Izaberite vrstu naloga za ovu vrstu knjige.",
   prava: "Nemate pravo za upravljanje podešavanjima KIF/KUF knjiga.",
   sema_konto:
-    "Šema nije sačuvana: za svako polje sa izvorom 'Izabrano konto' morate izabrati konto."
+    "Šema nije sačuvana: za svako polje sa izvorom 'Izabrano konto' morate izabrati konto.",
+  uvoz_sema_sacuvana: "Šema za uvoz je sačuvana.",
+  uvoz_sema_konto: "Šema za uvoz nije sačuvana: izabrano konto ne postoji u kontnom planu firme.",
+  uvoz_sema_komitent: "Šema za uvoz nije sačuvana: izabrani partner nije komitent ove firme.",
+  uvoz_sema_greska: "Šema za uvoz nije sačuvana. Provjerite podatke."
 };
 
 function percentText(value: { toString(): string }) {
@@ -229,6 +236,57 @@ export default async function RacuniPodesavanjaPage({
     sifra: account.sifra,
     naziv: account.naziv
   }));
+  const importSchemeRows = activeCompany
+    ? await prisma.firmaPodrazumijevanoKonto.findMany({
+        where: {
+          firma_id: activeCompany.id,
+          dokument_tip: invoicePostingDocumentTypes.general,
+          podvrsta: invoicePostingDefaultScope.subtype,
+          pdv_stopa_sifra: invoicePostingDefaultScope.vatRate,
+          namjena: {
+            in: importPostingSchemeFields.map(([purpose]) => purpose)
+          }
+        },
+        select: {
+          namjena: true,
+          sifra_konta: true,
+          smjer: true,
+          komitent_id: true
+        }
+      })
+    : [];
+  const importKomitenti = activeCompany
+    ? await prisma.firmaKomitent.findMany({
+        where: {
+          firma_id: activeCompany.id,
+          aktivan: true
+        },
+        orderBy: {
+          komitent: {
+            naziv: "asc"
+          }
+        },
+        select: {
+          komitent: {
+            select: {
+              id: true,
+              naziv: true,
+              pib: true
+            }
+          }
+        }
+      })
+    : [];
+  const importKomitentOptions = importKomitenti.map((item) => item.komitent);
+  const importSchemeByPurpose = new Map(
+    importSchemeRows.map((row) => [row.namjena, row.sifra_konta])
+  );
+  const importDirectionByPurpose = new Map(
+    importSchemeRows.map((row) => [row.namjena, row.smjer])
+  );
+  const importKomitentByPurpose = new Map(
+    importSchemeRows.map((row) => [row.namjena, row.komitent_id])
+  );
   const selectedType =
     invoiceTypes.find((type) => type.id === params?.vrsta) ?? invoiceTypes[0] ?? null;
   const fields = selectedType
@@ -239,7 +297,7 @@ export default async function RacuniPodesavanjaPage({
   );
 
   return (
-    <div className="admin-stack">
+    <div className="admin-stack racuni-podesavanja">
       <header className="admin-header">
         <div>
           <h2>Podešavanja računa</h2>
@@ -293,7 +351,7 @@ export default async function RacuniPodesavanjaPage({
               <span>{invoiceTypes.length} aktivnih</span>
             </div>
             <div className="table-wrap">
-              <table>
+              <table className="book-types-table">
                 <thead>
                   <tr>
                     <th>Tip</th>
@@ -360,7 +418,7 @@ export default async function RacuniPodesavanjaPage({
                   </label>
                 </div>
                 <div className="table-wrap">
-                  <table>
+                  <table className="posting-scheme-table">
                     <thead>
                       <tr>
                         <th>Polje</th>
@@ -397,6 +455,79 @@ export default async function RacuniPodesavanjaPage({
               </form>
             </section>
           ) : null}
+
+          <section className="admin-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Šema za uvoz (KUF)</h3>
+                <span>
+                  Konta za knjiženje uvoznih faktura: roba/trošak, carina, carinski PDV, ino
+                  dobavljač i dobavljač carina.
+                </span>
+              </div>
+            </div>
+
+            <form action={saveImportPostingScheme}>
+              <div className="table-wrap">
+                <table className="import-scheme-table">
+                  <thead>
+                    <tr>
+                      <th>Stavka</th>
+                      <th>D/P</th>
+                      <th>Konto</th>
+                      <th>Partner</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importPostingSchemeFields.map(([purpose, label, direction]) => (
+                      <tr key={purpose}>
+                        <td>{label}</td>
+                        <td>
+                          <select
+                            name={`uvoz_smjer_${purpose}`}
+                            defaultValue={importDirectionByPurpose.get(purpose) ?? direction}
+                          >
+                            <option value="D">Duguje</option>
+                            <option value="P">Potražuje</option>
+                          </select>
+                        </td>
+                        <td>
+                          <select
+                            name={`uvoz_konto_${purpose}`}
+                            defaultValue={importSchemeByPurpose.get(purpose) ?? ""}
+                          >
+                            <option value="">— bez konta —</option>
+                            {accountOptions.map((account) => (
+                              <option key={account.sifra} value={account.sifra}>
+                                {account.sifra} · {account.naziv}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <select
+                            name={`uvoz_komitent_${purpose}`}
+                            defaultValue={importKomitentByPurpose.get(purpose) ?? ""}
+                          >
+                            <option value="">— dobavljač sa računa —</option>
+                            {importKomitentOptions.map((komitent) => (
+                              <option key={komitent.id} value={komitent.id}>
+                                {komitent.naziv}
+                                {komitent.pib ? ` (${komitent.pib})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="form-actions">
+                <button type="submit">Sačuvaj šemu za uvoz</button>
+              </div>
+            </form>
+          </section>
         </>
       )}
     </div>

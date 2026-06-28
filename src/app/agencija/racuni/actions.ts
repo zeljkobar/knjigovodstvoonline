@@ -10,6 +10,8 @@ import {
   invoicePostingAccountSources,
   invoicePostingFields,
   importAccountPurposes,
+  importPostingSchemeFields,
+  isImportAccountPurpose,
   invoicePostingDefaultScope,
   mergeCompanyAccountPlan
 } from "@/lib/account-plan";
@@ -642,6 +644,186 @@ export async function saveInvoicePostingRules(formData: FormData) {
   redirect(`/agencija/racuni/podesavanja?vrsta=${invoiceType.id}&poruka=sema_sacuvana`);
 }
 
+export async function saveImportPostingScheme(formData: FormData) {
+  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const workContext = await readWorkContext();
+
+  if (!user.agencija_id || !workContext.firmaId) {
+    redirectInvoiceSettings("sema_kontekst");
+  }
+
+  const firma = await prisma.firma.findFirst({
+    where: {
+      id: workContext.firmaId,
+      agencija_id: user.agencija_id,
+      is_deleted: false,
+      aktivan: true,
+      ...(user.rola === "admin_agencije"
+        ? {}
+        : {
+            korisnici: {
+              some: {
+                korisnik_id: user.id,
+                is_deleted: false,
+                moze_da_mijenja: true
+              }
+            }
+          })
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (!firma) {
+    redirectInvoiceSettings("sema_kontekst");
+  }
+
+  const [baseAccounts, companyOverrides] = await Promise.all([
+    prisma.konto.findMany({
+      where: {
+        aktivan: true
+      },
+      select: {
+        id: true,
+        sifra: true,
+        naziv: true,
+        klasa: true,
+        tip_konta: true,
+        analitika_obavezna: true,
+        sinteticki_konto: true,
+        normalni_saldo: true,
+        koristi_radnu_jedinicu: true,
+        aktivan: true
+      }
+    }),
+    prisma.firmaKonto.findMany({
+      where: {
+        firma_id: firma.id
+      },
+      select: {
+        id: true,
+        konto_id: true,
+        sifra: true,
+        naziv: true,
+        tip_konta: true,
+        analitika_obavezna: true,
+        sinteticki_konto: true,
+        normalni_saldo: true,
+        koristi_radnu_jedinicu: true,
+        override_type: true,
+        napomena: true,
+        aktivan: true
+      }
+    })
+  ]);
+
+  const activeAccountCodes = new Set(
+    mergeCompanyAccountPlan(baseAccounts, companyOverrides)
+      .filter((account) => account.aktivan)
+      .map((account) => account.sifra)
+  );
+
+  const firmaKomitenti = await prisma.firmaKomitent.findMany({
+    where: {
+      firma_id: firma.id,
+      aktivan: true
+    },
+    select: {
+      komitent_id: true
+    }
+  });
+  const firmaKomitentIds = new Set(firmaKomitenti.map((item) => item.komitent_id));
+
+  const entries = importPostingSchemeFields.map(([purpose, , defaultDirection]) => {
+    const direction = value(formData, `uvoz_smjer_${purpose}`);
+    const komitentId = value(formData, `uvoz_komitent_${purpose}`);
+
+    return {
+      purpose,
+      accountCode: value(formData, `uvoz_konto_${purpose}`),
+      smjer: direction === "P" ? "P" : direction === "D" ? "D" : defaultDirection,
+      komitentId: komitentId || null
+    };
+  });
+
+  for (const entry of entries) {
+    if (!isImportAccountPurpose(entry.purpose)) {
+      redirectInvoiceSettings("uvoz_sema_greska");
+    }
+
+    if (entry.accountCode && !activeAccountCodes.has(entry.accountCode)) {
+      redirectInvoiceSettings("uvoz_sema_konto");
+    }
+
+    if (entry.komitentId && !firmaKomitentIds.has(entry.komitentId)) {
+      redirectInvoiceSettings("uvoz_sema_komitent");
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const entry of entries) {
+      if (!entry.accountCode) {
+        await tx.firmaPodrazumijevanoKonto.deleteMany({
+          where: {
+            firma_id: firma.id,
+            namjena: entry.purpose,
+            dokument_tip: invoicePostingDocumentTypes.general,
+            podvrsta: invoicePostingDefaultScope.subtype,
+            pdv_stopa_sifra: invoicePostingDefaultScope.vatRate
+          }
+        });
+
+        continue;
+      }
+
+      await tx.firmaPodrazumijevanoKonto.upsert({
+        where: {
+          firma_id_namjena_dokument_tip_podvrsta_pdv_stopa_sifra: {
+            firma_id: firma.id,
+            namjena: entry.purpose,
+            dokument_tip: invoicePostingDocumentTypes.general,
+            podvrsta: invoicePostingDefaultScope.subtype,
+            pdv_stopa_sifra: invoicePostingDefaultScope.vatRate
+          }
+        },
+        create: {
+          firma_id: firma.id,
+          namjena: entry.purpose,
+          dokument_tip: invoicePostingDocumentTypes.general,
+          podvrsta: invoicePostingDefaultScope.subtype,
+          pdv_stopa_sifra: invoicePostingDefaultScope.vatRate,
+          sifra_konta: entry.accountCode,
+          smjer: entry.smjer,
+          komitent_id: entry.komitentId,
+          created_by: user.id,
+          updated_by: user.id
+        },
+        update: {
+          sifra_konta: entry.accountCode,
+          smjer: entry.smjer,
+          komitent_id: entry.komitentId,
+          updated_by: user.id
+        }
+      });
+    }
+  });
+
+  await auditLog({
+    korisnikId: user.id,
+    agencijaId: user.agencija_id,
+    firmaId: firma.id,
+    modul: "agencija.racuni.podesavanja",
+    akcija: "save_import_posting_scheme",
+    tipEntiteta: "FirmaPodrazumijevanoKonto",
+    entitetId: firma.id,
+    novaVrijednost: entries
+  });
+
+  revalidatePath("/agencija/racuni/podesavanja");
+  redirect("/agencija/racuni/podesavanja?poruka=uvoz_sema_sacuvana");
+}
+
 type PostingRule = {
   polje_sifra: string;
   polje_naziv: string;
@@ -1050,49 +1232,83 @@ export async function postInvoiceBook(formData: FormData) {
           podvrsta: invoicePostingDefaultScope.subtype,
           pdv_stopa_sifra: invoicePostingDefaultScope.vatRate,
           namjena: {
-            in: [importAccountPurposes.customsDuty, importAccountPurposes.importVat]
+            in: [
+              importAccountPurposes.goods,
+              importAccountPurposes.customsDutyCost,
+              importAccountPurposes.customsVat,
+              importAccountPurposes.supplier,
+              importAccountPurposes.customsPayable
+            ]
           }
         },
         select: {
           namjena: true,
-          sifra_konta: true
+          sifra_konta: true,
+          smjer: true,
+          komitent_id: true
         }
       });
       const importAccountByPurpose = new Map(
         importDefaultAccounts.map((item) => [item.namjena, item.sifra_konta])
       );
+      const importDirectionByPurpose = new Map(
+        importDefaultAccounts.map((item) => [item.namjena, item.smjer])
+      );
+      const importKomitentByPurpose = new Map(
+        importDefaultAccounts.map((item) => [item.namjena, item.komitent_id])
+      );
+      const importDefaultDirectionByPurpose = new Map<string, "D" | "P">(
+        importPostingSchemeFields.map(([purpose, , direction]) => [purpose, direction])
+      );
+      const importDirectionFor = (purpose: string): "D" | "P" => {
+        const saved = importDirectionByPurpose.get(purpose);
+        if (saved === "D" || saved === "P") {
+          return saved;
+        }
+
+        return importDefaultDirectionByPurpose.get(purpose) ?? "D";
+      };
 
       for (const entry of unpostedEntries) {
         if (entry.is_import) {
-          const payable = firma.pdv_obveznik;
           const goodsCents = decimalToCents(entry.goods_value);
           const dutyCents = decimalToCents(entry.customs_duty_amount);
           const vatCents = decimalToCents(entry.customs_vat_amount);
 
-          const goodsAccount = entry.expense_account?.sifra;
-          const supplierAccount = ruleByField.get("UKUPAN_IZNOS")?.sifra_konta ?? null;
-          const customsDutyAccount =
-            importAccountByPurpose.get(importAccountPurposes.customsDuty) ?? null;
-          const importVatAccount =
-            importAccountByPurpose.get(importAccountPurposes.importVat) ?? null;
+          // Konto robe/troška: prednost ima konto izabran na unosu, pa onda šema uvoza.
+          const goodsAccount =
+            entry.expense_account?.sifra ??
+            importAccountByPurpose.get(importAccountPurposes.goods) ??
+            null;
+          const customsDutyCostAccount =
+            importAccountByPurpose.get(importAccountPurposes.customsDutyCost) ?? null;
+          const customsVatAccount =
+            importAccountByPurpose.get(importAccountPurposes.customsVat) ?? null;
+          const supplierAccount =
+            importAccountByPurpose.get(importAccountPurposes.supplier) ?? null;
+          const customsPayableAccount =
+            importAccountByPurpose.get(importAccountPurposes.customsPayable) ?? null;
 
-          const carinaCreditCents = dutyCents + vatCents;
-          const needImportVatAccount = payable && vatCents > 0;
+          const customsPayableCents = dutyCents + vatCents;
 
           if (
             !goodsAccount ||
             !supplierAccount ||
-            (carinaCreditCents > 0 && !customsDutyAccount) ||
-            (needImportVatAccount && !importVatAccount)
+            (dutyCents > 0 && !customsDutyCostAccount) ||
+            (vatCents > 0 && !customsVatAccount) ||
+            (customsPayableCents > 0 && !customsPayableAccount)
           ) {
             return { ok: false as const, reason: "knjizenje_sema" };
           }
 
           const documentNumber = normalizeFiscalInvoiceNumber(entry.supplier_invoice_number);
+          const importPartnerFor = (purpose: string) =>
+            importKomitentByPurpose.get(purpose) ?? entry.dobavljac_id;
           const pushImportLine = (
             accountCode: string,
             direction: "D" | "P",
-            amountCents: number
+            amountCents: number,
+            partnerId: string
           ) => {
             if (amountCents === 0) {
               return;
@@ -1102,27 +1318,53 @@ export async function postInvoiceBook(formData: FormData) {
               accountCode,
               direction,
               amountCents,
-              partnerId: entry.dobavljac_id,
+              partnerId,
               documentNumber,
               documentDate: entry.invoice_date,
               dueDate: entry.due_date
             });
           };
 
-          const goodsDebitCents = payable
-            ? goodsCents + dutyCents
-            : goodsCents + dutyCents + vatCents;
+          // Smjer i partner svake stavke su podesivi u šemi za uvoz (podešavanja).
+          pushImportLine(
+            goodsAccount,
+            importDirectionFor(importAccountPurposes.goods),
+            goodsCents,
+            importPartnerFor(importAccountPurposes.goods)
+          );
 
-          pushImportLine(goodsAccount, "D", goodsDebitCents);
-
-          if (payable && importVatAccount) {
-            pushImportLine(importVatAccount, "D", vatCents);
+          if (customsDutyCostAccount) {
+            pushImportLine(
+              customsDutyCostAccount,
+              importDirectionFor(importAccountPurposes.customsDutyCost),
+              dutyCents,
+              importPartnerFor(importAccountPurposes.customsDutyCost)
+            );
           }
 
-          pushImportLine(supplierAccount, "P", goodsCents);
+          if (customsVatAccount) {
+            pushImportLine(
+              customsVatAccount,
+              importDirectionFor(importAccountPurposes.customsVat),
+              vatCents,
+              importPartnerFor(importAccountPurposes.customsVat)
+            );
+          }
 
-          if (customsDutyAccount) {
-            pushImportLine(customsDutyAccount, "P", carinaCreditCents);
+          pushImportLine(
+            supplierAccount,
+            importDirectionFor(importAccountPurposes.supplier),
+            goodsCents,
+            importPartnerFor(importAccountPurposes.supplier)
+          );
+
+          if (customsPayableAccount) {
+            pushImportLine(
+              customsPayableAccount,
+              importDirectionFor(importAccountPurposes.customsPayable),
+              customsPayableCents,
+              importPartnerFor(importAccountPurposes.customsPayable)
+            );
           }
 
           continue;

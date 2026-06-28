@@ -509,6 +509,8 @@ model FirmaPodrazumijevanoKonto {
   podvrsta        String   @default("GENERAL")
   pdv_stopa_sifra String   @default("GENERAL")
   sifra_konta     String
+  smjer           String   @default("D")
+  komitent_id     String?  @db.Uuid
   napomena        String?
   created_at      DateTime @default(now())
   created_by      String?  @db.Uuid
