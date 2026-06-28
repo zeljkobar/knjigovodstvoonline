@@ -55,6 +55,9 @@ model Agencija {
   kufEntries    KufEntry[]
   kifBooks      KifBook[]
   kifEntries    KifEntry[]
+  pdvPeriodi    PdvPeriod[]
+  pdvPrijave    PdvPrijava[]
+  pdvPodesavanja PdvPodesavanja[]
   korisnici     Korisnik[]
   agencijaKonta AgencijaKonto[]
   pdvStope      PdvStopa[]
@@ -148,6 +151,9 @@ model Firma {
   kufEntries           KufEntry[]
   kifBooks             KifBook[]
   kifEntries           KifEntry[]
+  pdvPeriodi           PdvPeriod[]
+  pdvPrijave           PdvPrijava[]
+  pdvPodesavanja       PdvPodesavanja[]
   racunVrste           RacunVrsta[]
   bankovni_racuni      FirmaBankovniRacun[]
   ugovor               FirmaUgovor?
@@ -321,6 +327,9 @@ model PoslovnaGodina {
   kufEntries KufEntry[]
   kifBooks   KifBook[]
   kifEntries KifEntry[]
+  pdvPeriodi PdvPeriod[]
+  pdvPrijave PdvPrijava[]
+  pdvPodesavanja PdvPodesavanja[]
 
   @@unique([firma_id, godina])
   @@map("poslovne_godine")
@@ -497,6 +506,12 @@ model FirmaKonto {
   stavke_naloga          StavkaNaloga[]
   kufExpenseEntries      KufEntry[]     @relation("KufExpenseAccount")
   kifRevenueEntries      KifEntry[]     @relation("KifRevenueAccount")
+  pdvIzlaznaPodesavanja  PdvPodesavanja[] @relation("PdvIzlazniKonto")
+  pdvUlaznaPodesavanja   PdvPodesavanja[] @relation("PdvUlazniKonto")
+  pdvObavezaPodesavanja  PdvPodesavanja[] @relation("PdvObavezaKonto")
+  pdvKreditPodesavanja   PdvPodesavanja[] @relation("PdvKreditKonto")
+  pdvNeodbitniPodesavanja PdvPodesavanja[] @relation("PdvNeodbitniKonto")
+  pdvPodesavanjePravila  PdvPodesavanjePravilo[]
 
   @@unique([firma_id, sifra])
   @@map("firma_konta")
@@ -835,6 +850,7 @@ model VrstaNaloga {
   updated_by String?  @db.Uuid
   nalozi     Nalog[]
   racunVrste RacunVrsta[]
+  pdvPodesavanja PdvPodesavanja[]
 
   @@map("vrste_naloga")
 }
@@ -873,10 +889,151 @@ model Nalog {
   deleted_by             String?        @db.Uuid
   delete_reason          String?
   stavke                 StavkaNaloga[]
+  pdvPrijave             PdvPrijava[]
 
   @@unique([firma_id, poslovna_godina_id, vrsta_naloga_id, broj])
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@map("nalozi")
+}
+
+model PdvPeriod {
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id           String          @db.Uuid
+  agencija              Agencija        @relation(fields: [agencija_id], references: [id])
+  firma_id              String          @db.Uuid
+  firma                 Firma           @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id    String          @db.Uuid
+  poslovna_godina       PoslovnaGodina  @relation(fields: [poslovna_godina_id], references: [id])
+  mjesec                Int
+  datum_od              DateTime        @db.Date
+  datum_do              DateTime        @db.Date
+  status                String          @default("OPEN")
+  ready_at              DateTime?
+  submitted_at          DateTime?
+  submitted_by          String?         @db.Uuid
+  locked_at             DateTime?
+  locked_by             String?         @db.Uuid
+  note                  String?
+  created_at            DateTime        @default(now())
+  created_by            String?         @db.Uuid
+  updated_at            DateTime        @updatedAt
+  updated_by            String?         @db.Uuid
+  prijave               PdvPrijava[]
+
+  @@unique([firma_id, poslovna_godina_id, mjesec])
+  @@index([agencija_id, firma_id, poslovna_godina_id, status])
+  @@map("pdv_periodi")
+}
+
+model PdvPrijava {
+  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id           String             @db.Uuid
+  agencija              Agencija           @relation(fields: [agencija_id], references: [id])
+  firma_id              String             @db.Uuid
+  firma                 Firma              @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id    String             @db.Uuid
+  poslovna_godina       PoslovnaGodina     @relation(fields: [poslovna_godina_id], references: [id])
+  pdv_period_id         String             @db.Uuid
+  pdv_period            PdvPeriod          @relation(fields: [pdv_period_id], references: [id])
+  status                String             @default("DRAFT")
+  total_output_vat      Decimal            @default(0) @db.Decimal(14, 2)
+  total_input_vat       Decimal            @default(0) @db.Decimal(14, 2)
+  deductible_vat        Decimal            @default(0) @db.Decimal(14, 2)
+  non_deductible_vat    Decimal            @default(0) @db.Decimal(14, 2)
+  payable_vat           Decimal            @default(0) @db.Decimal(14, 2)
+  credit_vat            Decimal            @default(0) @db.Decimal(14, 2)
+  xml_generated_at      DateTime?
+  posted_at             DateTime?
+  posted_by             String?            @db.Uuid
+  journal_id            String?            @db.Uuid
+  journal               Nalog?             @relation(fields: [journal_id], references: [id])
+  note                  String?
+  created_at            DateTime           @default(now())
+  created_by            String?            @db.Uuid
+  updated_at            DateTime           @updatedAt
+  updated_by            String?            @db.Uuid
+  stavke                PdvPrijavaStavka[]
+
+  @@unique([pdv_period_id])
+  @@index([agencija_id, firma_id, poslovna_godina_id, status])
+  @@index([journal_id])
+  @@map("pdv_prijave")
+}
+
+model PdvPrijavaStavka {
+  id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pdv_prijava_id      String      @db.Uuid
+  pdv_prijava         PdvPrijava  @relation(fields: [pdv_prijava_id], references: [id], onDelete: Cascade)
+  sifra               String
+  opis                String
+  kolona              String
+  redosljed           Int
+  sistemska_vrijednost Decimal    @default(0) @db.Decimal(14, 2)
+  rucna_vrijednost    Decimal?    @db.Decimal(14, 2)
+  razlog_korekcije    String?
+  created_at          DateTime    @default(now())
+  updated_at          DateTime    @updatedAt
+
+  @@unique([pdv_prijava_id, sifra, kolona])
+  @@index([pdv_prijava_id, redosljed])
+  @@map("pdv_prijava_stavke")
+}
+
+model PdvPodesavanja {
+  id                        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id               String          @db.Uuid
+  agencija                  Agencija        @relation(fields: [agencija_id], references: [id])
+  firma_id                  String          @db.Uuid
+  firma                     Firma           @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id        String          @db.Uuid
+  poslovna_godina           PoslovnaGodina  @relation(fields: [poslovna_godina_id], references: [id])
+  vrsta_naloga_id           String?         @db.Uuid
+  vrsta_naloga              VrstaNaloga?    @relation(fields: [vrsta_naloga_id], references: [id])
+  izlazni_pdv_konto_id      String?         @db.Uuid
+  izlazni_pdv_konto         FirmaKonto?     @relation("PdvIzlazniKonto", fields: [izlazni_pdv_konto_id], references: [id])
+  izlazni_pdv_smjer         String          @default("D")
+  ulazni_pdv_konto_id       String?         @db.Uuid
+  ulazni_pdv_konto          FirmaKonto?     @relation("PdvUlazniKonto", fields: [ulazni_pdv_konto_id], references: [id])
+  ulazni_pdv_smjer          String          @default("P")
+  obaveza_pdv_konto_id      String?         @db.Uuid
+  obaveza_pdv_konto         FirmaKonto?     @relation("PdvObavezaKonto", fields: [obaveza_pdv_konto_id], references: [id])
+  obaveza_pdv_smjer         String          @default("P")
+  pdv_kredit_konto_id       String?         @db.Uuid
+  pdv_kredit_konto          FirmaKonto?     @relation("PdvKreditKonto", fields: [pdv_kredit_konto_id], references: [id])
+  pdv_kredit_smjer          String          @default("D")
+  neodbitni_pdv_konto_id    String?         @db.Uuid
+  neodbitni_pdv_konto       FirmaKonto?     @relation("PdvNeodbitniKonto", fields: [neodbitni_pdv_konto_id], references: [id])
+  neodbitni_pdv_smjer       String          @default("D")
+  opis_naloga               String          @default("PDV prijava za period {period}")
+  created_at                DateTime        @default(now())
+  created_by                String?         @db.Uuid
+  updated_at                DateTime        @updatedAt
+  updated_by                String?         @db.Uuid
+  pravila                   PdvPodesavanjePravilo[]
+
+  @@unique([firma_id, poslovna_godina_id])
+  @@index([agencija_id, firma_id, poslovna_godina_id])
+  @@map("pdv_podesavanja")
+}
+
+model PdvPodesavanjePravilo {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pdv_podesavanja_id String          @db.Uuid
+  pdv_podesavanja    PdvPodesavanja @relation(fields: [pdv_podesavanja_id], references: [id], onDelete: Cascade)
+  polje_sifra        String
+  polje_naziv        String
+  pdv_stopa_sifra    String?
+  smjer              String          @default("D")
+  konto_id           String?         @db.Uuid
+  konto              FirmaKonto?     @relation(fields: [konto_id], references: [id])
+  redosljed          Int             @default(0)
+  aktivno            Boolean         @default(true)
+  created_at         DateTime        @default(now())
+  updated_at         DateTime        @updatedAt
+
+  @@unique([pdv_podesavanja_id, polje_sifra])
+  @@index([konto_id])
+  @@map("pdv_podesavanja_pravila")
 }
 
 model StavkaNaloga {

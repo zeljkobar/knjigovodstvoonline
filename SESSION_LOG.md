@@ -4,6 +4,38 @@
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
 ## 2026-06-28
+- Dodata prva implementacija PDV modula: mjesečni periodi, ulazni/izlazni PDV
+  pregledi iz KIF/KUF po datumu knjige, PDV prijava po redovima obrasca,
+  ručne korekcije, XML snapshot, podešavanja knjiženja i osnovno zbirno
+  knjiženje prijave u nalog.
+- PDV prijava prebačena na izgled nalik portalu: lijevo/desno kolone za
+  izlazni/ulazni PDV, bez polja razloga korekcije, sa automatskim preračunom
+  PDV-a po stopama i zbirnih redova 24-29.
+- PDV podešavanja prebačena na šemu knjiženja kao KIF/KUF: za svaku PDV stavku
+  bira se smjer D/P i konto.
+- PDV šema knjiženja proširena na pravila po aktivnim PDV stopama iz baze:
+  izlazni/ulazni PDV po stopama, carinski PDV, paušalni PDV, PDV obaveza i PDV
+  kredit; knjiženje koristi KIF/KUF tax lines za razdvajanje po stopama.
+- PDV podešavanja sada u dropdownu konta prikazuju cijeli spojeni kontni plan
+  (globalni plan + firmine izmjene); izbor globalnog konta se pri čuvanju
+  pretvara u firmi konto link.
+- Ispravljeno prelivanje KIF/KUF šema u UI-u podešavanja: redovi šeme se sada
+  remount-uju po vrsti knjige, pa KIF, KUF virmani, kartica i gotovina ostaju
+  odvojene šeme.
+- PDV kontrole proširene: upozoravaju na KIF/KUF stavke koje ulaze u period a
+  nisu proknjižene, i porede PDV iz evidencije sa glavnom knjigom po kontima iz
+  PDV šeme.
+- Brisanje naloga povezanog sa PDV prijavom sada vraća prijavu u nacrt i čisti
+  `journal_id`; PDV pregled, prijava i arhiva ignorišu obrisane naloge.
+- Dodata migracija `20260628150000_pdv_periodi_prijave_podesavanja` za
+  `pdv_periodi`, `pdv_prijave`, `pdv_prijava_stavke` i `pdv_podesavanja`.
+- Dodata migracija `20260628162000_pdv_podesavanja_smjer` za smjerove D/P u
+  podešavanjima PDV knjiženja.
+- Dodata migracija `20260628170000_pdv_podesavanja_pravila` za tabelu pravila
+  knjiženja PDV prijave.
+- Dodat Excel export KIF/KUF pregleda preko `/api/racuni/export/kif` i
+  `/api/racuni/export/kuf`, sa backend provjerom `export` prava, aktivnog
+  konteksta firme/godine i istim datumskim filterima kao print.
 - Uvedena konfigurabilna šema za uvoz (KUF): 5 konta, smjer D/P i partner po
   stavci; carina kao zasebna stavka troška, carinska obaveza na partnera „CARINA”.
 - Pretraga partnera prebačena na async (`/api/partners/search`) na stranicama

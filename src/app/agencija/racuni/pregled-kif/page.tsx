@@ -75,6 +75,14 @@ function parseDateFilter(value?: string) {
 }
 
 function printHref(params?: { datum_do?: string; datum_od?: string }) {
+  return hrefWithDateFilters("/stampa/kif", params);
+}
+
+function exportHref(params?: { datum_do?: string; datum_od?: string }) {
+  return hrefWithDateFilters("/api/racuni/export/kif", params);
+}
+
+function hrefWithDateFilters(basePath: string, params?: { datum_do?: string; datum_od?: string }) {
   const query = new URLSearchParams();
 
   if (params?.datum_od) {
@@ -85,7 +93,7 @@ function printHref(params?: { datum_do?: string; datum_od?: string }) {
     query.set("datum_do", params.datum_do);
   }
 
-  return `/stampa/kif${query.toString() ? `?${query.toString()}` : ""}`;
+  return `${basePath}${query.toString() ? `?${query.toString()}` : ""}`;
 }
 
 export default async function PregledKifPage({ searchParams }: PregledKifPageProps) {
@@ -211,9 +219,14 @@ export default async function PregledKifPage({ searchParams }: PregledKifPagePro
           <p>Pregled otvorenih i unesenih knjiga izlaznih faktura.</p>
         </div>
         {activeCompany && activeYear ? (
-          <Link className="secondary-button" href={printHref(params)} target="_blank">
-            Štampa
-          </Link>
+          <div className="button-row">
+            <Link className="secondary-button" href={exportHref(params)}>
+              Excel
+            </Link>
+            <Link className="secondary-button" href={printHref(params)} target="_blank">
+              Štampa
+            </Link>
+          </div>
         ) : null}
       </header>
 

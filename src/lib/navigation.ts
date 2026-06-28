@@ -166,7 +166,6 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/pdv/ulazni", label: "Ulazni PDV" },
     { href: "/agencija/pdv/izlazni", label: "Izlazni PDV" },
     { href: "/agencija/pdv/prijava", label: "PDV prijava" },
-    { href: "/agencija/pdv/xml", label: "XML izvoz" },
     { href: "/agencija/pdv/kontrole", label: "Kontrole" },
     { href: "/agencija/pdv/arhiva", label: "Arhiva prijava" },
     { href: "/agencija/pdv/podesavanja", label: "Podešavanja PDV-a" }

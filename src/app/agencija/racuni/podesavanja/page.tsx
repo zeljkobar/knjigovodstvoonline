@@ -436,7 +436,7 @@ export default async function RacuniPodesavanjaPage({
 
                         return (
                           <InvoicePostingRuleRow
-                            key={field.code}
+                            key={`${selectedType.id}-${field.code}`}
                             accountOptions={accountOptions}
                             accountValue={selectedAccount}
                             code={field.code}

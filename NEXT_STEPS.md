@@ -17,10 +17,11 @@
 - Bruto bilans (početno stanje, subtotali, ukupno).
 
 ## Prioritet 3 — Sljedeći moduli (po prioritetu)
-- **PDV prijava** iz KIF/KUF. Treba: PDV periode (OPEN→READY→SUBMITTED→LOCKED),
-  povlačenje iz KIF/KUF, izlazni/ulazni/odbitni/neodbitni PDV, carinski PDV iz
-  uvoza, izvoz kao posebna pozicija, obračun obaveze/pretplate, kontrole prije
-  zaključavanja, zaključavanje perioda, arhiva prijava. Detalji: [`docs/accounting/pdv.md`](docs/accounting/pdv.md).
+- **PDV prijava — dorada.** Prva verzija perioda, evidencija, prijave,
+  podešavanja, XML snapshot i knjiženja postoji. Ostaje: finalno IRMS XML
+  mapiranje, zaključavanje perioda, stroži statusni tok (READY→SUBMITTED→LOCKED),
+  ručni QA na stvarnim KIF/KUF podacima i provjera knjiženja na kontima 2700/4700.
+  Detalji: [`docs/accounting/pdv.md`](docs/accounting/pdv.md).
 - **Robno knjigovodstvo**: zalihe, lager, kalkulacije, uvozne kalkulacije.
 - **Izvodi**: ručni unos i stavke izvoda, povezivanje uplata sa kupcima /
   plaćanja sa dobavljačima, zatvaranje faktura i status plaćenosti, automatsko
@@ -34,8 +35,10 @@
   firme i default konta po firmi/partneru gdje nisu pokrivena.
 - **Modul 3:** formalni unos/prenos početnog stanja; kontrole po poslovnoj
   jedinici; testovi za validacije i prava.
-- **Modul 6:** zaključavanje PDV perioda; export Excel/XML; payment status;
+- **Modul 6:** zaključavanje PDV perioda; payment status;
   cache MAPR odgovora; bolji QA štampe na mnogo redova.
+- **Modul 8:** finalni IRMS XML, zaključavanje/otključavanje PDV perioda,
+  štampa prijave i testovi knjiženja PDV prijave.
 
 ## Nije implementirano
 - Plate i zaposleni, završni račun, klijentski portal, dashboard izvještaji.

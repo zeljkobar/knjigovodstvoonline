@@ -7,6 +7,7 @@ import { auditLog } from "@/lib/audit";
 import { accountOverrideTypes } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
+import { pdvReturnStatuses } from "@/lib/pdv";
 import { prisma } from "@/lib/prisma";
 
 function value(formData: FormData, key: string) {
@@ -868,6 +869,19 @@ export async function deleteJournal(formData: FormData) {
       }
     });
 
+    await tx.pdvPrijava.updateMany({
+      where: {
+        journal_id: journal.id
+      },
+      data: {
+        status: pdvReturnStatuses.draft,
+        journal_id: null,
+        posted_at: null,
+        posted_by: null,
+        updated_by: user.id
+      }
+    });
+
     return journal;
   });
 
@@ -888,6 +902,10 @@ export async function deleteJournal(formData: FormData) {
   revalidatePath("/agencija/racuni/pregled-kuf");
   revalidatePath("/agencija/racuni/pregled-kif");
   revalidatePath("/agencija/racuni/neproknjizeno");
+  revalidatePath("/agencija/pdv");
+  revalidatePath("/agencija/pdv/prijava");
+  revalidatePath("/agencija/pdv/arhiva");
+  revalidatePath("/agencija/pdv/kontrole");
   redirectJournals("nalog_obrisan");
 }
 

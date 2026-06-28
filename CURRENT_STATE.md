@@ -43,13 +43,16 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 ### Modul 6 — Računi, KIF i KUF
 - PDV stope dinamičke u podešavanjima.
 - KIF/KUF knjige po mjesecu, datumu i vrsti knjige; vrste su dinamičke.
-- Šema kontiranja po vrsti knjige: za svako polje D/P, izvor konta i konto.
+- Šema kontiranja je odvojena po vrsti knjige (npr. KUF virmani, kartica,
+  gotovina i KIF): za svako polje D/P, izvor konta i konto.
 - KUF unos: dobavljač, broj računa, datumi, konto, ukupno, razrada po stopama.
 - KIF unos/import: kupac, broj računa, ukupno, razrada po stopama.
 - MAPR QR/link unos i batch import; SEP Excel import za KIF (pravi MAPR linkove).
 - Cijela knjiga se knjiži odjednom u jedan nalog; naknadni računi se dopunjavaju.
 - Statusi na srpskom: otvorena, djelimično knjižena, knjižena.
 - Edit/delete za neproknjižene račune; print KIF/KUF kao HTML/CSS.
+- Excel export KIF/KUF pregleda po istim datumskim filterima kao štampa; export
+  uključuje partnera, tip prometa, iznose, status knjiženja i PDV razradu.
 - Normalizacija fiskalnog broja (`pt385eg871/1/2026/dl426pc243` → `1/2026`).
 - Konfigurabilna šema za uvoz (KUF): 5 konta, smjer D/P i partner po stavci
   (carina kao zasebna stavka troška, carinska obaveza na partnera „CARINA”).
@@ -57,14 +60,45 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   sa automatskim predlogom: ino dobavljač → IMPORT, ino kupac → EXPORT; konačna
   vrijednost se čuva na dokumentu (`src/lib/vat-transaction.ts`).
 
+### Modul 8 — PDV
+- PDV periodi po mjesecu za aktivnu firmu i poslovnu godinu (`pdv_periodi`).
+  Na PDV ekranima bira se samo mjesec; firma/godina dolaze iz globalnog konteksta.
+- Period računa se određuje po datumu knjige: KIF po `kif_date`, KUF po `kuf_date`.
+- Ulazni PDV prikazuje KUF račune iz perioda; izlazni PDV prikazuje KIF račune.
+- PDV prijava ima redove obrasca po uzoru na IRMS portal, automatsko punjenje iz
+  KIF/KUF, ručne izmjene polja i klijentske automatske preračune PDV-a i zbirova.
+- XML izvoz postoji kao akcija na prijavi/arhivi (`/api/pdv/xml`) i trenutno
+  daje MVP XML snapshot redova prijave; finalno IRMS XML mapiranje ostaje.
+- Podešavanja PDV-a po firmi/godini: vrsta naloga i šema knjiženja po stavkama
+  (D/P + konto). Pravila za ulazni/izlazni PDV se generišu po aktivnim PDV
+  stopama iz baze; posebna pravila postoje za carinski PDV, paušalni PDV,
+  obavezu i PDV kredit.
+- Izbor konta u PDV podešavanjima prikazuje cijeli spojeni kontni plan
+  (globalni plan + firmine izmjene); globalni konto se pri čuvanju automatski
+  povezuje kao `firma_konta` zapis.
+- Osnovno knjiženje PDV prijave pravi zbirni proknjižen nalog i veže ga na prijavu.
+- Brisanje naloga kojim je proknjižena PDV prijava vraća prijavu u nacrt i
+  skida vezu na nalog; PDV pregledi ignorišu soft-delete naloge.
+- PDV kontrole upozoravaju ako KIF/KUF račun ulazi u PDV period, a nije
+  proknjižen u glavnu knjigu, i porede PDV evidenciju sa POSTED stavkama glavne
+  knjige po kontima iz PDV šeme.
+
 ## Nije početo / samo pripremljeno
 - Robno knjigovodstvo: spec pročitan, samo navigacioni placeholderi.
 - Izvodi: `pdfjs-dist` instaliran kao priprema, parseri nisu urađeni.
 - Plate, završni račun, klijentski portal, većina dashboard izvještaja.
-- PDV prijava nije implementirana (postoje PDV stope i KIF/KUF osnova).
+- PDV zaključavanje perioda i finalno IRMS XML mapiranje nisu implementirani.
 
 ## Zadnje provjere
-- `npm run lint` prolazi (stari warning `_prev` u `src/app/admin/actions.ts`).
+- `npm run lint` prolazi (stari warning `_prev` u `src/app/admin/actions.ts` i
+  stari warning za neiskorišćene varijable u `src/app/agencija/racuni/actions.ts`).
+- `npx tsc --noEmit` prolazi.
+- `npx prisma migrate deploy` primijenio migraciju
+  `20260628150000_pdv_periodi_prijave_podesavanja`.
+- `npx prisma migrate deploy` primijenio migraciju
+  `20260628162000_pdv_podesavanja_smjer`.
+- `npx prisma migrate deploy` primijenio migraciju
+  `20260628170000_pdv_podesavanja_pravila`.
 - `npm run build` prolazi (Prisma poruke za `127.0.0.1:5432` ako baza nije
   dostupna tokom prerenderinga su očekivane).
 - Kod čudnog `.next` runtime errora: `rm -rf .next && npm run dev`.
