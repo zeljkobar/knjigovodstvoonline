@@ -9,6 +9,8 @@ import {
   invoicePostingDocumentTypes,
   invoicePostingAccountSources,
   invoicePostingFields,
+  importAccountPurposes,
+  invoicePostingDefaultScope,
   mergeCompanyAccountPlan
 } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
@@ -84,6 +86,18 @@ function percentToNumber(value: { toString(): string }) {
   const parsed = Number(value.toString());
 
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parsePercentInput(input: string) {
+  const normalized = input.trim().replace(",", ".");
+
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function invoicePermissionModule(documentType: string) {
@@ -789,7 +803,8 @@ export async function postInvoiceBook(formData: FormData) {
             })
       },
       select: {
-        id: true
+        id: true,
+        pdv_obveznik: true
       }
     }),
     prisma.poslovnaGodina.findFirst({
@@ -894,6 +909,10 @@ export async function postInvoiceBook(formData: FormData) {
               invoice_date: true,
               due_date: true,
               total_gross: true,
+              is_import: true,
+              goods_value: true,
+              customs_duty_amount: true,
+              customs_vat_amount: true,
               expense_account: {
                 select: {
                   sifra: true
@@ -1024,7 +1043,91 @@ export async function postInvoiceBook(formData: FormData) {
       );
       const lines: PostingLineInput[] = [];
 
+      const importDefaultAccounts = await tx.firmaPodrazumijevanoKonto.findMany({
+        where: {
+          firma_id: firma.id,
+          dokument_tip: invoicePostingDocumentTypes.general,
+          podvrsta: invoicePostingDefaultScope.subtype,
+          pdv_stopa_sifra: invoicePostingDefaultScope.vatRate,
+          namjena: {
+            in: [importAccountPurposes.customsDuty, importAccountPurposes.importVat]
+          }
+        },
+        select: {
+          namjena: true,
+          sifra_konta: true
+        }
+      });
+      const importAccountByPurpose = new Map(
+        importDefaultAccounts.map((item) => [item.namjena, item.sifra_konta])
+      );
+
       for (const entry of unpostedEntries) {
+        if (entry.is_import) {
+          const payable = firma.pdv_obveznik;
+          const goodsCents = decimalToCents(entry.goods_value);
+          const dutyCents = decimalToCents(entry.customs_duty_amount);
+          const vatCents = decimalToCents(entry.customs_vat_amount);
+
+          const goodsAccount = entry.expense_account?.sifra;
+          const supplierAccount = ruleByField.get("UKUPAN_IZNOS")?.sifra_konta ?? null;
+          const customsDutyAccount =
+            importAccountByPurpose.get(importAccountPurposes.customsDuty) ?? null;
+          const importVatAccount =
+            importAccountByPurpose.get(importAccountPurposes.importVat) ?? null;
+
+          const carinaCreditCents = dutyCents + vatCents;
+          const needImportVatAccount = payable && vatCents > 0;
+
+          if (
+            !goodsAccount ||
+            !supplierAccount ||
+            (carinaCreditCents > 0 && !customsDutyAccount) ||
+            (needImportVatAccount && !importVatAccount)
+          ) {
+            return { ok: false as const, reason: "knjizenje_sema" };
+          }
+
+          const documentNumber = normalizeFiscalInvoiceNumber(entry.supplier_invoice_number);
+          const pushImportLine = (
+            accountCode: string,
+            direction: "D" | "P",
+            amountCents: number
+          ) => {
+            if (amountCents === 0) {
+              return;
+            }
+
+            lines.push({
+              accountCode,
+              direction,
+              amountCents,
+              partnerId: entry.dobavljac_id,
+              documentNumber,
+              documentDate: entry.invoice_date,
+              dueDate: entry.due_date
+            });
+          };
+
+          const goodsDebitCents = payable
+            ? goodsCents + dutyCents
+            : goodsCents + dutyCents + vatCents;
+
+          pushImportLine(goodsAccount, "D", goodsDebitCents);
+
+          if (payable && importVatAccount) {
+            pushImportLine(importVatAccount, "D", vatCents);
+          }
+
+          pushImportLine(supplierAccount, "P", goodsCents);
+
+          if (customsDutyAccount) {
+            pushImportLine(customsDutyAccount, "P", carinaCreditCents);
+          }
+
+          continue;
+        }
+
         for (const field of fields) {
           const rule = ruleByField.get(field.code);
           const source = rule?.konto_izvor ?? field.accountSource;
@@ -1749,6 +1852,9 @@ export async function createKufEntry(formData: FormData) {
   const fiscalDateTime = parseFiscalDateTime(value(formData, "fiscal_datetime"));
   const fiscalSourceUrl = nullableValue(formData, "fiscal_source_url");
 
+  const isImport =
+    submittedVatTransactionType.trim().toUpperCase() === vatTransactionTypes.import;
+
   if (
     !supplierId ||
     !kufBookId ||
@@ -1756,8 +1862,7 @@ export async function createKufEntry(formData: FormData) {
     !invoiceDate ||
     !receiptDate ||
     !expenseAccountCode ||
-    invoiceTotalCents === null ||
-    invoiceTotalCents <= 0
+    (!isImport && (invoiceTotalCents === null || invoiceTotalCents <= 0))
   ) {
     redirectKuf("kuf_obavezno");
   }
@@ -1781,7 +1886,8 @@ export async function createKufEntry(formData: FormData) {
             })
       },
       select: {
-        id: true
+        id: true,
+        pdv_obveznik: true
       }
     }),
     prisma.poslovnaGodina.findFirst({
@@ -1905,83 +2011,118 @@ export async function createKufEntry(formData: FormData) {
     .getAll("non_deductible_vat_amount")
     .map((item) => String(item));
 
-  const activeRates = await prisma.pdvStopa.findMany({
-    where: {
-      agencija_id: user.agencija_id,
-      aktivna: true
-    },
-    select: {
-      id: true,
-      sifra: true,
-      naziv: true,
-      procenat: true
-    }
-  });
-  const ratesById = new Map(activeRates.map((rate) => [rate.id, rate]));
   const taxLines: Prisma.KufEntryTaxLineCreateManyKuf_entryInput[] = [];
   let totalBaseCents = 0;
   let totalInputVatCents = 0;
   let deductibleVatCents = 0;
   let nonDeductibleVatCents = 0;
   let dominantVatRateCode: string | null = null;
-  let dominantVatAmountCents = 0;
+  let grossCents = 0;
+  let goodsValueCents = 0;
+  let customsBaseCents = 0;
+  let customsDutyCents = 0;
+  let customsVatCents = 0;
+  let customsVatRatePercent: number | null = null;
 
-  for (let index = 0; index < vatRateIds.length; index += 1) {
-    const rate = ratesById.get(vatRateIds[index]);
-    const baseCents = parseMoneyToCents(baseValues[index] ?? "");
-    const submittedVatCents = parseMoneyToCents(vatValues[index] ?? "");
-    const nonDeductibleCents = parseMoneyToCents(nonDeductibleValues[index] ?? "");
+  if (isImport) {
+    goodsValueCents = parseMoneyToCents(value(formData, "goods_value")) ?? 0;
+    customsBaseCents = parseMoneyToCents(value(formData, "customs_base_amount")) ?? 0;
+    customsDutyCents = parseMoneyToCents(value(formData, "customs_duty_amount")) ?? 0;
+    customsVatCents = parseMoneyToCents(value(formData, "customs_vat_amount")) ?? 0;
+    customsVatRatePercent = parsePercentInput(value(formData, "customs_vat_rate_percent"));
 
-    if (!rate || baseCents === null || submittedVatCents === null || nonDeductibleCents === null) {
-      redirectKufEntry(kufBook.id, "kuf_iznosi");
+    if (goodsValueCents <= 0) {
+      redirectKufEntry(kufBook.id, "kuf_obavezno");
     }
 
-    const calculatedVatCents = Math.round(baseCents * percentToNumber(rate.procenat) / 100);
-    const inputVatCents = baseCents > 0 ? calculatedVatCents : submittedVatCents;
+    grossCents = goodsValueCents + customsDutyCents + customsVatCents;
+    totalBaseCents = customsBaseCents;
+    totalInputVatCents = customsVatCents;
 
-    if (baseCents === 0 && inputVatCents === 0 && nonDeductibleCents === 0) {
-      continue;
+    if (firma.pdv_obveznik) {
+      deductibleVatCents = customsVatCents;
+      nonDeductibleVatCents = 0;
+    } else {
+      deductibleVatCents = 0;
+      nonDeductibleVatCents = customsVatCents;
     }
-
-    if (nonDeductibleCents > inputVatCents) {
-      redirectKufEntry(kufBook.id, "kuf_iznosi");
-    }
-
-    const deductibleCents = inputVatCents - nonDeductibleCents;
-    const lineGrossCents = baseCents + inputVatCents;
-
-    if (lineGrossCents > dominantVatAmountCents) {
-      dominantVatAmountCents = lineGrossCents;
-      dominantVatRateCode = rate.sifra;
-    }
-
-    totalBaseCents += baseCents;
-    totalInputVatCents += inputVatCents;
-    deductibleVatCents += deductibleCents;
-    nonDeductibleVatCents += nonDeductibleCents;
-
-    taxLines.push({
-      vat_rate_id: rate.id,
-      vat_rate_code: rate.sifra,
-      vat_rate_name: rate.naziv,
-      vat_rate_percent: rate.procenat,
-      tax_base: centsToDecimal(baseCents),
-      input_vat_amount: centsToDecimal(inputVatCents),
-      deductible_vat_amount: centsToDecimal(deductibleCents),
-      non_deductible_vat_amount: centsToDecimal(nonDeductibleCents),
-      total_with_vat: centsToDecimal(lineGrossCents),
-      created_by: user.id
+  } else {
+    const vatRateIds = formData.getAll("vat_rate_id").map((item) => String(item));
+    const baseValues = formData.getAll("tax_base").map((item) => String(item));
+    const activeRates = await prisma.pdvStopa.findMany({
+      where: {
+        agencija_id: user.agencija_id,
+        aktivna: true
+      },
+      select: {
+        id: true,
+        sifra: true,
+        naziv: true,
+        procenat: true
+      }
     });
-  }
+    const ratesById = new Map(activeRates.map((rate) => [rate.id, rate]));
+    let dominantVatAmountCents = 0;
 
-  if (taxLines.length === 0 || totalBaseCents + totalInputVatCents <= 0) {
-    redirectKufEntry(kufBook.id, "kuf_iznosi");
-  }
+    for (let index = 0; index < vatRateIds.length; index += 1) {
+      const rate = ratesById.get(vatRateIds[index]);
+      const baseCents = parseMoneyToCents(baseValues[index] ?? "");
+      const submittedVatCents = parseMoneyToCents(vatValues[index] ?? "");
+      const nonDeductibleCents = parseMoneyToCents(nonDeductibleValues[index] ?? "");
 
-  const calculatedGrossCents = totalBaseCents + totalInputVatCents;
+      if (!rate || baseCents === null || submittedVatCents === null || nonDeductibleCents === null) {
+        redirectKufEntry(kufBook.id, "kuf_iznosi");
+      }
 
-  if (Math.abs(invoiceTotalCents - calculatedGrossCents) > 1) {
-    redirectKufEntry(kufBook.id, "kuf_ukupno");
+      const calculatedVatCents = Math.round(baseCents * percentToNumber(rate.procenat) / 100);
+      const inputVatCents = baseCents > 0 ? calculatedVatCents : submittedVatCents;
+
+      if (baseCents === 0 && inputVatCents === 0 && nonDeductibleCents === 0) {
+        continue;
+      }
+
+      if (nonDeductibleCents > inputVatCents) {
+        redirectKufEntry(kufBook.id, "kuf_iznosi");
+      }
+
+      const deductibleCents = inputVatCents - nonDeductibleCents;
+      const lineGrossCents = baseCents + inputVatCents;
+
+      if (lineGrossCents > dominantVatAmountCents) {
+        dominantVatAmountCents = lineGrossCents;
+        dominantVatRateCode = rate.sifra;
+      }
+
+      totalBaseCents += baseCents;
+      totalInputVatCents += inputVatCents;
+      deductibleVatCents += deductibleCents;
+      nonDeductibleVatCents += nonDeductibleCents;
+
+      taxLines.push({
+        vat_rate_id: rate.id,
+        vat_rate_code: rate.sifra,
+        vat_rate_name: rate.naziv,
+        vat_rate_percent: rate.procenat,
+        tax_base: centsToDecimal(baseCents),
+        input_vat_amount: centsToDecimal(inputVatCents),
+        deductible_vat_amount: centsToDecimal(deductibleCents),
+        non_deductible_vat_amount: centsToDecimal(nonDeductibleCents),
+        total_with_vat: centsToDecimal(lineGrossCents),
+        created_by: user.id
+      });
+    }
+
+    if (taxLines.length === 0 || totalBaseCents + totalInputVatCents <= 0) {
+      redirectKufEntry(kufBook.id, "kuf_iznosi");
+    }
+
+    const calculatedGrossCents = totalBaseCents + totalInputVatCents;
+
+    if (invoiceTotalCents === null || Math.abs(invoiceTotalCents - calculatedGrossCents) > 1) {
+      redirectKufEntry(kufBook.id, "kuf_ukupno");
+    }
+
+    grossCents = invoiceTotalCents;
   }
 
   const kufEntry = await prisma.$transaction(async (tx) => {
@@ -2033,11 +2174,21 @@ export async function createKufEntry(formData: FormData) {
         receipt_date: receiptDate,
         due_date: dueDate,
         vat_transaction_type: vatTransactionType,
+        is_import: isImport,
+        customs_declaration_number:
+          isImport ? nullableValue(formData, "customs_declaration_number") : null,
+        customs_declaration_date:
+          isImport ? parseDate(formData, "customs_declaration_date") : null,
+        goods_value: centsToDecimal(isImport ? goodsValueCents : 0),
+        customs_base_amount: centsToDecimal(isImport ? customsBaseCents : 0),
+        customs_duty_amount: centsToDecimal(isImport ? customsDutyCents : 0),
+        customs_vat_rate_percent: isImport ? customsVatRatePercent : null,
+        customs_vat_amount: centsToDecimal(isImport ? customsVatCents : 0),
         total_base: centsToDecimal(totalBaseCents),
         total_input_vat: centsToDecimal(totalInputVatCents),
         deductible_vat: centsToDecimal(deductibleVatCents),
         non_deductible_vat: centsToDecimal(nonDeductibleVatCents),
-        total_gross: centsToDecimal(invoiceTotalCents),
+        total_gross: centsToDecimal(grossCents),
         expense_account_id: expenseAccount.id,
         note,
         created_by: user.id,
@@ -2102,6 +2253,9 @@ export async function updateKufEntry(formData: FormData) {
   const fiscalDateTime = parseFiscalDateTime(value(formData, "fiscal_datetime"));
   const fiscalSourceUrl = nullableValue(formData, "fiscal_source_url");
 
+  const isImport =
+    submittedVatTransactionType.trim().toUpperCase() === vatTransactionTypes.import;
+
   if (
     !supplierId ||
     !kufBookId ||
@@ -2110,8 +2264,7 @@ export async function updateKufEntry(formData: FormData) {
     !invoiceDate ||
     !receiptDate ||
     !expenseAccountCode ||
-    invoiceTotalCents === null ||
-    invoiceTotalCents <= 0
+    (!isImport && (invoiceTotalCents === null || invoiceTotalCents <= 0))
   ) {
     redirectKufEntry(kufBookId, "kuf_obavezno");
   }
@@ -2135,7 +2288,8 @@ export async function updateKufEntry(formData: FormData) {
             })
       },
       select: {
-        id: true
+        id: true,
+        pdv_obveznik: true
       }
     }),
     prisma.poslovnaGodina.findFirst({
@@ -2278,83 +2432,116 @@ export async function updateKufEntry(formData: FormData) {
     .getAll("non_deductible_vat_amount")
     .map((item) => String(item));
 
-  const activeRates = await prisma.pdvStopa.findMany({
-    where: {
-      agencija_id: user.agencija_id,
-      aktivna: true
-    },
-    select: {
-      id: true,
-      sifra: true,
-      naziv: true,
-      procenat: true
-    }
-  });
-  const ratesById = new Map(activeRates.map((rate) => [rate.id, rate]));
   const taxLines: Prisma.KufEntryTaxLineCreateManyKuf_entryInput[] = [];
   let totalBaseCents = 0;
   let totalInputVatCents = 0;
   let deductibleVatCents = 0;
   let nonDeductibleVatCents = 0;
   let dominantVatRateCode: string | null = null;
-  let dominantVatAmountCents = 0;
+  let grossCents = 0;
+  let goodsValueCents = 0;
+  let customsBaseCents = 0;
+  let customsDutyCents = 0;
+  let customsVatCents = 0;
+  let customsVatRatePercent: number | null = null;
 
-  for (let index = 0; index < vatRateIds.length; index += 1) {
-    const rate = ratesById.get(vatRateIds[index]);
-    const baseCents = parseMoneyToCents(baseValues[index] ?? "");
-    const submittedVatCents = parseMoneyToCents(vatValues[index] ?? "");
-    const nonDeductibleCents = parseMoneyToCents(nonDeductibleValues[index] ?? "");
+  if (isImport) {
+    goodsValueCents = parseMoneyToCents(value(formData, "goods_value")) ?? 0;
+    customsBaseCents = parseMoneyToCents(value(formData, "customs_base_amount")) ?? 0;
+    customsDutyCents = parseMoneyToCents(value(formData, "customs_duty_amount")) ?? 0;
+    customsVatCents = parseMoneyToCents(value(formData, "customs_vat_amount")) ?? 0;
+    customsVatRatePercent = parsePercentInput(value(formData, "customs_vat_rate_percent"));
 
-    if (!rate || baseCents === null || submittedVatCents === null || nonDeductibleCents === null) {
-      redirectKufEntry(kufBook.id, "kuf_iznosi");
+    if (goodsValueCents <= 0) {
+      redirectKufEntry(kufBook.id, "kuf_obavezno");
     }
 
-    const calculatedVatCents = Math.round(baseCents * percentToNumber(rate.procenat) / 100);
-    const inputVatCents = baseCents > 0 ? calculatedVatCents : submittedVatCents;
+    grossCents = goodsValueCents + customsDutyCents + customsVatCents;
+    totalBaseCents = customsBaseCents;
+    totalInputVatCents = customsVatCents;
 
-    if (baseCents === 0 && inputVatCents === 0 && nonDeductibleCents === 0) {
-      continue;
+    if (firma.pdv_obveznik) {
+      deductibleVatCents = customsVatCents;
+      nonDeductibleVatCents = 0;
+    } else {
+      deductibleVatCents = 0;
+      nonDeductibleVatCents = customsVatCents;
     }
-
-    if (nonDeductibleCents > inputVatCents) {
-      redirectKufEntry(kufBook.id, "kuf_iznosi");
-    }
-
-    const deductibleCents = inputVatCents - nonDeductibleCents;
-    const lineGrossCents = baseCents + inputVatCents;
-
-    if (lineGrossCents > dominantVatAmountCents) {
-      dominantVatAmountCents = lineGrossCents;
-      dominantVatRateCode = rate.sifra;
-    }
-
-    totalBaseCents += baseCents;
-    totalInputVatCents += inputVatCents;
-    deductibleVatCents += deductibleCents;
-    nonDeductibleVatCents += nonDeductibleCents;
-
-    taxLines.push({
-      vat_rate_id: rate.id,
-      vat_rate_code: rate.sifra,
-      vat_rate_name: rate.naziv,
-      vat_rate_percent: rate.procenat,
-      tax_base: centsToDecimal(baseCents),
-      input_vat_amount: centsToDecimal(inputVatCents),
-      deductible_vat_amount: centsToDecimal(deductibleCents),
-      non_deductible_vat_amount: centsToDecimal(nonDeductibleCents),
-      total_with_vat: centsToDecimal(lineGrossCents),
-      created_by: user.id
+  } else {
+    const activeRates = await prisma.pdvStopa.findMany({
+      where: {
+        agencija_id: user.agencija_id,
+        aktivna: true
+      },
+      select: {
+        id: true,
+        sifra: true,
+        naziv: true,
+        procenat: true
+      }
     });
-  }
+    const ratesById = new Map(activeRates.map((rate) => [rate.id, rate]));
+    let dominantVatAmountCents = 0;
 
-  if (taxLines.length === 0 || totalBaseCents + totalInputVatCents <= 0) {
-    redirectKufEntry(kufBook.id, "kuf_iznosi");
-  }
+    for (let index = 0; index < vatRateIds.length; index += 1) {
+      const rate = ratesById.get(vatRateIds[index]);
+      const baseCents = parseMoneyToCents(baseValues[index] ?? "");
+      const submittedVatCents = parseMoneyToCents(vatValues[index] ?? "");
+      const nonDeductibleCents = parseMoneyToCents(nonDeductibleValues[index] ?? "");
 
-  const calculatedGrossCents = totalBaseCents + totalInputVatCents;
+      if (!rate || baseCents === null || submittedVatCents === null || nonDeductibleCents === null) {
+        redirectKufEntry(kufBook.id, "kuf_iznosi");
+      }
 
-  if (Math.abs(invoiceTotalCents - calculatedGrossCents) > 1) {
-    redirectKufEntry(kufBook.id, "kuf_ukupno");
+      const calculatedVatCents = Math.round(baseCents * percentToNumber(rate.procenat) / 100);
+      const inputVatCents = baseCents > 0 ? calculatedVatCents : submittedVatCents;
+
+      if (baseCents === 0 && inputVatCents === 0 && nonDeductibleCents === 0) {
+        continue;
+      }
+
+      if (nonDeductibleCents > inputVatCents) {
+        redirectKufEntry(kufBook.id, "kuf_iznosi");
+      }
+
+      const deductibleCents = inputVatCents - nonDeductibleCents;
+      const lineGrossCents = baseCents + inputVatCents;
+
+      if (lineGrossCents > dominantVatAmountCents) {
+        dominantVatAmountCents = lineGrossCents;
+        dominantVatRateCode = rate.sifra;
+      }
+
+      totalBaseCents += baseCents;
+      totalInputVatCents += inputVatCents;
+      deductibleVatCents += deductibleCents;
+      nonDeductibleVatCents += nonDeductibleCents;
+
+      taxLines.push({
+        vat_rate_id: rate.id,
+        vat_rate_code: rate.sifra,
+        vat_rate_name: rate.naziv,
+        vat_rate_percent: rate.procenat,
+        tax_base: centsToDecimal(baseCents),
+        input_vat_amount: centsToDecimal(inputVatCents),
+        deductible_vat_amount: centsToDecimal(deductibleCents),
+        non_deductible_vat_amount: centsToDecimal(nonDeductibleCents),
+        total_with_vat: centsToDecimal(lineGrossCents),
+        created_by: user.id
+      });
+    }
+
+    if (taxLines.length === 0 || totalBaseCents + totalInputVatCents <= 0) {
+      redirectKufEntry(kufBook.id, "kuf_iznosi");
+    }
+
+    const calculatedGrossCents = totalBaseCents + totalInputVatCents;
+
+    if (invoiceTotalCents === null || Math.abs(invoiceTotalCents - calculatedGrossCents) > 1) {
+      redirectKufEntry(kufBook.id, "kuf_ukupno");
+    }
+
+    grossCents = invoiceTotalCents;
   }
 
   const updatedEntry = await prisma.$transaction(async (tx) => {
@@ -2394,11 +2581,21 @@ export async function updateKufEntry(formData: FormData) {
         receipt_date: receiptDate,
         due_date: dueDate,
         vat_transaction_type: vatTransactionType,
+        is_import: isImport,
+        customs_declaration_number:
+          isImport ? nullableValue(formData, "customs_declaration_number") : null,
+        customs_declaration_date:
+          isImport ? parseDate(formData, "customs_declaration_date") : null,
+        goods_value: centsToDecimal(isImport ? goodsValueCents : 0),
+        customs_base_amount: centsToDecimal(isImport ? customsBaseCents : 0),
+        customs_duty_amount: centsToDecimal(isImport ? customsDutyCents : 0),
+        customs_vat_rate_percent: isImport ? customsVatRatePercent : null,
+        customs_vat_amount: centsToDecimal(isImport ? customsVatCents : 0),
         total_base: centsToDecimal(totalBaseCents),
         total_input_vat: centsToDecimal(totalInputVatCents),
         deductible_vat: centsToDecimal(deductibleVatCents),
         non_deductible_vat: centsToDecimal(nonDeductibleVatCents),
-        total_gross: centsToDecimal(invoiceTotalCents),
+        total_gross: centsToDecimal(grossCents),
         expense_account_id: expenseAccount.id,
         note,
         updated_by: user.id,
@@ -2832,6 +3029,11 @@ export async function createKifEntry(formData: FormData) {
         invoice_date: invoiceDate,
         due_date: dueDate,
         vat_transaction_type: vatTransactionType,
+        is_export: vatTransactionType === "EXPORT",
+        export_declaration_number:
+          vatTransactionType === "EXPORT" ? nullableValue(formData, "export_declaration_number") : null,
+        export_declaration_date:
+          vatTransactionType === "EXPORT" ? parseDate(formData, "export_declaration_date") : null,
         total_base: centsToDecimal(baseTotalCents),
         total_output_vat: centsToDecimal(vatTotalCents),
         total_gross: centsToDecimal(invoiceTotalCents),
@@ -3171,6 +3373,11 @@ export async function updateKifEntry(formData: FormData) {
         invoice_date: invoiceDate,
         due_date: dueDate,
         vat_transaction_type: vatTransactionType,
+        is_export: vatTransactionType === "EXPORT",
+        export_declaration_number:
+          vatTransactionType === "EXPORT" ? nullableValue(formData, "export_declaration_number") : null,
+        export_declaration_date:
+          vatTransactionType === "EXPORT" ? parseDate(formData, "export_declaration_date") : null,
         total_base: centsToDecimal(baseTotalCents),
         total_output_vat: centsToDecimal(vatTotalCents),
         total_gross: centsToDecimal(invoiceTotalCents),

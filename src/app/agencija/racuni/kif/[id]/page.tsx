@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createKifEntry, deleteKifEntry, postInvoiceBook, updateKifEntry } from "../../actions";
 import { KifTaxLinesForm } from "@/components/KifTaxLinesForm";
 import { PartnerSearchInput } from "@/components/PartnerSearchInput";
+import { VatTransactionFields } from "@/components/VatTransactionFields";
 import { VatTransactionTypeSelect } from "@/components/VatTransactionTypeSelect";
 import {
   invoicePostingAccountSources,
@@ -233,6 +234,9 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             invoice_date: true,
             due_date: true,
             vat_transaction_type: true,
+            is_export: true,
+            export_declaration_number: true,
+            export_declaration_date: true,
             total_base: true,
             total_output_vat: true,
             total_gross: true,
@@ -503,6 +507,33 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             documentType="KIF"
             initialValue={editingEntry?.vat_transaction_type}
           />
+          <VatTransactionFields
+            documentType="KIF"
+            showFor="EXPORT"
+            initialValue={editingEntry?.vat_transaction_type}
+          >
+            <label>
+              <span>Broj izvozne deklaracije</span>
+              <input
+                name="export_declaration_number"
+                defaultValue={editingEntry?.export_declaration_number ?? ""}
+                disabled={isLocked}
+              />
+            </label>
+            <label>
+              <span>Datum izvozne deklaracije</span>
+              <input
+                name="export_declaration_date"
+                type="date"
+                defaultValue={
+                  editingEntry?.export_declaration_date
+                    ? inputDate(editingEntry.export_declaration_date)
+                    : ""
+                }
+                disabled={isLocked}
+              />
+            </label>
+          </VatTransactionFields>
           <label>
             <span>Broj izlaznog računa</span>
             <input

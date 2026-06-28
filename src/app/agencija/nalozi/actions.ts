@@ -823,24 +823,52 @@ export async function deleteJournal(formData: FormData) {
     redirectJournals("nalog_greska");
   }
 
-  const deletedJournal = await prisma.nalog.update({
-    where: {
-      id: nalog.id
-    },
-    data: {
-      status: journalStatuses.deleted,
-      is_deleted: true,
-      deleted_at: new Date(),
-      deleted_by: user.id,
-      delete_reason: reason,
-      updated_by: user.id
-    },
-    select: {
-      id: true,
-      firma_id: true,
-      status: true,
-      is_deleted: true
-    }
+  const deletedJournal = await prisma.$transaction(async (tx) => {
+    const journal = await tx.nalog.update({
+      where: {
+        id: nalog.id
+      },
+      data: {
+        status: journalStatuses.deleted,
+        is_deleted: true,
+        deleted_at: new Date(),
+        deleted_by: user.id,
+        delete_reason: reason,
+        updated_by: user.id
+      },
+      select: {
+        id: true,
+        firma_id: true,
+        status: true,
+        is_deleted: true
+      }
+    });
+
+    // Otknjiži izvorne fakture (KUF/KIF) koje su bile knjižene ovim nalogom,
+    // da bi mogle ponovo da se urede, obrišu ili proknjiže.
+    await tx.kufEntry.updateMany({
+      where: {
+        journal_id: journal.id
+      },
+      data: {
+        posting_status: "UNPOSTED",
+        journal_id: null,
+        updated_by: user.id
+      }
+    });
+
+    await tx.kifEntry.updateMany({
+      where: {
+        journal_id: journal.id
+      },
+      data: {
+        posting_status: "UNPOSTED",
+        journal_id: null,
+        updated_by: user.id
+      }
+    });
+
+    return journal;
   });
 
   await auditLog({
@@ -855,6 +883,11 @@ export async function deleteJournal(formData: FormData) {
   });
 
   revalidatePath("/agencija/nalozi");
+  revalidatePath("/agencija/racuni/kuf");
+  revalidatePath("/agencija/racuni/kif");
+  revalidatePath("/agencija/racuni/pregled-kuf");
+  revalidatePath("/agencija/racuni/pregled-kif");
+  revalidatePath("/agencija/racuni/neproknjizeno");
   redirectJournals("nalog_obrisan");
 }
 

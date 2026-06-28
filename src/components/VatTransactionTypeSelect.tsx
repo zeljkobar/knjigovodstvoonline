@@ -34,6 +34,14 @@ export function VatTransactionTypeSelect({
   const [warning, setWarning] = useState("");
 
   useEffect(() => {
+    document.dispatchEvent(
+      new CustomEvent("vat-transaction-type-changed", {
+        detail: { documentType, value }
+      })
+    );
+  }, [documentType, value]);
+
+  useEffect(() => {
     function handlePartnerSelected(event: Event) {
       const detail = (event as CustomEvent<{ isForeign?: boolean }>).detail;
       const partnerIsForeign = Boolean(detail?.isForeign);

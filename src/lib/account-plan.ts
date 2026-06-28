@@ -16,7 +16,9 @@ export const defaultAccountPurposes = [
   ["DEFAULT_REVENUE_ACCOUNT", "Prihod"],
   ["DEFAULT_EXPENSE_ACCOUNT", "Trosak"],
   ["DEFAULT_GOODS_ACCOUNT", "Roba"],
-  ["DEFAULT_PAYROLL_ACCOUNT", "Plate"]
+  ["DEFAULT_PAYROLL_ACCOUNT", "Plate"],
+  ["DEFAULT_CUSTOMS_DUTY_ACCOUNT", "Carina (uvozne dazbine)"],
+  ["DEFAULT_IMPORT_VAT_ACCOUNT", "Carinski PDV (uvoz)"]
 ] as const;
 
 export const invoicePostingAccountPurposes = {
@@ -24,6 +26,11 @@ export const invoicePostingAccountPurposes = {
   kufInputVat: "KUF_INPUT_VAT_ACCOUNT",
   kifCustomer: "KIF_CUSTOMER_ACCOUNT",
   kifOutputVat: "KIF_OUTPUT_VAT_ACCOUNT"
+} as const;
+
+export const importAccountPurposes = {
+  customsDuty: "DEFAULT_CUSTOMS_DUTY_ACCOUNT",
+  importVat: "DEFAULT_IMPORT_VAT_ACCOUNT"
 } as const;
 
 export const invoicePostingDocumentTypes = {

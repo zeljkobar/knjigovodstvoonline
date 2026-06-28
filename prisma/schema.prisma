@@ -608,6 +608,14 @@ model KufEntry {
   internal_kuf_number      String
   supplier_invoice_number  String
   vat_transaction_type     String            @default("DOMESTIC")
+  is_import                Boolean           @default(false)
+  customs_declaration_number String?
+  customs_declaration_date DateTime?         @db.Date
+  goods_value              Decimal           @default(0) @db.Decimal(14, 2)
+  customs_base_amount      Decimal           @default(0) @db.Decimal(14, 2)
+  customs_duty_amount      Decimal           @default(0) @db.Decimal(14, 2)
+  customs_vat_rate_percent Decimal?          @db.Decimal(5, 2)
+  customs_vat_amount       Decimal           @default(0) @db.Decimal(14, 2)
   fiscal_iic               String?
   fiscal_fic               String?
   fiscal_seller_tin        String?
@@ -720,6 +728,9 @@ model KifEntry {
   internal_kif_number      String
   customer_invoice_number  String
   vat_transaction_type     String            @default("DOMESTIC")
+  is_export                Boolean           @default(false)
+  export_declaration_number String?
+  export_declaration_date  DateTime?         @db.Date
   invoice_date             DateTime          @db.Date
   due_date                 DateTime?         @db.Date
   currency                 String            @default("EUR")

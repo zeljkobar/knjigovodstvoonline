@@ -5,6 +5,7 @@ import { FiskalniUcitajButton } from "@/components/FiskalniUcitajButton";
 import { KufEntryFormShortcuts } from "@/components/KufEntryFormShortcuts";
 import { KufTaxLinesForm } from "@/components/KufTaxLinesForm";
 import { PartnerSearchInput } from "@/components/PartnerSearchInput";
+import { VatTransactionFields } from "@/components/VatTransactionFields";
 import { VatTransactionTypeSelect } from "@/components/VatTransactionTypeSelect";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
@@ -227,6 +228,14 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             receipt_date: true,
             due_date: true,
             vat_transaction_type: true,
+            is_import: true,
+            customs_declaration_number: true,
+            customs_declaration_date: true,
+            goods_value: true,
+            customs_base_amount: true,
+            customs_duty_amount: true,
+            customs_vat_rate_percent: true,
+            customs_vat_amount: true,
             total_base: true,
             total_input_vat: true,
             deductible_vat: true,
@@ -508,6 +517,82 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             documentType="KUF"
             initialValue={editingEntry?.vat_transaction_type}
           />
+          <VatTransactionFields
+            documentType="KUF"
+            showFor="IMPORT"
+            initialValue={editingEntry?.vat_transaction_type}
+          >
+            <p className="form-wide admin-hint">
+              Uvoz: unesi jedan dokument za cijeli uvoz (faktura dobavljača + carinska
+              deklaracija). Program automatski knjiži robu, carinu i carinski PDV.
+            </p>
+            <label>
+              <span>Broj carinske deklaracije</span>
+              <input
+                name="customs_declaration_number"
+                defaultValue={editingEntry?.customs_declaration_number ?? ""}
+                disabled={isLocked}
+              />
+            </label>
+            <label>
+              <span>Datum carinske deklaracije</span>
+              <input
+                name="customs_declaration_date"
+                type="date"
+                defaultValue={
+                  editingEntry?.customs_declaration_date
+                    ? inputDate(editingEntry.customs_declaration_date)
+                    : ""
+                }
+                disabled={isLocked}
+              />
+            </label>
+            <label>
+              <span>Vrijednost robe (faktura dobavljača)</span>
+              <input
+                name="goods_value"
+                inputMode="decimal"
+                defaultValue={decimalInput(editingEntry?.goods_value ?? 0)}
+                disabled={isLocked}
+              />
+            </label>
+            <label>
+              <span>Carinska osnovica</span>
+              <input
+                name="customs_base_amount"
+                inputMode="decimal"
+                defaultValue={decimalInput(editingEntry?.customs_base_amount ?? 0)}
+                disabled={isLocked}
+              />
+            </label>
+            <label>
+              <span>Carina (uvozne dažbine)</span>
+              <input
+                name="customs_duty_amount"
+                inputMode="decimal"
+                defaultValue={decimalInput(editingEntry?.customs_duty_amount ?? 0)}
+                disabled={isLocked}
+              />
+            </label>
+            <label>
+              <span>Stopa carinskog PDV-a (%)</span>
+              <input
+                name="customs_vat_rate_percent"
+                inputMode="decimal"
+                defaultValue={decimalInput(editingEntry?.customs_vat_rate_percent ?? 0)}
+                disabled={isLocked}
+              />
+            </label>
+            <label>
+              <span>Carinski PDV (iznos)</span>
+              <input
+                name="customs_vat_amount"
+                inputMode="decimal"
+                defaultValue={decimalInput(editingEntry?.customs_vat_amount ?? 0)}
+                disabled={isLocked}
+              />
+            </label>
+          </VatTransactionFields>
           <label>
             <span>Broj računa dobavljača</span>
             <input
@@ -572,27 +657,33 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             />
           </label>
 
-          <KufTaxLinesForm
-            disabled={isLocked}
-            initialInvoiceTotal={editingEntry ? decimalInput(editingEntry.total_gross) : ""}
-            initialLines={
-              editingEntry
-                ? editingEntry.tax_lines
-                    .filter((line) => line.vat_rate_id)
-                    .map((line) => ({
-                      vatRateId: line.vat_rate_id!,
-                      taxBase: decimalInput(line.tax_base),
-                      nonDeductibleVat: decimalInput(line.non_deductible_vat_amount)
-                    }))
-                : []
-            }
-            rates={vatRates.map((rate) => ({
-              id: rate.id,
-              sifra: rate.sifra,
-              naziv: rate.naziv,
-              procenat: rate.procenat.toString()
-            }))}
-          />
+          <VatTransactionFields
+            documentType="KUF"
+            hideFor="IMPORT"
+            initialValue={editingEntry?.vat_transaction_type}
+          >
+            <KufTaxLinesForm
+              disabled={isLocked}
+              initialInvoiceTotal={editingEntry ? decimalInput(editingEntry.total_gross) : ""}
+              initialLines={
+                editingEntry
+                  ? editingEntry.tax_lines
+                      .filter((line) => line.vat_rate_id)
+                      .map((line) => ({
+                        vatRateId: line.vat_rate_id!,
+                        taxBase: decimalInput(line.tax_base),
+                        nonDeductibleVat: decimalInput(line.non_deductible_vat_amount)
+                      }))
+                  : []
+              }
+              rates={vatRates.map((rate) => ({
+                id: rate.id,
+                sifra: rate.sifra,
+                naziv: rate.naziv,
+                procenat: rate.procenat.toString()
+              }))}
+            />
+          </VatTransactionFields>
 
           <div className="kuf-form-actions">
             {!isLocked ? <FiskalniUcitajButton formId="kuf-entry-form" /> : null}
