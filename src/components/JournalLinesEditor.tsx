@@ -1,17 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { JournalPartnerCell } from "@/components/JournalPartnerCell";
 
 type AccountOption = {
   analitika_obavezna: boolean;
   naziv: string;
   sifra: string;
-};
-
-type PartnerOption = {
-  id: string;
-  naziv: string;
-  pib: string | null;
 };
 
 export type JournalLineInitialValue = {
@@ -23,6 +18,8 @@ export type JournalLineInitialValue = {
   debit?: string;
   description?: string;
   partnerId?: string;
+  partnerNaziv?: string;
+  partnerPib?: string | null;
 };
 
 type JournalLinesEditorProps = {
@@ -30,23 +27,17 @@ type JournalLinesEditorProps = {
   datalistId: string;
   initialLines?: JournalLineInitialValue[];
   minimumRows?: number;
-  partners: PartnerOption[];
 };
 
 function createEmptyRows(count: number) {
   return Array.from({ length: count });
 }
 
-function partnerDisplay(partner: PartnerOption) {
-  return `${partner.naziv}${partner.pib ? ` (${partner.pib})` : ""}`;
-}
-
 export function JournalLinesEditor({
   accounts,
   datalistId,
   initialLines = [],
-  minimumRows = 5,
-  partners
+  minimumRows = 5
 }: JournalLinesEditorProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [rowCount, setRowCount] = useState(
@@ -54,7 +45,6 @@ export function JournalLinesEditor({
   );
   const [totals, setTotals] = useState(() => calculateInitialTotals(initialLines));
   const rows = createEmptyRows(rowCount);
-  const partnerDatalistId = `${datalistId}-partneri`;
 
   function defaultLineDescription(index: number) {
     const wrapper = wrapperRef.current;
@@ -97,29 +87,6 @@ export function JournalLinesEditor({
     });
   }
 
-  function resolvePartnerId(value: string) {
-    const searchValue = value.trim().toLowerCase();
-
-    if (!searchValue) {
-      return "";
-    }
-
-    const partner = partners.find((item) => {
-      const displayValue = partnerDisplay(item).toLowerCase();
-      const nameValue = item.naziv.toLowerCase();
-      const pibValue = item.pib?.toLowerCase();
-
-      return (
-        displayValue === searchValue ||
-        nameValue === searchValue ||
-        pibValue === searchValue ||
-        item.id === value
-      );
-    });
-
-    return partner?.id ?? "";
-  }
-
   return (
     <>
       <datalist id={datalistId}>
@@ -130,15 +97,6 @@ export function JournalLinesEditor({
               account.analitika_obavezna ? " *" : ""
             }`}
             value={account.sifra}
-          />
-        ))}
-      </datalist>
-      <datalist id={partnerDatalistId}>
-        {partners.map((partner) => (
-          <option
-            key={partner.id}
-            label={partner.pib ? `${partner.pib} - ${partner.naziv}` : partner.naziv}
-            value={partnerDisplay(partner)}
           />
         ))}
       </datalist>
@@ -161,9 +119,6 @@ export function JournalLinesEditor({
           <tbody>
             {rows.map((_, index) => {
               const initialLine = initialLines[index] ?? null;
-              const initialPartner = initialLine?.partnerId
-                ? partners.find((partner) => partner.id === initialLine.partnerId)
-                : null;
 
               return (
                 <tr key={index}>
@@ -179,31 +134,12 @@ export function JournalLinesEditor({
                       placeholder="npr. 2020"
                     />
                   </td>
-                  <td>
-                    <input
-                      data-partner-input="true"
-                      defaultValue={initialPartner ? partnerDisplay(initialPartner) : ""}
-                      list={partnerDatalistId}
-                      name="komitent_pretraga"
-                      onChange={(event) => {
-                        const hiddenInput =
-                          event.currentTarget.parentElement?.querySelector<HTMLInputElement>(
-                            'input[name="komitent_id"]'
-                          );
-
-                        if (hiddenInput) {
-                          hiddenInput.value = resolvePartnerId(event.currentTarget.value);
-                        }
-
-                        touchRow(index);
-                      }}
-                      onFocus={() => touchRow(index)}
-                      placeholder="Naziv ili PIB"
-                    />
-                    <input
-                      defaultValue={initialLine?.partnerId ?? ""}
-                      name="komitent_id"
-                      type="hidden"
+                  <td className="journal-partner-td">
+                    <JournalPartnerCell
+                      initialId={initialLine?.partnerId ?? ""}
+                      initialNaziv={initialLine?.partnerNaziv ?? ""}
+                      initialPib={initialLine?.partnerPib ?? null}
+                      onActivity={() => touchRow(index)}
                     />
                   </td>
                   <td>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
+import { PartnerFilterSelect } from "@/components/PartnerFilterSelect";
 import { requireAnyRole } from "@/lib/auth";
 import { formatJournalCode } from "@/lib/journals";
 import { prisma } from "@/lib/prisma";
@@ -62,7 +63,7 @@ export default async function AnalitickeKarticePage({
     );
   }
 
-  const [firma, godina, accounts, partners] = await Promise.all([
+  const [firma, godina, accounts] = await Promise.all([
     prisma.firma.findFirst({
       where: {
         id: workContext.firmaId,
@@ -107,38 +108,26 @@ export default async function AnalitickeKarticePage({
         sifra: true,
         naziv: true
       }
-    }),
-    prisma.komitent.findMany({
-      where: {
-        aktivan: true,
-        OR: [
-          {
-            scope: "GLOBAL"
-          },
-          {
-            scope: "AGENCY",
-            agencija_id: user.agencija_id
-          },
-          {
-            scope: "COMPANY",
-            firma_id: workContext.firmaId
-          }
-        ]
-      },
-      orderBy: {
-        naziv: "asc"
-      },
-      select: {
-        id: true,
-        naziv: true,
-        pib: true
-      }
     })
   ]);
 
   if (!firma || !godina) {
     return null;
   }
+
+  const selectedPartnerRecord =
+    selectedPartner && selectedPartner !== "ALL"
+      ? await prisma.komitent.findUnique({
+          where: { id: selectedPartner },
+          select: { naziv: true, pib: true }
+        })
+      : null;
+
+  const selectedPartnerLabel = selectedPartnerRecord
+    ? `${selectedPartnerRecord.naziv}${
+        selectedPartnerRecord.pib ? ` (${selectedPartnerRecord.pib})` : ""
+      }`
+    : "";
 
   const where: Prisma.StavkaNalogaWhereInput = {
     nalog: {
@@ -304,15 +293,11 @@ export default async function AnalitickeKarticePage({
           ) : null}
           <label>
             <span>Partner</span>
-            <select name="partner" defaultValue={selectedPartner || "ALL"}>
-              <option value="ALL">Svi partneri</option>
-              {partners.map((partner) => (
-                <option key={partner.id} value={partner.id}>
-                  {partner.naziv}
-                  {partner.pib ? ` (${partner.pib})` : ""}
-                </option>
-              ))}
-            </select>
+            <PartnerFilterSelect
+              initialId={selectedPartner}
+              initialLabel={selectedPartnerLabel}
+              name="partner"
+            />
           </label>
           <label>
             <span>Datum od</span>

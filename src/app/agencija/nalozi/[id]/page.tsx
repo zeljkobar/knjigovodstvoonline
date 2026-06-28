@@ -183,7 +183,7 @@ export default async function NalogDetailPage({
   const code =
     nalog.sifra ||
     formatJournalCode(nalog.vrsta_naloga.prefiks, nalog.poslovna_godina.godina, nalog.broj);
-  const [baseAccounts, companyOverrides, partners] =
+  const [baseAccounts, companyOverrides] =
     nalog.status === journalStatuses.draft && !nalog.poslovna_godina.zakljucena
       ? await Promise.all([
           prisma.konto.findMany({
@@ -228,35 +228,9 @@ export default async function NalogDetailPage({
               napomena: true,
               aktivan: true
             }
-          }),
-          prisma.komitent.findMany({
-            where: {
-              aktivan: true,
-              OR: [
-                {
-                  scope: "GLOBAL"
-                },
-                {
-                  scope: "AGENCY",
-                  agencija_id: user.agencija_id
-                },
-                {
-                  scope: "COMPANY",
-                  firma_id: nalog.firma_id
-                }
-              ]
-            },
-            orderBy: {
-              naziv: "asc"
-            },
-            select: {
-              id: true,
-              naziv: true,
-              pib: true
-            }
           })
         ])
-      : [[], [], []];
+      : [[], []];
   const accounts = mergeCompanyAccountPlan(baseAccounts, companyOverrides).filter(
     (account) => account.aktivan && account.tip_konta === "analiticko"
   );
@@ -271,7 +245,9 @@ const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
     documentDate: stavka.datum_dokumenta ? inputDate(stavka.datum_dokumenta) : "",
     documentDueDate: stavka.datum_valute ? inputDate(stavka.datum_valute) : "",
     documentNumber: stavka.broj_dokumenta ?? "",
-    partnerId: stavka.komitent?.id ?? ""
+    partnerId: stavka.komitent?.id ?? "",
+    partnerNaziv: stavka.komitent?.naziv ?? "",
+    partnerPib: stavka.komitent?.pib ?? null
   }));
 
   return (
@@ -406,7 +382,6 @@ const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
               accounts={accounts}
               datalistId="konto-options"
               initialLines={initialLines}
-              partners={partners}
             />
             <div className="journal-actions">
               <button type="submit">Sačuvaj stavke</button>

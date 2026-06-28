@@ -2043,6 +2043,14 @@ td small {
   padding: 4px 3px;
 }
 
+.journal-partner-cell {
+  width: 100%;
+}
+
+.journal-partner-cell input[type="hidden"] {
+  display: none;
+}
+
 .journal-lines-table th {
   padding: 8px 3px;
 }

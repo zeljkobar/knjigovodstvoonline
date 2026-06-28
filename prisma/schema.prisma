@@ -359,6 +359,8 @@ model Komitent {
   ziro_racuni   KomitentZiroRacun[]
 
   @@index([is_foreign])
+  @@index([pib])
+  @@index([scope])
   @@map("komitenti")
 }
 

@@ -1,0 +1,62 @@
+[
+  {
+    "sheet": "Status 2026-06-28",
+    "file": "Status 2026-06-28.csv"
+  },
+  {
+    "sheet": "Status 2026-06-25",
+    "file": "Status 2026-06-25.csv"
+  },
+  {
+    "sheet": "Dashboard",
+    "file": "Dashboard.csv"
+  },
+  {
+    "sheet": "Moduli",
+    "file": "Moduli.csv"
+  },
+  {
+    "sheet": "Funkcionalnosti",
+    "file": "Funkcionalnosti.csv"
+  },
+  {
+    "sheet": "Pravila",
+    "file": "Pravila.csv"
+  },
+  {
+    "sheet": "Zavisnosti",
+    "file": "Zavisnosti.csv"
+  },
+  {
+    "sheet": "Ekrani",
+    "file": "Ekrani.csv"
+  },
+  {
+    "sheet": "Baza",
+    "file": "Baza.csv"
+  },
+  {
+    "sheet": "API",
+    "file": "API.csv"
+  },
+  {
+    "sheet": "Testovi",
+    "file": "Testovi.csv"
+  },
+  {
+    "sheet": "Bugovi",
+    "file": "Bugovi.csv"
+  },
+  {
+    "sheet": "Ideje",
+    "file": "Ideje.csv"
+  },
+  {
+    "sheet": "Odluke",
+    "file": "Odluke.csv"
+  },
+  {
+    "sheet": "Kategorije",
+    "file": "Kategorije.csv"
+  }
+]

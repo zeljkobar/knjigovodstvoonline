@@ -1,0 +1,8 @@
+Status projekta na dan 2026-06-28,,,,
+Kratki pregled stvarno implementiranog stanja (nezavisno od pocetne specifikacije).,,,,
+,,,,
+Oblast,Status,Sta je zavrseno,Sta ostaje,Preporuceni sljedeci korak
+Performanse partnera,Core implementiran,Pretraga partnera u nalozima (novi/[id]) i filteru analitickih kartica prebacena na async (/api/partners/search); vise se ne ucitava ~64k partnera. Nove komponente JournalPartnerCell i PartnerFilterSelect.,Eventualno cache rezultata i prikaz scope-a u dropdownu.,Pratiti brzinu na produkciji.
+Indeksi baze,Implementirano,Migracija 20260628120000_komitent_pretraga_indeksi: pg_trgm GIN na komitenti.naziv + btree na pib i scope.,-,Po potrebi indeksi na agencija_id/firma_id.
+KIF/KUF uvoz,Core implementiran,"Konfigurabilna sema za uvoz (KUF): 5 konta, smjer D/P i partner po stavci; carina kao zasebna stavka troska, carinska obaveza na partnera CARINA.",Kontrole iznosa i duplikata.,QA uvoznih knjizenja.
+Dokumentacija,Uspostavljeno,"AGENTS.md, CURRENT_STATE.md, NEXT_STEPS.md, SESSION_LOG.md i docs/ (architecture + accounting). Pointeri za Copilot i Claude. Planer se vodi kao CSV izvor (zadaci/planer) + skripta za regeneraciju Excela.",Redovno odrzavanje.,Azurirati uz svaku vecu promjenu.

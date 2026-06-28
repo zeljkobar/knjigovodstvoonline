@@ -86,7 +86,7 @@ export default async function NoviNalogPage({ searchParams }: NoviNalogPageProps
         })
       : null;
 
-  const [journalTypes, baseAccounts, companyOverrides, partners] =
+  const [journalTypes, baseAccounts, companyOverrides] =
     activeCompany && activeYear
       ? await Promise.all([
           prisma.vrstaNaloga.findMany({
@@ -156,35 +156,9 @@ export default async function NoviNalogPage({ searchParams }: NoviNalogPageProps
               napomena: true,
               aktivan: true
             }
-          }),
-          prisma.komitent.findMany({
-            where: {
-              aktivan: true,
-              OR: [
-                {
-                  scope: "GLOBAL"
-                },
-                {
-                  scope: "AGENCY",
-                  agencija_id: user.agencija_id
-                },
-                {
-                  scope: "COMPANY",
-                  firma_id: activeCompany.id
-                }
-              ]
-            },
-            orderBy: {
-              naziv: "asc"
-            },
-            select: {
-              id: true,
-              naziv: true,
-              pib: true
-            }
           })
         ])
-      : [[], [], [], []];
+      : [[], [], []];
 
   const accounts = mergeCompanyAccountPlan(baseAccounts, companyOverrides).filter(
     (account) => account.aktivan && account.tip_konta === "analiticko"
@@ -262,7 +236,6 @@ export default async function NoviNalogPage({ searchParams }: NoviNalogPageProps
             <JournalLinesEditor
               accounts={accounts}
               datalistId="konto-options"
-              partners={partners}
             />
 
             <div className="journal-actions">

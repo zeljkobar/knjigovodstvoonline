@@ -11,6 +11,8 @@
     "prisma:migrate": "prisma migrate dev",
     "kontni-plan:import": "node prisma/import-kontni-plan.mjs",
     "partners:import-global": "node scripts/import-global-partners-from-old-site.mjs",
+    "planer:dump": "node scripts/planer.mjs dump",
+    "planer:build": "node scripts/planer.mjs build",
     "db:seed": "node prisma/seed.mjs"
   },
   "dependencies": {
