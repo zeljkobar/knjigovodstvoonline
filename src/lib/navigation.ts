@@ -134,7 +134,8 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/nalozi/partneri", label: "Partneri" },
     { href: "/agencija/nalozi/poslovne-jedinice", label: "Poslovne jedinice" },
     { href: "/agencija/nalozi/bruto-bilans", label: "Bruto bilans" },
-    { href: "/agencija/nalozi/analiticke-kartice", label: "Analitičke kartice" }
+    { href: "/agencija/nalozi/analiticke-kartice", label: "Analitičke kartice" },
+    { href: "/agencija/nalozi/kupci-dobavljaci", label: "Kupci / dobavljači" }
   ],
   robno: [
     { href: "/agencija/robno/artikli", label: "Artikli" },

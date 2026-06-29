@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   createInvoiceBookType,
+  importInvoiceSettingsFromCompany,
   saveImportPostingScheme,
   saveInvoicePostingRules
 } from "../actions";
@@ -41,6 +42,8 @@ const poruke: Record<string, string> = {
   sema_konto:
     "Šema nije sačuvana: za svako polje sa izvorom 'Izabrano konto' morate izabrati konto.",
   uvoz_sema_sacuvana: "Šema za uvoz je sačuvana.",
+  uvoz_podesavanja_sacuvana: "Podešavanja KIF/KUF su uvezena.",
+  uvoz_podesavanja_firma: "Izaberite firmu iz koje se uvoze podešavanja.",
   uvoz_sema_konto: "Šema za uvoz nije sačuvana: izabrano konto ne postoji u kontnom planu firme.",
   uvoz_sema_komitent: "Šema za uvoz nije sačuvana: izabrani partner nije komitent ove firme.",
   uvoz_sema_greska: "Šema za uvoz nije sačuvana. Provjerite podatke."
@@ -92,7 +95,7 @@ export default async function RacuniPodesavanjaPage({
     await ensureDefaultInvoiceBookTypes(activeCompany.id, user.agencija_id, user.id);
   }
 
-  const [baseAccounts, companyOverrides, vatRates, invoiceTypes, journalTypes] = activeCompany
+  const [baseAccounts, companyOverrides, vatRates, invoiceTypes, journalTypes, sourceCompanies] = activeCompany
     ? await Promise.all([
         prisma.konto.findMany({
           where: {
@@ -225,9 +228,37 @@ export default async function RacuniPodesavanjaPage({
             naziv: true,
             prefiks: true
           }
+        }),
+        prisma.firma.findMany({
+          where: {
+            agencija_id: user.agencija_id,
+            is_deleted: false,
+            aktivan: true,
+            id: {
+              not: activeCompany.id
+            },
+            ...(user.rola === "admin_agencije"
+              ? {}
+              : {
+                  korisnici: {
+                    some: {
+                      korisnik_id: user.id,
+                      is_deleted: false
+                    }
+                  }
+                })
+          },
+          orderBy: {
+            naziv: "asc"
+          },
+          select: {
+            id: true,
+            naziv: true,
+            pib: true
+          }
         })
       ])
-    : [[], [], [], [], []];
+    : [[], [], [], [], [], []];
 
   const accounts = mergeCompanyAccountPlan(baseAccounts, companyOverrides).filter(
     (account) => account.aktivan
@@ -342,6 +373,32 @@ export default async function RacuniPodesavanjaPage({
                 <input name="opis" placeholder="Kratka napomena" />
               </label>
               <button type="submit">Dodaj vrstu</button>
+            </form>
+          </section>
+
+          <section className="admin-panel">
+            <div className="panel-header">
+              <div>
+                <h3>Uvezi podešavanja iz druge firme</h3>
+                <span>
+                  Kopira vrste knjiga, šeme kontiranja po poljima i šemu za uvoz na aktivnu firmu.
+                </span>
+              </div>
+            </div>
+            <form className="compact-form invoice-settings-import-form" action={importInvoiceSettingsFromCompany}>
+              <label>
+                <span>Izvorna firma</span>
+                <select name="source_firma_id" required>
+                  <option value="">Izaberite firmu</option>
+                  {sourceCompanies.map((firma) => (
+                    <option key={firma.id} value={firma.id}>
+                      {firma.naziv}
+                      {firma.pib ? ` (${firma.pib})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="submit">Uvezi podešavanja</button>
             </form>
           </section>
 

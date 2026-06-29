@@ -29,8 +29,35 @@ type JournalLinesEditorProps = {
   minimumRows?: number;
 };
 
+type OpenItem = {
+  documentDate: string | null;
+  documentNumber: string;
+  dueDate: string | null;
+  openAmountCents: number;
+};
+
+type OpenItemsModalState = {
+  accountCode: string;
+  closeSide: "D" | "P" | null;
+  error: string | null;
+  items: OpenItem[];
+  loading: boolean;
+  partnerLabel: string;
+  rowIndex: number;
+};
+
 function createEmptyRows(count: number) {
   return Array.from({ length: count });
+}
+
+function setInputValue(input: HTMLInputElement | null, value: string) {
+  if (!input) {
+    return;
+  }
+
+  input.value = value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 export function JournalLinesEditor({
@@ -44,6 +71,8 @@ export function JournalLinesEditor({
     Math.max(initialLines.length + 5, minimumRows)
   );
   const [totals, setTotals] = useState(() => calculateInitialTotals(initialLines));
+  const [openItemsModal, setOpenItemsModal] =
+    useState<OpenItemsModalState | null>(null);
   const rows = createEmptyRows(rowCount);
 
   function defaultLineDescription(index: number) {
@@ -85,6 +114,149 @@ export function JournalLinesEditor({
       credit,
       debit
     });
+  }
+
+  function getRow(index: number) {
+    return wrapperRef.current?.querySelectorAll<HTMLTableRowElement>("tbody tr")[
+      index
+    ] ?? null;
+  }
+
+  async function openItemsForRow(index: number) {
+    const row = getRow(index);
+    const accountCode =
+      row?.querySelector<HTMLInputElement>('input[name="konto_sifra"]')?.value.trim() ??
+      "";
+    const partnerId =
+      row?.querySelector<HTMLInputElement>('input[name="komitent_id"]')?.value.trim() ??
+      "";
+    const partnerLabel =
+      row
+        ?.querySelector<HTMLInputElement>('input[data-partner-input="true"]')
+        ?.value.trim() ?? "";
+
+    touchRow(index);
+
+    if (!accountCode || !partnerId) {
+      setOpenItemsModal({
+        accountCode,
+        closeSide: null,
+        error: "Prvo unesite konto i izaberite partnera.",
+        items: [],
+        loading: false,
+        partnerLabel,
+        rowIndex: index
+      });
+      return;
+    }
+
+    const closeSide = accountCode.startsWith("2")
+      ? "P"
+      : accountCode.startsWith("4")
+        ? "D"
+        : null;
+
+    if (!closeSide) {
+      setOpenItemsModal({
+        accountCode,
+        closeSide: null,
+        error: "Otvorene stavke se za sada nude za kupce i dobavljače.",
+        items: [],
+        loading: false,
+        partnerLabel,
+        rowIndex: index
+      });
+      return;
+    }
+
+    setOpenItemsModal({
+      accountCode,
+      closeSide,
+      error: null,
+      items: [],
+      loading: true,
+      partnerLabel,
+      rowIndex: index
+    });
+
+    try {
+      const params = new URLSearchParams({
+        konto_sifra: accountCode,
+        komitent_id: partnerId
+      });
+      const response = await fetch(`/api/nalozi/open-items?${params.toString()}`);
+      const data = (await response.json()) as {
+        closeSide?: "D" | "P" | null;
+        items?: OpenItem[];
+        message?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.message || "Otvorene stavke nisu dostupne.");
+      }
+
+      setOpenItemsModal({
+        accountCode,
+        closeSide: data.closeSide ?? closeSide,
+        error: null,
+        items: data.items ?? [],
+        loading: false,
+        partnerLabel,
+        rowIndex: index
+      });
+    } catch (error) {
+      setOpenItemsModal({
+        accountCode,
+        closeSide,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Otvorene stavke nisu dostupne.",
+        items: [],
+        loading: false,
+        partnerLabel,
+        rowIndex: index
+      });
+    }
+  }
+
+  function applyOpenItem(item: OpenItem) {
+    if (!openItemsModal?.closeSide) {
+      return;
+    }
+
+    const row = getRow(openItemsModal.rowIndex);
+    const amount = (item.openAmountCents / 100).toFixed(2);
+
+    setInputValue(
+      row?.querySelector<HTMLInputElement>('input[name="broj_dokumenta"]') ?? null,
+      item.documentNumber
+    );
+    setInputValue(
+      row?.querySelector<HTMLInputElement>('input[name="datum_dokumenta"]') ?? null,
+      item.documentDate ?? ""
+    );
+    setInputValue(
+      row?.querySelector<HTMLInputElement>('input[name="datum_valute"]') ?? null,
+      item.dueDate ?? item.documentDate ?? ""
+    );
+
+    if (openItemsModal.closeSide === "P") {
+      setInputValue(row?.querySelector<HTMLInputElement>('input[name="duguje"]') ?? null, "");
+      setInputValue(
+        row?.querySelector<HTMLInputElement>('input[name="potrazuje"]') ?? null,
+        amount
+      );
+    } else {
+      setInputValue(row?.querySelector<HTMLInputElement>('input[name="potrazuje"]') ?? null, "");
+      setInputValue(
+        row?.querySelector<HTMLInputElement>('input[name="duguje"]') ?? null,
+        amount
+      );
+    }
+
+    recalculateTotals();
+    setOpenItemsModal(null);
   }
 
   return (
@@ -156,9 +328,11 @@ export function JournalLinesEditor({
                     <input
                       defaultValue={initialLine?.documentNumber ?? ""}
                       name="broj_dokumenta"
+                      onDoubleClick={() => openItemsForRow(index)}
                       onChange={() => touchRow(index)}
                       onFocus={() => touchRow(index)}
                       placeholder="Broj"
+                      title="Dupli klik za otvorene stavke partnera"
                     />
                   </td>
                   <td>
@@ -227,6 +401,80 @@ export function JournalLinesEditor({
           <strong>{formatMoney(Math.abs(totals.debit - totals.credit))}</strong>
         </div>
       </div>
+      {openItemsModal ? (
+        <div
+          className="journal-open-items-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setOpenItemsModal(null);
+            }
+          }}
+        >
+          <section
+            aria-modal="true"
+            className="journal-open-items-modal"
+            role="dialog"
+          >
+            <div className="panel-header">
+              <div>
+                <h3>Otvorene stavke</h3>
+                <span>
+                  {openItemsModal.partnerLabel || "Partner"} / konto{" "}
+                  {openItemsModal.accountCode || "-"}
+                </span>
+              </div>
+              <button
+                className="secondary-button"
+                onClick={() => setOpenItemsModal(null)}
+                type="button"
+              >
+                Zatvori
+              </button>
+            </div>
+
+            {openItemsModal.error ? (
+              <p className="admin-message">{openItemsModal.error}</p>
+            ) : openItemsModal.loading ? (
+              <p className="empty-state">Učitavam otvorene stavke...</p>
+            ) : openItemsModal.items.length === 0 ? (
+              <p className="empty-state">Nema otvorenih stavki za ovaj konto i partnera.</p>
+            ) : (
+              <div className="table-wrap">
+                <table className="admin-table journal-open-items-table">
+                  <thead>
+                    <tr>
+                      <th>Broj dokumenta</th>
+                      <th>Datum dok.</th>
+                      <th>Valuta</th>
+                      <th>Otvoreno</th>
+                      <th>Akcija</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openItemsModal.items.map((item) => (
+                      <tr key={`${item.documentNumber}-${item.documentDate ?? ""}`}>
+                        <td>{item.documentNumber}</td>
+                        <td>{formatDateValue(item.documentDate)}</td>
+                        <td>{formatDateValue(item.dueDate)}</td>
+                        <td>{formatCents(item.openAmountCents)}</td>
+                        <td>
+                          <button
+                            className="table-button"
+                            onClick={() => applyOpenItem(item)}
+                            type="button"
+                          >
+                            Izaberi
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -259,4 +507,21 @@ function formatMoney(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+}
+
+function formatCents(value: number) {
+  return (value / 100).toLocaleString("sr-Latn", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function formatDateValue(value: string | null) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("sr-Latn");
 }

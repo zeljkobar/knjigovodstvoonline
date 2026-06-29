@@ -17,16 +17,16 @@
 - Bruto bilans (početno stanje, subtotali, ukupno).
 
 ## Prioritet 3 — Sljedeći moduli (po prioritetu)
-- **PDV prijava — dorada.** Prva verzija perioda, evidencija, prijave,
-  podešavanja, XML snapshot i knjiženja postoji. Ostaje: finalno IRMS XML
-  mapiranje, zaključavanje perioda, stroži statusni tok (READY→SUBMITTED→LOCKED),
-  ručni QA na stvarnim KIF/KUF podacima i provjera knjiženja na kontima 2700/4700.
-  Detalji: [`docs/accounting/pdv.md`](docs/accounting/pdv.md).
+- **Izvodi i automatsko knjiženje.** Krenuti od import/preview toka, ne od
+  posebnog ručnog unosa: tabele za import i izvod, upload PDF/HTML, generički
+  parser, preview, prepoznavanje komitenta po normalizovanom žiro računu,
+  povezivanje sa KIF/KUF fakturama, alokacije, kontrola stanja i preview naloga.
+  Detalji: [`docs/accounting/izvodi.md`](docs/accounting/izvodi.md).
 - **Robno knjigovodstvo**: zalihe, lager, kalkulacije, uvozne kalkulacije.
-- **Izvodi**: ručni unos i stavke izvoda, povezivanje uplata sa kupcima /
-  plaćanja sa dobavljačima, zatvaranje faktura i status plaćenosti, automatsko
-  knjiženje, pravila uparivanja, provjera rupa u rednim brojevima. Uvoz PDF/XML
-  kasnije. Detalji: [`docs/accounting/izvodi.md`](docs/accounting/izvodi.md).
+- **PDV prijava — završni QA.** Prva verzija perioda, evidencija, prijave,
+  podešavanja, XML `PR_PDV_2025` i knjiženja postoji. Ostaje zaključavanje
+  perioda, ručni QA XML upload-a na portalu i provjera knjiženja na kontima
+  2700/4700. Detalji: [`docs/accounting/pdv.md`](docs/accounting/pdv.md).
 
 ## Otvoreno po modulima
 - **Modul 1:** kompletan backend enforcement prava kroz sve rute/server actions;
@@ -35,6 +35,9 @@
   firme i default konta po firmi/partneru gdje nisu pokrivena.
 - **Modul 3:** formalni unos/prenos početnog stanja; kontrole po poslovnoj
   jedinici; testovi za validacije i prava.
+- **Modul 5/7 Izvodi:** implementirati import sesije, zaglavlja i stavke izvoda,
+  parsiranje PDF/HTML, preview, učenje žiro računa komitenata, alokacije na
+  KIF/KUF fakture, pravila knjiženja i generisanje naloga.
 - **Modul 6:** zaključavanje PDV perioda; payment status;
   cache MAPR odgovora; bolji QA štampe na mnogo redova.
 - **Modul 8:** finalni IRMS XML, zaključavanje/otključavanje PDV perioda,

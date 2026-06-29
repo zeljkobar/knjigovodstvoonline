@@ -23,7 +23,8 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 ### Modul 2 — Firme, poslovne godine, kontni plan, partneri
 - Lista i dodavanje firmi, IRMS pretraga; aktivna firma/godina.
 - Poslovne godine, bankovni računi, ugovor/cijena.
-- Globalni kontni plan + firmi specifičan override.
+- Globalni kontni plan + firmi specifičan override, sa pretragom po šifri/nazivu
+  na kontnom planu firme.
 - Centralni/globalni partneri + agencijski/firmski; ~64k globalnih importovano.
 - PIB partnera je unique samo u okviru agencije (scope).
 - Polja partnera/firme: pravna forma, šifra djelatnosti, datum registracije.
@@ -34,9 +35,15 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - Vrste naloga, numeracija, nacrt i proknjižen status.
 - Ručni unos sa tabelarnim stavkama, Enter navigacija, dinamički redovi.
 - Validacija: konto, iznos, analitički konto mora imati partnera.
+- Na ručnom nalogu i izmjeni nacrta dupli klik na “Broj dok.” otvara modal
+  otvorenih stavki za izabrani konto/partner iz proknjiženih naloga; izbor
+  fakture popunjava broj, datume i iznos na odgovarajućoj strani.
 - F10 popunjava razliku na aktivnom redu; F9 proknjižava.
 - Bruto bilans (filteri, početno stanje, subtotali, ukupno); klik na konto vodi
   na analitičku karticu. Print bruto bilansa i naloga bez menija.
+- Stranica Kupci / dobavljači prikazuje zbirno otvoreni saldo po partnerima
+  za izabrani konto sa obaveznom partner analitikom iz proknjiženih naloga, sa
+  linkom na analitičku karticu partnera.
 - Pretraga partnera u nalozima i analitičkim karticama je **async** (ne učitava
   svih ~64k); `pg_trgm` GIN indeks na `komitenti.naziv` + btree na `pib`/`scope`.
 
@@ -45,6 +52,8 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - KIF/KUF knjige po mjesecu, datumu i vrsti knjige; vrste su dinamičke.
 - Šema kontiranja je odvojena po vrsti knjige (npr. KUF virmani, kartica,
   gotovina i KIF): za svako polje D/P, izvor konta i konto.
+- Podešavanja KIF/KUF mogu se uvesti iz druge firme iste agencije na aktivnu
+  firmu (vrste knjiga, šeme kontiranja i šema za uvoz).
 - KUF unos: dobavljač, broj računa, datumi, konto, ukupno, razrada po stopama.
 - KIF unos/import: kupac, broj računa, ukupno, razrada po stopama.
 - MAPR QR/link unos i batch import; SEP Excel import za KIF (pravi MAPR linkove).
@@ -67,8 +76,9 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - Ulazni PDV prikazuje KUF račune iz perioda; izlazni PDV prikazuje KIF račune.
 - PDV prijava ima redove obrasca po uzoru na IRMS portal, automatsko punjenje iz
   KIF/KUF, ručne izmjene polja i klijentske automatske preračune PDV-a i zbirova.
-- XML izvoz postoji kao akcija na prijavi/arhivi (`/api/pdv/xml`) i trenutno
-  daje MVP XML snapshot redova prijave; finalno IRMS XML mapiranje ostaje.
+- XML izvoz postoji kao akcija na prijavi/arhivi (`/api/pdv/xml`) i generiše
+  format `PR_PDV_2025` po uzorku `zadaci/pdv izvoz.xml`, sa nazivom fajla
+  `pdv <firma> <mm>-<godina>.xml`.
 - Podešavanja PDV-a po firmi/godini: vrsta naloga i šema knjiženja po stavkama
   (D/P + konto). Pravila za ulazni/izlazni PDV se generišu po aktivnim PDV
   stopama iz baze; posebna pravila postoje za carinski PDV, paušalni PDV,
@@ -85,9 +95,13 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
 ## Nije početo / samo pripremljeno
 - Robno knjigovodstvo: spec pročitan, samo navigacioni placeholderi.
-- Izvodi: `pdfjs-dist` instaliran kao priprema, parseri nisu urađeni.
+- Izvodi: finalna radna specifikacija je u
+  `zadaci/07_Izvodi_i_Automatsko_Knjizenje_FINAL.md`; `pdfjs-dist` je instaliran
+  kao priprema. Modul treba raditi kao import/preview/povezivanje/knjiženje sloj
+  iznad naloga, ne kao dupli ručni unos izvoda. Osnova za ručno zatvaranje
+  otvorenih stavki postoji kroz ručni nalog.
 - Plate, završni račun, klijentski portal, većina dashboard izvještaja.
-- PDV zaključavanje perioda i finalno IRMS XML mapiranje nisu implementirani.
+- PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
 
 ## Zadnje provjere
 - `npm run lint` prolazi (stari warning `_prev` u `src/app/admin/actions.ts` i

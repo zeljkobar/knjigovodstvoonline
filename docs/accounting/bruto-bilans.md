@@ -27,6 +27,12 @@ početno stanje. Iznosi se čuvaju u centima i formatiraju za prikaz.
 Za analitička konta partner je obavezan. Kartica partnera prikazuje: partnera,
 konto, datum, dokument, duguje, potražuje, saldo.
 
+## Kupci / dobavljači
+Zbirni pregled otvorenih salda po partnerima koristi proknjižene naloge i
+konkretan konto sa obaveznom partner analitikom (npr. kupci, dobavljači,
+avansi). Klik na partnera vodi na analitičku karticu sa izabranim kontom i
+partnerom.
+
 ## Kontrole
 - `duguje = potražuje` na svakom nalogu.
 - Nema POSTED naloga bez stavki.

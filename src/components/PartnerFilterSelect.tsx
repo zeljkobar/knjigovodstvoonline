@@ -19,6 +19,10 @@ function partnerDisplay(naziv: string, pib?: string | null) {
   return pib ? `${naziv} (${pib})` : naziv;
 }
 
+function dispatchFieldChange(input: HTMLInputElement | null) {
+  input?.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 export function PartnerFilterSelect({
   initialId = "",
   initialLabel = "",
@@ -30,6 +34,18 @@ export function PartnerFilterSelect({
   const latestQueryRef = useRef("");
   const [query, setQuery] = useState(initialLabel);
   const [results, setResults] = useState<PartnerResult[]>([]);
+
+  function setSelectedPartnerId(id: string, shouldNotify = false) {
+    if (!hiddenRef.current || hiddenRef.current.value === id) {
+      return;
+    }
+
+    hiddenRef.current.value = id;
+
+    if (shouldNotify) {
+      dispatchFieldChange(hiddenRef.current);
+    }
+  }
 
   useEffect(() => {
     const cleanQuery = query.trim();
@@ -69,6 +85,13 @@ export function PartnerFilterSelect({
 
         valueToId.current = map;
         setResults(found);
+
+        const exactId = map.get(cleanQuery);
+        const uniqueId = found.length === 1 ? found[0].id : "";
+
+        if (exactId || (cleanQuery.length >= 3 && uniqueId)) {
+          setSelectedPartnerId(exactId || uniqueId, true);
+        }
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
           setResults([]);
@@ -88,17 +111,7 @@ export function PartnerFilterSelect({
     const matchedId = valueToId.current.get(trimmed) ?? "";
 
     setQuery(value);
-
-    if (hiddenRef.current) {
-      hiddenRef.current.value = matchedId;
-    }
-
-    // Auto-submit (preko AutoSubmitFilterForm) samo kad je partner izabran
-    // ili kad je polje obrisano (reset filtera). Inače blokiramo bubbling
-    // da kucanje ne pokreće navigaciju na svaki znak.
-    if (!matchedId && trimmed !== "") {
-      event.stopPropagation();
-    }
+    setSelectedPartnerId(matchedId);
   }
 
   return (
@@ -106,6 +119,7 @@ export function PartnerFilterSelect({
       <input
         autoComplete="off"
         list={listId}
+        name={`${name}_q`}
         onChange={handleChange}
         placeholder="Svi partneri — naziv ili PIB"
         type="search"

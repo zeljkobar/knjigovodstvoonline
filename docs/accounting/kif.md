@@ -54,6 +54,8 @@ KIF dokument čuva konačni tip prometa. Dozvoljene vrijednosti za KIF:
   dinamičke (ne fiksirane na virmani/kartica/gotovina).
 - Šema kontiranja je odvojena po vrsti knjige: za svako polje se bira D/P,
   izvor konta i konto. KIF šema ne smije se prelivati u KUF vrste.
+- Podešavanja se mogu uvesti iz druge firme iste agencije, da nova firma ne
+  mora ručno podešavati iste vrste knjiga i šeme.
 - Unos/import: kupac, broj računa, ukupno, razrada po stopama.
 - Import izvori: MAPR QR/link i batch import linkova; **SEP Excel import** (iz
   SEP fajla se prave MAPR linkovi i puni KIF).

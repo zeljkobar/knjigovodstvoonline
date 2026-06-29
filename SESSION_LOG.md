@@ -3,6 +3,23 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-06-29
+- Pročitana finalna specifikacija `zadaci/07_Izvodi_i_Automatsko_Knjizenje_FINAL.md`
+  i dokumentacija preusmjerena: modul izvoda ide kao import/preview/povezivanje
+  i knjiženje, ne kao paralelni ručni unos koji duplira nalog `IZV`.
+- U podmeni Nalozi dodata stranica Kupci / dobavljači: zbirno prikazuje
+  otvoreni saldo po partneru za izabrani konto sa obaveznom partner analitikom,
+  sa linkom na postojeću analitičku karticu za partnera.
+- Na ručnom nalogu i izmjeni nacrta dodat izbor otvorenih stavki: dupli klik na
+  “Broj dok.” za izabrani konto/partner otvara modal proknjiženih otvorenih
+  faktura i popunjava broj dokumenta, datume i dugovnu/potražnu stranu.
+- Na kontnom planu firme dodata vidljiva pretraga direktno iznad kombinovane
+  tabele, sa filtriranjem po šifri ili nazivu konta i linkom za čišćenje filtera.
+- Na podešavanjima računa dodat uvoz KIF/KUF podešavanja iz druge firme iste
+  agencije: vrste knjiga, šeme kontiranja po poljima i šema za uvoz.
+- PDV XML izvoz prebačen sa internog snapshot-a na format `PR_PDV_2025` iz
+  `zadaci/pdv izvoz.xml`; download fajl se naziva `pdv <firma> <mm>-<godina>.xml`.
+
 ## 2026-06-28
 - Dodata prva implementacija PDV modula: mjesečni periodi, ulazni/izlazni PDV
   pregledi iz KIF/KUF po datumu knjige, PDV prijava po redovima obrasca,

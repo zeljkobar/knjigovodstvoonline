@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
 import { PartnerFilterSelect } from "@/components/PartnerFilterSelect";
 import { requireAnyRole } from "@/lib/auth";
-import { formatJournalCode } from "@/lib/journals";
+import { formatJournalCode, journalStatuses } from "@/lib/journals";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -14,6 +14,7 @@ type AnalitickeKarticePageProps = {
     konto?: string;
     konto_prefix?: string;
     partner?: string;
+    partner_q?: string;
   }>;
 };
 
@@ -45,6 +46,7 @@ export default async function AnalitickeKarticePage({
   const selectedAccount = params?.konto ?? "";
   const selectedAccountPrefix = params?.konto_prefix?.trim() ?? "";
   const selectedPartner = params?.partner ?? "";
+  const selectedPartnerQuery = params?.partner_q?.trim() ?? "";
   const dateFrom = parseDateFilter(params?.datum_od);
   const dateTo = parseDateFilter(params?.datum_do);
 
@@ -98,7 +100,17 @@ export default async function AnalitickeKarticePage({
       where: {
         firma_id: workContext.firmaId,
         aktivan: true,
-        tip_konta: "analiticko"
+        tip_konta: "analiticko",
+        stavke_naloga: {
+          some: {
+            nalog: {
+              firma_id: workContext.firmaId,
+              poslovna_godina_id: workContext.poslovnaGodinaId,
+              status: journalStatuses.posted,
+              is_deleted: false
+            }
+          }
+        }
       },
       orderBy: {
         sifra: "asc"
@@ -127,7 +139,9 @@ export default async function AnalitickeKarticePage({
     ? `${selectedPartnerRecord.naziv}${
         selectedPartnerRecord.pib ? ` (${selectedPartnerRecord.pib})` : ""
       }`
-    : "";
+    : selectedPartnerQuery;
+
+  const partnerQueryDigits = selectedPartnerQuery.replace(/\D/g, "");
 
   const where: Prisma.StavkaNalogaWhereInput = {
     nalog: {
@@ -161,11 +175,38 @@ export default async function AnalitickeKarticePage({
       ? {
           komitent_id: selectedPartner
         }
+      : selectedPartnerQuery.length >= 2
+        ? {
+            komitent: {
+              OR: [
+                {
+                  naziv: {
+                    contains: selectedPartnerQuery,
+                    mode: "insensitive"
+                  }
+                },
+                ...(partnerQueryDigits
+                  ? [
+                      {
+                        pib: {
+                          contains: partnerQueryDigits
+                        }
+                      }
+                    ]
+                  : [])
+              ]
+            }
+          }
       : {})
   };
 
   const lines =
-    selectedAccount || selectedAccountPrefix || selectedPartner || dateFrom || dateTo
+    selectedAccount ||
+    selectedAccountPrefix ||
+    selectedPartner ||
+    selectedPartnerQuery ||
+    dateFrom ||
+    dateTo
       ? await prisma.stavkaNaloga.findMany({
           where,
           orderBy: [

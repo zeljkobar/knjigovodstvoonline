@@ -1463,6 +1463,27 @@ td small {
   margin-top: 0;
 }
 
+.account-table-search-form {
+  grid-template-columns: minmax(320px, 1fr) auto auto;
+  align-items: end;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfdff;
+  margin-bottom: 16px;
+  padding: 12px;
+}
+
+.account-search-clear {
+  min-height: 40px;
+  align-content: center;
+}
+
+.invoice-settings-import-form {
+  grid-template-columns: minmax(320px, 1fr) auto;
+  align-items: end;
+  margin-top: 0;
+}
+
 .journal-filter-form {
   grid-template-columns:
     minmax(220px, 1.4fr)
@@ -2141,6 +2162,49 @@ td small {
   border-radius: 6px;
   background: #f8fcff;
   padding: 12px 14px;
+}
+
+.journal-open-items-backdrop {
+  align-items: center;
+  background: rgb(8 18 36 / 68%);
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  left: 0;
+  padding: 24px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 60;
+}
+
+.journal-open-items-modal {
+  background: #ffffff;
+  border: 1px solid #c8d9ed;
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgb(8 18 36 / 38%);
+  color: var(--foreground);
+  max-height: min(720px, calc(100vh - 48px));
+  overflow: auto;
+  padding: 22px;
+  width: min(860px, calc(100vw - 48px));
+}
+
+.journal-open-items-modal .panel-header {
+  background: #ffffff;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+}
+
+.journal-open-items-modal .table-wrap {
+  background: #ffffff;
+}
+
+.journal-open-items-table th:last-child,
+.journal-open-items-table td:last-child {
+  text-align: right;
+  width: 110px;
 }
 
 .journal-balance-summary span {

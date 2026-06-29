@@ -105,7 +105,9 @@ Stranica **PDV prijava** treba da izgleda kao IRMS/poreski portal:
   **XML izvoz**, **Proknjiži**, **Zaključaj/Označi kao predato**.
 
 `XML izvoz` nije posebna osnovna stranica u MVP-u; to je akcija na PDV prijavi
-i u arhivi već napravljenih prijava.
+i u arhivi već napravljenih prijava. Export generiše XML format
+`PR_PDV_2025` po uzorku `zadaci/pdv izvoz.xml`, sa elementima
+`BezTransakcija`, `Iznos10`-`Iznos29` i `ZahtjevamPovracaj`.
 
 ## Knjiženje PDV prijave
 Svaka PDV prijava se nakon pripreme izvozi u XML i knjiži u nalog. Cilj

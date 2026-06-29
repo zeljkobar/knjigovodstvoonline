@@ -35,6 +35,8 @@ KUF razlikuje ukupni ulazni PDV, odbitni i neodbitni:
 - Knjige se otvaraju po mjesecu, datumu knjige i vrsti knjige (dinamičke vrste).
 - Šema kontiranja je odvojena po vrsti knjige: za svako polje D/P, izvor konta
   i konto. KUF virmani, kartica, gotovina i druge vrste čuvaju zasebna pravila.
+- Podešavanja se mogu uvesti iz druge firme iste agencije, uključujući vrste
+  knjiga, šeme po poljima i šemu za uvoz.
 - Unos: dobavljač, broj računa, datumi, konto knjiženja, ukupno, razrada po
   stopama.
 

@@ -289,10 +289,32 @@ export default async function KontniPlanPage({ searchParams }: KontniPlanPagePro
         <div className="panel-header">
           <h3>Kombinovani kontni plan firme</h3>
           <span>
-            Osnovni plan + izmjene firme
+            {filteredAccounts.length} / {combinedAccounts.length} konta · Osnovni plan + izmjene firme
             {selectedCompany ? `: ${selectedCompany.naziv}` : ""}
           </span>
         </div>
+
+        <form className="compact-form account-table-search-form" action="/agencija/firme/kontni-plan">
+          {selectedCompany ? <input name="firma" type="hidden" value={selectedCompany.id} /> : null}
+          <label>
+            <span>Pretraga konta</span>
+            <input
+              autoComplete="off"
+              name="q"
+              placeholder="Unesite šifru ili dio naziva, npr. 4700 ili PDV"
+              defaultValue={params?.q ?? ""}
+            />
+          </label>
+          <button type="submit">Pretraži</button>
+          {query ? (
+            <Link
+              className="secondary-button account-search-clear"
+              href={`/agencija/firme/kontni-plan${selectedCompany ? `?firma=${selectedCompany.id}` : ""}`}
+            >
+              Očisti
+            </Link>
+          ) : null}
+        </form>
 
         <div className="table-wrap">
           <table>

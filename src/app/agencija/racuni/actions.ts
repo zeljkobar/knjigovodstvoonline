@@ -17,6 +17,7 @@ import {
 } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
+import { ensureDefaultInvoiceBookTypes } from "@/lib/invoice-books";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
 import { hasPermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -822,6 +823,359 @@ export async function saveImportPostingScheme(formData: FormData) {
 
   revalidatePath("/agencija/racuni/podesavanja");
   redirect("/agencija/racuni/podesavanja?poruka=uvoz_sema_sacuvana");
+}
+
+async function resolveCopiedJournalTypeId(
+  tx: Prisma.TransactionClient,
+  sourceJournalType: {
+    agencija_id: string | null;
+    firma_id: string | null;
+    id: string;
+    naziv: string;
+    prefiks: string | null;
+    sifra: string;
+    sistemska: boolean;
+  } | null,
+  targetFirmaId: string,
+  agencijaId: string
+) {
+  if (!sourceJournalType) {
+    return null;
+  }
+
+  if (
+    sourceJournalType.sistemska ||
+    (sourceJournalType.agencija_id === agencijaId && sourceJournalType.firma_id === null)
+  ) {
+    return sourceJournalType.id;
+  }
+
+  const matchingJournalType = await tx.vrstaNaloga.findFirst({
+    where: {
+      aktivan: true,
+      sifra: sourceJournalType.sifra,
+      OR: [
+        {
+          sistemska: true
+        },
+        {
+          agencija_id: agencijaId
+        },
+        {
+          firma_id: targetFirmaId
+        }
+      ]
+    },
+    select: {
+      id: true
+    }
+  });
+
+  return matchingJournalType?.id ?? null;
+}
+
+export async function importInvoiceSettingsFromCompany(formData: FormData) {
+  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const workContext = await readWorkContext();
+
+  if (!user.agencija_id || !workContext.firmaId) {
+    redirectInvoiceSettings("sema_kontekst");
+  }
+
+  const sourceFirmaId = value(formData, "source_firma_id");
+
+  if (!sourceFirmaId || sourceFirmaId === workContext.firmaId) {
+    redirectInvoiceSettings("uvoz_podesavanja_firma");
+  }
+
+  const [targetFirma, sourceFirma] = await Promise.all([
+    prisma.firma.findFirst({
+      where: {
+        id: workContext.firmaId,
+        agencija_id: user.agencija_id,
+        is_deleted: false,
+        aktivan: true,
+        ...(user.rola === "admin_agencije"
+          ? {}
+          : {
+              korisnici: {
+                some: {
+                  korisnik_id: user.id,
+                  is_deleted: false,
+                  moze_da_mijenja: true
+                }
+              }
+            })
+      },
+      select: {
+        id: true
+      }
+    }),
+    prisma.firma.findFirst({
+      where: {
+        id: sourceFirmaId,
+        agencija_id: user.agencija_id,
+        is_deleted: false,
+        aktivan: true,
+        ...(user.rola === "admin_agencije"
+          ? {}
+          : {
+              korisnici: {
+                some: {
+                  korisnik_id: user.id,
+                  is_deleted: false
+                }
+              }
+            })
+      },
+      select: {
+        id: true,
+        naziv: true
+      }
+    })
+  ]);
+
+  if (!targetFirma) {
+    redirectInvoiceSettings("sema_kontekst");
+  }
+
+  if (!sourceFirma) {
+    redirectInvoiceSettings("uvoz_podesavanja_firma");
+  }
+
+  await ensureDefaultInvoiceBookTypes(targetFirma.id, user.agencija_id, user.id);
+
+  const [sourceTypes, importSchemeRows] = await Promise.all([
+    prisma.racunVrsta.findMany({
+      where: {
+        agencija_id: user.agencija_id,
+        firma_id: sourceFirma.id,
+        aktivna: true
+      },
+      orderBy: [
+        {
+          dokument_tip: "asc"
+        },
+        {
+          redosljed: "asc"
+        }
+      ],
+      include: {
+        vrsta_naloga: {
+          select: {
+            id: true,
+            agencija_id: true,
+            firma_id: true,
+            sifra: true,
+            naziv: true,
+            prefiks: true,
+            sistemska: true
+          }
+        },
+        kontiranjePravila: {
+          where: {
+            aktivno: true
+          },
+          orderBy: {
+            redosljed: "asc"
+          },
+          select: {
+            polje_sifra: true,
+            polje_naziv: true,
+            pdv_stopa_sifra: true,
+            smjer: true,
+            konto_izvor: true,
+            sifra_konta: true,
+            redosljed: true,
+            aktivno: true
+          }
+        }
+      }
+    }),
+    prisma.firmaPodrazumijevanoKonto.findMany({
+      where: {
+        firma_id: sourceFirma.id,
+        dokument_tip: invoicePostingDocumentTypes.general,
+        podvrsta: invoicePostingDefaultScope.subtype,
+        pdv_stopa_sifra: invoicePostingDefaultScope.vatRate,
+        namjena: {
+          in: importPostingSchemeFields.map(([purpose]) => purpose)
+        }
+      },
+      select: {
+        namjena: true,
+        sifra_konta: true,
+        smjer: true,
+        komitent_id: true,
+        napomena: true
+      }
+    })
+  ]);
+
+  const result = await prisma.$transaction(async (tx) => {
+    let copiedTypes = 0;
+    let copiedRules = 0;
+    let copiedImportRules = 0;
+
+    for (const sourceType of sourceTypes) {
+      const journalTypeId = await resolveCopiedJournalTypeId(
+        tx,
+        sourceType.vrsta_naloga,
+        targetFirma.id,
+        user.agencija_id!
+      );
+      const targetType = await tx.racunVrsta.upsert({
+        where: {
+          firma_id_dokument_tip_sifra: {
+            firma_id: targetFirma.id,
+            dokument_tip: sourceType.dokument_tip,
+            sifra: sourceType.sifra
+          }
+        },
+        create: {
+          agencija_id: user.agencija_id!,
+          firma_id: targetFirma.id,
+          vrsta_naloga_id: journalTypeId,
+          dokument_tip: sourceType.dokument_tip,
+          sifra: sourceType.sifra,
+          naziv: sourceType.naziv,
+          opis: sourceType.opis,
+          redosljed: sourceType.redosljed,
+          sistemska: sourceType.sistemska,
+          aktivna: true,
+          created_by: user.id,
+          updated_by: user.id
+        },
+        update: {
+          vrsta_naloga_id: journalTypeId,
+          naziv: sourceType.naziv,
+          opis: sourceType.opis,
+          redosljed: sourceType.redosljed,
+          sistemska: sourceType.sistemska,
+          aktivna: true,
+          updated_by: user.id
+        },
+        select: {
+          id: true
+        }
+      });
+      copiedTypes += 1;
+
+      for (const rule of sourceType.kontiranjePravila) {
+        await tx.racunKontiranjePravilo.upsert({
+          where: {
+            racun_vrsta_id_polje_sifra: {
+              racun_vrsta_id: targetType.id,
+              polje_sifra: rule.polje_sifra
+            }
+          },
+          create: {
+            racun_vrsta_id: targetType.id,
+            polje_sifra: rule.polje_sifra,
+            polje_naziv: rule.polje_naziv,
+            pdv_stopa_sifra: rule.pdv_stopa_sifra,
+            smjer: rule.smjer,
+            konto_izvor: rule.konto_izvor,
+            sifra_konta: rule.sifra_konta,
+            redosljed: rule.redosljed,
+            aktivno: true,
+            created_by: user.id,
+            updated_by: user.id
+          },
+          update: {
+            polje_naziv: rule.polje_naziv,
+            pdv_stopa_sifra: rule.pdv_stopa_sifra,
+            smjer: rule.smjer,
+            konto_izvor: rule.konto_izvor,
+            sifra_konta: rule.sifra_konta,
+            redosljed: rule.redosljed,
+            aktivno: true,
+            updated_by: user.id
+          }
+        });
+        copiedRules += 1;
+      }
+    }
+
+    for (const row of importSchemeRows) {
+      if (row.komitent_id) {
+        await tx.firmaKomitent.upsert({
+          where: {
+            firma_id_komitent_id: {
+              firma_id: targetFirma.id,
+              komitent_id: row.komitent_id
+            }
+          },
+          update: {
+            aktivan: true
+          },
+          create: {
+            firma_id: targetFirma.id,
+            komitent_id: row.komitent_id,
+            tip_komitenta: "dobavljac",
+            aktivan: true
+          }
+        });
+      }
+
+      await tx.firmaPodrazumijevanoKonto.upsert({
+        where: {
+          firma_id_namjena_dokument_tip_podvrsta_pdv_stopa_sifra: {
+            firma_id: targetFirma.id,
+            namjena: row.namjena,
+            dokument_tip: invoicePostingDocumentTypes.general,
+            podvrsta: invoicePostingDefaultScope.subtype,
+            pdv_stopa_sifra: invoicePostingDefaultScope.vatRate
+          }
+        },
+        create: {
+          firma_id: targetFirma.id,
+          namjena: row.namjena,
+          dokument_tip: invoicePostingDocumentTypes.general,
+          podvrsta: invoicePostingDefaultScope.subtype,
+          pdv_stopa_sifra: invoicePostingDefaultScope.vatRate,
+          sifra_konta: row.sifra_konta,
+          smjer: row.smjer,
+          komitent_id: row.komitent_id,
+          napomena: row.napomena,
+          created_by: user.id,
+          updated_by: user.id
+        },
+        update: {
+          sifra_konta: row.sifra_konta,
+          smjer: row.smjer,
+          komitent_id: row.komitent_id,
+          napomena: row.napomena,
+          updated_by: user.id
+        }
+      });
+      copiedImportRules += 1;
+    }
+
+    return {
+      copiedImportRules,
+      copiedRules,
+      copiedTypes
+    };
+  });
+
+  await auditLog({
+    korisnikId: user.id,
+    agencijaId: user.agencija_id,
+    firmaId: targetFirma.id,
+    modul: "agencija.racuni.podesavanja",
+    akcija: "import_invoice_settings",
+    tipEntiteta: "RacunVrsta",
+    entitetId: targetFirma.id,
+    novaVrijednost: {
+      sourceFirmaId: sourceFirma.id,
+      sourceFirmaNaziv: sourceFirma.naziv,
+      ...result
+    }
+  });
+
+  revalidatePath("/agencija/racuni/podesavanja");
+  redirect("/agencija/racuni/podesavanja?poruka=uvoz_podesavanja_sacuvana");
 }
 
 type PostingRule = {
