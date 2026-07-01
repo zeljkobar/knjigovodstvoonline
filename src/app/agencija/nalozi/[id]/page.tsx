@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  deleteJournal,
   postJournal,
   reopenJournal,
   updateDraftJournalLines
@@ -411,17 +410,6 @@ const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
                 </button>
               </form>
             ) : null}
-            <form action={deleteJournal} className="journal-delete-form">
-              <input name="nalog_id" type="hidden" value={nalog.id} />
-              <input
-                name="delete_reason"
-                placeholder="Razlog brisanja"
-                type="text"
-              />
-              <button className="table-button" type="submit">
-                Obriši
-              </button>
-            </form>
           </div>
         </section>
       ) : null}

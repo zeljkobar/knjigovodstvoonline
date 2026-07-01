@@ -16,25 +16,39 @@ izvoda treba da bude evidencijski/import sloj koji čuva zaglavlje izvoda,
 stavke, import sesiju, kontrole, povezivanje sa fakturama i generiše jedan nalog.
 
 ## MVP
-- Upload PDF/HTML izvoda i import sesija.
-- Generički PDF/HTML parser kao prva verzija, sa arhitekturom za parsere po
-  bankama.
-- Preview parsiranog zaglavlja i stavki prije bilo kakvog knjiženja.
-- Ručno ispravljanje parsiranih podataka.
-- Prepoznavanje komitenta prvenstveno po normalizovanom žiro računu.
-- Ručno povezivanje stavke sa komitentom i opcija “zapamti žiro račun”.
-- Povezivanje sa KIF/KUF fakturama, uključujući djelimična plaćanja, jednu
-  uplatu za više faktura i više uplata za jednu fakturu.
-- Ručno kontiranje stavki koje nisu kupci/dobavljači.
-- Confidence score i statusi stavki.
-- Preview naloga prije knjiženja.
-- Jedan izvod kreira jedan nalog za knjiženje.
-- Izvod se knjiži tek kada su sve stavke `READY` ili `IGNORED`.
-- Kontrola: `početno stanje + prilivi - odlivi = krajnje stanje`.
-- Kartica banke i kontrole neprepoznatih/neproknjiženih stavki.
+- Implementirano u prvom MVP prolazu:
+  - tabele `bank_statements`, `bank_statement_lines`, `partner_bank_accounts`,
+  - stranica `/agencija/izvodi` sa uvozom, gornjom listom izvoda i donjim
+    tabovima `Stavke izvoda` / `Predlog naloga`,
+  - detalj režim za otvoreni izvod, sa povratkom na spisak bez skrolovanja kroz
+    cijelu listu izvoda,
+  - unos zaglavlja izvoda, izbor bankovnog računa firme i konta banke,
+  - batch upload XML fajlova ili paste teksta,
+  - NLB XML parser za format iz `zadaci/nlb izvodi xml`, uključujući UTF-16
+    dekodiranje, zaglavlje i debit/credit stavke,
+  - fallback parser za stabilan tekstualni format
+    `datum; opis; žiro račun; odliv; priliv` i običan tekst,
+  - automatski predlog komitenta po normalizovanom žiro računu,
+  - ručno podešavanje partnera i duguje/potražuje konta u preview-u naloga,
+  - ignorisanje stavki,
+  - čuvanje konta preko šifre i automatsko povezivanje globalnog konta na
+    `firma_konta`, da isti kontni plan radi za novu firmu bez ručnog linkovanja,
+  - kontrola `početno stanje + prilivi - odlivi = krajnje stanje`,
+  - knjiženje selektovanih `READY` izvoda u posebne proknjižene naloge `IZV`,
+  - banka se u nalogu knjiži zbirno: ukupan priliv duguje banku, ukupan odliv
+    potražuje banku; pojedinačne stavke izvoda knjiže se samo na kontra konta,
+  - broj naloga za izvod uzima se iz broja izvoda u okviru vrste naloga podešene
+    za bankovni račun firme,
+  - podstranice menija: obrada neriješenih stavki, statistika parsera,
+    kandidati za pravila, žiro računi komitenata, kartica banke i kontrole.
+
+- Još otvoreno za pun MVP:
+  - parseri za ostale banke,
+  - UI za učenje žiro računa komitenata,
+  - povezivanje sa KIF/KUF fakturama i alokacije,
+  - trajna pravila knjiženja.
 
 ## Kasnije
-- Specifični parseri po bankama.
 - CSV/XML/Excel import.
 - Napredni PDF parser i OCR ako bude potrebno.
 - Napredna pravila knjiženja i automatsko zatvaranje faktura sa visokim

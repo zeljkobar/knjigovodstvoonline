@@ -3,7 +3,55 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-07-01
+- Ekran izvoda sada ima odvojen detalj režim: kad se otvori izvod, sakrivaju se
+  uvoz i veliki spisak, tabovi `Stavke izvoda` / `Predlog naloga` su odmah na
+  vrhu sadržaja, a dodato je dugme `Povrat na spisak izvoda`.
+- Knjiženje izvoda sada koristi broj izvoda kao broj naloga na vrsti naloga
+  podešenoj za bankovni račun. Ako broj izvoda nije numerički ili je taj broj
+  već zauzet na istoj vrsti naloga, knjiženje staje sa jasnom porukom.
+- Uklonjeno direktno brisanje sa detalja naloga; za proknjižen nalog ostaje samo
+  `Vrati u nacrt`. U pregledu nacrta dodate su brze akcije `Proknjiži` i
+  `Izbriši`; brisanje nacrta je fizičko i oslobađa broj naloga, uz audit zapis.
+
+## 2026-06-30
+- Na pregledima KIF/KUF dodato brisanje cijele knjige. Backend ga dozvoljava
+  samo za otvorenu, rasknjiženu knjigu bez povezanog naloga i bez proknjiženih
+  stavki; brisanje je fizičko da se oslobodi redni broj, a audit log bilježi
+  obrisanu knjigu.
+- Brisanje neproknjiženih KIF/KUF računa prebačeno je sa soft-delete na fizičko
+  brisanje pod istim pravilima, da se oslobode redni brojevi.
+- Ispravljeno čuvanje predloga naloga izvoda: dropdown sada šalje šifru konta,
+  a backend je pretvara u `firma_konta` link. Time se uklanja FK greška kada je
+  izabran konto iz globalnog kontnog plana.
+- Konto banke pri importu izvoda takođe se bira preko šifre i backend ga
+  automatski povezuje na firmu.
+- Predlog/knjiženje naloga izvoda ostaje po dogovoru: banka ide zbirno kroz
+  ukupan priliv/odliv, a pojedinačne stavke izvoda knjiže se samo na kontra
+  konta.
+- Implementirane podstranice menija Izvodi umjesto placeholdera: obrada stavki,
+  parseri banaka, pravila knjiženja kao kandidati, žiro računi komitenata,
+  kartica banke i kontrole.
+- Uvoz izvoda proširen na izbor više XML fajlova odjednom. Svaki validan fajl
+  pravi poseban izvod, duplikati se preskaču po postojećem ključu
+  firma/godina/bankovni račun/broj izvoda, a ručna polja zaglavlja se koriste
+  samo kod jednog fajla ili paste teksta.
+- Stilizovan izbor fajlova na uvozu izvoda (`Izaberi izvode`) i dodato dugme
+  `Proknjiži spremne`, koje knjiži sve `READY` izvode bez ručnog čekiranja.
+- KIF SEP/MAPR import više ne traži jedan isti konto prihoda po računu; prihvata
+  različite fiksne prihode po PDV stopama iz KIF šeme i knjiženje ostavlja
+  postojećoj šemi po poljima.
+
 ## 2026-06-29
+- Implementirana prva MVP osnova modula Izvodi: migracija
+  `20260629190000_bank_statements_mvp`, modeli `bank_statements`,
+  `bank_statement_lines`, `partner_bank_accounts`, stranica `/agencija/izvodi`
+  sa uvozom/paste tekstom, gornjim pregledom izvoda, tabovima `Stavke izvoda` i
+  `Predlog naloga`, ručnim podešavanjem konta/partnera i knjiženjem selektovanih
+  `READY` izvoda u posebne proknjižene `IZV` naloge.
+- Dodat prvi konkretni parser izvoda: NLB XML iz `zadaci/nlb izvodi xml`, sa
+  UTF-16 dekodiranjem, čitanjem broja izvoda, datuma, početnog/krajnjeg stanja i
+  stavki po `benefit` debit/credit.
 - Pročitana finalna specifikacija `zadaci/07_Izvodi_i_Automatsko_Knjizenje_FINAL.md`
   i dokumentacija preusmjerena: modul izvoda ide kao import/preview/povezivanje
   i knjiženje, ne kao paralelni ručni unos koji duplira nalog `IZV`.

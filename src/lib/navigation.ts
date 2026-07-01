@@ -183,14 +183,14 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/plate/podesavanja", label: "Podešavanja plata" }
   ],
   izvodi: [
-    { href: "/agencija/izvodi", label: "Bankovni računi" },
-    { href: "/agencija/izvodi/uvoz", label: "Uvoz izvoda" },
-    { href: "/agencija/izvodi/pdf", label: "PDF izvodi" },
-    { href: "/agencija/izvodi/xml", label: "XML izvodi" },
-    { href: "/agencija/izvodi/neproknjizene", label: "Neproknjižene stavke" },
-    { href: "/agencija/izvodi/automatsko-knjizenje", label: "Automatsko knjiženje" },
+    { href: "/agencija/izvodi", label: "Pregled izvoda" },
+    { href: "/agencija/izvodi/obrada", label: "Obrada stavki" },
     { href: "/agencija/izvodi/pravila", label: "Pravila knjiženja" },
-    { href: "/agencija/izvodi/kartica-banke", label: "Kartica banke" }
+    { href: "/agencija/izvodi/parseri", label: "Parseri banaka" },
+    { href: "/agencija/izvodi/ziro-racuni", label: "Žiro računi komitenata" },
+    { href: "/agencija/izvodi/kartica-banke", label: "Kartica banke" },
+    { href: "/agencija/izvodi/kontrole", label: "Kontrole" },
+    { href: "/agencija/izvodi/podesavanja", label: "Podešavanja" }
   ],
   "zavrsni-racun": [
     { href: "/agencija/zavrsni-racun", label: "Priprema" },

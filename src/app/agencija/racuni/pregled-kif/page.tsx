@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { invoicePostingDocumentTypes } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
+import { deleteKifBook } from "../actions";
 
 const mjeseci = [
   "Januar",
@@ -63,7 +65,17 @@ type PregledKifPageProps = {
   searchParams?: Promise<{
     datum_do?: string;
     datum_od?: string;
+    poruka?: string;
   }>;
+};
+
+const poruke: Record<string, string> = {
+  kif_kontekst: "Izaberite firmu i poslovnu godinu u gornjoj traci.",
+  kif_knjiga_obrisana: "KIF knjiga je obrisana.",
+  kif_knjiga_greska: "KIF knjiga nije pronađena ili nije moguće brisanje.",
+  kif_knjiga_nije_rasknjizena: "KIF knjiga mora biti rasknjižena prije brisanja.",
+  kif_nema_pravo: "Nemate pravo za brisanje KIF knjige.",
+  prava: "Nemate pravo za brisanje KIF knjige."
 };
 
 function parseDateFilter(value?: string) {
@@ -102,6 +114,7 @@ export default async function PregledKifPage({ searchParams }: PregledKifPagePro
   const params = await searchParams;
   const dateFrom = parseDateFilter(params?.datum_od);
   const dateTo = parseDateFilter(params?.datum_do);
+  const message = params?.poruka ? poruke[params.poruka] : null;
 
   if (!user.agencija_id) {
     return null;
@@ -185,12 +198,38 @@ export default async function PregledKifPage({ searchParams }: PregledKifPagePro
                 total_base: true,
                 total_output_vat: true,
                 total_gross: true,
+                journal_id: true,
                 posting_status: true
               }
             }
           }
         })
       : [];
+
+  const linkedKifBookIds =
+    activeCompany && activeYear && kifBooks.length > 0
+      ? new Set(
+          (
+            await prisma.nalog.findMany({
+              where: {
+                agencija_id: user.agencija_id,
+                firma_id: activeCompany.id,
+                poslovna_godina_id: activeYear.id,
+                source_type: invoicePostingDocumentTypes.kif,
+                izvorni_dokument_id: {
+                  in: kifBooks.map((book) => book.id)
+                },
+                is_deleted: false
+              },
+              select: {
+                izvorni_dokument_id: true
+              }
+            })
+          )
+            .map((journal) => journal.izvorni_dokument_id)
+            .filter((id): id is string => Boolean(id))
+        )
+      : new Set<string>();
 
   const totals = kifBooks.reduce(
     (sum, book) => {
@@ -229,6 +268,8 @@ export default async function PregledKifPage({ searchParams }: PregledKifPagePro
           </div>
         ) : null}
       </header>
+
+      {message ? <p className="admin-message">{message}</p> : null}
 
       {!activeCompany || !activeYear ? (
         <section className="admin-panel">
@@ -317,6 +358,12 @@ export default async function PregledKifPage({ searchParams }: PregledKifPagePro
                         }
                       );
                       const statusLabel = bookPostingLabel(book.entries);
+                      const canDeleteBook =
+                        book.status === "OPEN" &&
+                        !linkedKifBookIds.has(book.id) &&
+                        book.entries.every(
+                          (entry) => !entry.journal_id && entry.posting_status === "UNPOSTED"
+                        );
 
                       return (
                         <tr key={book.id}>
@@ -334,9 +381,19 @@ export default async function PregledKifPage({ searchParams }: PregledKifPagePro
                             <span className={bookPostingClass(statusLabel)}>{statusLabel}</span>
                           </td>
                           <td>
-                            <Link className="table-action" href={`/agencija/racuni/pregled-kif/${book.id}`}>
-                              Otvori
-                            </Link>
+                            <div className="table-actions">
+                              <Link className="table-button" href={`/agencija/racuni/pregled-kif/${book.id}`}>
+                                Otvori
+                              </Link>
+                              {canDeleteBook ? (
+                                <form action={deleteKifBook}>
+                                  <input type="hidden" name="kif_book_id" value={book.id} />
+                                  <button className="table-button table-button-danger" type="submit">
+                                    Obriši
+                                  </button>
+                                </form>
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
                       );

@@ -156,6 +156,10 @@ model Firma {
   pdvPodesavanja       PdvPodesavanja[]
   racunVrste           RacunVrsta[]
   bankovni_racuni      FirmaBankovniRacun[]
+  bankStatements        BankStatement[]
+  partnerBankAccounts   PartnerBankAccount[]
+  bankStatementSettings BankStatementAccountSetting[]
+  bankPostingRules      BankPostingRule[]
   ugovor               FirmaUgovor?
   konta                FirmaKonto[]
   podrazumijevanaKonta FirmaPodrazumijevanoKonto[]
@@ -187,6 +191,8 @@ model FirmaBankovniRacun {
   created_by    String?   @db.Uuid
   updated_at    DateTime  @updatedAt
   updated_by    String?   @db.Uuid
+  bankStatements BankStatement[]
+  bankStatementSettings BankStatementAccountSetting[]
 
   @@unique([firma_id, broj_racuna])
   @@index([agencija_id, firma_id])
@@ -330,6 +336,7 @@ model PoslovnaGodina {
   pdvPeriodi PdvPeriod[]
   pdvPrijave PdvPrijava[]
   pdvPodesavanja PdvPodesavanja[]
+  bankStatements BankStatement[]
 
   @@unique([firma_id, godina])
   @@map("poslovne_godine")
@@ -366,6 +373,9 @@ model Komitent {
   kufEntries     KufEntry[]
   kifEntries     KifEntry[]
   ziro_racuni   KomitentZiroRacun[]
+  bank_statement_lines BankStatementLine[]
+  partner_bank_accounts PartnerBankAccount[]
+  bank_posting_rules BankPostingRule[]
 
   @@index([is_foreign])
   @@index([pib])
@@ -512,6 +522,11 @@ model FirmaKonto {
   pdvKreditPodesavanja   PdvPodesavanja[] @relation("PdvKreditKonto")
   pdvNeodbitniPodesavanja PdvPodesavanja[] @relation("PdvNeodbitniKonto")
   pdvPodesavanjePravila  PdvPodesavanjePravilo[]
+  bankStatementDebitLines BankStatementLine[] @relation("BankLineDebitAccount")
+  bankStatementCreditLines BankStatementLine[] @relation("BankLineCreditAccount")
+  bankStatementsBankAccount BankStatement[] @relation("BankStatementBankAccount")
+  bankStatementSettings BankStatementAccountSetting[]
+  bankPostingRules BankPostingRule[]
 
   @@unique([firma_id, sifra])
   @@map("firma_konta")
@@ -851,6 +866,7 @@ model VrstaNaloga {
   nalozi     Nalog[]
   racunVrste RacunVrsta[]
   pdvPodesavanja PdvPodesavanja[]
+  bankStatementSettings BankStatementAccountSetting[]
 
   @@map("vrste_naloga")
 }
@@ -890,10 +906,159 @@ model Nalog {
   delete_reason          String?
   stavke                 StavkaNaloga[]
   pdvPrijave             PdvPrijava[]
+  bankStatements          BankStatement[]
 
   @@unique([firma_id, poslovna_godina_id, vrsta_naloga_id, broj])
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@map("nalozi")
+}
+
+model BankStatement {
+  id                         String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id                String                    @db.Uuid
+  firma_id                   String                    @db.Uuid
+  firma                      Firma                     @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id         String                    @db.Uuid
+  poslovna_godina            PoslovnaGodina            @relation(fields: [poslovna_godina_id], references: [id])
+  company_bank_account_id    String                    @db.Uuid
+  company_bank_account       FirmaBankovniRacun        @relation(fields: [company_bank_account_id], references: [id])
+  bank_account_konto_id      String?                   @db.Uuid
+  bank_account_konto         FirmaKonto?               @relation("BankStatementBankAccount", fields: [bank_account_konto_id], references: [id])
+  journal_id                 String?                   @db.Uuid
+  journal                    Nalog?                    @relation(fields: [journal_id], references: [id])
+  statement_number           String
+  statement_date             DateTime                  @db.Date
+  opening_balance            Decimal                   @default(0) @db.Decimal(14, 2)
+  total_inflow               Decimal                   @default(0) @db.Decimal(14, 2)
+  total_outflow              Decimal                   @default(0) @db.Decimal(14, 2)
+  closing_balance            Decimal                   @default(0) @db.Decimal(14, 2)
+  status                     String                    @default("IMPORTED")
+  file_name                  String?
+  file_type                  String?
+  raw_text                   String?
+  parse_notes                String?
+  created_at                 DateTime                  @default(now())
+  created_by                 String?                   @db.Uuid
+  updated_at                 DateTime                  @updatedAt
+  updated_by                 String?                   @db.Uuid
+  posted_at                  DateTime?
+  posted_by                  String?                   @db.Uuid
+  is_deleted                 Boolean                   @default(false)
+  deleted_at                 DateTime?
+  deleted_by                 String?                   @db.Uuid
+  delete_reason              String?
+  lines                      BankStatementLine[]
+
+  @@unique([firma_id, poslovna_godina_id, company_bank_account_id, statement_number])
+  @@index([agencija_id, firma_id, poslovna_godina_id, status])
+  @@map("bank_statements")
+}
+
+model BankStatementAccountSetting {
+  id                      String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id             String              @db.Uuid
+  firma_id                String              @db.Uuid
+  firma                   Firma               @relation(fields: [firma_id], references: [id])
+  company_bank_account_id String              @db.Uuid
+  company_bank_account    FirmaBankovniRacun  @relation(fields: [company_bank_account_id], references: [id])
+  bank_account_konto_id   String?             @db.Uuid
+  bank_account_konto      FirmaKonto?         @relation(fields: [bank_account_konto_id], references: [id])
+  journal_type_id         String?             @db.Uuid
+  journal_type            VrstaNaloga?        @relation(fields: [journal_type_id], references: [id])
+  last_used_at            DateTime?
+  created_at              DateTime            @default(now())
+  created_by              String?             @db.Uuid
+  updated_at              DateTime            @updatedAt
+  updated_by              String?             @db.Uuid
+
+  @@unique([firma_id, company_bank_account_id])
+  @@index([agencija_id, firma_id])
+  @@map("bank_statement_account_settings")
+}
+
+model BankPostingRule {
+  id                                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id                       String      @db.Uuid
+  firma_id                          String      @db.Uuid
+  firma                             Firma       @relation(fields: [firma_id], references: [id])
+  rule_type                         String      @default("BANK_ACCOUNT")
+  direction                         String
+  counterparty_account_number       String
+  counterparty_account_number_normalized String
+  account_id                        String      @db.Uuid
+  account                           FirmaKonto  @relation(fields: [account_id], references: [id])
+  partner_id                        String?     @db.Uuid
+  partner                           Komitent?   @relation(fields: [partner_id], references: [id])
+  times_used                        Int         @default(0)
+  last_used_at                      DateTime?
+  active                            Boolean     @default(true)
+  created_at                        DateTime    @default(now())
+  created_by                        String?     @db.Uuid
+  updated_at                        DateTime    @updatedAt
+  updated_by                        String?     @db.Uuid
+
+  @@unique([firma_id, rule_type, direction, counterparty_account_number_normalized])
+  @@index([agencija_id, firma_id, active])
+  @@map("bank_posting_rules")
+}
+
+model BankStatementLine {
+  id                                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bank_statement_id                    String        @db.Uuid
+  bank_statement                       BankStatement @relation(fields: [bank_statement_id], references: [id])
+  line_number                          Int
+  posting_date                         DateTime      @db.Date
+  value_date                           DateTime?     @db.Date
+  description                          String
+  reference_number                     String?
+  counterparty_account_number          String?
+  counterparty_account_number_normalized String?
+  counterparty_name                    String?
+  inflow_amount                        Decimal       @default(0) @db.Decimal(14, 2)
+  outflow_amount                       Decimal       @default(0) @db.Decimal(14, 2)
+  direction                            String
+  partner_id                           String?       @db.Uuid
+  partner                              Komitent?     @relation(fields: [partner_id], references: [id])
+  debit_account_id                     String?       @db.Uuid
+  debit_account                        FirmaKonto?   @relation("BankLineDebitAccount", fields: [debit_account_id], references: [id])
+  credit_account_id                    String?       @db.Uuid
+  credit_account                       FirmaKonto?   @relation("BankLineCreditAccount", fields: [credit_account_id], references: [id])
+  match_status                         String        @default("UNMATCHED")
+  posting_status                       String        @default("NEEDS_REVIEW")
+  confidence_score                     Int           @default(0)
+  raw_text                             String?
+  created_at                           DateTime      @default(now())
+  created_by                           String?       @db.Uuid
+  updated_at                           DateTime      @updatedAt
+  updated_by                           String?       @db.Uuid
+
+  @@unique([bank_statement_id, line_number])
+  @@index([counterparty_account_number_normalized])
+  @@index([partner_id])
+  @@map("bank_statement_lines")
+}
+
+model PartnerBankAccount {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id               String   @db.Uuid
+  firma_id                  String?  @db.Uuid
+  firma                     Firma?   @relation(fields: [firma_id], references: [id])
+  partner_id                String   @db.Uuid
+  partner                   Komitent @relation(fields: [partner_id], references: [id])
+  bank_name                 String?
+  account_number            String
+  normalized_account_number String
+  is_primary                Boolean  @default(false)
+  is_active                 Boolean  @default(true)
+  source                    String   @default("MANUAL")
+  created_at                DateTime @default(now())
+  created_by                String?  @db.Uuid
+  updated_at                DateTime @updatedAt
+  updated_by                String?  @db.Uuid
+
+  @@unique([agencija_id, firma_id, normalized_account_number])
+  @@index([partner_id])
+  @@map("partner_bank_accounts")
 }
 
 model PdvPeriod {

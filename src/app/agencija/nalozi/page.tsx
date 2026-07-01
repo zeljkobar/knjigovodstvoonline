@@ -6,6 +6,7 @@ import { requireAnyRole } from "@/lib/auth";
 import { formatJournalCode, journalStatusLabel, journalStatuses } from "@/lib/journals";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
+import { deleteJournal, postJournal } from "./actions";
 
 const PAGE_SIZE = 50;
 
@@ -23,7 +24,8 @@ type NaloziPageProps = {
 
 const poruke: Record<string, string> = {
   nalog_obrisan: "Nalog je obrisan.",
-  nalog_greska: "Nalog nije pronadjen ili akcija nije dozvoljena."
+  nalog_greska: "Nalog nije pronađen ili akcija nije dozvoljena.",
+  nalog_proknjizen: "Nalog je proknjižen."
 };
 
 function formatDate(date: Date) {
@@ -376,9 +378,34 @@ export default async function NaloziPage({ searchParams }: NaloziPageProps) {
                           <td>{money(duguje)}</td>
                           <td>{money(potrazuje)}</td>
                           <td>
-                            <Link className="table-link" href={`/agencija/nalozi/${nalog.id}`}>
-                              Otvori
-                            </Link>
+                            <div className="table-actions">
+                              <Link className="table-link" href={`/agencija/nalozi/${nalog.id}`}>
+                                Otvori
+                              </Link>
+                              {nalog.status === journalStatuses.draft && !activeYear.zakljucena ? (
+                                <>
+                                  <form action={postJournal}>
+                                    <input name="nalog_id" type="hidden" value={nalog.id} />
+                                    <input name="return_to" type="hidden" value="drafts" />
+                                    <button className="table-button" type="submit">
+                                      Proknjiži
+                                    </button>
+                                  </form>
+                                  <form action={deleteJournal}>
+                                    <input name="nalog_id" type="hidden" value={nalog.id} />
+                                    <input name="return_to" type="hidden" value="drafts" />
+                                    <input
+                                      name="delete_reason"
+                                      type="hidden"
+                                      value="Trajno brisanje nacrta iz pregleda naloga"
+                                    />
+                                    <button className="table-button table-button-danger" type="submit">
+                                      Izbriši
+                                    </button>
+                                  </form>
+                                </>
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
                       );

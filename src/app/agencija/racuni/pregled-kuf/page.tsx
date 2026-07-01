@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { invoicePostingDocumentTypes } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
+import { deleteKufBook } from "../actions";
 
 const mjeseci = [
   "Januar",
@@ -63,7 +65,17 @@ type PregledKufPageProps = {
   searchParams?: Promise<{
     datum_do?: string;
     datum_od?: string;
+    poruka?: string;
   }>;
+};
+
+const poruke: Record<string, string> = {
+  kuf_kontekst: "Izaberite firmu i poslovnu godinu u gornjoj traci.",
+  kuf_knjiga_obrisana: "KUF knjiga je obrisana.",
+  kuf_knjiga_greska: "KUF knjiga nije pronađena ili nije moguće brisanje.",
+  kuf_knjiga_nije_rasknjizena: "KUF knjiga mora biti rasknjižena prije brisanja.",
+  kuf_nema_pravo: "Nemate pravo za brisanje KUF knjige.",
+  prava: "Nemate pravo za brisanje KUF knjige."
 };
 
 function parseDateFilter(value?: string) {
@@ -102,6 +114,7 @@ export default async function PregledKufPage({ searchParams }: PregledKufPagePro
   const params = await searchParams;
   const dateFrom = parseDateFilter(params?.datum_od);
   const dateTo = parseDateFilter(params?.datum_do);
+  const message = params?.poruka ? poruke[params.poruka] : null;
 
   if (!user.agencija_id) {
     return null;
@@ -185,12 +198,38 @@ export default async function PregledKufPage({ searchParams }: PregledKufPagePro
                 total_base: true,
                 total_input_vat: true,
                 total_gross: true,
+                journal_id: true,
                 posting_status: true
               }
             }
           }
         })
       : [];
+
+  const linkedKufBookIds =
+    activeCompany && activeYear && kufBooks.length > 0
+      ? new Set(
+          (
+            await prisma.nalog.findMany({
+              where: {
+                agencija_id: user.agencija_id,
+                firma_id: activeCompany.id,
+                poslovna_godina_id: activeYear.id,
+                source_type: invoicePostingDocumentTypes.kuf,
+                izvorni_dokument_id: {
+                  in: kufBooks.map((book) => book.id)
+                },
+                is_deleted: false
+              },
+              select: {
+                izvorni_dokument_id: true
+              }
+            })
+          )
+            .map((journal) => journal.izvorni_dokument_id)
+            .filter((id): id is string => Boolean(id))
+        )
+      : new Set<string>();
 
   const totals = kufBooks.reduce(
     (sum, book) => {
@@ -229,6 +268,8 @@ export default async function PregledKufPage({ searchParams }: PregledKufPagePro
           </div>
         ) : null}
       </header>
+
+      {message ? <p className="admin-message">{message}</p> : null}
 
       {!activeCompany || !activeYear ? (
         <section className="admin-panel">
@@ -317,6 +358,12 @@ export default async function PregledKufPage({ searchParams }: PregledKufPagePro
                         }
                       );
                       const statusLabel = bookPostingLabel(book.entries);
+                      const canDeleteBook =
+                        book.status === "OPEN" &&
+                        !linkedKufBookIds.has(book.id) &&
+                        book.entries.every(
+                          (entry) => !entry.journal_id && entry.posting_status === "UNPOSTED"
+                        );
 
                       return (
                         <tr key={book.id}>
@@ -334,9 +381,19 @@ export default async function PregledKufPage({ searchParams }: PregledKufPagePro
                             <span className={bookPostingClass(statusLabel)}>{statusLabel}</span>
                           </td>
                           <td>
-                            <Link className="table-action" href={`/agencija/racuni/pregled-kuf/${book.id}`}>
-                              Otvori
-                            </Link>
+                            <div className="table-actions">
+                              <Link className="table-button" href={`/agencija/racuni/pregled-kuf/${book.id}`}>
+                                Otvori
+                              </Link>
+                              {canDeleteBook ? (
+                                <form action={deleteKufBook}>
+                                  <input type="hidden" name="kuf_book_id" value={book.id} />
+                                  <button className="table-button table-button-danger" type="submit">
+                                    Obriši
+                                  </button>
+                                </form>
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
                       );

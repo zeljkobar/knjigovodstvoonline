@@ -33,6 +33,9 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
 ### Modul 3 — Nalozi za knjiženje
 - Vrste naloga, numeracija, nacrt i proknjižen status.
+- Proknjiženi nalog se sa detalja može samo vratiti u nacrt; direktno brisanje
+  je uklonjeno. U pregledu nacrta postoje brze akcije `Proknjiži` i `Izbriši`;
+  brisanje nacrta je fizičko i oslobađa broj naloga.
 - Ručni unos sa tabelarnim stavkama, Enter navigacija, dinamički redovi.
 - Validacija: konto, iznos, analitički konto mora imati partnera.
 - Na ručnom nalogu i izmjeni nacrta dupli klik na “Broj dok.” otvara modal
@@ -59,7 +62,9 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - MAPR QR/link unos i batch import; SEP Excel import za KIF (pravi MAPR linkove).
 - Cijela knjiga se knjiži odjednom u jedan nalog; naknadni računi se dopunjavaju.
 - Statusi na srpskom: otvorena, djelimično knjižena, knjižena.
-- Edit/delete za neproknjižene račune; print KIF/KUF kao HTML/CSS.
+- Edit/delete za neproknjižene račune; fizičko brisanje KIF/KUF računa i cijele
+  knjige dozvoljeno je samo kad nema povezan nalog i sve stavke su neproknjižene,
+  da se ne zauzimaju redni brojevi; print KIF/KUF kao HTML/CSS.
 - Excel export KIF/KUF pregleda po istim datumskim filterima kao štampa; export
   uključuje partnera, tip prometa, iznose, status knjiženja i PDV razradu.
 - Normalizacija fiskalnog broja (`pt385eg871/1/2026/dl426pc243` → `1/2026`).
@@ -68,6 +73,41 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - `vat_transaction_type` na KIF/KUF (DOMESTIC/IMPORT/EXPORT/EXEMPT/NON_TAXABLE)
   sa automatskim predlogom: ino dobavljač → IMPORT, ino kupac → EXPORT; konačna
   vrijednost se čuva na dokumentu (`src/lib/vat-transaction.ts`).
+
+### Modul 7 — Izvodi
+- Dodata prva MVP implementacija izvoda kao import/preview/knjiženje sloj iznad
+  naloga, bez dupliranja ručnog naloga `IZV`.
+- Baza ima `bank_statements`, `bank_statement_lines` i `partner_bank_accounts`
+  (`20260629190000_bank_statements_mvp`).
+- Stranica `/agencija/izvodi` ima uvoz izvoda za aktivnu firmu/godinu,
+  izbor bankovnog računa firme i konta banke, unos zaglavlja, batch upload
+  više XML fajlova ili paste teksta, gornji pregled izvoda i donji detalj sa
+  tabovima `Stavke izvoda` i `Predlog naloga`. Kad je izvod otvoren, ekran
+  prelazi u detalj režim sa dugmetom `Povrat na spisak izvoda`, bez velikog
+  spiska iznad detalja.
+- Parser u MVP-u čita NLB XML izvode (`zadaci/nlb izvodi xml` format), uključujući
+  UTF-16 fajlove, broj izvoda, datum, početno/krajnje stanje i debit/credit
+  stavke. Kao fallback čita redove formata
+  `datum; opis; žiro račun; odliv; priliv` i običan tekst.
+- Komitent se automatski predlaže po normalizovanom žiro računu kroz
+  `partner_bank_accounts` i postojeće `komitent_ziro_racuni`.
+- Predlog naloga omogućava izbor partnera async pretragom, izbor duguje/potražuje
+  konta po stavci i ignorisanje stavki; konta se čuvaju preko šifre i backend ih
+  automatski povezuje na `firma_konta`, pa izbor iz globalnog plana ne ruši FK.
+- Preview/knjiženje naloga izvoda knjiži banku zbirno: prvo ukupan priliv na
+  duguje banke i ukupan odliv na potražuje banke, zatim pojedinačne stavke
+  izvoda na izabrana konta.
+- Knjiženje selektovanih izvoda dozvoljava samo statuse `READY`; jedan izvod
+  kreira jedan proknjižen nalog iz podešene vrste naloga za bankovni račun i
+  povezuje ga sa izvodom. Broj naloga uzima se iz broja izvoda za tu vrstu
+  naloga; ako je broj već zauzet ili broj izvoda nije numerički, knjiženje se
+  zaustavlja sa porukom.
+- Podstranice modula Izvodi više nisu placeholderi: `Obrada stavki` prikazuje
+  neriješene stavke, `Parseri banaka` podržane parsere i statistiku,
+  `Pravila knjiženja` prikazuje kandidate iz ponovljenih riješenih stavki,
+  `Žiro računi komitenata` prikazuje račune za prepoznavanje partnera,
+  `Kartica banke` prikazuje promet po bankovnim izvodima, a `Kontrole` prikazuju
+  neslaganja stanja, stavke bez konta i proknjižene izvode bez validnog naloga.
 
 ### Modul 8 — PDV
 - PDV periodi po mjesecu za aktivnu firmu i poslovnu godinu (`pdv_periodi`).
@@ -95,11 +135,9 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
 ## Nije početo / samo pripremljeno
 - Robno knjigovodstvo: spec pročitan, samo navigacioni placeholderi.
-- Izvodi: finalna radna specifikacija je u
-  `zadaci/07_Izvodi_i_Automatsko_Knjizenje_FINAL.md`; `pdfjs-dist` je instaliran
-  kao priprema. Modul treba raditi kao import/preview/povezivanje/knjiženje sloj
-  iznad naloga, ne kao dupli ručni unos izvoda. Osnova za ručno zatvaranje
-  otvorenih stavki postoji kroz ručni nalog.
+- Izvodi: prva MVP baza/stranica/import/preview/knjiženje i pregledne
+  podstranice postoje. Nisu još implementirani parseri za druge banke, učenje
+  žiro računa iz UI-a, trajna pravila knjiženja i alokacije na KIF/KUF fakture.
 - Plate, završni račun, klijentski portal, većina dashboard izvještaja.
 - PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
 
@@ -107,6 +145,8 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - `npm run lint` prolazi (stari warning `_prev` u `src/app/admin/actions.ts` i
   stari warning za neiskorišćene varijable u `src/app/agencija/racuni/actions.ts`).
 - `npx tsc --noEmit` prolazi.
+- `npx prisma migrate deploy` primijenio migraciju
+  `20260629190000_bank_statements_mvp`.
 - `npx prisma migrate deploy` primijenio migraciju
   `20260628150000_pdv_periodi_prijave_podesavanja`.
 - `npx prisma migrate deploy` primijenio migraciju

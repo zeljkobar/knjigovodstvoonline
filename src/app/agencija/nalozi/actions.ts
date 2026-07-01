@@ -607,6 +607,7 @@ export async function updateDraftJournalLines(formData: FormData) {
 
 export async function postJournal(formData: FormData) {
   const nalogId = value(formData, "nalog_id");
+  const returnTo = value(formData, "return_to");
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
 
   if (!user.agencija_id || !nalogId) {
@@ -700,6 +701,10 @@ export async function postJournal(formData: FormData) {
   });
 
   revalidatePath("/agencija/nalozi");
+  if (returnTo === "drafts") {
+    redirect("/agencija/nalozi?status=DRAFT&poruka=nalog_proknjizen");
+  }
+
   redirectJournalDetail(nalog.id, "nalog_proknjizen");
 }
 
@@ -783,6 +788,7 @@ export async function reopenJournal(formData: FormData) {
 
 export async function deleteJournal(formData: FormData) {
   const nalogId = value(formData, "nalog_id");
+  const returnTo = value(formData, "return_to");
   const reason = nullableValue(formData, "delete_reason") ?? "Obrisano iz pregleda naloga";
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
 
@@ -811,6 +817,8 @@ export async function deleteJournal(formData: FormData) {
     select: {
       id: true,
       firma_id: true,
+      broj: true,
+      sifra: true,
       status: true,
       poslovna_godina: {
         select: {
@@ -824,32 +832,31 @@ export async function deleteJournal(formData: FormData) {
     redirectJournals("nalog_greska");
   }
 
-  const deletedJournal = await prisma.$transaction(async (tx) => {
-    const journal = await tx.nalog.update({
-      where: {
-        id: nalog.id
-      },
-      data: {
-        status: journalStatuses.deleted,
-        is_deleted: true,
-        deleted_at: new Date(),
-        deleted_by: user.id,
-        delete_reason: reason,
-        updated_by: user.id
-      },
-      select: {
-        id: true,
-        firma_id: true,
-        status: true,
-        is_deleted: true
-      }
-    });
+  if (nalog.status !== journalStatuses.draft) {
+    redirectJournals("nalog_greska");
+  }
 
-    // Otknjiži izvorne fakture (KUF/KIF) koje su bile knjižene ovim nalogom,
-    // da bi mogle ponovo da se urede, obrišu ili proknjiže.
+  await auditLog({
+    korisnikId: user.id,
+    agencijaId: user.agencija_id,
+    firmaId: nalog.firma_id,
+    modul: "agencija.nalozi",
+    akcija: "delete_draft",
+    tipEntiteta: "Nalog",
+    entitetId: nalog.id,
+    staraVrijednost: {
+      id: nalog.id,
+      broj: nalog.broj,
+      sifra: nalog.sifra,
+      status: nalog.status,
+      razlog: reason
+    }
+  });
+
+  await prisma.$transaction(async (tx) => {
     await tx.kufEntry.updateMany({
       where: {
-        journal_id: journal.id
+        journal_id: nalog.id
       },
       data: {
         posting_status: "UNPOSTED",
@@ -860,7 +867,7 @@ export async function deleteJournal(formData: FormData) {
 
     await tx.kifEntry.updateMany({
       where: {
-        journal_id: journal.id
+        journal_id: nalog.id
       },
       data: {
         posting_status: "UNPOSTED",
@@ -871,7 +878,7 @@ export async function deleteJournal(formData: FormData) {
 
     await tx.pdvPrijava.updateMany({
       where: {
-        journal_id: journal.id
+        journal_id: nalog.id
       },
       data: {
         status: pdvReturnStatuses.draft,
@@ -882,18 +889,30 @@ export async function deleteJournal(formData: FormData) {
       }
     });
 
-    return journal;
-  });
+    await tx.bankStatement.updateMany({
+      where: {
+        journal_id: nalog.id
+      },
+      data: {
+        status: "NEEDS_REVIEW",
+        journal_id: null,
+        posted_at: null,
+        posted_by: null,
+        updated_by: user.id
+      }
+    });
 
-  await auditLog({
-    korisnikId: user.id,
-    agencijaId: user.agencija_id,
-    firmaId: deletedJournal.firma_id,
-    modul: "agencija.nalozi",
-    akcija: "delete",
-    tipEntiteta: "Nalog",
-    entitetId: deletedJournal.id,
-    novaVrijednost: deletedJournal
+    await tx.stavkaNaloga.deleteMany({
+      where: {
+        nalog_id: nalog.id
+      }
+    });
+
+    await tx.nalog.delete({
+      where: {
+        id: nalog.id
+      }
+    });
   });
 
   revalidatePath("/agencija/nalozi");
@@ -906,6 +925,13 @@ export async function deleteJournal(formData: FormData) {
   revalidatePath("/agencija/pdv/prijava");
   revalidatePath("/agencija/pdv/arhiva");
   revalidatePath("/agencija/pdv/kontrole");
+  revalidatePath("/agencija/izvodi");
+  revalidatePath("/agencija/izvodi/kontrole");
+  revalidatePath("/agencija/izvodi/kartica-banke");
+  if (returnTo === "drafts") {
+    redirect("/agencija/nalozi?status=DRAFT&poruka=nalog_obrisan");
+  }
+
   redirectJournals("nalog_obrisan");
 }
 

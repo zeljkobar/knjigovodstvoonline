@@ -679,6 +679,72 @@ p {
   background: var(--primary-strong);
 }
 
+.file-picker-field {
+  display: grid;
+  gap: 8px;
+}
+
+.file-picker-field > span {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.file-picker-control {
+  align-items: center;
+  display: flex;
+  min-height: 86px;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fbfdff;
+  padding: 14px 16px;
+}
+
+.file-picker-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.file-picker-button {
+  align-items: center;
+  justify-content: center;
+  display: inline-flex;
+  min-height: 44px;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  background: var(--primary);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 10px 16px;
+  white-space: nowrap;
+}
+
+.file-picker-button:hover {
+  background: var(--primary-strong);
+}
+
+.file-picker-input:focus-visible + .file-picker-button {
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.file-picker-summary {
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-form textarea {
   min-height: 96px;
   resize: vertical;
@@ -1052,6 +1118,20 @@ td small {
   background: #f0f8ff;
 }
 
+.section-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.muted-note {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0;
+}
+
 .table-link {
   display: inline-flex;
   min-height: 34px;
@@ -1238,6 +1318,141 @@ td small {
 .status-pill--muted {
   background: #f4f7fb;
   color: var(--muted);
+}
+
+.status-ready,
+.status-posted {
+  border-color: rgba(22, 163, 74, 0.28);
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
+}
+
+.status-needs_review,
+.status-imported {
+  border-color: rgba(217, 119, 6, 0.28);
+  background: rgba(217, 119, 6, 0.1);
+  color: #b45309;
+}
+
+.tabs-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 20px;
+}
+
+.tab-link {
+  min-height: 38px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--primary-strong);
+  display: inline-flex;
+  font-weight: 800;
+  padding: 8px 16px;
+  text-decoration: none;
+}
+
+.tab-link.active,
+.tab-link:hover {
+  border-color: rgba(12, 99, 183, 0.22);
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.compact-action {
+  margin-top: 16px;
+}
+
+.table-action-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.table-action-row .compact-action {
+  margin-top: 0;
+}
+
+.statement-top-actions {
+  justify-content: flex-end;
+  margin-top: 0;
+}
+
+.statement-preview-table table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.statement-preview-table th,
+.statement-preview-table td {
+  padding: 10px 8px;
+  vertical-align: top;
+}
+
+.statement-preview-table select,
+.statement-preview-table input {
+  min-height: 38px;
+  width: 100%;
+}
+
+.statement-preview-table .partner-search-field {
+  min-width: 0;
+}
+
+.statement-preview-table .partner-search-field label {
+  margin: 0;
+}
+
+.statement-preview-table .partner-search-field label > span {
+  display: none;
+}
+
+.statement-preview-table .partner-search-results {
+  min-width: 240px;
+}
+
+.statement-col-number {
+  width: 42px;
+}
+
+.statement-col-description {
+  width: 31%;
+}
+
+.statement-col-description strong {
+  display: block;
+  max-height: 42px;
+  overflow: hidden;
+}
+
+.statement-col-partner {
+  width: 18%;
+}
+
+.statement-col-account {
+  width: 18%;
+}
+
+.statement-col-amount {
+  width: 92px;
+  text-align: right;
+}
+
+.statement-col-ignore {
+  width: 76px;
+  text-align: center;
+}
+
+.statement-col-ignore input {
+  width: auto;
+}
+
+.statement-bank-row {
+  background: #f8fcff;
+  font-weight: 700;
 }
 
 .control-issues {

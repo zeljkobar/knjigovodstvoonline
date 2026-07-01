@@ -635,66 +635,36 @@ async function saveKifInvoice(
     const fieldRules = new Map(
       kifBook.racun_vrsta.kontiranjePravila.map((rule) => [rule.polje_sifra, rule])
     );
-    const revenueAccountCodes = new Set<string>();
+    const revenueFieldByRateCode = new Map(
+      fields
+        .filter((field) => field.code.startsWith("OSNOVICA_") || field.code.startsWith("OSLOBODJENO_"))
+        .map((field) => [field.vatRateCode, field])
+    );
+    const revenueAccountCache = new Map<string, Awaited<ReturnType<typeof resolveCompanyAccount>>>();
 
-    for (const field of fields) {
-      if (!field.code.startsWith("OSNOVICA_") && !field.code.startsWith("OSLOBODJENO_")) {
-        continue;
-      }
+    async function resolveRevenueAccountForRate(rateCode: string) {
+      const field = revenueFieldByRateCode.get(rateCode);
+      const rule = field ? fieldRules.get(field.code) : null;
+      const source = rule?.konto_izvor ?? field?.accountSource;
+      const accountCode = rule?.sifra_konta;
 
-      const rule = fieldRules.get(field.code);
-      const source = rule?.konto_izvor ?? field.accountSource;
-
-      if (source === invoicePostingAccountSources.inputExpense) {
+      if (!field || source === invoicePostingAccountSources.inputExpense || !accountCode) {
         return {
-          link: invoice.identifiers.qrUrl,
-          status: "error",
+          account: null,
           message:
-            "Šema KIF-a koristi konto iz unosa računa. Za import linkova podesite fiksni konto prihoda.",
-          invoiceNumber,
-          partner: buyerParty.name,
-          total: invoice.total
+            "U podešavanjima KIF šeme nije definisan fiksni konto prihoda za stopu računa."
         };
       }
 
-      if (rule?.sifra_konta) {
-        revenueAccountCodes.add(rule.sifra_konta);
+      if (!revenueAccountCache.has(accountCode)) {
+        revenueAccountCache.set(accountCode, await resolveCompanyAccount(tx, firmaId, accountCode));
       }
-    }
 
-    if (revenueAccountCodes.size === 0) {
+      const account = revenueAccountCache.get(accountCode) ?? null;
+
       return {
-        link: invoice.identifiers.qrUrl,
-        status: "error",
-        message: "U podešavanjima KIF šeme nije definisan konto prihoda.",
-        invoiceNumber,
-        partner: buyerParty.name,
-        total: invoice.total
-      };
-    }
-
-    if (revenueAccountCodes.size > 1) {
-      return {
-        link: invoice.identifiers.qrUrl,
-        status: "error",
-        message: "KIF import trenutno podržava jedan konto prihoda po računu.",
-        invoiceNumber,
-        partner: buyerParty.name,
-        total: invoice.total
-      };
-    }
-
-    const revenueAccountCode = Array.from(revenueAccountCodes)[0];
-    const revenueAccount = await resolveCompanyAccount(tx, firmaId, revenueAccountCode);
-
-    if (!revenueAccount) {
-      return {
-        link: invoice.identifiers.qrUrl,
-        status: "error",
-        message: `Konto ${revenueAccountCode} nije aktivno analitičko konto.`,
-        invoiceNumber,
-        partner: buyerParty.name,
-        total: invoice.total
+        account,
+        message: account ? null : `Konto ${accountCode} nije aktivno analitičko konto.`
       };
     }
 
@@ -782,6 +752,7 @@ async function saveKifInvoice(
     const taxLines: Prisma.KifEntryTaxLineCreateManyKif_entryInput[] = [];
     let totalBaseCents = 0;
     let totalVatCents = 0;
+    let revenueAccountId: string | null = null;
 
     for (const tax of invoice.taxes) {
       const rate = rateByPercent.get(tax.vatRate);
@@ -802,6 +773,23 @@ async function saveKifInvoice(
 
       if (baseCents === 0 && vatCents === 0) {
         continue;
+      }
+
+      if (baseCents !== 0) {
+        const revenueAccount = await resolveRevenueAccountForRate(rate.sifra);
+
+        if (!revenueAccount.account) {
+          return {
+            link: invoice.identifiers.qrUrl,
+            status: "error",
+            message: revenueAccount.message ?? "Konto prihoda nije podešen za KIF import.",
+            invoiceNumber,
+            partner: buyer.naziv,
+            total: invoice.total
+          };
+        }
+
+        revenueAccountId ??= revenueAccount.account.id;
       }
 
       totalBaseCents += baseCents;
@@ -862,7 +850,7 @@ async function saveKifInvoice(
         total_base: centsToDecimal(totalBaseCents),
         total_output_vat: centsToDecimal(totalVatCents),
         total_gross: centsToDecimal(totalGrossCents),
-        revenue_account_id: revenueAccount.id,
+        revenue_account_id: revenueAccountId,
         note: "Import MAPR",
         created_by: userId,
         updated_by: userId,

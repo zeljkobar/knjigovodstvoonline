@@ -3308,23 +3308,6 @@ export async function deleteKufEntry(formData: FormData) {
     (message) => redirectKufEntry(kufBookId, message)
   );
 
-  const deletedEntry = await prisma.kufEntry.update({
-    where: {
-      id: entry.id
-    },
-    data: {
-      is_deleted: true,
-      deleted_at: new Date(),
-      deleted_by: user.id,
-      delete_reason: "Korisnik je obrisao račun iz KUF knjige.",
-      updated_by: user.id
-    },
-    select: {
-      id: true,
-      internal_kuf_number: true
-    }
-  });
-
   await auditLog({
     korisnikId: user.id,
     agencijaId: user.agencija_id,
@@ -3332,14 +3315,142 @@ export async function deleteKufEntry(formData: FormData) {
     modul: "agencija.racuni.kuf",
     akcija: "delete",
     tipEntiteta: "KufEntry",
-    entitetId: deletedEntry.id,
-    novaVrijednost: deletedEntry
+    entitetId: entry.id,
+    staraVrijednost: {
+      id: entry.id,
+      internal_kuf_number: entry.internal_kuf_number
+    }
+  });
+
+  await prisma.kufEntry.delete({
+    where: {
+      id: entry.id
+    }
   });
 
   revalidatePath("/agencija/racuni/kuf");
   revalidatePath("/agencija/racuni/pregled-kuf");
   revalidatePath(`/agencija/racuni/kuf/${kufBook.id}`);
   redirectKufEntry(kufBook.id, "kuf_obrisan");
+}
+
+export async function deleteKufBook(formData: FormData) {
+  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const workContext = await readWorkContext();
+
+  if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
+    redirect("/agencija/racuni/pregled-kuf?poruka=kuf_kontekst");
+  }
+
+  const kufBookId = value(formData, "kuf_book_id");
+
+  if (!kufBookId) {
+    redirect("/agencija/racuni/pregled-kuf?poruka=kuf_knjiga_greska");
+  }
+
+  const [poslovnaGodina, kufBook, linkedJournal] = await Promise.all([
+    prisma.poslovnaGodina.findFirst({
+      where: {
+        id: workContext.poslovnaGodinaId,
+        firma_id: workContext.firmaId
+      },
+      select: {
+        id: true,
+        zakljucena: true
+      }
+    }),
+    prisma.kufBook.findFirst({
+      where: {
+        id: kufBookId,
+        agencija_id: user.agencija_id,
+        firma_id: workContext.firmaId,
+        poslovna_godina_id: workContext.poslovnaGodinaId,
+        is_deleted: false
+      },
+      select: {
+        id: true,
+        internal_kuf_number: true,
+        status: true,
+        entries: {
+          where: {
+            is_deleted: false
+          },
+          select: {
+            id: true,
+            journal_id: true,
+            posting_status: true
+          }
+        }
+      }
+    }),
+    prisma.nalog.findFirst({
+      where: {
+        agencija_id: user.agencija_id,
+        firma_id: workContext.firmaId,
+        poslovna_godina_id: workContext.poslovnaGodinaId,
+        source_type: invoicePostingDocumentTypes.kuf,
+        izvorni_dokument_id: kufBookId,
+        is_deleted: false
+      },
+      select: {
+        id: true
+      }
+    })
+  ]);
+
+  const hasPostedEntries =
+    kufBook?.entries.some((entry) => entry.journal_id || entry.posting_status !== "UNPOSTED") ?? true;
+
+  if (
+    !poslovnaGodina ||
+    poslovnaGodina.zakljucena ||
+    !kufBook ||
+    kufBook.status !== "OPEN" ||
+    linkedJournal ||
+    hasPostedEntries
+  ) {
+    redirect("/agencija/racuni/pregled-kuf?poruka=kuf_knjiga_nije_rasknjizena");
+  }
+
+  await requireInvoicePermission(
+    user,
+    workContext.firmaId,
+    invoicePostingDocumentTypes.kuf,
+    "delete",
+    (message) => redirect(`/agencija/racuni/pregled-kuf?poruka=${message}`)
+  );
+
+  await auditLog({
+    korisnikId: user.id,
+    agencijaId: user.agencija_id,
+    firmaId: workContext.firmaId,
+    modul: "agencija.racuni.kuf",
+    akcija: "delete_book",
+    tipEntiteta: "KufBook",
+    entitetId: kufBook.id,
+    staraVrijednost: {
+      internal_kuf_number: kufBook.internal_kuf_number
+    }
+  });
+
+  await prisma.$transaction(async (tx) => {
+    await tx.kufEntry.deleteMany({
+      where: {
+        kuf_book_id: kufBook.id
+      }
+    });
+
+    await tx.kufBook.delete({
+      where: {
+        id: kufBook.id
+      }
+    });
+  });
+
+  revalidatePath("/agencija/racuni/kuf");
+  revalidatePath("/agencija/racuni/pregled-kuf");
+  revalidatePath(`/agencija/racuni/kuf/${kufBook.id}`);
+  redirect("/agencija/racuni/pregled-kuf?poruka=kuf_knjiga_obrisana");
 }
 
 export async function createKifEntry(formData: FormData) {
@@ -4093,23 +4204,6 @@ export async function deleteKifEntry(formData: FormData) {
     (message) => redirectKifEntry(kifBookId, message)
   );
 
-  const deletedEntry = await prisma.kifEntry.update({
-    where: {
-      id: entry.id
-    },
-    data: {
-      is_deleted: true,
-      deleted_at: new Date(),
-      deleted_by: user.id,
-      delete_reason: "Korisnik je obrisao račun iz KIF knjige.",
-      updated_by: user.id
-    },
-    select: {
-      id: true,
-      internal_kif_number: true
-    }
-  });
-
   await auditLog({
     korisnikId: user.id,
     agencijaId: user.agencija_id,
@@ -4117,12 +4211,140 @@ export async function deleteKifEntry(formData: FormData) {
     modul: "agencija.racuni.kif",
     akcija: "delete",
     tipEntiteta: "KifEntry",
-    entitetId: deletedEntry.id,
-    novaVrijednost: deletedEntry
+    entitetId: entry.id,
+    staraVrijednost: {
+      id: entry.id,
+      internal_kif_number: entry.internal_kif_number
+    }
+  });
+
+  await prisma.kifEntry.delete({
+    where: {
+      id: entry.id
+    }
   });
 
   revalidatePath("/agencija/racuni/kif");
   revalidatePath("/agencija/racuni/pregled-kif");
   revalidatePath(`/agencija/racuni/kif/${kifBook.id}`);
   redirectKifEntry(kifBook.id, "kif_obrisan");
+}
+
+export async function deleteKifBook(formData: FormData) {
+  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const workContext = await readWorkContext();
+
+  if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
+    redirect("/agencija/racuni/pregled-kif?poruka=kif_kontekst");
+  }
+
+  const kifBookId = value(formData, "kif_book_id");
+
+  if (!kifBookId) {
+    redirect("/agencija/racuni/pregled-kif?poruka=kif_knjiga_greska");
+  }
+
+  const [poslovnaGodina, kifBook, linkedJournal] = await Promise.all([
+    prisma.poslovnaGodina.findFirst({
+      where: {
+        id: workContext.poslovnaGodinaId,
+        firma_id: workContext.firmaId
+      },
+      select: {
+        id: true,
+        zakljucena: true
+      }
+    }),
+    prisma.kifBook.findFirst({
+      where: {
+        id: kifBookId,
+        agencija_id: user.agencija_id,
+        firma_id: workContext.firmaId,
+        poslovna_godina_id: workContext.poslovnaGodinaId,
+        is_deleted: false
+      },
+      select: {
+        id: true,
+        internal_kif_number: true,
+        status: true,
+        entries: {
+          where: {
+            is_deleted: false
+          },
+          select: {
+            id: true,
+            journal_id: true,
+            posting_status: true
+          }
+        }
+      }
+    }),
+    prisma.nalog.findFirst({
+      where: {
+        agencija_id: user.agencija_id,
+        firma_id: workContext.firmaId,
+        poslovna_godina_id: workContext.poslovnaGodinaId,
+        source_type: invoicePostingDocumentTypes.kif,
+        izvorni_dokument_id: kifBookId,
+        is_deleted: false
+      },
+      select: {
+        id: true
+      }
+    })
+  ]);
+
+  const hasPostedEntries =
+    kifBook?.entries.some((entry) => entry.journal_id || entry.posting_status !== "UNPOSTED") ?? true;
+
+  if (
+    !poslovnaGodina ||
+    poslovnaGodina.zakljucena ||
+    !kifBook ||
+    kifBook.status !== "OPEN" ||
+    linkedJournal ||
+    hasPostedEntries
+  ) {
+    redirect("/agencija/racuni/pregled-kif?poruka=kif_knjiga_nije_rasknjizena");
+  }
+
+  await requireInvoicePermission(
+    user,
+    workContext.firmaId,
+    invoicePostingDocumentTypes.kif,
+    "delete",
+    (message) => redirect(`/agencija/racuni/pregled-kif?poruka=${message}`)
+  );
+
+  await auditLog({
+    korisnikId: user.id,
+    agencijaId: user.agencija_id,
+    firmaId: workContext.firmaId,
+    modul: "agencija.racuni.kif",
+    akcija: "delete_book",
+    tipEntiteta: "KifBook",
+    entitetId: kifBook.id,
+    staraVrijednost: {
+      internal_kif_number: kifBook.internal_kif_number
+    }
+  });
+
+  await prisma.$transaction(async (tx) => {
+    await tx.kifEntry.deleteMany({
+      where: {
+        kif_book_id: kifBook.id
+      }
+    });
+
+    await tx.kifBook.delete({
+      where: {
+        id: kifBook.id
+      }
+    });
+  });
+
+  revalidatePath("/agencija/racuni/kif");
+  revalidatePath("/agencija/racuni/pregled-kif");
+  revalidatePath(`/agencija/racuni/kif/${kifBook.id}`);
+  redirect("/agencija/racuni/pregled-kif?poruka=kif_knjiga_obrisana");
 }

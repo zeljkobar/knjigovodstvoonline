@@ -17,11 +17,12 @@
 - Bruto bilans (početno stanje, subtotali, ukupno).
 
 ## Prioritet 3 — Sljedeći moduli (po prioritetu)
-- **Izvodi i automatsko knjiženje.** Krenuti od import/preview toka, ne od
-  posebnog ručnog unosa: tabele za import i izvod, upload PDF/HTML, generički
-  parser, preview, prepoznavanje komitenta po normalizovanom žiro računu,
-  povezivanje sa KIF/KUF fakturama, alokacije, kontrola stanja i preview naloga.
-  Detalji: [`docs/accounting/izvodi.md`](docs/accounting/izvodi.md).
+- **Izvodi i automatsko knjiženje.** Prva MVP osnova postoji: tabele, uvoz,
+  batch upload XML fajlova, parser za tekst/CSV-like redove, preview stavki,
+  preview naloga i knjiženje jednog izvoda u jedan `IZV` nalog, plus pregledne
+  stranice za obradu, parsere, žiro račune, karticu banke i kontrole. Nastaviti
+  sa parserima za druge banke, dodatnim pravilima knjiženja i alokacijama na
+  KIF/KUF fakture. Detalji: [`docs/accounting/izvodi.md`](docs/accounting/izvodi.md).
 - **Robno knjigovodstvo**: zalihe, lager, kalkulacije, uvozne kalkulacije.
 - **PDV prijava — završni QA.** Prva verzija perioda, evidencija, prijave,
   podešavanja, XML `PR_PDV_2025` i knjiženja postoji. Ostaje zaključavanje
@@ -35,9 +36,9 @@
   firme i default konta po firmi/partneru gdje nisu pokrivena.
 - **Modul 3:** formalni unos/prenos početnog stanja; kontrole po poslovnoj
   jedinici; testovi za validacije i prava.
-- **Modul 5/7 Izvodi:** implementirati import sesije, zaglavlja i stavke izvoda,
-  parsiranje PDF/HTML, preview, učenje žiro računa komitenata, alokacije na
-  KIF/KUF fakture, pravila knjiženja i generisanje naloga.
+- **Modul 5/7 Izvodi:** dodati parsere za druge banke, modal/učenje žiro
+  računa komitenata, trajna pravila knjiženja, alokacije na KIF/KUF fakture i
+  vraćanje proknjiženog izvoda u nacrt.
 - **Modul 6:** zaključavanje PDV perioda; payment status;
   cache MAPR odgovora; bolji QA štampe na mnogo redova.
 - **Modul 8:** finalni IRMS XML, zaključavanje/otključavanje PDV perioda,
