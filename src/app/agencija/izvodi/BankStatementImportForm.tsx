@@ -113,7 +113,7 @@ export function BankStatementImportForm({
         <span>Fajl izvoda</span>
         <div className="file-picker-control">
           <input
-            accept=".xml,text/xml,application/xml"
+            accept=".xml,.htm,.html,.pdf,text/xml,application/xml,text/html,application/pdf"
             className="file-picker-input"
             id={fileInputId}
             multiple
@@ -131,7 +131,7 @@ export function BankStatementImportForm({
         <span>Tekst izvoda</span>
         <textarea
           name="raw_text"
-          placeholder="XML fajl se čita automatski. Za ručni tekst koristite: datum; opis; žiro račun; odliv; priliv"
+          placeholder="XML/HTM/PDF fajl se čita automatski. Za ručni tekst koristite: datum; opis; žiro račun; odliv; priliv"
           rows={6}
         />
       </label>

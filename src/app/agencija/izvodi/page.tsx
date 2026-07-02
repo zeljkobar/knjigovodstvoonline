@@ -578,6 +578,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                         <th>#</th>
                         <th>Datum</th>
                         <th>Opis</th>
+                        <th>Šifra</th>
                         <th>Žiro račun</th>
                         <th>Partner</th>
                         <th>Odliv</th>
@@ -594,6 +595,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                             <strong>{line.description}</strong>
                             {line.raw_text ? <small>{line.raw_text}</small> : null}
                           </td>
+                          <td>{line.payment_code ?? "-"}</td>
                           <td>{line.counterparty_account_number ?? "-"}</td>
                           <td>
                             {line.partner ? (

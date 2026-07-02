@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-06-28. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-07-02. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -85,12 +85,30 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   tabovima `Stavke izvoda` i `Predlog naloga`. Kad je izvod otvoren, ekran
   prelazi u detalj režim sa dugmetom `Povrat na spisak izvoda`, bez velikog
   spiska iznad detalja.
-- Parser u MVP-u čita NLB XML izvode (`zadaci/nlb izvodi xml` format), uključujući
-  UTF-16 fajlove, broj izvoda, datum, početno/krajnje stanje i debit/credit
-  stavke. Kao fallback čita redove formata
+- Parseri u MVP-u čitaju NLB XML izvode (`zadaci/nlb izvodi xml` format),
+  uključujući UTF-16 fajlove, Erste HTML izvode (`zadaci/erste banka` format)
+  sa `windows-1250` dekodiranjem i CKB PDF izvode (`zadaci/ckb` format) preko
+  `pdfjs-dist`. Čitaju broj izvoda, datum, početno/krajnje stanje i
+  debit/credit stavke; CKB ukupan priliv i odliv uzima iz zaglavlja izvoda,
+  ne iz zbira PDF stavki. Kao fallback čitaju redove
+  formata
   `datum; opis; žiro račun; odliv; priliv` i običan tekst.
 - Komitent se automatski predlaže po normalizovanom žiro računu kroz
   `partner_bank_accounts` i postojeće `komitent_ziro_racuni`.
+- Pravila knjiženja izvoda podržavaju fallback po žiro računu i preciznija
+  pravila po smjeru, opisu, šifri plaćanja, pozivu na broj i prioritetu.
+- Pravila knjiženja izvoda mogu biti zajednička za agenciju (`firma_id = null`)
+  ili specifična za firmu; firm-specific pravilo ima prednost nad zajedničkim.
+  Pravilo čuva i šifru konta (`account_code`) da se isti konto automatski
+  poveže na `firma_konta` aktivne firme.
+- Stranica `Pravila knjiženja` podržava izmjenu pravila. Izmjena zajedničkog
+  pravila se može sačuvati kao override za aktivnu firmu bez izmjene zajedničkog
+  šablona.
+- Ručno povezivanje partnera na stavci izvoda pamti žiro račun u
+  `partner_bank_accounts` kao zajednički račun agencije kad je moguće, da se isti
+  račun ne uči ponovo za svaku firmu.
+- Prenos između sopstvenih bankovnih računa firme prepoznaje se prije običnih
+  pravila po kontra žiro računu i koristi podešeni konto banke tog drugog računa.
 - Predlog naloga omogućava izbor partnera async pretragom, izbor duguje/potražuje
   konta po stavci i ignorisanje stavki; konta se čuvaju preko šifre i backend ih
   automatski povezuje na `firma_konta`, pa izbor iz globalnog plana ne ruši FK.
@@ -136,8 +154,8 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 ## Nije početo / samo pripremljeno
 - Robno knjigovodstvo: spec pročitan, samo navigacioni placeholderi.
 - Izvodi: prva MVP baza/stranica/import/preview/knjiženje i pregledne
-  podstranice postoje. Nisu još implementirani parseri za druge banke, učenje
-  žiro računa iz UI-a, trajna pravila knjiženja i alokacije na KIF/KUF fakture.
+  podstranice postoje. Implementirani su parseri za NLB XML, Erste HTM i CKB PDF; ostaju
+  parseri za ostale banke, dorada UX-a pravila i alokacije na KIF/KUF fakture.
 - Plate, završni račun, klijentski portal, većina dashboard izvještaja.
 - PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
 
@@ -145,6 +163,10 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - `npm run lint` prolazi (stari warning `_prev` u `src/app/admin/actions.ts` i
   stari warning za neiskorišćene varijable u `src/app/agencija/racuni/actions.ts`).
 - `npx tsc --noEmit` prolazi.
+- `npx prisma migrate deploy` primijenio migraciju
+  `20260702110000_bank_posting_rule_scopes`.
+- `npx prisma migrate deploy` primijenio migraciju
+  `20260701120000_bank_statement_advanced_rules`.
 - `npx prisma migrate deploy` primijenio migraciju
   `20260629190000_bank_statements_mvp`.
 - `npx prisma migrate deploy` primijenio migraciju

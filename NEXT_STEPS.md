@@ -18,10 +18,12 @@
 
 ## Prioritet 3 — Sljedeći moduli (po prioritetu)
 - **Izvodi i automatsko knjiženje.** Prva MVP osnova postoji: tabele, uvoz,
-  batch upload XML fajlova, parser za tekst/CSV-like redove, preview stavki,
-  preview naloga i knjiženje jednog izvoda u jedan `IZV` nalog, plus pregledne
-  stranice za obradu, parsere, žiro račune, karticu banke i kontrole. Nastaviti
-  sa parserima za druge banke, dodatnim pravilima knjiženja i alokacijama na
+  batch upload XML/HTM/PDF fajlova, parseri za NLB XML, Erste HTM, CKB PDF i tekst/CSV-like
+  redove, preview stavki, preview naloga, zajednička i firm-specific pravila
+  knjiženja, prepoznavanje sopstvenih prenosa i knjiženje jednog izvoda u jedan
+  `IZV` nalog, plus pregledne stranice za obradu, parsere, žiro račune, karticu
+  banke i kontrole. Nastaviti sa parserima za ostale banke, dodatnim pravilima
+  knjiženja po novim bankarskim formatima i alokacijama na
   KIF/KUF fakture. Detalji: [`docs/accounting/izvodi.md`](docs/accounting/izvodi.md).
 - **Robno knjigovodstvo**: zalihe, lager, kalkulacije, uvozne kalkulacije.
 - **PDV prijava — završni QA.** Prva verzija perioda, evidencija, prijave,
@@ -36,8 +38,8 @@
   firme i default konta po firmi/partneru gdje nisu pokrivena.
 - **Modul 3:** formalni unos/prenos početnog stanja; kontrole po poslovnoj
   jedinici; testovi za validacije i prava.
-- **Modul 5/7 Izvodi:** dodati parsere za druge banke, modal/učenje žiro
-  računa komitenata, trajna pravila knjiženja, alokacije na KIF/KUF fakture i
+- **Modul 5/7 Izvodi:** dodati parsere za ostale banke, dodatne uslove pravila
+  po formatima banaka, alokacije na KIF/KUF fakture i
   vraćanje proknjiženog izvoda u nacrt.
 - **Modul 6:** zaključavanje PDV perioda; payment status;
   cache MAPR odgovora; bolji QA štampe na mnogo redova.

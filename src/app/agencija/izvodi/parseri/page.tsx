@@ -49,6 +49,18 @@ export default async function ParseriBanakaPage() {
       stats: parserStats.get("NLB_XML")
     },
     {
+      name: "ERSTE_HTM",
+      status: "Aktivan",
+      description: "HTML parser za Erste izvode (.htm/.html) sa prometom po računu.",
+      stats: parserStats.get("ERSTE_HTM")
+    },
+    {
+      name: "CKB_PDF",
+      status: "Aktivan",
+      description: "PDF parser za CKB izvode; ukupni priliv i odliv čita iz zaglavlja izvoda.",
+      stats: parserStats.get("CKB_PDF")
+    },
+    {
       name: "TEXT_FALLBACK",
       status: "Aktivan",
       description: "Ručni tekst: datum; opis; žiro račun; odliv; priliv.",

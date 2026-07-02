@@ -54,7 +54,9 @@ function parseDateInput(data: string) {
 
   const isoDate = /^\d{4}-\d{2}-\d{2}$/.test(data)
     ? data
-    : data.replace(/\s+/g, "").replace(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\.?$/, "$3-$2-$1");
+    : data
+        .replace(/\s+/g, "")
+        .replace(/^(\d{1,2})[./](\d{1,2})[./](\d{4})\.?$/, "$3-$2-$1");
   const parsed = new Date(`${isoDate}T00:00:00.000Z`);
 
   return Number.isNaN(parsed.getTime()) ? null : parsed;
@@ -171,8 +173,14 @@ function normalizeAccountNumber(input: string | null | undefined) {
   return String(input ?? "").replace(/\D/g, "");
 }
 
-function ruleKey(direction: string, normalizedAccountNumber: string) {
-  return `${direction}:${normalizedAccountNumber}`;
+function containsText(source: string | null | undefined, needle: string | null | undefined) {
+  const cleanNeedle = String(needle ?? "").trim().toLowerCase();
+
+  if (!cleanNeedle) {
+    return true;
+  }
+
+  return String(source ?? "").toLowerCase().includes(cleanNeedle);
 }
 
 function amountTextToCents(input: string) {
@@ -199,6 +207,7 @@ type ParsedStatementLine = {
   normalizedAccountNumber: string | null;
   counterpartyName?: string | null;
   referenceNumber?: string | null;
+  paymentCode?: string | null;
   outflow: number;
   inflow: number;
   rawText: string;
@@ -210,10 +219,215 @@ type ParsedStatement = {
   statementNumber?: string | null;
   statementDate?: Date | null;
   openingBalance?: number | null;
+  totalInflow?: number | null;
+  totalOutflow?: number | null;
   closingBalance?: number | null;
   lines: ParsedStatementLine[];
   notes?: string | null;
 };
+
+type PdfTextItem = {
+  x: number;
+  text: string;
+};
+
+type PdfTextRow = {
+  page: number;
+  y: number;
+  items: PdfTextItem[];
+};
+
+function pdfRowText(row: PdfTextRow) {
+  return row.items.map((item) => item.text).join(" ").replace(/\s+/g, " ").trim();
+}
+
+function pdfItemsInRange(row: PdfTextRow, minX: number, maxX: number) {
+  return row.items
+    .filter((item) => item.x >= minX && item.x <= maxX)
+    .map((item) => item.text.trim())
+    .filter(Boolean);
+}
+
+function firstPdfItemInRange(
+  row: PdfTextRow,
+  minX: number,
+  maxX: number,
+  pattern?: RegExp
+) {
+  return pdfItemsInRange(row, minX, maxX).find((item) => !pattern || pattern.test(item)) ?? "";
+}
+
+function ckbMoneyValues(row: PdfTextRow) {
+  return row.items
+    .map((item) => item.text.trim())
+    .filter((item) => /^-?\d{1,3}(?:\.\d{3})*,\d{2}$|^-?\d+,\d{2}$/.test(item))
+    .map((item) => parseMoneyToCents(item))
+    .filter((amount): amount is number => amount !== null);
+}
+
+function parseCkbHeader(text: string, rows: PdfTextRow[]) {
+  const normalizedText = text.replace(/\s+/g, " ");
+  const headerMatch = normalizedText.match(
+    /Izvod\s+broj\s+([^\s]+)\s+za\s+promet\s+i\s+stanje\s+ra[čc]una\s+(\d+)\s+na\s+dan\s+(\d{2}\.\d{2}\.\d{4})/i
+  );
+  const balanceHeaderIndex = rows.findIndex((row) => {
+    const rowText = pdfRowText(row);
+
+    return rowText.includes("Prethodno stanje") && rowText.includes("Novo stanje");
+  });
+  const balanceRow =
+    balanceHeaderIndex >= 0
+      ? rows
+          .slice(balanceHeaderIndex + 1)
+          .find((row) => ckbMoneyValues(row).length >= 4)
+      : null;
+  const balances = balanceRow ? ckbMoneyValues(balanceRow) : [];
+
+  return {
+    statementNumber: headerMatch?.[1] ?? null,
+    companyAccountNumber: headerMatch?.[2] ?? null,
+    statementDate: parseDateInput((headerMatch?.[3] ?? "").replace(/\./g, "/")),
+    openingBalance: balances[0] ?? null,
+    totalOutflow: balances[1] ?? null,
+    totalInflow: balances[2] ?? null,
+    closingBalance: balances[3] ?? null
+  };
+}
+
+function isCkbNoiseRow(row: PdfTextRow) {
+  const text = pdfRowText(row);
+
+  return (
+    !text ||
+    /^(Strana:|Promet i stanje po ra[čc]unu|Mati[čc]ni broj|PIB|CKB|Prilog br\.)/i.test(text) ||
+    text.includes("Prethodno stanje") ||
+    text.includes("Izvod broj") ||
+    text.includes("Rbr") ||
+    (text.includes("Račun") && text.includes("Naziv / Svrha")) ||
+    text.includes("Novo stanje") ||
+    text.includes("UKUPNO")
+  );
+}
+
+function parseCkbMainRow(row: PdfTextRow) {
+  const rowNumber = firstPdfItemInRange(row, 45, 85, /^\d+$/);
+  const transactionId = firstPdfItemInRange(row, 80, 160, /^\d{5,}$/);
+  const accountNumber = firstPdfItemInRange(row, 145, 275, /^\d{9,}$/);
+  const postingDateText = firstPdfItemInRange(row, 325, 395, /^\d{2}\/\d{2}\/\d{4}$/);
+  const valueDateText = firstPdfItemInRange(row, 390, 460, /^\d{2}\/\d{2}\/\d{4}$/);
+
+  if (!rowNumber || !transactionId || !accountNumber || !postingDateText || !valueDateText) {
+    return null;
+  }
+
+  const postingDate = parseDateInput(postingDateText);
+  const valueDate = parseDateInput(valueDateText);
+  const outflow = parseMoneyToCents(firstPdfItemInRange(row, 455, 555, /^-?\d/));
+  const inflow = parseMoneyToCents(firstPdfItemInRange(row, 555, 620, /^-?\d/));
+  const paymentCode = firstPdfItemInRange(row, 260, 330, /^\d{3}$/) || null;
+  const referenceNumber = pdfItemsInRange(row, 670, 790).join(" ").trim() || null;
+
+  if (!postingDate || !valueDate) {
+    return null;
+  }
+
+  return {
+    rowNumber,
+    transactionId,
+    accountNumber,
+    paymentCode,
+    postingDate,
+    valueDate,
+    outflow: outflow ?? 0,
+    inflow: inflow ?? 0,
+    referenceNumber
+  };
+}
+
+function parseCkbPdf(text: string, pdfRows?: PdfTextRow[]): ParsedStatement | null {
+  if (!pdfRows?.length || !/Promet i stanje po ra[čc]unu/i.test(text)) {
+    return null;
+  }
+
+  const header = parseCkbHeader(text, pdfRows);
+
+  if (!header.statementNumber || !header.companyAccountNumber) {
+    return null;
+  }
+
+  type WorkingLine = NonNullable<ReturnType<typeof parseCkbMainRow>> & {
+    descriptionParts: string[];
+  };
+  const lines: ParsedStatementLine[] = [];
+  let current: WorkingLine | null = null;
+  const pushCurrent = () => {
+    if (!current || (current.outflow === 0 && current.inflow === 0)) {
+      return;
+    }
+
+    const rawDescription = current.descriptionParts.join(" · ").replace(/\s+/g, " ").trim();
+    const counterpartyName = current.descriptionParts[0]?.trim() || null;
+    const embeddedReference = rawDescription.match(/\bRefBr:?\s*([A-Z0-9/-]+)/i)?.[1] ?? null;
+    const accountNumber = current.accountNumber || null;
+    const normalizedAccountNumber = normalizeAccountNumber(accountNumber);
+
+    lines.push({
+      postingDate: current.postingDate,
+      valueDate: current.valueDate,
+      description: rawDescription || `CKB PDF stavka ${current.rowNumber}`,
+      accountNumber,
+      normalizedAccountNumber: normalizedAccountNumber || null,
+      counterpartyName,
+      referenceNumber: current.referenceNumber ?? embeddedReference,
+      paymentCode: current.paymentCode,
+      outflow: current.outflow,
+      inflow: current.inflow,
+      rawText: `CKB PDF stavka ${current.rowNumber}`
+    });
+  };
+
+  for (const row of pdfRows) {
+    const rowText = pdfRowText(row);
+
+    if (rowText.includes("UKUPNO")) {
+      pushCurrent();
+      current = null;
+      continue;
+    }
+
+    const mainRow = parseCkbMainRow(row);
+
+    if (mainRow) {
+      pushCurrent();
+      current = {
+        ...mainRow,
+        descriptionParts: []
+      };
+      continue;
+    }
+
+    if (!current || isCkbNoiseRow(row)) {
+      continue;
+    }
+
+    current.descriptionParts.push(rowText);
+  }
+
+  pushCurrent();
+
+  return {
+    parser: "CKB_PDF",
+    companyAccountNumber: header.companyAccountNumber,
+    statementNumber: header.statementNumber,
+    statementDate: header.statementDate,
+    openingBalance: header.openingBalance,
+    totalInflow: header.totalInflow,
+    totalOutflow: header.totalOutflow,
+    closingBalance: header.closingBalance,
+    lines,
+    notes: "Ukupan priliv i odliv pročitani su iz zaglavlja CKB PDF izvoda."
+  };
+}
 
 function parseCsvLikeLine(rawLine: string): ParsedStatementLine | null {
   const parts = rawLine.split(";").map((part) => part.trim());
@@ -332,6 +546,140 @@ function cleanXmlText(text: string) {
   return text.replace(/\u0000/g, "").replace(/^\uFEFF/, "").trim();
 }
 
+function decodeHtml(value: string) {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
+}
+
+function cleanHtmlCell(value: string) {
+  return decodeHtml(
+    value
+      .replace(/<br\s*\/?\s*>/gi, "\n")
+      .replace(/<[^>]*>/g, " ")
+  )
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+}
+
+function htmlText(value: string) {
+  return cleanHtmlCell(value).join(" ").trim();
+}
+
+function htmlHeaderValue(html: string, label: string) {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = html.match(
+    new RegExp(`<td[^>]*>\\s*${escapedLabel}\\s*<\\/td>\\s*<td[^>]*>([\\s\\S]*?)<\\/td>`, "i")
+  );
+
+  return match ? htmlText(match[1] ?? "") : "";
+}
+
+function parseErsteStatementNumber(value: string) {
+  return value.match(/^\s*(\d+)/)?.[1] ?? "";
+}
+
+function parseErstePaymentCode(lines: string[]) {
+  const joined = lines.join(" ");
+
+  return joined.match(/\b(\d{3})\b/)?.[1] ?? null;
+}
+
+function parseErsteHtml(text: string): ParsedStatement | null {
+  const cleanText = text.replace(/\u0000/g, "").replace(/^\uFEFF/, "");
+
+  if (!/ERSTE BANK/i.test(cleanText) || !/<!--ISPIS PROMETA-->/i.test(cleanText)) {
+    return null;
+  }
+
+  const companyAccountNumber = htmlHeaderValue(cleanText, "Broj računa:");
+  const statementNumberRaw = htmlHeaderValue(cleanText, "Broj izvoda:");
+  const statementDateText =
+    cleanText.match(/Stanje na dan<\/td>\s*<td[^>]*>\s*<b>\s*([^<]+)/i)?.[1]?.trim() ??
+    cleanText.match(/Za period \(po datumu obrade\):\s*([^<\r\n]+)/i)?.[1]?.trim() ??
+    "";
+  const openingBalanceText =
+    cleanText.match(/Početno stanje<\/b><\/td><td[^>]*>&nbsp;<\/td><td[^>]*><b>([^<]+)/i)?.[1] ?? "";
+  const closingBalanceText =
+    cleanText.match(/Konačno stanje<\/b><\/td><td[^>]*>&nbsp;<\/td><td[^>]*><b>([^<]+)/i)?.[1] ?? "";
+  const debitRecap = parseMoneyToCents(
+    cleanText.match(/Ukupni dugovni promet<\/td><td[^>]*>([^<]+)/i)?.[1] ?? ""
+  );
+  const creditRecap = parseMoneyToCents(
+    cleanText.match(/Ukupni potražni promet<\/td><td[^>]*>([^<]+)/i)?.[1] ?? ""
+  );
+  const rows = [...cleanText.matchAll(/<!--ISPIS PROMETA-->\s*<tr>([\s\S]*?)<\/tr>/gi)];
+  const lines: ParsedStatementLine[] = [];
+
+  rows.forEach((row, index) => {
+    const cells = [...(row[1] ?? "").matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((match) =>
+      cleanHtmlCell(match[1] ?? "")
+    );
+
+    if (cells.length < 6) {
+      return;
+    }
+
+    const dateLines = cells[0] ?? [];
+    const counterpartyLines = cells[1] ?? [];
+    const purposeLines = cells[2] ?? [];
+    const referenceLines = cells[3] ?? [];
+    const postingDate = parseDateInput(dateLines[2] ?? dateLines[0] ?? "");
+    const valueDate = parseDateInput(dateLines[1] ?? dateLines[0] ?? "");
+    const counterpartyName = counterpartyLines[0] ?? null;
+    const accountNumber =
+      counterpartyLines.find((line) => /\b\d{3}[-\s]?\d{5,13}[-\s]?\d{2}\b/.test(line)) ?? null;
+    const normalizedAccountNumber = normalizeAccountNumber(accountNumber);
+    const outflow = parseMoneyToCents(cells[4]?.join(" ") ?? "");
+    const inflow = parseMoneyToCents(cells[5]?.join(" ") ?? "");
+    const referenceNumber =
+      [...referenceLines].reverse().find((line) => line && line !== "00") ?? null;
+    const paymentCode = parseErstePaymentCode(purposeLines);
+
+    if (!postingDate || outflow === null || inflow === null || (outflow === 0 && inflow === 0)) {
+      return;
+    }
+
+    lines.push({
+      postingDate,
+      valueDate,
+      description: [...purposeLines, counterpartyName ?? ""].filter(Boolean).join(" · "),
+      accountNumber,
+      normalizedAccountNumber: normalizedAccountNumber || null,
+      counterpartyName,
+      referenceNumber,
+      paymentCode,
+      outflow,
+      inflow,
+      rawText: `ERSTE HTM stavka ${index + 1}`
+    });
+  });
+
+  const totalOutflow = lines.reduce((sum, line) => sum + line.outflow, 0);
+  const totalInflow = lines.reduce((sum, line) => sum + line.inflow, 0);
+  const totalMismatch =
+    (debitRecap !== null && debitRecap !== totalOutflow) ||
+    (creditRecap !== null && creditRecap !== totalInflow);
+
+  return {
+    parser: "ERSTE_HTM",
+    companyAccountNumber: companyAccountNumber || null,
+    statementNumber: parseErsteStatementNumber(statementNumberRaw) || statementNumberRaw || null,
+    statementDate: parseDateInput(statementDateText),
+    openingBalance: parseMoneyToCents(openingBalanceText),
+    closingBalance: parseMoneyToCents(closingBalanceText),
+    lines,
+    notes: totalMismatch ? "Zbir stavki se ne slaže sa rekapitulacijom Erste izvoda." : null
+  };
+}
+
 function parseNlbXml(text: string): ParsedStatement | null {
   const cleanText = cleanXmlText(text);
 
@@ -382,6 +730,7 @@ function parseNlbXml(text: string): ParsedStatement | null {
       normalizedAccountNumber: normalizedAccountNumber || null,
       counterpartyName,
       referenceNumber,
+      paymentCode: purposeCode || null,
       outflow: benefit === "debit" ? amount : 0,
       inflow: benefit === "credit" ? amount : 0,
       rawText: `NLB XML stavka ${index + 1}`
@@ -415,8 +764,141 @@ function parseStatementText(text: string): ParsedStatement {
   };
 }
 
-function parseStatement(text: string) {
-  return parseNlbXml(text) ?? parseStatementText(text);
+type StatementParser = (text: string, pdfRows?: PdfTextRow[]) => ParsedStatement | null;
+
+const statementParserRegistry: Record<string, StatementParser[]> = {
+  NLB: [parseNlbXml],
+  ERSTE: [parseErsteHtml],
+  CKB: [parseCkbPdf]
+};
+
+const defaultStatementParsers: StatementParser[] = [parseNlbXml, parseErsteHtml, parseCkbPdf];
+
+function bankParserKey(bankName: string | null | undefined) {
+  const normalized = String(bankName ?? "")
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (normalized.includes("NLB")) {
+    return "NLB";
+  }
+
+  if (normalized.includes("ERSTE")) {
+    return "ERSTE";
+  }
+
+  if (
+    normalized.includes("CKB") ||
+    normalized.includes("CRNOGORSKA KOMERCIJALNA") ||
+    normalized.includes("KOMERCIJALNA BANKA")
+  ) {
+    return "CKB";
+  }
+
+  return null;
+}
+
+function parseStatement(text: string, bankName?: string | null, pdfRows?: PdfTextRow[]) {
+  const preferredKey = bankParserKey(bankName);
+  const preferredParsers = preferredKey ? statementParserRegistry[preferredKey] ?? [] : [];
+  const parsers = [
+    ...preferredParsers,
+    ...defaultStatementParsers.filter((parser) => !preferredParsers.includes(parser))
+  ];
+
+  for (const parser of parsers) {
+    const parsed = parser(text, pdfRows);
+
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  return parseStatementText(text);
+}
+
+type BankPostingRuleForMatch = Prisma.BankPostingRuleGetPayload<{
+  include: {
+    account: {
+      select: {
+        id: true;
+        sifra: true;
+        analitika_obavezna: true;
+      };
+    };
+  };
+}>;
+
+function ruleMatchesLine(
+  rule: BankPostingRuleForMatch,
+  direction: string,
+  line: ParsedStatementLine
+) {
+  if (rule.direction !== direction || !rule.auto_apply) {
+    return false;
+  }
+
+  if (
+    rule.counterparty_account_number_normalized &&
+    rule.counterparty_account_number_normalized !== line.normalizedAccountNumber
+  ) {
+    return false;
+  }
+
+  if (!containsText(line.description, rule.description_contains)) {
+    return false;
+  }
+
+  if (!containsText(line.referenceNumber, rule.reference_contains)) {
+    return false;
+  }
+
+  if (rule.payment_code && rule.payment_code !== line.paymentCode) {
+    return false;
+  }
+
+  return true;
+}
+
+function ruleSpecificity(rule: BankPostingRuleForMatch) {
+  return (
+    (rule.counterparty_account_number_normalized ? 20 : 0) +
+    (rule.description_contains ? 30 : 0) +
+    (rule.payment_code ? 25 : 0) +
+    (rule.reference_contains ? 20 : 0)
+  );
+}
+
+function bestRuleForLine(
+  rules: BankPostingRuleForMatch[],
+  direction: string,
+  line: ParsedStatementLine,
+  firmaId: string
+) {
+  return rules
+    .filter((rule) => ruleMatchesLine(rule, direction, line))
+    .sort((left, right) => {
+      const scopeDiff = Number(right.firma_id === firmaId) - Number(left.firma_id === firmaId);
+
+      if (scopeDiff !== 0) {
+        return scopeDiff;
+      }
+
+      const priorityDiff = right.priority - left.priority;
+
+      if (priorityDiff !== 0) {
+        return priorityDiff;
+      }
+
+      const specificityDiff = ruleSpecificity(right) - ruleSpecificity(left);
+
+      if (specificityDiff !== 0) {
+        return specificityDiff;
+      }
+
+      return right.times_used - left.times_used;
+    })[0] ?? null;
 }
 
 async function getActiveContext() {
@@ -480,17 +962,85 @@ type UploadedStatement = {
   text: string;
   fileName: string | null;
   fileType: string | null;
+  pdfRows?: PdfTextRow[];
 };
+
+async function extractPdfTextRows(bytes: Uint8Array) {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const pdf = await pdfjs.getDocument({
+    data: bytes
+  }).promise;
+  const rowsByKey = new Map<string, PdfTextRow>();
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+
+    for (const item of content.items) {
+      if (!("str" in item) || !item.str.trim() || !("transform" in item)) {
+        continue;
+      }
+
+      const x = Math.round(item.transform[4] ?? 0);
+      const y = Math.round(item.transform[5] ?? 0);
+      const key = `${pageNumber}:${y}`;
+      const row = rowsByKey.get(key) ?? {
+        page: pageNumber,
+        y,
+        items: []
+      };
+
+      row.items.push({
+        x,
+        text: item.str
+      });
+      rowsByKey.set(key, row);
+    }
+  }
+
+  const rows = [...rowsByKey.values()]
+    .map((row) => ({
+      ...row,
+      items: row.items.sort((left, right) => left.x - right.x)
+    }))
+    .sort((left, right) => left.page - right.page || right.y - left.y);
+  const text = rows.map((row) => pdfRowText(row)).filter(Boolean).join("\n");
+
+  return {
+    text,
+    rows
+  };
+}
 
 async function readUploadedFile(file: File): Promise<UploadedStatement> {
   const buffer = await file.arrayBuffer();
   const bytes = new Uint8Array(buffer);
+  const fileHeader = new TextDecoder("ascii").decode(bytes.slice(0, 5));
+
+  if (
+    file.type === "application/pdf" ||
+    file.name.toLowerCase().endsWith(".pdf") ||
+    fileHeader === "%PDF-"
+  ) {
+    const extracted = await extractPdfTextRows(bytes);
+
+    return {
+      text: extracted.text,
+      fileName: file.name,
+      fileType: file.type || "application/pdf",
+      pdfRows: extracted.rows
+    };
+  }
+
+  const utf8Probe = new TextDecoder("utf-8").decode(bytes.slice(0, 2048));
   const encoding =
     bytes[0] === 0xff && bytes[1] === 0xfe
       ? "utf-16le"
       : bytes[0] === 0xfe && bytes[1] === 0xff
         ? "utf-16be"
-        : "utf-8";
+        : /charset\s*=\s*["']?windows-1250/i.test(utf8Probe)
+          ? "windows-1250"
+          : "utf-8";
 
   return {
     text: new TextDecoder(encoding).decode(bytes),
@@ -514,7 +1064,8 @@ async function readUploadedStatements(formData: FormData): Promise<UploadedState
         {
           text: pastedText,
           fileName: null,
-          fileType: null
+          fileType: null,
+          pdfRows: undefined
         }
       ]
     : [];
@@ -543,18 +1094,25 @@ async function findPartnersByAccounts(
           firma_id: firmaId
         },
         {
-          firma_id: null
+          firma_id: {
+            equals: null
+          }
         }
       ]
     },
     select: {
       normalized_account_number: true,
+      firma_id: true,
       partner_id: true
     }
   });
   const result = new Map<string, string>();
 
-  for (const account of learnedAccounts) {
+  for (const account of learnedAccounts.filter((account) => !account.firma_id)) {
+    result.set(account.normalized_account_number, account.partner_id);
+  }
+
+  for (const account of learnedAccounts.filter((account) => account.firma_id === firmaId)) {
     result.set(account.normalized_account_number, account.partner_id);
   }
 
@@ -644,7 +1202,8 @@ export async function importBankStatement(formData: FormData) {
         aktivan: true
       },
       select: {
-        id: true
+        id: true,
+        naziv_banke: true
       }
     }),
     bankAccountKontoCode
@@ -681,7 +1240,11 @@ export async function importBankStatement(formData: FormData) {
   let invalidCount = 0;
 
   for (const uploaded of uploadedStatements) {
-    const parsedStatement = parseStatement(uploaded.text);
+    const parsedStatement = parseStatement(
+      uploaded.text,
+      companyBankAccount.naziv_banke,
+      uploaded.pdfRows
+    );
     const statementNumber = manualOverridesAllowed
       ? value(formData, "statement_number") || parsedStatement.statementNumber || ""
       : parsedStatement.statementNumber || "";
@@ -720,50 +1283,108 @@ export async function importBankStatement(formData: FormData) {
       firma.id,
       normalizedLineAccounts
     );
-    const rules = await prisma.bankPostingRule.findMany({
-      where: {
-        agencija_id: user.agencija_id,
-        firma_id: firma.id,
-        rule_type: "BANK_ACCOUNT",
-        active: true,
-        counterparty_account_number_normalized: {
-          in: normalizedLineAccounts
-        }
-      },
-      include: {
-        account: {
-          select: {
-            id: true,
-            analitika_obavezna: true
+    const [rules, ownBankAccounts, ownBankSettings] = await Promise.all([
+      prisma.bankPostingRule.findMany({
+        where: {
+          agencija_id: user.agencija_id,
+          active: true,
+          auto_apply: true,
+          OR: [
+            {
+              firma_id: firma.id
+            },
+            {
+              firma_id: {
+                equals: null
+              }
+            }
+          ]
+        },
+        include: {
+          account: {
+            select: {
+              id: true,
+              sifra: true,
+              analitika_obavezna: true
+            }
           }
         }
-      }
-    });
-    const ruleByAccount = new Map(
-      rules.map((rule) => [
-        ruleKey(rule.direction, rule.counterparty_account_number_normalized),
-        rule
-      ])
+      }),
+      prisma.firmaBankovniRacun.findMany({
+        where: {
+          agencija_id: user.agencija_id,
+          firma_id: firma.id,
+          is_deleted: false,
+          aktivan: true
+        },
+        select: {
+          id: true,
+          broj_racuna: true
+        }
+      }),
+      prisma.bankStatementAccountSetting.findMany({
+        where: {
+          agencija_id: user.agencija_id,
+          firma_id: firma.id
+        },
+        select: {
+          company_bank_account_id: true,
+          bank_account_konto: {
+            select: {
+              id: true,
+              sifra: true,
+              analitika_obavezna: true
+            }
+          }
+        }
+      })
+    ]);
+    const ownBankAccountByNormalized = new Map(
+      ownBankAccounts
+        .filter((account) => account.id !== companyBankAccount.id)
+        .map((account) => [normalizeAccountNumber(account.broj_racuna), account])
+        .filter(([normalized]) => Boolean(normalized)) as [string, (typeof ownBankAccounts)[number]][]
     );
-    const totalInflow = parsedLines.reduce((sum, line) => sum + line.inflow, 0);
-    const totalOutflow = parsedLines.reduce((sum, line) => sum + line.outflow, 0);
+    const ownBankSettingByAccountId = new Map(
+      ownBankSettings
+        .filter((setting) => setting.bank_account_konto)
+        .map((setting) => [setting.company_bank_account_id, setting.bank_account_konto])
+    );
+    const totalInflow =
+      parsedStatement.totalInflow ?? parsedLines.reduce((sum, line) => sum + line.inflow, 0);
+    const totalOutflow =
+      parsedStatement.totalOutflow ?? parsedLines.reduce((sum, line) => sum + line.outflow, 0);
     const balanceOk = openingBalance + totalInflow - totalOutflow === closingBalance;
-    const statementLines = parsedLines.map((line, index) => {
+    const statementLines = await Promise.all(parsedLines.map(async (line, index) => {
       const direction = line.inflow > 0 ? "INFLOW" : "OUTFLOW";
-      const rule = line.normalizedAccountNumber
-        ? ruleByAccount.get(ruleKey(direction, line.normalizedAccountNumber))
+      const ownCounterpartyAccount = line.normalizedAccountNumber
+        ? ownBankAccountByNormalized.get(line.normalizedAccountNumber)
         : null;
-      const partnerId = line.normalizedAccountNumber
-        ? partnerByAccount.get(line.normalizedAccountNumber) ?? rule?.partner_id ?? null
+      const ownTransferAccount = ownCounterpartyAccount
+        ? ownBankSettingByAccountId.get(ownCounterpartyAccount.id) ?? null
         : null;
-      const ruleAccountId = rule?.account_id ?? null;
-      const ruleReady = Boolean(rule && (!rule.account.analitika_obavezna || partnerId));
+      const rule = ownTransferAccount ? null : bestRuleForLine(rules, direction, line, firma.id);
+      const ruleAccount = rule
+        ? await resolveCompanyAccount(prisma, firma.id, rule.account_code ?? rule.account.sifra)
+        : null;
+      const partnerId = ownTransferAccount
+        ? null
+        : line.normalizedAccountNumber
+          ? partnerByAccount.get(line.normalizedAccountNumber) ?? rule?.partner_id ?? null
+          : null;
+      const ruleAccountId = ownTransferAccount?.id ?? ruleAccount?.id ?? null;
+      const ruleAccountRequiresPartner = Boolean(ruleAccount?.analitika_obavezna);
+      const ruleReady = Boolean(
+        ownTransferAccount ||
+          (rule && !rule.requires_review && ruleAccountId && (!ruleAccountRequiresPartner || partnerId))
+      );
 
       return {
         line_number: index + 1,
         posting_date: line.postingDate,
         value_date: line.valueDate ?? line.postingDate,
         reference_number: line.referenceNumber,
+        payment_code: line.paymentCode ?? null,
         counterparty_name: line.counterpartyName,
         description: line.description,
         counterparty_account_number: line.accountNumber,
@@ -776,12 +1397,12 @@ export async function importBankStatement(formData: FormData) {
         credit_account_id: direction === "INFLOW" ? ruleAccountId : null,
         match_status: partnerId ? lineStatuses.matchedPartner : lineStatuses.unmatched,
         posting_status: ruleReady ? lineStatuses.ready : lineStatuses.needsReview,
-        confidence_score: ruleReady ? 95 : partnerId ? 85 : 0,
+        confidence_score: ownTransferAccount ? 100 : ruleReady ? 95 : partnerId ? 85 : 0,
         raw_text: line.rawText,
         created_by: user.id,
         updated_by: user.id
       };
-    });
+    }));
     const allLinesReady = statementLines.every((line) => line.posting_status === lineStatuses.ready);
     const initialStatus = balanceOk && allLinesReady
       ? bankStatementStatuses.ready
@@ -1000,69 +1621,113 @@ export async function updateBankStatementLines(formData: FormData) {
           const partnerId = partnerIds[index] ?? null;
 
           if (partnerId) {
-            await tx.partnerBankAccount.upsert({
-              where: {
-                agencija_id_firma_id_normalized_account_number: {
+            const learnedAccount =
+              await tx.partnerBankAccount.findFirst({
+                where: {
                   agencija_id: agencijaId,
-                  firma_id: firma.id,
+                  firma_id: {
+                    equals: null
+                  },
                   normalized_account_number: normalizedAccount
+                },
+                select: {
+                  id: true
                 }
-              },
-              create: {
+              }) ??
+              await tx.partnerBankAccount.findFirst({
+              where: {
                 agencija_id: agencijaId,
                 firma_id: firma.id,
-                partner_id: partnerId,
-                account_number: savedLine.counterparty_account_number ?? normalizedAccount,
                 normalized_account_number: normalizedAccount,
-                source: "BANK_STATEMENT",
-                created_by: user.id,
-                updated_by: user.id
+                is_active: true
               },
-              update: {
+              select: {
+                id: true
+              }
+            });
+
+            if (learnedAccount) {
+              await tx.partnerBankAccount.update({
+                where: {
+                  id: learnedAccount.id
+                },
+                data: {
+                  partner_id: partnerId,
+                  account_number: savedLine.counterparty_account_number ?? normalizedAccount,
+                  source: "BANK_STATEMENT",
+                  is_active: true,
+                  updated_by: user.id
+                }
+              });
+            } else {
+              await tx.partnerBankAccount.create({
+                data: {
+                  agencija_id: agencijaId,
+                  firma_id: null,
+                  partner_id: partnerId,
+                  account_number: savedLine.counterparty_account_number ?? normalizedAccount,
+                  normalized_account_number: normalizedAccount,
+                  source: "BANK_STATEMENT",
+                  created_by: user.id,
+                  updated_by: user.id
+                }
+              });
+            }
+          }
+
+          const existingRule = await tx.bankPostingRule.findFirst({
+            where: {
+              firma_id: firma.id,
+              rule_type: "BANK_ACCOUNT",
+              direction: lineDirection,
+              counterparty_account_number_normalized: normalizedAccount,
+              description_contains: null,
+              reference_contains: null,
+              payment_code: null
+            },
+            select: {
+              id: true
+            }
+          });
+
+          if (existingRule) {
+            await tx.bankPostingRule.update({
+              where: {
+                id: existingRule.id
+              },
+              data: {
                 partner_id: partnerId,
-                account_number: savedLine.counterparty_account_number ?? normalizedAccount,
-                source: "BANK_STATEMENT",
-                is_active: true,
+                counterparty_account_number: savedLine.counterparty_account_number ?? normalizedAccount,
+                account_id: selectedAccount.id,
+                account_code: selectedAccount.sifra,
+                times_used: {
+                  increment: 1
+                },
+                last_used_at: new Date(),
+                active: true,
+                updated_by: user.id
+              }
+            });
+          } else {
+            await tx.bankPostingRule.create({
+              data: {
+                agencija_id: agencijaId,
+                firma_id: firma.id,
+                rule_type: "BANK_ACCOUNT",
+                direction: lineDirection,
+                counterparty_account_number: savedLine.counterparty_account_number ?? normalizedAccount,
+                counterparty_account_number_normalized: normalizedAccount,
+                account_id: selectedAccount.id,
+                account_code: selectedAccount.sifra,
+                partner_id: partnerId,
+                priority: 10,
+                times_used: 1,
+                last_used_at: new Date(),
+                created_by: user.id,
                 updated_by: user.id
               }
             });
           }
-
-          await tx.bankPostingRule.upsert({
-            where: {
-              firma_id_rule_type_direction_counterparty_account_number_normalized: {
-                firma_id: firma.id,
-                rule_type: "BANK_ACCOUNT",
-                direction: lineDirection,
-                counterparty_account_number_normalized: normalizedAccount
-              }
-            },
-            create: {
-              agencija_id: agencijaId,
-              firma_id: firma.id,
-              rule_type: "BANK_ACCOUNT",
-              direction: lineDirection,
-              counterparty_account_number: savedLine.counterparty_account_number ?? normalizedAccount,
-              counterparty_account_number_normalized: normalizedAccount,
-              account_id: selectedAccount.id,
-              partner_id: partnerId,
-              times_used: 1,
-              last_used_at: new Date(),
-              created_by: user.id,
-              updated_by: user.id
-            },
-            update: {
-              counterparty_account_number: savedLine.counterparty_account_number ?? normalizedAccount,
-              account_id: selectedAccount.id,
-              partner_id: partnerId,
-              times_used: {
-                increment: 1
-              },
-              last_used_at: new Date(),
-              active: true,
-              updated_by: user.id
-            }
-          });
         }
       }
     }
@@ -1213,26 +1878,60 @@ export async function saveBankStatementAccountSettings(formData: FormData) {
 
 export async function createBankPostingRule(formData: FormData) {
   const { user, firma, poslovnaGodina } = await getActiveContext();
-  const accountNumber = value(formData, "counterparty_account_number");
+  const ruleId = nullableValue(formData, "rule_id");
+  const scope = value(formData, "scope") === "AGENCY" ? "AGENCY" : "FIRM";
+  const accountNumber = nullableValue(formData, "counterparty_account_number");
   const direction = value(formData, "direction");
   const accountCode = nullableValue(formData, "account_code");
+  const descriptionContains = nullableValue(formData, "description_contains");
+  const referenceContains = nullableValue(formData, "reference_contains");
+  const paymentCode = nullableValue(formData, "payment_code");
+  const priority = Number(value(formData, "priority") || "10");
   const normalizedAccount = normalizeAccountNumber(accountNumber);
 
   if (
     !user.agencija_id ||
     !firma ||
     !poslovnaGodina ||
-    !accountNumber ||
-    !normalizedAccount ||
     !["INFLOW", "OUTFLOW"].includes(direction) ||
-    !accountCode
+    !accountCode ||
+    (!normalizedAccount && !descriptionContains && !referenceContains && !paymentCode) ||
+    !Number.isSafeInteger(priority)
   ) {
     redirect("/agencija/izvodi/pravila?poruka=pravilo_obavezno");
   }
   const agencijaId = user.agencija_id;
+  const targetFirmaId = scope === "AGENCY" ? null : firma.id;
 
   if (poslovnaGodina.zakljucena) {
     redirect("/agencija/izvodi/pravila?poruka=godina_zakljucena");
+  }
+
+  const editedRule = ruleId
+    ? await prisma.bankPostingRule.findFirst({
+        where: {
+          id: ruleId,
+          agencija_id: agencijaId,
+          OR: [
+            {
+              firma_id: firma.id
+            },
+            {
+              firma_id: {
+                equals: null
+              }
+            }
+          ]
+        },
+        select: {
+          id: true,
+          firma_id: true
+        }
+      })
+    : null;
+
+  if (ruleId && !editedRule) {
+    redirect("/agencija/izvodi/pravila?poruka=pravilo_obavezno");
   }
 
   const account = await prisma.$transaction(async (tx) =>
@@ -1243,37 +1942,83 @@ export async function createBankPostingRule(formData: FormData) {
     redirect("/agencija/izvodi/pravila?poruka=pravilo_obavezno");
   }
 
-  await prisma.bankPostingRule.upsert({
-    where: {
-      firma_id_rule_type_direction_counterparty_account_number_normalized: {
-        firma_id: firma.id,
-        rule_type: "BANK_ACCOUNT",
+  const ruleType =
+    descriptionContains || referenceContains || paymentCode || !normalizedAccount
+      ? "ADVANCED"
+      : "BANK_ACCOUNT";
+  const updateExistingRuleId =
+    editedRule && editedRule.firma_id === targetFirmaId
+      ? editedRule.id
+      : null;
+  const duplicateRule = updateExistingRuleId
+    ? null
+    : await prisma.bankPostingRule.findFirst({
+        where: {
+          agencija_id: agencijaId,
+          firma_id: targetFirmaId
+            ? targetFirmaId
+            : {
+                equals: null
+              },
+          rule_type: ruleType,
+          direction,
+          counterparty_account_number_normalized: normalizedAccount || null,
+          description_contains: descriptionContains,
+          reference_contains: referenceContains,
+          payment_code: paymentCode
+        },
+        select: {
+          id: true
+        }
+      });
+  const ruleToUpdateId = updateExistingRuleId ?? duplicateRule?.id ?? null;
+
+  if (ruleToUpdateId) {
+    await prisma.bankPostingRule.update({
+      where: {
+        id: ruleToUpdateId
+      },
+      data: {
+        rule_type: ruleType,
         direction,
-        counterparty_account_number_normalized: normalizedAccount
+        counterparty_account_number: accountNumber,
+        counterparty_account_number_normalized: normalizedAccount || null,
+        description_contains: descriptionContains,
+        reference_contains: referenceContains,
+        payment_code: paymentCode,
+        account_id: account.id,
+        account_code: account.sifra,
+        priority,
+        active: true,
+        auto_apply: true,
+        requires_review: false,
+        last_used_at: new Date(),
+        updated_by: user.id
       }
-    },
-    create: {
-      agencija_id: agencijaId,
-      firma_id: firma.id,
-      rule_type: "BANK_ACCOUNT",
-      direction,
-      counterparty_account_number: accountNumber,
-      counterparty_account_number_normalized: normalizedAccount,
-      account_id: account.id,
-      times_used: 1,
-      last_used_at: new Date(),
-      active: true,
-      created_by: user.id,
-      updated_by: user.id
-    },
-    update: {
-      counterparty_account_number: accountNumber,
-      account_id: account.id,
-      active: true,
-      last_used_at: new Date(),
-      updated_by: user.id
-    }
-  });
+    });
+  } else {
+    await prisma.bankPostingRule.create({
+      data: {
+        agencija_id: agencijaId,
+        firma_id: targetFirmaId,
+        rule_type: ruleType,
+        direction,
+        counterparty_account_number: accountNumber,
+        counterparty_account_number_normalized: normalizedAccount || null,
+        description_contains: descriptionContains,
+        reference_contains: referenceContains,
+        payment_code: paymentCode,
+        account_id: account.id,
+        account_code: account.sifra,
+        priority,
+        times_used: 1,
+        last_used_at: new Date(),
+        active: true,
+        created_by: user.id,
+        updated_by: user.id
+      }
+    });
+  }
 
   await auditLog({
     korisnikId: user.id,

@@ -124,7 +124,10 @@ export default async function ObradaIzvodaPage() {
                       <td>{displayDate(line.posting_date)}</td>
                       <td>
                         <strong>{line.description}</strong>
-                        <small>{line.counterparty_account_number ?? "-"}</small>
+                        <small>
+                          {line.counterparty_account_number ?? "-"}
+                          {line.payment_code ? ` · šifra ${line.payment_code}` : ""}
+                        </small>
                       </td>
                       <td>
                         {line.partner ? (

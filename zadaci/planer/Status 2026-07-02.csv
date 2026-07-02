@@ -1,0 +1,8 @@
+Status projekta na dan 2026-07-02,,,,
+Kratki pregled stvarno implementiranog stanja i dogovorenog sljedećeg fokusa.,,,,
+,,,,
+Oblast,Status,Sta je zavrseno,Sta ostaje,Preporuceni sljedeci korak
+Izvodi,Djelimično implementirano,"NLB XML, Erste HTM i CKB PDF parseri rade; batch upload postoji; CKB ukupni priliv i odliv čita iz zaglavlja PDF izvoda; pravila knjiženja mogu biti zajednička za agenciju ili specifična za firmu; pravila čuvaju account_code i automatski se povezuju na firma_konta aktivne firme; ručno naučeni žiro računi partnera čuvaju se zajednički kad je moguće; interni prenosi između sopstvenih računa firme prepoznaju se prije običnih pravila.","Parseri za ostale banke, alokacije na KIF/KUF fakture, vraćanje proknjiženog izvoda u nacrt i dodatni QA pravila.","Testirati uvoz više NLB/Erste/CKB izvoda na više firmi i provjeriti da zajednička pravila ne dupliraju račune komitenata."
+Nalozi,Core zaokružen,"Ručni nalozi, nacrti, proknjižavanje, otvorene stavke na broju dokumenta, analitičke kartice, kupci/dobavljači zbirno i bruto bilans rade.","Formalni unos/prenos početnog stanja, testovi i dodatne kontrole po poslovnoj jedinici.","Nastaviti da izvodi koriste postojeći nalog IZV, bez posebnog ručnog toka."
+PDV,Core zaokružen,"PDV periodi, ulazni/izlazni PDV, prijava po portalu, XML PR_PDV_2025, podešavanja knjiženja po stopama, osnovno knjiženje i kontrole postoje.","Zaključavanje perioda i ručni QA XML upload-a na portalu.",Zaključati periodni tok poslije stabilizacije izvoda.
+Planer/Dokumentacija,Ažurirano,"CURRENT_STATE.md, NEXT_STEPS.md, SESSION_LOG.md, docs/accounting/izvodi.md i planer CSV usklađeni sa najnovijim radom na izvodima.",Redovno održavanje.,Regenerisati Excel nakon svake veće promjene.

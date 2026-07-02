@@ -17,7 +17,9 @@ export default async function ZiroRacuniKomitenataPage() {
             firma_id: firma.id
           },
           {
-            firma_id: null
+            firma_id: {
+              equals: null
+            }
           }
         ],
         is_active: true

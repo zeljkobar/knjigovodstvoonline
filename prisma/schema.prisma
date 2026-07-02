@@ -979,12 +979,19 @@ model BankStatementAccountSetting {
 model BankPostingRule {
   id                                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id                       String      @db.Uuid
-  firma_id                          String      @db.Uuid
-  firma                             Firma       @relation(fields: [firma_id], references: [id])
+  firma_id                          String?     @db.Uuid
+  firma                             Firma?      @relation(fields: [firma_id], references: [id])
   rule_type                         String      @default("BANK_ACCOUNT")
   direction                         String
-  counterparty_account_number       String
-  counterparty_account_number_normalized String
+  counterparty_account_number       String?
+  counterparty_account_number_normalized String?
+  description_contains              String?
+  reference_contains                String?
+  payment_code                      String?
+  priority                          Int         @default(10)
+  auto_apply                        Boolean     @default(true)
+  requires_review                   Boolean     @default(false)
+  account_code                      String?
   account_id                        String      @db.Uuid
   account                           FirmaKonto  @relation(fields: [account_id], references: [id])
   partner_id                        String?     @db.Uuid
@@ -997,8 +1004,9 @@ model BankPostingRule {
   updated_at                        DateTime    @updatedAt
   updated_by                        String?     @db.Uuid
 
-  @@unique([firma_id, rule_type, direction, counterparty_account_number_normalized])
   @@index([agencija_id, firma_id, active])
+  @@index([agencija_id, firma_id, direction, active, priority])
+  @@index([firma_id, direction, active, priority])
   @@map("bank_posting_rules")
 }
 
@@ -1011,6 +1019,7 @@ model BankStatementLine {
   value_date                           DateTime?     @db.Date
   description                          String
   reference_number                     String?
+  payment_code                         String?
   counterparty_account_number          String?
   counterparty_account_number_normalized String?
   counterparty_name                    String?
@@ -1034,6 +1043,7 @@ model BankStatementLine {
 
   @@unique([bank_statement_id, line_number])
   @@index([counterparty_account_number_normalized])
+  @@index([payment_code])
   @@index([partner_id])
   @@map("bank_statement_lines")
 }

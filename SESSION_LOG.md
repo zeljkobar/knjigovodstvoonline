@@ -3,6 +3,29 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-07-02
+- Dodata CKB PDF podrška za module Izvodi: upload prihvata `.pdf`, parser
+  preko `pdfjs-dist` čita tekstualne PDF izvode iz `zadaci/ckb`, a ukupan
+  priliv i odliv se za CKB uzimaju iz zaglavlja izvoda umjesto zbira stavki.
+- Stranica `Parseri banaka` prikazuje `CKB_PDF`; `npx tsc --noEmit` prolazi,
+  `npm run lint` prolazi sa starim warning-ima.
+- Modul Izvodi proširen za zajednička pravila knjiženja agencije i
+  firm-specific override: `bank_posting_rules.firma_id` može biti `NULL`, a
+  pravilo čuva `account_code` da isti konto radi kroz različite firme preko
+  automatskog povezivanja na `firma_konta`.
+- Stranica `Pravila knjiženja` sada prikazuje pravila agencije i firme, ima
+  kolonu primjene i link `Ispravi`; izmjena zajedničkog pravila se može sačuvati
+  kao pravilo samo za aktivnu firmu.
+- Uvoz izvoda sada primjenjuje i zajednička i firm-specific pravila, pri čemu
+  pravilo aktivne firme ima prednost. Ručno naučeni žiro računi partnera čuvaju
+  se kao zajednički računi agencije kad je moguće, da se isti račun ne duplira
+  po firmama.
+- Dodato prepoznavanje internih prenosa između sopstvenih bankovnih računa
+  firme: ako je kontra račun drugi aktivni račun iste firme, stavka koristi
+  podešeni konto banke tog računa prije običnih pravila.
+- Primijenjena migracija `20260702110000_bank_posting_rule_scopes`; `npx tsc
+  --noEmit` prolazi, `npm run lint` prolazi sa starim warning-ima.
+
 ## 2026-07-01
 - Ekran izvoda sada ima odvojen detalj režim: kad se otvori izvod, sakrivaju se
   uvoz i veliki spisak, tabovi `Stavke izvoda` / `Predlog naloga` su odmah na
@@ -13,6 +36,15 @@
 - Uklonjeno direktno brisanje sa detalja naloga; za proknjižen nalog ostaje samo
   `Vrati u nacrt`. U pregledu nacrta dodate su brze akcije `Proknjiži` i
   `Izbriši`; brisanje nacrta je fizičko i oslobađa broj naloga, uz audit zapis.
+- Dodat parser `ERSTE_HTM` za Erste HTML izvode iz `zadaci/erste banka`: upload
+  sada prihvata `.htm/.html`, dekodira `windows-1250`, čita račun firme, broj
+  izvoda, datum, početno/krajnje stanje, rekapitulaciju i stavke iz
+  `<!--ISPIS PROMETA-->` redova. Broj izvoda oblika `002/2026` se za knjiženje
+  normalizuje na numerički dio (`002`) da može služiti kao broj naloga.
+- Pravila knjiženja izvoda proširena su sa fallback pravila po žiro računu na
+  napredna pravila sa uslovima: opis sadrži, šifra plaćanja, poziv na broj i
+  prioritet. Parseri sada mogu popuniti `payment_code`, a pregled stavki ga
+  prikazuje radi kontrole pravila.
 
 ## 2026-06-30
 - Na pregledima KIF/KUF dodato brisanje cijele knjige. Backend ga dozvoljava
