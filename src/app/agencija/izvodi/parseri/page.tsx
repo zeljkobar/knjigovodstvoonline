@@ -73,6 +73,12 @@ export default async function ParseriBanakaPage() {
       stats: parserStats.get("LOVCEN_PDF")
     },
     {
+      name: "PRVA_PDF",
+      status: "Aktivan",
+      description: "PDF parser za Prvu banku; čita tabelarni izvod i rekapitulaciju stanja.",
+      stats: parserStats.get("PRVA_PDF")
+    },
+    {
       name: "TEXT_FALLBACK",
       status: "Aktivan",
       description: "Ručni tekst: datum; opis; žiro račun; odliv; priliv.",

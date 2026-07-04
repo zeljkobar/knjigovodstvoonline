@@ -87,7 +87,7 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   spiska iznad detalja.
 - Parseri u MVP-u čitaju NLB XML izvode (`zadaci/nlb izvodi xml` format),
   uključujući UTF-16 fajlove, Erste HTML izvode (`zadaci/erste banka` format)
-  sa `windows-1250` dekodiranjem, te CKB, Hipotekarna i Lovćen PDF izvode preko
+  sa `windows-1250` dekodiranjem, te CKB, Hipotekarna, Lovćen i Prva banka PDF izvode preko
   `pdfjs-dist`. Čitaju broj izvoda, datum, početno/krajnje stanje i
   debit/credit stavke; CKB ukupan priliv i odliv uzima iz zaglavlja izvoda,
   ne iz zbira PDF stavki, a Hipotekarna i Lovćen podržavaju kartične stavke bez
@@ -156,7 +156,7 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - Robno knjigovodstvo: spec pročitan, samo navigacioni placeholderi.
 - Izvodi: prva MVP baza/stranica/import/preview/knjiženje i pregledne
   podstranice postoje. Implementirani su parseri za NLB XML, Erste HTM, CKB PDF,
-  Hipotekarna PDF i Lovćen PDF; ostaju
+  Hipotekarna PDF, Lovćen PDF i Prva banka PDF; ostaju
   parseri za ostale banke, dorada UX-a pravila i alokacije na KIF/KUF fakture.
 - Plate, završni račun, klijentski portal, većina dashboard izvještaja.
 - PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.

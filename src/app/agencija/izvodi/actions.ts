@@ -913,6 +913,208 @@ function parseLovcenPdf(text: string, pdfRows?: PdfTextRow[]): ParsedStatement |
   };
 }
 
+function parsePrvaDateInput(data: string) {
+  const clean = data.trim();
+
+  if (/^\d{4}\.\d{2}\.\d{2}$/.test(clean)) {
+    return parseDateInput(clean.replace(/^(\d{4})\.(\d{2})\.(\d{2})$/, "$1-$2-$3"));
+  }
+
+  return parseDateInput(clean);
+}
+
+function prvaMoneyValues(row: PdfTextRow) {
+  return row.items
+    .filter((item) => item.x >= 40 && item.x <= 310)
+    .map((item) => item.text.trim())
+    .filter(isMoneyText)
+    .map((item) => parseMoneyToCents(item))
+    .filter((amount): amount is number => amount !== null);
+}
+
+function parsePrvaHeader(text: string, rows: PdfTextRow[]) {
+  const normalizedText = text.replace(/\s+/g, " ");
+  const statementRow = rows.find((row) => firstPdfItemInRange(row, 480, 530, /^\d+$/));
+  const statementNumber =
+    (statementRow ? firstPdfItemInRange(statementRow, 480, 530, /^\d+$/) : "") ||
+    normalizedText.match(/IZVOD\s+O\s+STANJU\s+I\s+PROMJENAMA\s+SREDSTAVA\s+BROJ\s+(\d+)/i)?.[1] ||
+    null;
+  const accountRow = rows.find((row) => firstPdfItemInRange(row, 120, 180, /^\d{3}-[\d-]+$/));
+  const dateRow = rows.find((row) => pdfRowText(row).startsWith("Datum izvoda:"));
+  const totalsRow = rows.find((row) => prvaMoneyValues(row).length >= 4);
+  const totals = totalsRow ? prvaMoneyValues(totalsRow) : [];
+
+  return {
+    statementNumber,
+    statementDate: parseDateInput(firstPdfItemInRange(dateRow ?? { page: 0, y: 0, items: [] }, 480, 530)),
+    companyAccountNumber: accountRow
+      ? firstPdfItemInRange(accountRow, 120, 170, /^\d{3}-[\d-]+$/) || null
+      : null,
+    openingBalance: totals[0] ?? null,
+    totalOutflow: totals[1] ?? null,
+    totalInflow: totals[2] ?? null,
+    closingBalance: totals[3] ?? null
+  };
+}
+
+function isPrvaAccountNumber(input: string | null | undefined) {
+  return /^\d{3}-\d{1,13}-\d{1,3}$/.test(String(input ?? "").trim());
+}
+
+function prvaFirstAmountInRange(rows: PdfTextRow[], minX: number, maxX: number) {
+  const value = rows
+    .flatMap((row) => row.items)
+    .filter((item) => item.x >= minX && item.x <= maxX)
+    .map((item) => item.text.trim())
+    .find(isMoneyText);
+
+  return parseMoneyToCents(value ?? "") ?? 0;
+}
+
+function prvaTextInRange(rows: PdfTextRow[], minX: number, maxX: number) {
+  return rows
+    .flatMap((row) => pdfItemsInRange(row, minX, maxX))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parsePrvaLine(rows: PdfTextRow[], companyAccountNumber: string | null): ParsedStatementLine | null {
+  const rowNumber = firstPdfItemInRange(rows[0], 40, 55, /^\d+$/);
+
+  if (!rowNumber) {
+    return null;
+  }
+
+  const postingDateText = rows
+    .flatMap((row) => pdfItemsInRange(row, 245, 315))
+    .find((item) => /^\d{4}[./]\d{2}[./]\d{2}$/.test(item));
+  const postingDate = parsePrvaDateInput(postingDateText ?? "");
+  const outflow = prvaFirstAmountInRange(rows, 330, 390);
+  const inflow = prvaFirstAmountInRange(rows, 405, 450);
+  const paymentCode = rows
+    .flatMap((row) => pdfItemsInRange(row, 450, 480))
+    .find((item) => /^\d{3}$/.test(item)) ?? null;
+
+  if (!postingDate || (outflow === 0 && inflow === 0)) {
+    return null;
+  }
+
+  const accountCandidate = rows
+    .flatMap((row) => pdfItemsInRange(row, 55, 180))
+    .find(isPrvaAccountNumber) ?? null;
+  const normalizedAccountCandidate = normalizeAccountNumber(accountCandidate);
+  const normalizedCompanyAccount = normalizeAccountNumber(companyAccountNumber);
+  const accountNumber =
+    normalizedAccountCandidate && normalizedAccountCandidate !== normalizedCompanyAccount
+      ? accountCandidate
+      : null;
+  const normalizedAccountNumber = normalizeAccountNumber(accountNumber);
+  const counterpartyName = rows
+    .flatMap((row) => pdfItemsInRange(row, 60, 245))
+    .filter((item) => !isPrvaAccountNumber(item))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .replace(/\s+,/g, ",")
+    .trim() || null;
+  const purpose = prvaTextInRange(rows, 480, 625);
+  const referenceNumber = prvaTextInRange(rows, 625, 820)
+    .replace(/\(\s*\)/g, "")
+    .replace(/\(\d+\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim() || null;
+  const description = [counterpartyName, purpose].filter(Boolean).join(" · ");
+
+  return {
+    postingDate,
+    valueDate: postingDate,
+    description: description || `Prva banka PDF stavka ${rowNumber}`,
+    accountNumber,
+    normalizedAccountNumber: normalizedAccountNumber || null,
+    counterpartyName,
+    referenceNumber,
+    paymentCode,
+    outflow,
+    inflow,
+    rawText: description || `Prva banka PDF stavka ${rowNumber}`
+  };
+}
+
+function parsePrvaBankaPdf(text: string, pdfRows?: PdfTextRow[]): ParsedStatement | null {
+  if (
+    !pdfRows?.length ||
+    !/IZVOD\s+O\s+STANJU\s+I\s+PROMJENAMA\s+SREDSTAVA/i.test(text) ||
+    !/PRVA\s+BANKA|prvabankacg\.com/i.test(text)
+  ) {
+    return null;
+  }
+
+  const header = parsePrvaHeader(text, pdfRows);
+
+  if (!header.statementNumber || !header.companyAccountNumber) {
+    return null;
+  }
+
+  const lines: ParsedStatementLine[] = [];
+  let currentRows: PdfTextRow[] = [];
+  const pushCurrent = () => {
+    if (currentRows.length === 0) {
+      return;
+    }
+
+    const line = parsePrvaLine(currentRows, header.companyAccountNumber);
+
+    if (line) {
+      lines.push(line);
+    }
+
+    currentRows = [];
+  };
+
+  for (const row of pdfRows) {
+    const rowText = pdfRowText(row);
+    const rowNumber = firstPdfItemInRange(row, 40, 55, /^\d+$/);
+    const isHeaderRow = rowText.includes("Primalac plaćanja/platilac") || rowText === "RB";
+    const isTotalRow =
+      Boolean(firstPdfItemInRange(row, 260, 310, /^UKUPNO:$/)) ||
+      Boolean(firstPdfItemInRange(row, 260, 310, /^Naknada:$/));
+
+    if (isTotalRow) {
+      pushCurrent();
+      continue;
+    }
+
+    if (rowNumber && !isHeaderRow) {
+      pushCurrent();
+      currentRows = [row];
+      continue;
+    }
+
+    if (currentRows.length > 0 && !isHeaderRow && !rowText.startsWith("Kreirano:")) {
+      currentRows.push(row);
+    }
+  }
+
+  pushCurrent();
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return {
+    parser: "PRVA_PDF",
+    companyAccountNumber: header.companyAccountNumber,
+    statementNumber: header.statementNumber,
+    statementDate: header.statementDate,
+    openingBalance: header.openingBalance,
+    totalInflow: header.totalInflow,
+    totalOutflow: header.totalOutflow,
+    closingBalance: header.closingBalance,
+    lines,
+    notes: "PDF parser za Prvu banku čita tabelarne stavke i rekapitulaciju iz zaglavlja."
+  };
+}
+
 function parseCsvLikeLine(rawLine: string): ParsedStatementLine | null {
   const parts = rawLine.split(";").map((part) => part.trim());
 
@@ -1255,7 +1457,8 @@ const statementParserRegistry: Record<string, StatementParser[]> = {
   ERSTE: [parseErsteHtml],
   CKB: [parseCkbPdf],
   HIPOTEKARNA: [parseHipotekarnaPdf],
-  LOVCEN: [parseLovcenPdf]
+  LOVCEN: [parseLovcenPdf],
+  PRVA: [parsePrvaBankaPdf]
 };
 
 const defaultStatementParsers: StatementParser[] = [
@@ -1263,7 +1466,8 @@ const defaultStatementParsers: StatementParser[] = [
   parseErsteHtml,
   parseCkbPdf,
   parseHipotekarnaPdf,
-  parseLovcenPdf
+  parseLovcenPdf,
+  parsePrvaBankaPdf
 ];
 
 function bankParserKey(bankName: string | null | undefined) {
@@ -1294,6 +1498,10 @@ function bankParserKey(bankName: string | null | undefined) {
 
   if (normalized.includes("LOVCEN")) {
     return "LOVCEN";
+  }
+
+  if (normalized.includes("PRVA")) {
+    return "PRVA";
   }
 
   return null;
@@ -1412,7 +1620,36 @@ function learnedDescriptionCondition(description: string | null | undefined) {
     parts[parts.length - 1] ??
     cleanDescription;
 
+  if (/platne\s+kartice|kartic/i.test(usefulPart)) {
+    return "Platne kartice";
+  }
+
+  if (/uplata\s+pazara|pazar/i.test(usefulPart)) {
+    return "Uplata pazara";
+  }
+
+  if (/naknada/i.test(usefulPart)) {
+    return "Naknada";
+  }
+
+  if (/proviz/i.test(usefulPart)) {
+    return "Proviz";
+  }
+
+  if (/pos/i.test(usefulPart)) {
+    return "POS";
+  }
+
+  if (/atm/i.test(usefulPart)) {
+    return "ATM";
+  }
+
   return usefulPart || null;
+}
+
+function shouldLearnSpecificBankRule(descriptionContains: string | null, paymentCode: string | null) {
+  return Boolean(descriptionContains && /UPLATA|PAZAR|NAKNADA|PROVIZ|KARTIC|POS|ATM/i.test(descriptionContains)) ||
+    ["M02", "D30", "Z12"].includes(normalizePaymentCode(paymentCode));
 }
 
 async function getActiveContext() {
@@ -2218,15 +2455,19 @@ export async function updateBankStatementLines(formData: FormData) {
             }
           }
 
+          const descriptionContains = learnedDescriptionCondition(savedLine.description);
+          const paymentCode = savedLine.payment_code ?? null;
+          const learnSpecificRule = shouldLearnSpecificBankRule(descriptionContains, paymentCode);
           const existingRule = await tx.bankPostingRule.findFirst({
             where: {
+              agencija_id: agencijaId,
               firma_id: firma.id,
-              rule_type: "BANK_ACCOUNT",
+              rule_type: learnSpecificRule ? "ADVANCED" : "BANK_ACCOUNT",
               direction: lineDirection,
               counterparty_account_number_normalized: normalizedAccount,
-              description_contains: null,
+              description_contains: learnSpecificRule ? descriptionContains : null,
               reference_contains: null,
-              payment_code: null
+              payment_code: learnSpecificRule ? paymentCode : null
             },
             select: {
               id: true
@@ -2256,10 +2497,13 @@ export async function updateBankStatementLines(formData: FormData) {
               data: {
                 agencija_id: agencijaId,
                 firma_id: firma.id,
-                rule_type: "BANK_ACCOUNT",
+                rule_type: learnSpecificRule ? "ADVANCED" : "BANK_ACCOUNT",
                 direction: lineDirection,
                 counterparty_account_number: savedLine.counterparty_account_number ?? normalizedAccount,
                 counterparty_account_number_normalized: normalizedAccount,
+                description_contains: learnSpecificRule ? descriptionContains : null,
+                reference_contains: null,
+                payment_code: learnSpecificRule ? paymentCode : null,
                 account_id: selectedAccount.id,
                 account_code: selectedAccount.sifra,
                 partner_id: partnerId,

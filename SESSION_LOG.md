@@ -3,6 +3,13 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-07-05
+- Implementiran Prva banka PDF parser izvoda: čita tabelarni PDF format, broj i
+  datum izvoda, račun firme, početno/krajnje stanje, ukupne prilive/odlive i
+  višeredne stavke sa pozivom na broj. Ručno je provjereno 6 uzoraka iz
+  `zadaci/prva banka` (001, 003, 011, 012, 019, 032): zbir stavki se poklapa sa
+  rekapitulacijom izvoda.
+
 ## 2026-07-02
 - Dodata CKB PDF podrška za module Izvodi: upload prihvata `.pdf`, parser
   preko `pdfjs-dist` čita tekstualne PDF izvode iz `zadaci/ckb`, a ukupan
