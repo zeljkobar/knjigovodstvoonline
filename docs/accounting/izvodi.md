@@ -32,6 +32,8 @@ stavke, import sesiju, kontrole, povezivanje sa fakturama i generiše jedan nalo
   - CKB PDF parser za format iz `zadaci/ckb`, preko `pdfjs-dist`; čita broj
     izvoda, račun firme, datum, početno stanje, novo stanje i stavke po
     koordinatama, a ukupan priliv i odliv uzima iz zaglavlja izvoda,
+  - Hipotekarna i Lovćen PDF parseri preko `pdfjs-dist`; podržavaju PDF izvode
+    sa kartičnim stavkama bez žiro računa,
   - izbor bankovnog računa firme određuje preferirani redosljed parsera: za NLB
     se prvo probaju NLB parseri, za Erste prvo Erste parseri, za CKB prvo CKB
     parseri, a zatim opšti fallback redosljed,

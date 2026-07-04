@@ -74,6 +74,16 @@
   različite fiksne prihode po PDV stopama iz KIF šeme i knjiženje ostavlja
   postojećoj šemi po poljima.
 
+## 2026-07-04
+- Implementiran Lovćen PDF parser izvoda: čita broj/datum izvoda, račun firme,
+  početno/krajnje stanje, ukupne prilive/odlive i stavke iz kolonskog PDF
+  formata. Kartična plaćanja sa `M02` uvoze se bez žiro računa partnera i sa
+  šifrom plaćanja `02`.
+- Parser je dodat u redosljed parsera za banku Lovćen i na ekran `Parseri
+  banaka`. Ručno je provjereno 8 uzoraka iz `zadaci/Lovcen` (001, 007, 011,
+  015, 016, 018, 020, 034): zbir stavki se poklapa sa ukupnim prilivom/odlivom
+  iz zaglavlja.
+
 ## 2026-06-29
 - Implementirana prva MVP osnova modula Izvodi: migracija
   `20260629190000_bank_statements_mvp`, modeli `bank_statements`,

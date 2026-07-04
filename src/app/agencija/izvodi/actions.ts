@@ -185,6 +185,35 @@ function containsText(source: string | null | undefined, needle: string | null |
   return String(source ?? "").toLowerCase().includes(cleanNeedle);
 }
 
+function normalizePaymentCode(input: string | null | undefined) {
+  const clean = String(input ?? "").toUpperCase().replace(/\s+/g, "").trim();
+
+  if (!clean) {
+    return "";
+  }
+
+  return clean.match(/[A-Z]\d{2}/)?.[0] ?? clean.match(/\d{3}/)?.[0] ?? clean.match(/\d{2}/)?.[0] ?? clean;
+}
+
+function comparablePaymentCode(input: string | null | undefined) {
+  return normalizePaymentCode(input).replace(/^[A-Z](\d{2})$/, "$1");
+}
+
+function paymentCodesMatch(ruleCode: string | null | undefined, lineCode: string | null | undefined) {
+  const normalizedRuleCode = normalizePaymentCode(ruleCode);
+
+  if (!normalizedRuleCode) {
+    return true;
+  }
+
+  const normalizedLineCode = normalizePaymentCode(lineCode);
+
+  return (
+    normalizedLineCode === normalizedRuleCode ||
+    comparablePaymentCode(normalizedLineCode) === comparablePaymentCode(normalizedRuleCode)
+  );
+}
+
 function amountTextToCents(input: string) {
   return parseMoneyToCents(input.replace(/[^\d,.\-\s]/g, ""));
 }
@@ -668,6 +697,222 @@ function parseHipotekarnaPdf(text: string, pdfRows?: PdfTextRow[]): ParsedStatem
   };
 }
 
+function pdfColumnItems(row: PdfTextRow, minX: number, maxX: number) {
+  return row.items
+    .filter((item) => item.x >= minX && item.x < maxX)
+    .map((item) => item.text.trim())
+    .filter(Boolean);
+}
+
+function lovcenMoneyAtColumn(rows: PdfTextRow[], page: number, columnX: number, minY: number, maxY: number) {
+  const moneyText = rows
+    .filter((row) => row.page === page && row.y >= minY && row.y <= maxY)
+    .flatMap((row) => row.items)
+    .filter((item) => Math.abs(item.x - columnX) <= 2)
+    .map((item) => item.text.trim())
+    .find(isMoneyText);
+
+  return parseMoneyToCents(moneyText ?? "") ?? 0;
+}
+
+function lovcenColumnText(
+  rows: PdfTextRow[],
+  page: number,
+  columnX: number,
+  nextColumnX: number,
+  minY: number,
+  maxY: number
+) {
+  return rows
+    .filter((row) => row.page === page && row.y >= minY && row.y <= maxY)
+    .flatMap((row) => pdfColumnItems(row, columnX, nextColumnX))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function lovcenSummaryAmount(rows: PdfTextRow[], label: string) {
+  const labelRow = rows.find((row) => pdfRowText(row).toLowerCase().includes(label.toLowerCase()));
+
+  if (!labelRow) {
+    return null;
+  }
+
+  const labelX = labelRow.items[0]?.x ?? 220;
+  const amountText = rows
+    .filter(
+      (row) =>
+        row.page === labelRow.page &&
+        row.y > labelRow.y &&
+        row.y <= labelRow.y + 100
+    )
+    .flatMap((row) => row.items)
+    .filter((item) => item.x >= labelX - 20 && item.x <= labelX + 100)
+    .map((item) => item.text.trim())
+    .find(isMoneyText);
+
+  return amountText ? parseMoneyToCents(amountText) : null;
+}
+
+function parseLovcenPaymentCode(purposeText: string) {
+  const letterCode = purposeText.match(/\b([A-Z]\d{2})\b/i);
+
+  if (letterCode) {
+    return letterCode[1].toUpperCase();
+  }
+
+  const numericCode = purposeText.match(/\b(\d{3})\b/);
+
+  if (numericCode) {
+    return numericCode[1];
+  }
+
+  return null;
+}
+
+function cleanLovcenDescription(...parts: Array<string | null | undefined>) {
+  return Array.from(new Set(parts.map((part) => String(part ?? "").replace(/\s+/g, " ").trim()).filter(Boolean)))
+    .join(" · ")
+    .trim();
+}
+
+function parseLovcenHeader(rows: PdfTextRow[]) {
+  let statementNumber: string | null = null;
+  let statementDate: Date | null = null;
+
+  for (const row of rows) {
+    const rowText = pdfRowText(row);
+    const directMatch = rowText.match(/IZVOD\s+BR\.?\s*(\d+)\s+za\s+dan\s+(\d{2}\.\d{2}\.\d{4})/i);
+
+    if (directMatch) {
+      statementNumber = directMatch[1];
+      statementDate = parseDateInput(directMatch[2]);
+      break;
+    }
+
+    if (/IZVOD\s+BR\.?/i.test(rowText)) {
+      const continuation = rows.find((candidate) => {
+        const text = pdfRowText(candidate);
+
+        return (
+          candidate.page === row.page &&
+          candidate.y > row.y &&
+          candidate.y <= row.y + 100 &&
+          /^\d+\s+za\s+dan\s+\d{2}\.\d{2}\.\d{4}/i.test(text)
+        );
+      });
+      const continuationMatch = pdfRowText(continuation ?? row).match(/^(\d+)\s+za\s+dan\s+(\d{2}\.\d{2}\.\d{4})/i);
+
+      if (continuationMatch) {
+        statementNumber = continuationMatch[1];
+        statementDate = parseDateInput(continuationMatch[2]);
+        break;
+      }
+    }
+  }
+
+  const accountRow = rows.find((row) => pdfItemsInRange(row, 95, 125).some((item) => /^\d{9,}$/.test(item)));
+  const companyAccountNumber =
+    accountRow ? firstPdfItemInRange(accountRow, 95, 125, /^\d{9,}$/) || null : null;
+
+  return {
+    statementNumber,
+    statementDate,
+    companyAccountNumber,
+    openingBalance: lovcenSummaryAmount(rows, "Predhodno stanje"),
+    totalOutflow: lovcenSummaryAmount(rows, "Dnevni promet (duguje)"),
+    totalInflow: lovcenSummaryAmount(rows, "Dnevni promet (potražuje)"),
+    closingBalance: lovcenSummaryAmount(rows, "Novo stanje")
+  };
+}
+
+function parseLovcenPdf(text: string, pdfRows?: PdfTextRow[]): ParsedStatement | null {
+  if (!pdfRows?.length || !/Lovcen\s+Banka|Lov[ćc]en\s+Banka|IZVOD\s+BR/i.test(text)) {
+    return null;
+  }
+
+  const header = parseLovcenHeader(pdfRows);
+
+  if (!header.statementNumber || !header.companyAccountNumber) {
+    return null;
+  }
+
+  const companyAccount = normalizeAccountNumber(header.companyAccountNumber);
+  const lines: ParsedStatementLine[] = [];
+  const pages = Array.from(new Set(pdfRows.map((row) => row.page))).sort((left, right) => left - right);
+
+  for (const page of pages) {
+    const dateColumns = pdfRows
+      .filter((row) => row.page === page && row.y <= 35)
+      .flatMap((row) => row.items)
+      .filter((item) => /^\d{2}\.\d{2}\.\d{4}$/.test(item.text.trim()))
+      .sort((left, right) => left.x - right.x);
+
+    for (let index = 0; index < dateColumns.length; index += 1) {
+      const dateColumn = dateColumns[index];
+      const nextColumnX = dateColumns[index + 1]?.x ?? dateColumn.x + 24;
+      const postingDate = parseDateInput(dateColumn.text);
+      const outflow = lovcenMoneyAtColumn(pdfRows, page, dateColumn.x, 300, 330);
+      const inflow = lovcenMoneyAtColumn(pdfRows, page, dateColumn.x, 390, 410);
+
+      if (!postingDate || (outflow === 0 && inflow === 0)) {
+        continue;
+      }
+
+      const nameAndAccount = lovcenColumnText(pdfRows, page, dateColumn.x, nextColumnX, 55, 70);
+      const nameParts = nameAndAccount.split(/\s+/);
+      const accountCandidate = nameParts.find((part) => normalizeAccountNumber(part).length >= 9) ?? null;
+      const normalizedAccountCandidate = normalizeAccountNumber(accountCandidate);
+      const accountNumber =
+        normalizedAccountCandidate && normalizedAccountCandidate !== companyAccount
+          ? accountCandidate
+          : null;
+      const counterpartyName = nameAndAccount
+        .replace(accountCandidate ?? "", "")
+        .replace(/\s+/g, " ")
+        .trim() || null;
+      const purposeText = lovcenColumnText(pdfRows, page, dateColumn.x, nextColumnX, 420, 435);
+      const referenceNumber = cleanLovcenDescription(
+        lovcenColumnText(pdfRows, page, dateColumn.x, nextColumnX, 605, 620),
+        lovcenColumnText(pdfRows, page, dateColumn.x, nextColumnX, 710, 725)
+      ) || null;
+      const description = cleanLovcenDescription(counterpartyName, purposeText);
+      const normalizedAccountNumber = normalizeAccountNumber(accountNumber);
+
+      lines.push({
+        postingDate,
+        valueDate: postingDate,
+        description: description || `Lovćen PDF stavka ${lines.length + 1}`,
+        accountNumber,
+        normalizedAccountNumber: normalizedAccountNumber || null,
+        counterpartyName,
+        referenceNumber,
+        paymentCode: parseLovcenPaymentCode(purposeText),
+        outflow,
+        inflow,
+        rawText: description || `Lovćen PDF stavka ${lines.length + 1}`
+      });
+    }
+  }
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return {
+    parser: "LOVCEN_PDF",
+    companyAccountNumber: header.companyAccountNumber,
+    statementNumber: header.statementNumber,
+    statementDate: header.statementDate,
+    openingBalance: header.openingBalance,
+    totalInflow: header.totalInflow,
+    totalOutflow: header.totalOutflow,
+    closingBalance: header.closingBalance,
+    lines,
+    notes: "Kartične stavke sa šifrom M02 uvoze se bez žiro računa partnera."
+  };
+}
+
 function parseCsvLikeLine(rawLine: string): ParsedStatementLine | null {
   const parts = rawLine.split(";").map((part) => part.trim());
 
@@ -1009,14 +1254,16 @@ const statementParserRegistry: Record<string, StatementParser[]> = {
   NLB: [parseNlbXml],
   ERSTE: [parseErsteHtml],
   CKB: [parseCkbPdf],
-  HIPOTEKARNA: [parseHipotekarnaPdf]
+  HIPOTEKARNA: [parseHipotekarnaPdf],
+  LOVCEN: [parseLovcenPdf]
 };
 
 const defaultStatementParsers: StatementParser[] = [
   parseNlbXml,
   parseErsteHtml,
   parseCkbPdf,
-  parseHipotekarnaPdf
+  parseHipotekarnaPdf,
+  parseLovcenPdf
 ];
 
 function bankParserKey(bankName: string | null | undefined) {
@@ -1043,6 +1290,10 @@ function bankParserKey(bankName: string | null | undefined) {
 
   if (normalized.includes("HIPOTEKARNA")) {
     return "HIPOTEKARNA";
+  }
+
+  if (normalized.includes("LOVCEN")) {
+    return "LOVCEN";
   }
 
   return null;
@@ -1103,7 +1354,7 @@ function ruleMatchesLine(
     return false;
   }
 
-  if (rule.payment_code && rule.payment_code !== line.paymentCode) {
+  if (!paymentCodesMatch(rule.payment_code, line.paymentCode)) {
     return false;
   }
 
@@ -2324,7 +2575,7 @@ export async function createBankPostingRule(formData: FormData) {
   const accountCode = nullableValue(formData, "account_code");
   const descriptionContains = nullableValue(formData, "description_contains");
   const referenceContains = nullableValue(formData, "reference_contains");
-  const paymentCode = nullableValue(formData, "payment_code");
+  const paymentCode = normalizePaymentCode(nullableValue(formData, "payment_code")) || null;
   const priority = Number(value(formData, "priority") || "10");
   const normalizedAccount = normalizeAccountNumber(accountNumber);
 

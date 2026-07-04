@@ -67,6 +67,12 @@ export default async function ParseriBanakaPage() {
       stats: parserStats.get("HIPOTEKARNA_PDF")
     },
     {
+      name: "LOVCEN_PDF",
+      status: "Aktivan",
+      description: "PDF parser za Lovćen banku; kartične stavke sa M02 uvozi bez žiro računa.",
+      stats: parserStats.get("LOVCEN_PDF")
+    },
+    {
       name: "TEXT_FALLBACK",
       status: "Aktivan",
       description: "Ručni tekst: datum; opis; žiro račun; odliv; priliv.",
