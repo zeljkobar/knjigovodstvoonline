@@ -12,6 +12,38 @@ function normalizePib(value: string) {
   return digits.length === 7 ? `0${digits}` : digits;
 }
 
+function parsePartnerSearchQuery(query: string) {
+  const exactNameMatch = query.match(/^=(.+)$/);
+  const startsWithMatch = query.match(/^\^(.+)$/);
+  const quotedPhraseMatch = query.match(/^"(.+)"$/);
+
+  if (exactNameMatch?.[1]?.trim()) {
+    return {
+      mode: "exactName" as const,
+      value: exactNameMatch[1].trim()
+    };
+  }
+
+  if (startsWithMatch?.[1]?.trim()) {
+    return {
+      mode: "startsWith" as const,
+      value: startsWithMatch[1].trim()
+    };
+  }
+
+  if (quotedPhraseMatch?.[1]?.trim()) {
+    return {
+      mode: "phrase" as const,
+      value: quotedPhraseMatch[1].trim()
+    };
+  }
+
+  return {
+    mode: "contains" as const,
+    value: query
+  };
+}
+
 export async function GET(request: Request) {
   const user = await getCurrentUser();
 
@@ -28,9 +60,11 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const query = normalizeSearch(url.searchParams.get("q"));
   const exactPib = url.searchParams.get("exactPib") === "1";
-  const pib = normalizePib(query);
+  const parsedQuery = parsePartnerSearchQuery(query);
+  const searchText = parsedQuery.value;
+  const pib = normalizePib(searchText);
 
-  if (query.length < 2 && pib.length < 7) {
+  if (searchText.length < 2 && pib.length < 7) {
     return NextResponse.json({ results: [] });
   }
 
@@ -43,21 +77,37 @@ export async function GET(request: Request) {
     ]
   };
 
+  const nameSearch =
+    parsedQuery.mode === "exactName"
+      ? {
+          naziv: {
+            equals: searchText,
+            mode: "insensitive" as const
+          }
+        }
+      : parsedQuery.mode === "startsWith"
+        ? {
+            naziv: {
+              startsWith: searchText,
+              mode: "insensitive" as const
+            }
+          }
+        : {
+            naziv: {
+              contains: searchText,
+              mode: "insensitive" as const
+            }
+          };
   const searchWhere = exactPib
     ? {
         pib
       }
     : {
         OR: [
-          {
-            naziv: {
-              contains: query,
-              mode: "insensitive" as const
-            }
-          },
+          nameSearch,
           {
             pib: {
-              contains: pib || query
+              contains: pib || searchText
             }
           }
         ]

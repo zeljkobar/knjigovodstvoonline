@@ -248,6 +248,10 @@ function pdfItemsInRange(row: PdfTextRow, minX: number, maxX: number) {
     .filter(Boolean);
 }
 
+function isMoneyText(input: string) {
+  return /^-?\d{1,3}(?:\.\d{3})*,\d{2}$|^-?\d+,\d{2}$/.test(input.trim());
+}
+
 function firstPdfItemInRange(
   row: PdfTextRow,
   minX: number,
@@ -260,7 +264,7 @@ function firstPdfItemInRange(
 function ckbMoneyValues(row: PdfTextRow) {
   return row.items
     .map((item) => item.text.trim())
-    .filter((item) => /^-?\d{1,3}(?:\.\d{3})*,\d{2}$|^-?\d+,\d{2}$/.test(item))
+    .filter(isMoneyText)
     .map((item) => parseMoneyToCents(item))
     .filter((amount): amount is number => amount !== null);
 }
@@ -310,11 +314,19 @@ function isCkbNoiseRow(row: PdfTextRow) {
 }
 
 function parseCkbMainRow(row: PdfTextRow) {
-  const rowNumber = firstPdfItemInRange(row, 45, 85, /^\d+$/);
-  const transactionId = firstPdfItemInRange(row, 80, 160, /^\d{5,}$/);
-  const accountNumber = firstPdfItemInRange(row, 145, 275, /^\d{9,}$/);
-  const postingDateText = firstPdfItemInRange(row, 325, 395, /^\d{2}\/\d{2}\/\d{4}$/);
-  const valueDateText = firstPdfItemInRange(row, 390, 460, /^\d{2}\/\d{2}\/\d{4}$/);
+  const rowText = pdfRowText(row);
+  const textMatch = rowText.match(
+    /^(\d+)\s+(\d{5,})\s+(\d{9,})(?:\s+(\d{3}))?\s+(\d{2}\/\d{2}\/\d{4})\s+(\d{2}\/\d{2}\/\d{4})(?:\s+(.+))?$/
+  );
+  const rowNumber = firstPdfItemInRange(row, 45, 85, /^\d+$/) || textMatch?.[1] || "";
+  const transactionId =
+    firstPdfItemInRange(row, 80, 170, /^\d{5,}$/) || textMatch?.[2] || "";
+  const accountNumber =
+    firstPdfItemInRange(row, 140, 300, /^\d{9,}$/) || textMatch?.[3] || "";
+  const postingDateText =
+    firstPdfItemInRange(row, 315, 405, /^\d{2}\/\d{2}\/\d{4}$/) || textMatch?.[5] || "";
+  const valueDateText =
+    firstPdfItemInRange(row, 380, 470, /^\d{2}\/\d{2}\/\d{4}$/) || textMatch?.[6] || "";
 
   if (!rowNumber || !transactionId || !accountNumber || !postingDateText || !valueDateText) {
     return null;
@@ -322,10 +334,21 @@ function parseCkbMainRow(row: PdfTextRow) {
 
   const postingDate = parseDateInput(postingDateText);
   const valueDate = parseDateInput(valueDateText);
-  const outflow = parseMoneyToCents(firstPdfItemInRange(row, 455, 555, /^-?\d/));
-  const inflow = parseMoneyToCents(firstPdfItemInRange(row, 555, 620, /^-?\d/));
-  const paymentCode = firstPdfItemInRange(row, 260, 330, /^\d{3}$/) || null;
-  const referenceNumber = pdfItemsInRange(row, 670, 790).join(" ").trim() || null;
+  const outflowText = firstPdfItemInRange(row, 450, 555, /^-?\d/);
+  const inflowText = firstPdfItemInRange(row, 555, 620, /^-?\d/);
+  const textMoneyItems = (textMatch?.[7]?.match(/-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d+,\d{2}/g) ?? [])
+    .map((item) => item.trim())
+    .filter(isMoneyText);
+  const outflow = parseMoneyToCents(outflowText || textMoneyItems[0] || "");
+  const inflow = parseMoneyToCents(inflowText || (textMoneyItems.length > 2 ? textMoneyItems[1] : "") || "");
+  const paymentCode = firstPdfItemInRange(row, 250, 335, /^\d{3}$/) || textMatch?.[4] || null;
+  const coordinateReference = pdfItemsInRange(row, 690, 820).join(" ").trim();
+  const textReference =
+    textMatch?.[7]
+      ?.replace(/-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d+,\d{2}/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() || "";
+  const referenceNumber = coordinateReference || textReference || null;
 
   if (!postingDate || !valueDate) {
     return null;
@@ -345,7 +368,7 @@ function parseCkbMainRow(row: PdfTextRow) {
 }
 
 function parseCkbPdf(text: string, pdfRows?: PdfTextRow[]): ParsedStatement | null {
-  if (!pdfRows?.length || !/Promet i stanje po ra[čc]unu/i.test(text)) {
+  if (!pdfRows?.length || !/promet\s+i\s+stanje\s+(?:po\s+)?ra[čc]un[au]/i.test(text)) {
     return null;
   }
 
@@ -966,6 +989,7 @@ type UploadedStatement = {
 };
 
 async function extractPdfTextRows(bytes: Uint8Array) {
+  await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const pdf = await pdfjs.getDocument({
     data: bytes
@@ -1238,6 +1262,7 @@ export async function importBankStatement(formData: FormData) {
   const importedStatementIds: string[] = [];
   let duplicateCount = 0;
   let invalidCount = 0;
+  let firstInvalidMessage: string | null = null;
 
   for (const uploaded of uploadedStatements) {
     const parsedStatement = parseStatement(
@@ -1261,19 +1286,42 @@ export async function importBankStatement(formData: FormData) {
         parsedStatement.closingBalance ??
         null
       : parsedStatement.closingBalance ?? null;
+    const invalidMessage = !uploaded.text.trim()
+      ? "izvod_prazan"
+      : !statementNumber
+        ? "izvod_nema_broj"
+        : !statementDate
+          ? "izvod_nema_datum"
+          : openingBalance === null || closingBalance === null
+            ? "izvod_nema_stanja"
+            : parsedStatement.lines.length === 0
+              ? "izvod_nema_stavki"
+              : null;
 
-    if (
-      !uploaded.text.trim() ||
-      !statementNumber ||
-      !statementDate ||
-      openingBalance === null ||
-      closingBalance === null ||
-      parsedStatement.lines.length === 0
-    ) {
+    if (invalidMessage) {
+      firstInvalidMessage ??= invalidMessage;
       invalidCount += 1;
+      console.warn("Bank statement import skipped", {
+        fileName: uploaded.fileName,
+        parser: parsedStatement.parser,
+        reason: invalidMessage,
+        statementNumber,
+        hasStatementDate: Boolean(statementDate),
+        hasOpeningBalance: openingBalance !== null,
+        hasClosingBalance: closingBalance !== null,
+        lineCount: parsedStatement.lines.length,
+        textPreview: uploaded.text.slice(0, 160)
+      });
       continue;
     }
 
+    if (!statementDate || openingBalance === null || closingBalance === null) {
+      continue;
+    }
+
+    const validStatementDate = statementDate;
+    const validOpeningBalance = openingBalance;
+    const validClosingBalance = closingBalance;
     const parsedLines = parsedStatement.lines;
     const normalizedLineAccounts = parsedLines
       .map((line) => line.normalizedAccountNumber)
@@ -1354,7 +1402,7 @@ export async function importBankStatement(formData: FormData) {
       parsedStatement.totalInflow ?? parsedLines.reduce((sum, line) => sum + line.inflow, 0);
     const totalOutflow =
       parsedStatement.totalOutflow ?? parsedLines.reduce((sum, line) => sum + line.outflow, 0);
-    const balanceOk = openingBalance + totalInflow - totalOutflow === closingBalance;
+    const balanceOk = validOpeningBalance + totalInflow - totalOutflow === validClosingBalance;
     const statementLines = await Promise.all(parsedLines.map(async (line, index) => {
       const direction = line.inflow > 0 ? "INFLOW" : "OUTFLOW";
       const ownCounterpartyAccount = line.normalizedAccountNumber
@@ -1418,11 +1466,11 @@ export async function importBankStatement(formData: FormData) {
         company_bank_account_id: companyBankAccount.id,
         bank_account_konto_id: effectiveBankAccountKonto.id,
         statement_number: statementNumber,
-        statement_date: statementDate,
-        opening_balance: centsToDecimal(openingBalance),
+        statement_date: validStatementDate,
+        opening_balance: centsToDecimal(validOpeningBalance),
         total_inflow: centsToDecimal(totalInflow),
         total_outflow: centsToDecimal(totalOutflow),
-        closing_balance: centsToDecimal(closingBalance),
+        closing_balance: centsToDecimal(validClosingBalance),
         status: initialStatus,
         file_name: uploaded.fileName,
         file_type: uploaded.fileType,
@@ -1470,7 +1518,9 @@ export async function importBankStatement(formData: FormData) {
   }
 
   if (importedStatementIds.length === 0) {
-    redirectStatements(duplicateCount > 0 ? "izvod_duplikat" : "izvod_nema_stavki");
+    redirectStatements(
+      duplicateCount > 0 ? "izvod_duplikat" : firstInvalidMessage ?? "izvod_nema_stavki"
+    );
   }
 
   await prisma.bankStatementAccountSetting.upsert({
@@ -1770,6 +1820,86 @@ export async function updateBankStatementLines(formData: FormData) {
 
   revalidatePath("/agencija/izvodi");
   redirectStatements("stavke_sacuvane", statement.id);
+}
+
+export async function deleteBankStatement(formData: FormData) {
+  const { user, firma, poslovnaGodina } = await getActiveContext();
+  const statementId = value(formData, "statement_id");
+
+  if (!user.agencija_id || !firma || !poslovnaGodina || !statementId) {
+    redirectStatements("izvod_greska");
+  }
+
+  if (poslovnaGodina.zakljucena) {
+    redirectStatements("godina_zakljucena", statementId);
+  }
+
+  const statement = await prisma.bankStatement.findFirst({
+    where: {
+      id: statementId,
+      agencija_id: user.agencija_id,
+      firma_id: firma.id,
+      poslovna_godina_id: poslovnaGodina.id,
+      is_deleted: false
+    },
+    select: {
+      id: true,
+      statement_number: true,
+      statement_date: true,
+      status: true,
+      total_inflow: true,
+      total_outflow: true,
+      company_bank_account_id: true,
+      journal_id: true,
+      journal: {
+        select: {
+          id: true,
+          sifra: true,
+          is_deleted: true
+        }
+      },
+      _count: {
+        select: {
+          lines: true
+        }
+      }
+    }
+  });
+
+  const hasValidJournal = Boolean(statement?.journal && !statement.journal.is_deleted);
+
+  if (!statement || statement.status === bankStatementStatuses.posted || hasValidJournal) {
+    redirectStatements("izvod_greska", statementId);
+  }
+
+  await auditLog({
+    korisnikId: user.id,
+    agencijaId: user.agencija_id,
+    firmaId: firma.id,
+    modul: "agencija.izvodi",
+    akcija: "delete",
+    tipEntiteta: "BankStatement",
+    entitetId: statement.id,
+    staraVrijednost: {
+      id: statement.id,
+      statement_number: statement.statement_number,
+      statement_date: statement.statement_date,
+      status: statement.status,
+      company_bank_account_id: statement.company_bank_account_id,
+      total_inflow: statement.total_inflow,
+      total_outflow: statement.total_outflow,
+      line_count: statement._count.lines
+    }
+  });
+
+  await prisma.bankStatement.delete({
+    where: {
+      id: statement.id
+    }
+  });
+
+  revalidatePath("/agencija/izvodi");
+  redirectStatements("izvod_obrisan");
 }
 
 export async function saveBankStatementAccountSettings(formData: FormData) {

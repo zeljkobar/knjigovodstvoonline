@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  deleteBankStatement,
   postReadyBankStatements,
   postSelectedBankStatements,
   updateBankStatementLines
@@ -23,11 +24,15 @@ const messages: Record<string, string> = {
   godina_zakljucena: "Poslovna godina je zaključena.",
   izvod_obavezno: "Popunite bankovni račun, konto banke, broj, datum i stanja izvoda.",
   izvod_prazan: "Dodajte fajl ili tekst izvoda.",
+  izvod_nema_broj: "Parser nije pronašao broj izvoda.",
+  izvod_nema_datum: "Parser nije pronašao datum izvoda.",
+  izvod_nema_stanja: "Parser nije pronašao početno i krajnje stanje izvoda.",
   izvod_nema_stavki: "Parser nije pronašao stavke izvoda.",
   izvod_duplikat: "Izvod sa tim brojem već postoji za izabrani bankovni račun.",
   izvod_uvezen: "Izvod je uvezen. Provjerite stavke i predlog naloga.",
   izvodi_uvezeni: "Izvodi su uvezeni. Provjerite stavke i predloge naloga.",
   izvodi_uvezeni_djelimicno: "Dio izvoda je uvezen; duplikati ili neispravni fajlovi su preskočeni.",
+  izvod_obrisan: "Izvod je obrisan. Možete ga ponovo uvesti.",
   stavke_sacuvane: "Stavke izvoda su sačuvane.",
   izvod_greska: "Izvod nije pronađen ili nije moguće mijenjati ga.",
   izvod_nije_izabran: "Izaberite bar jedan izvod za knjiženje.",
@@ -368,6 +373,9 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
     selectedStatement?.lines.every((line) =>
       ["READY", "IGNORED"].includes(line.posting_status)
     ) ?? false;
+  const selectedStatementCanBeDeleted = selectedStatement
+    ? effectiveStatementStatus(selectedStatement) !== "POSTED" && !statementHasValidJournal(selectedStatement)
+    : false;
   const activePreviewLines =
     selectedStatement?.lines.filter((line) => line.posting_status !== "IGNORED") ?? [];
   const totalInflowPreview = activePreviewLines.reduce(
@@ -551,6 +559,14 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                     <Link className="table-link" href={`/agencija/nalozi/${selectedStatement.journal.id}`}>
                       Otvori nalog {selectedStatement.journal.sifra}
                     </Link>
+                  ) : null}
+                  {selectedStatementCanBeDeleted ? (
+                    <form action={deleteBankStatement}>
+                      <input name="statement_id" type="hidden" value={selectedStatement.id} />
+                      <button className="table-button table-button-danger compact-action" type="submit">
+                        Obriši izvod
+                      </button>
+                    </form>
                   ) : null}
                 </div>
               </div>
