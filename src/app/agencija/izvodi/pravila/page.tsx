@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createBankPostingRule } from "../actions";
+import { createBankPostingRule, deleteBankPostingRule } from "../actions";
 import { displayDate, getIzvodiContext, MissingContext } from "../_shared";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { prisma } from "@/lib/prisma";
@@ -11,8 +11,16 @@ const directionLabels: Record<string, string> = {
 
 type PravilaIzvodaPageProps = {
   searchParams?: Promise<{
+    poruka?: string;
     pravilo?: string;
   }>;
+};
+
+const messages: Record<string, string> = {
+  godina_zakljucena: "Poslovna godina je zaključana.",
+  pravilo_obavezno: "Pravilo nije pronađeno ili nije moguće izmijeniti ga.",
+  pravilo_obrisano: "Pravilo je obrisano.",
+  pravilo_sacuvano: "Pravilo je sačuvano."
 };
 
 export default async function PravilaIzvodaPage({ searchParams }: PravilaIzvodaPageProps) {
@@ -147,6 +155,8 @@ export default async function PravilaIzvodaPage({ searchParams }: PravilaIzvodaP
           <p>Zapamćena pravila po kontra žiro računu za automatsko popunjavanje konta.</p>
         </div>
       </header>
+
+      {params?.poruka ? <p className="admin-message">{messages[params.poruka] ?? params.poruka}</p> : null}
 
       <section className="admin-panel">
         <div className="section-title-row">
@@ -295,7 +305,15 @@ export default async function PravilaIzvodaPage({ searchParams }: PravilaIzvodaP
                     <td>{rule.times_used}</td>
                     <td>{rule.last_used_at ? displayDate(rule.last_used_at) : "-"}</td>
                     <td>
-                      <Link href={`/agencija/izvodi/pravila?pravilo=${rule.id}`}>Ispravi</Link>
+                      <div className="table-actions">
+                        <Link href={`/agencija/izvodi/pravila?pravilo=${rule.id}`}>Ispravi</Link>
+                        <form action={deleteBankPostingRule}>
+                          <input name="rule_id" type="hidden" value={rule.id} />
+                          <button className="table-button table-button-danger" type="submit">
+                            Obriši
+                          </button>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -69,10 +69,12 @@ function parseMoneyToCents(input: string) {
     return 0;
   }
 
-  const normalized = raw
-    .replace(/\s/g, "")
-    .replace(/\.(?=\d{3}(\D|$))/g, "")
-    .replace(",", ".");
+  const compact = raw.replace(/\s/g, "");
+  const normalized = /^-?\d{1,3}(?:,\d{3})+\.\d{2}$/.test(compact)
+    ? compact.replace(/,/g, "")
+    : compact
+        .replace(/\.(?=\d{3}(\D|$))/g, "")
+        .replace(",", ".");
   const parsed = Number(normalized);
 
   if (!Number.isFinite(parsed)) {
@@ -249,7 +251,7 @@ function pdfItemsInRange(row: PdfTextRow, minX: number, maxX: number) {
 }
 
 function isMoneyText(input: string) {
-  return /^-?\d{1,3}(?:\.\d{3})*,\d{2}$|^-?\d+,\d{2}$/.test(input.trim());
+  return /^-?\d{1,3}(?:\.\d{3})*,\d{2}$|^-?\d+,\d{2}$|^-?\d+(?:,\d{3})*\.\d{2}$/.test(input.trim());
 }
 
 function firstPdfItemInRange(
@@ -449,6 +451,220 @@ function parseCkbPdf(text: string, pdfRows?: PdfTextRow[]): ParsedStatement | nu
     closingBalance: header.closingBalance,
     lines,
     notes: "Ukupan priliv i odliv pročitani su iz zaglavlja CKB PDF izvoda."
+  };
+}
+
+function hipotekarnaMoneyValues(row: PdfTextRow) {
+  return row.items
+    .filter((item) => item.x >= 380 && item.x <= 1200)
+    .map((item) => item.text.trim())
+    .filter(isMoneyText)
+    .map((item) => parseMoneyToCents(item))
+    .filter((amount): amount is number => amount !== null);
+}
+
+function parseHipotekarnaHeader(rows: PdfTextRow[]) {
+  const statementRow = rows.find((row) => {
+    const number = firstPdfItemInRange(row, 700, 790, /^\d+$/);
+    const date = firstPdfItemInRange(row, 930, 1040, /^\d{2}\.\d{2}\.\d{4}\.?$/);
+
+    return Boolean(number && date);
+  });
+  const accountRow = rows.find((row) => {
+    const account = firstPdfItemInRange(row, 950, 1120, /^\d{9,}$/);
+
+    return Boolean(account);
+  });
+  const totalsRow = rows
+    .filter((row) => hipotekarnaMoneyValues(row).length >= 4)
+    .sort((a, b) => a.y - b.y)[0];
+  const totals = totalsRow ? hipotekarnaMoneyValues(totalsRow) : [];
+  const statementNumber = statementRow
+    ? firstPdfItemInRange(statementRow, 700, 790, /^\d+$/)
+    : "";
+  const statementDateText = statementRow
+    ? firstPdfItemInRange(statementRow, 930, 1040, /^\d{2}\.\d{2}\.\d{4}\.?$/)
+    : "";
+
+  return {
+    statementNumber: statementNumber || null,
+    statementDate: parseDateInput(statementDateText),
+    companyAccountNumber: accountRow
+      ? firstPdfItemInRange(accountRow, 950, 1120, /^\d{9,}$/) || null
+      : null,
+    openingBalance: totals[0] ?? null,
+    totalOutflow: totals[1] ?? null,
+    totalInflow: totals[2] ?? null,
+    closingBalance: totals[3] ?? null
+  };
+}
+
+function isHipotekarnaAccountNumber(input: string | null | undefined) {
+  const value = String(input ?? "").trim();
+  const normalized = normalizeAccountNumber(value);
+
+  return normalized.length >= 9 || /^\d{3}-\d{5,}-\d{2}$/.test(value);
+}
+
+function parseHipotekarnaMainRow(row: PdfTextRow) {
+  const postingDateText = firstPdfItemInRange(row, 50, 150, /^\d{2}\.\d{2}\.\d{4}\.?$/);
+
+  if (!postingDateText) {
+    return null;
+  }
+
+  const postingDate = parseDateInput(postingDateText);
+  const outflow = parseMoneyToCents(firstPdfItemInRange(row, 610, 720, /^-?\d/));
+  const inflow = parseMoneyToCents(firstPdfItemInRange(row, 780, 860, /^-?\d/));
+
+  if (!postingDate || outflow === null || inflow === null || (outflow === 0 && inflow === 0)) {
+    return null;
+  }
+
+  const counterpartyName = pdfItemsInRange(row, 150, 610)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const paymentCode = firstPdfItemInRange(row, 860, 940, /^\d{3}$/) || null;
+  const referenceNumber = pdfItemsInRange(row, 1200, 1500)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim() || null;
+
+  return {
+    postingDate,
+    valueDate: postingDate,
+    counterpartyName: counterpartyName || null,
+    paymentCode,
+    referenceNumber,
+    outflow,
+    inflow
+  };
+}
+
+function isHipotekarnaNoiseRow(row: PdfTextRow) {
+  const text = pdfRowText(row);
+
+  return (
+    !text ||
+    row.y > 950 ||
+    row.y < 180 ||
+    /^1\.$/.test(text) ||
+    text.includes("Ukupno") ||
+    text.includes("Novo stanje") ||
+    text.includes("Prethodno")
+  );
+}
+
+function parseHipotekarnaPdf(text: string, pdfRows?: PdfTextRow[]): ParsedStatement | null {
+  if (!pdfRows?.length) {
+    return null;
+  }
+
+  const header = parseHipotekarnaHeader(pdfRows);
+
+  if (
+    !header.statementNumber ||
+    !header.companyAccountNumber ||
+    (!/HIPOTEKARNA BANKA|HIPOTEKARNA/i.test(text) &&
+      header.openingBalance === null &&
+      header.closingBalance === null)
+  ) {
+    return null;
+  }
+
+  type WorkingLine = NonNullable<ReturnType<typeof parseHipotekarnaMainRow>> & {
+    accountNumber: string | null;
+    descriptionParts: string[];
+  };
+  const lines: ParsedStatementLine[] = [];
+  let current: WorkingLine | null = null;
+  const pushCurrent = () => {
+    if (!current) {
+      return;
+    }
+
+    const rawDescription = Array.from(new Set([
+      current.counterpartyName ?? "",
+      ...current.descriptionParts
+    ]))
+      .filter(Boolean)
+      .join(" · ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const accountNumber = isHipotekarnaAccountNumber(current.accountNumber)
+      ? current.accountNumber
+      : null;
+    const normalizedAccountNumber = normalizeAccountNumber(accountNumber);
+
+    lines.push({
+      postingDate: current.postingDate,
+      valueDate: current.valueDate,
+      description: rawDescription || "Hipotekarna PDF stavka",
+      accountNumber,
+      normalizedAccountNumber: normalizedAccountNumber || null,
+      counterpartyName: current.counterpartyName,
+      referenceNumber: current.referenceNumber,
+      paymentCode: current.paymentCode,
+      outflow: current.outflow,
+      inflow: current.inflow,
+      rawText: rawDescription || "Hipotekarna PDF stavka"
+    });
+  };
+
+  for (const row of pdfRows) {
+    const mainRow = parseHipotekarnaMainRow(row);
+
+    if (mainRow) {
+      pushCurrent();
+      current = {
+        ...mainRow,
+        accountNumber: null,
+        descriptionParts: []
+      };
+      continue;
+    }
+
+    if (!current || isHipotekarnaNoiseRow(row)) {
+      continue;
+    }
+
+    const accountCandidate = firstPdfItemInRange(row, 150, 330, /^[\d-]+$/);
+    const purpose = pdfItemsInRange(row, 850, 1180)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const reference = pdfItemsInRange(row, 1200, 1520)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (accountCandidate && !current.accountNumber) {
+      current.accountNumber = accountCandidate;
+    }
+
+    if (purpose) {
+      current.descriptionParts.push(purpose);
+    }
+
+    if (reference) {
+      current.referenceNumber = reference;
+    }
+  }
+
+  pushCurrent();
+
+  return {
+    parser: "HIPOTEKARNA_PDF",
+    companyAccountNumber: header.companyAccountNumber,
+    statementNumber: header.statementNumber,
+    statementDate: header.statementDate,
+    openingBalance: header.openingBalance,
+    totalInflow: header.totalInflow,
+    totalOutflow: header.totalOutflow,
+    closingBalance: header.closingBalance,
+    lines,
+    notes: "Kartične i gotovinske stavke bez žiro računa uvoze se bez računa partnera."
   };
 }
 
@@ -792,10 +1008,16 @@ type StatementParser = (text: string, pdfRows?: PdfTextRow[]) => ParsedStatement
 const statementParserRegistry: Record<string, StatementParser[]> = {
   NLB: [parseNlbXml],
   ERSTE: [parseErsteHtml],
-  CKB: [parseCkbPdf]
+  CKB: [parseCkbPdf],
+  HIPOTEKARNA: [parseHipotekarnaPdf]
 };
 
-const defaultStatementParsers: StatementParser[] = [parseNlbXml, parseErsteHtml, parseCkbPdf];
+const defaultStatementParsers: StatementParser[] = [
+  parseNlbXml,
+  parseErsteHtml,
+  parseCkbPdf,
+  parseHipotekarnaPdf
+];
 
 function bankParserKey(bankName: string | null | undefined) {
   const normalized = String(bankName ?? "")
@@ -817,6 +1039,10 @@ function bankParserKey(bankName: string | null | undefined) {
     normalized.includes("KOMERCIJALNA BANKA")
   ) {
     return "CKB";
+  }
+
+  if (normalized.includes("HIPOTEKARNA")) {
+    return "HIPOTEKARNA";
   }
 
   return null;
@@ -922,6 +1148,20 @@ function bestRuleForLine(
 
       return right.times_used - left.times_used;
     })[0] ?? null;
+}
+
+function learnedDescriptionCondition(description: string | null | undefined) {
+  const cleanDescription = String(description ?? "").replace(/\s+/g, " ").trim();
+  const parts = cleanDescription
+    .split("·")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const usefulPart =
+    parts.find((part) => /UPLATA|PAZAR|NAKNADA|PROVIZ|KARTIC|POS|ATM/i.test(part)) ??
+    parts[parts.length - 1] ??
+    cleanDescription;
+
+  return usefulPart || null;
 }
 
 async function getActiveContext() {
@@ -1662,14 +1902,16 @@ export async function updateBankStatementLines(formData: FormData) {
           },
           select: {
             counterparty_account_number: true,
-            counterparty_account_number_normalized: true
+            counterparty_account_number_normalized: true,
+            description: true,
+            payment_code: true,
+            reference_number: true
           }
         });
         const normalizedAccount = savedLine?.counterparty_account_number_normalized;
+        const partnerId = partnerIds[index] ?? null;
 
         if (normalizedAccount) {
-          const partnerId = partnerIds[index] ?? null;
-
           if (partnerId) {
             const learnedAccount =
               await tx.partnerBankAccount.findFirst({
@@ -1777,6 +2019,73 @@ export async function updateBankStatementLines(formData: FormData) {
                 updated_by: user.id
               }
             });
+          }
+        } else if (savedLine) {
+          const descriptionContains = learnedDescriptionCondition(savedLine.description);
+          const paymentCode = savedLine.payment_code ?? null;
+
+          if (descriptionContains || paymentCode) {
+            const existingRule = await tx.bankPostingRule.findFirst({
+              where: {
+                agencija_id: agencijaId,
+                firma_id: firma.id,
+                rule_type: "ADVANCED",
+                direction: lineDirection,
+                counterparty_account_number_normalized: null,
+                description_contains: descriptionContains,
+                reference_contains: null,
+                payment_code: paymentCode
+              },
+              select: {
+                id: true
+              }
+            });
+
+            if (existingRule) {
+              await tx.bankPostingRule.update({
+                where: {
+                  id: existingRule.id
+                },
+                data: {
+                  partner_id: partnerId,
+                  account_id: selectedAccount.id,
+                  account_code: selectedAccount.sifra,
+                  times_used: {
+                    increment: 1
+                  },
+                  last_used_at: new Date(),
+                  active: true,
+                  auto_apply: true,
+                  requires_review: false,
+                  updated_by: user.id
+                }
+              });
+            } else {
+              await tx.bankPostingRule.create({
+                data: {
+                  agencija_id: agencijaId,
+                  firma_id: firma.id,
+                  rule_type: "ADVANCED",
+                  direction: lineDirection,
+                  counterparty_account_number: null,
+                  counterparty_account_number_normalized: null,
+                  description_contains: descriptionContains,
+                  reference_contains: null,
+                  payment_code: paymentCode,
+                  account_id: selectedAccount.id,
+                  account_code: selectedAccount.sifra,
+                  partner_id: partnerId,
+                  priority: 10,
+                  times_used: 1,
+                  last_used_at: new Date(),
+                  active: true,
+                  auto_apply: true,
+                  requires_review: false,
+                  created_by: user.id,
+                  updated_by: user.id
+                }
+              });
+            }
           }
         }
       }
@@ -2161,6 +2470,79 @@ export async function createBankPostingRule(formData: FormData) {
 
   revalidatePath("/agencija/izvodi/pravila");
   redirect("/agencija/izvodi/pravila?poruka=pravilo_sacuvano");
+}
+
+export async function deleteBankPostingRule(formData: FormData) {
+  const { user, firma, poslovnaGodina } = await getActiveContext();
+  const ruleId = value(formData, "rule_id");
+
+  if (!user.agencija_id || !firma || !poslovnaGodina || !ruleId) {
+    redirect("/agencija/izvodi/pravila?poruka=pravilo_obavezno");
+  }
+
+  if (poslovnaGodina.zakljucena) {
+    redirect("/agencija/izvodi/pravila?poruka=godina_zakljucena");
+  }
+
+  const rule = await prisma.bankPostingRule.findFirst({
+    where: {
+      id: ruleId,
+      agencija_id: user.agencija_id,
+      active: true,
+      OR: [
+        {
+          firma_id: firma.id
+        },
+        {
+          firma_id: {
+            equals: null
+          }
+        }
+      ]
+    },
+    select: {
+      id: true,
+      firma_id: true,
+      rule_type: true,
+      direction: true,
+      counterparty_account_number: true,
+      counterparty_account_number_normalized: true,
+      description_contains: true,
+      reference_contains: true,
+      payment_code: true,
+      account_code: true,
+      partner_id: true,
+      priority: true
+    }
+  });
+
+  if (!rule) {
+    redirect("/agencija/izvodi/pravila?poruka=pravilo_obavezno");
+  }
+
+  await prisma.bankPostingRule.update({
+    where: {
+      id: rule.id
+    },
+    data: {
+      active: false,
+      updated_by: user.id
+    }
+  });
+
+  await auditLog({
+    korisnikId: user.id,
+    agencijaId: user.agencija_id,
+    firmaId: firma.id,
+    modul: "agencija.izvodi",
+    akcija: "delete_posting_rule",
+    tipEntiteta: "BankPostingRule",
+    entitetId: rule.id,
+    staraVrijednost: rule
+  });
+
+  revalidatePath("/agencija/izvodi/pravila");
+  redirect("/agencija/izvodi/pravila?poruka=pravilo_obrisano");
 }
 
 export async function postSelectedBankStatements(formData: FormData) {

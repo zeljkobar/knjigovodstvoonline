@@ -61,6 +61,12 @@ export default async function ParseriBanakaPage() {
       stats: parserStats.get("CKB_PDF")
     },
     {
+      name: "HIPOTEKARNA_PDF",
+      status: "Aktivan",
+      description: "PDF parser za Hipotekarnu banku; podržava i kartične stavke bez žiro računa.",
+      stats: parserStats.get("HIPOTEKARNA_PDF")
+    },
+    {
       name: "TEXT_FALLBACK",
       status: "Aktivan",
       description: "Ručni tekst: datum; opis; žiro račun; odliv; priliv.",
