@@ -41,13 +41,6 @@ export const agencyNavigation: NavigationItem[] = [
     section: "nalozi"
   },
   {
-    href: "/agencija/robno",
-    icon: "▧",
-    label: "Robno",
-    roles: agencyRoles,
-    section: "robno"
-  },
-  {
     href: "/agencija/racuni",
     icon: "▥",
     label: "Računi",
@@ -62,18 +55,25 @@ export const agencyNavigation: NavigationItem[] = [
     section: "pdv"
   },
   {
-    href: "/agencija/plate",
-    icon: "◫",
-    label: "Plate",
-    roles: agencyRoles,
-    section: "plate"
-  },
-  {
     href: "/agencija/izvodi",
     icon: "≋",
     label: "Izvodi",
     roles: agencyRoles,
     section: "izvodi"
+  },
+  {
+    href: "/agencija/robno",
+    icon: "▧",
+    label: "Robno",
+    roles: agencyRoles,
+    section: "robno"
+  },
+  {
+    href: "/agencija/plate",
+    icon: "◫",
+    label: "Plate",
+    roles: agencyRoles,
+    section: "plate"
   },
   {
     href: "/agencija/zavrsni-racun",

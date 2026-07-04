@@ -11,10 +11,10 @@ type BrutoBilansPageProps = {
   }>;
 };
 
-export default function BrutoBilansPage({ searchParams }: BrutoBilansPageProps) {
+export default function ZavrsniRacunBrutoBilansPage({ searchParams }: BrutoBilansPageProps) {
   return (
     <BrutoBilansView
-      basePath="/agencija/nalozi/bruto-bilans"
+      basePath="/agencija/zavrsni-racun/bruto-bilans"
       searchParams={searchParams}
     />
   );
