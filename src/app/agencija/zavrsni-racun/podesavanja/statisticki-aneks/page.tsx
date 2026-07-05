@@ -78,14 +78,23 @@ export default async function StatistickiAneksPodesavanjaPage({ searchParams }: 
           </p>
         </div>
         <div className="header-actions">
-          <Link className="secondary-button" href="/agencija/zavrsni-racun/podesavanja">
-            Bilans uspjeha
-          </Link>
-          <Link className="secondary-button" href="/agencija/zavrsni-racun/podesavanja/bilans-stanja">
-            Bilans stanja
+          <Link className="secondary-button" href="/agencija/zavrsni-racun/obrasci">
+            Obrasci
           </Link>
         </div>
       </header>
+
+      <div className="tabs-row">
+        <Link className="tab-link" href="/agencija/zavrsni-racun/podesavanja">
+          Bilans uspjeha
+        </Link>
+        <Link className="tab-link" href="/agencija/zavrsni-racun/podesavanja/bilans-stanja">
+          Bilans stanja
+        </Link>
+        <Link className="tab-link active" href="/agencija/zavrsni-racun/podesavanja/statisticki-aneks">
+          Statistički aneks
+        </Link>
+      </div>
 
       {params?.poruka && messages[params.poruka] ? (
         <p className="admin-message">{messages[params.poruka]}</p>

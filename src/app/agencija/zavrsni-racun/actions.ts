@@ -8,7 +8,8 @@ import {
   financialReportTypes,
   getBalanceSheetSettings,
   getIncomeStatementSettings,
-  getStatisticalAnnexSettings
+  getStatisticalAnnexSettings,
+  type ReportCorrectionColumn
 } from "@/lib/financial-reports";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -22,6 +23,19 @@ function numberValue(value: FormDataEntryValue | null, fallback = 0) {
   const parsed = Number(text(value));
 
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function reportMoneyValue(value: FormDataEntryValue | null) {
+  const raw = text(value);
+
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.replace(/\./g, "").replace(",", ".");
+  const parsed = Number(normalized);
+
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 async function requireFinalAccountManageContext() {
@@ -47,6 +61,63 @@ async function requireFinalAccountManageContext() {
     agencijaId: user.agencija_id,
     firmaId: workContext.firmaId
   };
+}
+
+async function requireFinalAccountManageContextWithYear(redirectPath: string) {
+  const context = await requireFinalAccountManageContext();
+  const workContext = await readWorkContext();
+
+  if (!workContext.poslovnaGodinaId) {
+    redirect(`${redirectPath}?poruka=kontekst`);
+  }
+
+  const poslovnaGodina = await prisma.poslovnaGodina.findFirst({
+    where: {
+      id: workContext.poslovnaGodinaId,
+      firma_id: context.firmaId
+    },
+    select: {
+      id: true,
+      zakljucena: true
+    }
+  });
+
+  if (!poslovnaGodina) {
+    redirect(`${redirectPath}?poruka=kontekst`);
+  }
+
+  if (poslovnaGodina.zakljucena) {
+    redirect(`${redirectPath}?poruka=godina_zakljucena`);
+  }
+
+  return {
+    ...context,
+    poslovnaGodinaId: poslovnaGodina.id
+  };
+}
+
+const reportTypesBySlug = {
+  "bilans-stanja": financialReportTypes.balanceSheet,
+  "bilans-uspjeha": financialReportTypes.incomeStatement,
+  "statisticki-aneks": financialReportTypes.statisticalAnnex
+} as const;
+
+const validReportColumnsByType: Record<string, ReportCorrectionColumn[]> = {
+  [financialReportTypes.balanceSheet]: [
+    "tekuca_godina",
+    "prethodna_godina_kraj",
+    "prethodna_godina_pocetak"
+  ],
+  [financialReportTypes.incomeStatement]: ["tekuca_godina", "prethodna_godina"],
+  [financialReportTypes.statisticalAnnex]: ["tekuca_godina", "prethodna_godina"]
+};
+
+function reportCorrectionsPath(slug: string, message: string) {
+  return `/agencija/zavrsni-racun/obrasci?obrazac=${slug}&edit=1&poruka=${message}`;
+}
+
+function isValidReportColumn(tipSifra: string, column: string): column is ReportCorrectionColumn {
+  return validReportColumnsByType[tipSifra]?.includes(column as ReportCorrectionColumn) ?? false;
 }
 
 async function saveFinancialReportSettings({
@@ -219,4 +290,139 @@ export async function saveStatisticalAnnexSettings(formData: FormData) {
       "/stampa/zavrsni-racun/statisticki-aneks"
     ]
   });
+}
+
+export async function saveFinancialReportCorrections(formData: FormData) {
+  const reportSlug = text(formData.get("obrazac")) || "bilans-stanja";
+  const tipSifra = reportTypesBySlug[reportSlug as keyof typeof reportTypesBySlug];
+
+  if (!tipSifra) {
+    redirect(reportCorrectionsPath("bilans-stanja", "neispravno"));
+  }
+
+  const context = await requireFinalAccountManageContextWithYear(
+    `/agencija/zavrsni-racun/obrasci?obrazac=${reportSlug}&edit=1`
+  );
+  const resetKey = text(formData.get("reset_key"));
+
+  if (resetKey) {
+    const [aop, column] = resetKey.split(":");
+
+    if (aop && column && isValidReportColumn(tipSifra, column)) {
+      await prisma.finansijskiIzvjestajKorekcija.deleteMany({
+        where: {
+          agencija_id: context.agencijaId,
+          firma_id: context.firmaId,
+          poslovna_godina_id: context.poslovnaGodinaId,
+          tip_sifra: tipSifra,
+          aop,
+          kolona: column
+        }
+      });
+
+      await auditLog({
+        korisnikId: context.user.id,
+        agencijaId: context.agencijaId,
+        firmaId: context.firmaId,
+        modul: "zavrsni_racun",
+        akcija: "reset_korekcije_obrasca",
+        tipEntiteta: "finansijski_izvjestaj_korekcija",
+        novaVrijednost: {
+          tip: tipSifra,
+          aop,
+          kolona: column
+        }
+      });
+    }
+
+    revalidatePath("/agencija/zavrsni-racun/obrasci");
+    revalidatePath("/stampa/zavrsni-racun/bilans-stanja");
+    revalidatePath("/stampa/zavrsni-racun/bilans-uspjeha");
+    revalidatePath("/stampa/zavrsni-racun/statisticki-aneks");
+    redirect(reportCorrectionsPath(reportSlug, "korekcija_resetovana"));
+  }
+
+  const aops = formData.getAll("aop");
+  const columns = formData.getAll("kolona");
+  const values = formData.getAll("vrijednost");
+  const automaticValues = formData.getAll("automatska_vrijednost");
+  let saved = 0;
+  let deleted = 0;
+
+  await prisma.$transaction(async (tx) => {
+    for (let index = 0; index < aops.length; index += 1) {
+      const aop = text(aops[index]);
+      const column = text(columns[index]);
+
+      if (!aop || !isValidReportColumn(tipSifra, column)) {
+        continue;
+      }
+
+      const value = reportMoneyValue(values[index]);
+      const automaticValue = reportMoneyValue(automaticValues[index]) ?? 0;
+
+      if (value === null || Math.round(value) === Math.round(automaticValue)) {
+        const result = await tx.finansijskiIzvjestajKorekcija.deleteMany({
+          where: {
+            agencija_id: context.agencijaId,
+            firma_id: context.firmaId,
+            poslovna_godina_id: context.poslovnaGodinaId,
+            tip_sifra: tipSifra,
+            aop,
+            kolona: column
+          }
+        });
+        deleted += result.count;
+        continue;
+      }
+
+      await tx.finansijskiIzvjestajKorekcija.upsert({
+        where: {
+          firma_id_poslovna_godina_id_tip_sifra_aop_kolona: {
+            firma_id: context.firmaId,
+            poslovna_godina_id: context.poslovnaGodinaId,
+            tip_sifra: tipSifra,
+            aop,
+            kolona: column
+          }
+        },
+        create: {
+          agencija_id: context.agencijaId,
+          firma_id: context.firmaId,
+          poslovna_godina_id: context.poslovnaGodinaId,
+          tip_sifra: tipSifra,
+          aop,
+          kolona: column,
+          vrijednost: value.toFixed(2),
+          created_by: context.user.id,
+          updated_by: context.user.id
+        },
+        update: {
+          vrijednost: value.toFixed(2),
+          updated_by: context.user.id
+        }
+      });
+      saved += 1;
+    }
+  });
+
+  await auditLog({
+    korisnikId: context.user.id,
+    agencijaId: context.agencijaId,
+    firmaId: context.firmaId,
+    modul: "zavrsni_racun",
+    akcija: "korekcije_obrasca",
+    tipEntiteta: "finansijski_izvjestaj_korekcija",
+    novaVrijednost: {
+      tip: tipSifra,
+      sacuvano: saved,
+      obrisano: deleted
+    }
+  });
+
+  revalidatePath("/agencija/zavrsni-racun/obrasci");
+  revalidatePath("/stampa/zavrsni-racun/bilans-stanja");
+  revalidatePath("/stampa/zavrsni-racun/bilans-uspjeha");
+  revalidatePath("/stampa/zavrsni-racun/statisticki-aneks");
+  redirect(reportCorrectionsPath(reportSlug, "korekcije_sacuvane"));
 }

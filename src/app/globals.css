@@ -1912,6 +1912,39 @@ td small {
   white-space: nowrap;
 }
 
+.manual-correction-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.manual-correction-input {
+  width: 110px;
+  min-width: 90px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  text-align: right;
+}
+
+.manual-badge {
+  display: inline-block;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: #eef7ff;
+  color: var(--primary-strong);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 7px;
+  text-transform: uppercase;
+}
+
+.manual-reset-button {
+  min-height: 32px;
+  padding: 6px 9px;
+}
+
 .income-bold-row td {
   font-weight: 800;
 }

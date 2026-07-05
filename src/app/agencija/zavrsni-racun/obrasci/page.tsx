@@ -3,11 +3,52 @@ import { requireAnyRole } from "@/lib/auth";
 import {
   calculateBalanceSheet,
   calculateIncomeStatement,
-  calculateStatisticalAnnex
+  calculateStatisticalAnnex,
+  financialReportTypes,
+  type BalanceSheetRow,
+  type IncomeStatementRow,
+  type ReportCorrectionColumn,
+  type StatisticalAnnexRow
 } from "@/lib/financial-reports";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
+import { saveFinancialReportCorrections } from "../actions";
+
+type PageProps = {
+  searchParams?: Promise<{
+    obrazac?: string;
+    edit?: string;
+    poruka?: string;
+  }>;
+};
+
+const reportTabs = [
+  {
+    key: "bilans-stanja",
+    label: "Bilans stanja",
+    printHref: "/stampa/zavrsni-racun/bilans-stanja"
+  },
+  {
+    key: "bilans-uspjeha",
+    label: "Bilans uspjeha",
+    printHref: "/stampa/zavrsni-racun/bilans-uspjeha"
+  },
+  {
+    key: "statisticki-aneks",
+    label: "Statistički aneks",
+    printHref: "/stampa/zavrsni-racun/statisticki-aneks"
+  }
+] as const;
+
+const messages: Record<string, string> = {
+  korekcije_sacuvane: "Ručne korekcije su sačuvane.",
+  korekcija_resetovana: "Polje je vraćeno na obračunatu vrijednost.",
+  godina_zakljucena: "Poslovna godina je zaključana i korekcije nijesu dozvoljene.",
+  kontekst: "Izaberite firmu i poslovnu godinu.",
+  prava: "Nemate pravo za izmjenu završnog računa.",
+  neispravno: "Korekcija nije ispravna."
+};
 
 function amount(value: number) {
   if (Math.abs(value) < 0.005) {
@@ -17,7 +58,84 @@ function amount(value: number) {
   return Math.round(value).toLocaleString("sr-Latn");
 }
 
-export default async function ZavrsniRacunObrasciPage() {
+function inputAmount(value: number) {
+  return String(Math.round(value));
+}
+
+function reportHref(report: string, editMode = false) {
+  const params = new URLSearchParams({ obrazac: report });
+
+  if (editMode) {
+    params.set("edit", "1");
+  }
+
+  return `/agencija/zavrsni-racun/obrasci?${params.toString()}`;
+}
+
+function canEditRow(
+  row: IncomeStatementRow | BalanceSheetRow | StatisticalAnnexRow,
+  editMode: boolean
+) {
+  return editMode && Boolean(row.aop) && !row.formula;
+}
+
+function correctionCell({
+  row,
+  column,
+  value,
+  editMode
+}: {
+  row: IncomeStatementRow | BalanceSheetRow | StatisticalAnnexRow;
+  column: ReportCorrectionColumn;
+  value: number;
+  editMode: boolean;
+}) {
+  const correction = row.manualCorrections[column];
+
+  if (!canEditRow(row, editMode)) {
+    return (
+      <>
+        {amount(value)}
+        {correction ? <span className="manual-badge">ručno</span> : null}
+      </>
+    );
+  }
+
+  return (
+    <div className="manual-correction-cell">
+      <input type="hidden" name="aop" value={row.aop ?? ""} />
+      <input type="hidden" name="kolona" value={column} />
+      <input type="hidden" name="automatska_vrijednost" value={inputAmount(correction?.automaticValue ?? value)} />
+      <input
+        className="manual-correction-input"
+        name="vrijednost"
+        inputMode="decimal"
+        defaultValue={inputAmount(value)}
+        aria-label={`Korekcija ${row.aop ?? ""} ${column}`}
+      />
+      {correction ? (
+        <button
+          className="table-button manual-reset-button"
+          type="submit"
+          name="reset_key"
+          value={`${row.aop}:${column}`}
+        >
+          Vrati
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+export default async function ZavrsniRacunObrasciPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const activeReport = reportTabs.some((tab) => tab.key === params?.obrazac)
+    ? params?.obrazac
+    : "bilans-stanja";
+  const editMode = params?.edit === "1";
+  const activePrintHref =
+    reportTabs.find((tab) => tab.key === activeReport)?.printHref ??
+    "/stampa/zavrsni-racun/bilans-stanja";
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const workContext = await readWorkContext();
 
@@ -111,35 +229,32 @@ export default async function ZavrsniRacunObrasciPage() {
         </div>
         <div className="header-actions">
           <Link className="secondary-button" href="/agencija/zavrsni-racun/podesavanja">
-            Podešavanja BU
+            Podešavanja
           </Link>
-          <Link
-            className="secondary-button"
-            href="/agencija/zavrsni-racun/podesavanja/bilans-stanja"
-          >
-            Podešavanja BS
+          <Link className="secondary-button" href={reportHref(activeReport ?? "bilans-stanja", !editMode)}>
+            {editMode ? "Pregled" : "Ručne korekcije"}
           </Link>
-          <Link
-            className="secondary-button"
-            href="/agencija/zavrsni-racun/podesavanja/statisticki-aneks"
-          >
-            Podešavanja SA
-          </Link>
-          <Link className="secondary-button" href="/stampa/zavrsni-racun/bilans-uspjeha" target="_blank">
-            Štampa BU
-          </Link>
-          <Link className="secondary-button" href="/stampa/zavrsni-racun/bilans-stanja" target="_blank">
-            Štampa BS
-          </Link>
-          <Link
-            className="secondary-button"
-            href="/stampa/zavrsni-racun/statisticki-aneks"
-            target="_blank"
-          >
-            Štampa SA
+          <Link className="secondary-button" href={activePrintHref} target="_blank">
+            Štampa
           </Link>
         </div>
       </header>
+
+      <div className="tabs-row">
+        {reportTabs.map((tab) => (
+          <Link
+            key={tab.key}
+            className={activeReport === tab.key ? "tab-link active" : "tab-link"}
+            href={reportHref(tab.key, editMode)}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </div>
+
+      {params?.poruka && messages[params.poruka] ? (
+        <p className="admin-message">{messages[params.poruka]}</p>
+      ) : null}
 
       <section className="stats-grid">
         <article className="stat-card">
@@ -167,6 +282,7 @@ export default async function ZavrsniRacunObrasciPage() {
         </article>
       </section>
 
+      {activeReport === "bilans-uspjeha" ? (
       <section className="admin-panel">
         <div className="panel-header">
           <div>
@@ -177,36 +293,63 @@ export default async function ZavrsniRacunObrasciPage() {
             </span>
           </div>
         </div>
-        <div className="table-wrap">
-          <table className="admin-table income-statement-table">
-            <thead>
-              <tr>
-                <th>RBR</th>
-                <th>Opis</th>
-                <th>Pozicija</th>
-                <th>AOP</th>
-                <th>Napomena</th>
-                <th>Tekuća godina</th>
-                <th>Preth. godina</th>
-              </tr>
-            </thead>
-            <tbody>
-              {incomeResult.rows.map((row) => (
-                <tr key={row.id} className={row.bold ? "income-bold-row" : undefined}>
-                  <td>{row.rbr}</td>
-                  <td>{row.uslov ?? ""}</td>
-                  <td>{row.pozicija}</td>
-                  <td>{row.aop?.replace(/^A/, "") ?? ""}</td>
-                  <td>{row.aop ?? ""}</td>
-                  <td className="num-cell">{amount(row.tekucaGodina)}</td>
-                  <td className="num-cell">{amount(row.prethodnaGodina)}</td>
+        <form action={saveFinancialReportCorrections}>
+          <input type="hidden" name="obrazac" value="bilans-uspjeha" />
+          <input type="hidden" name="tip_sifra" value={financialReportTypes.incomeStatement} />
+          <div className="table-wrap">
+            <table className="admin-table income-statement-table">
+              <thead>
+                <tr>
+                  <th>RBR</th>
+                  <th>Opis</th>
+                  <th>Pozicija</th>
+                  <th>AOP</th>
+                  <th>Napomena</th>
+                  <th>Tekuća godina</th>
+                  <th>Preth. godina</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {incomeResult.rows.map((row) => (
+                  <tr key={row.id} className={row.bold ? "income-bold-row" : undefined}>
+                    <td>{row.rbr}</td>
+                    <td>{row.uslov ?? ""}</td>
+                    <td>{row.pozicija}</td>
+                    <td>{row.aop?.replace(/^A/, "") ?? ""}</td>
+                    <td>{row.aop ?? ""}</td>
+                    <td className="num-cell">
+                      {correctionCell({
+                        row,
+                        column: "tekuca_godina",
+                        value: row.tekucaGodina,
+                        editMode
+                      })}
+                    </td>
+                    <td className="num-cell">
+                      {correctionCell({
+                        row,
+                        column: "prethodna_godina",
+                        value: row.prethodnaGodina,
+                        editMode
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {editMode ? (
+            <div className="form-actions">
+              <button className="primary-button" type="submit">
+                Sačuvaj korekcije
+              </button>
+            </div>
+          ) : null}
+        </form>
       </section>
+      ) : null}
 
+      {activeReport === "bilans-stanja" ? (
       <section className="admin-panel">
         <div className="panel-header">
           <div>
@@ -214,6 +357,9 @@ export default async function ZavrsniRacunObrasciPage() {
             <span>Na dan {godina.datum_do.toLocaleDateString("sr-Latn-ME")}</span>
           </div>
         </div>
+        <form action={saveFinancialReportCorrections}>
+          <input type="hidden" name="obrazac" value="bilans-stanja" />
+          <input type="hidden" name="tip_sifra" value={financialReportTypes.balanceSheet} />
         <div className="table-wrap">
           <table className="admin-table income-statement-table">
             <thead>
@@ -236,16 +382,47 @@ export default async function ZavrsniRacunObrasciPage() {
                   <td>{row.pozicija}</td>
                   <td>{row.aop?.replace(/^A/, "") ?? ""}</td>
                   <td>{row.aop ?? ""}</td>
-                  <td className="num-cell">{amount(row.tekucaGodina)}</td>
-                  <td className="num-cell">{amount(row.prethodnaGodinaKraj)}</td>
-                  <td className="num-cell">{amount(row.prethodnaGodinaPocetak)}</td>
+                  <td className="num-cell">
+                    {correctionCell({
+                      row,
+                      column: "tekuca_godina",
+                      value: row.tekucaGodina,
+                      editMode
+                    })}
+                  </td>
+                  <td className="num-cell">
+                    {correctionCell({
+                      row,
+                      column: "prethodna_godina_kraj",
+                      value: row.prethodnaGodinaKraj,
+                      editMode
+                    })}
+                  </td>
+                  <td className="num-cell">
+                    {correctionCell({
+                      row,
+                      column: "prethodna_godina_pocetak",
+                      value: row.prethodnaGodinaPocetak,
+                      editMode
+                    })}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+          {editMode ? (
+            <div className="form-actions">
+              <button className="primary-button" type="submit">
+                Sačuvaj korekcije
+              </button>
+            </div>
+          ) : null}
+        </form>
       </section>
+      ) : null}
 
+      {activeReport === "statisticki-aneks" ? (
       <section className="admin-panel">
         <div className="panel-header">
           <div>
@@ -253,6 +430,9 @@ export default async function ZavrsniRacunObrasciPage() {
             <span>Na dan {godina.datum_do.toLocaleDateString("sr-Latn-ME")}</span>
           </div>
         </div>
+        <form action={saveFinancialReportCorrections}>
+          <input type="hidden" name="obrazac" value="statisticki-aneks" />
+          <input type="hidden" name="tip_sifra" value={financialReportTypes.statisticalAnnex} />
         <div className="table-wrap">
           <table className="admin-table income-statement-table">
             <thead>
@@ -274,14 +454,37 @@ export default async function ZavrsniRacunObrasciPage() {
                   <td>{row.pozicija}</td>
                   <td>{row.aop ?? ""}</td>
                   <td>{row.aop ?? ""}</td>
-                  <td className="num-cell">{amount(row.tekucaGodina)}</td>
-                  <td className="num-cell">{amount(row.prethodnaGodina)}</td>
+                  <td className="num-cell">
+                    {correctionCell({
+                      row,
+                      column: "tekuca_godina",
+                      value: row.tekucaGodina,
+                      editMode
+                    })}
+                  </td>
+                  <td className="num-cell">
+                    {correctionCell({
+                      row,
+                      column: "prethodna_godina",
+                      value: row.prethodnaGodina,
+                      editMode
+                    })}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+          {editMode ? (
+            <div className="form-actions">
+              <button className="primary-button" type="submit">
+                Sačuvaj korekcije
+              </button>
+            </div>
+          ) : null}
+        </form>
       </section>
+      ) : null}
     </div>
   );
 }

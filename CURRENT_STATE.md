@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-07-02. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-07-06. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -180,9 +180,19 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   stanje.
 - Ista stranica računa Statistički aneks za aktivnu firmu/godinu, sa kolonama
   tekuća i prethodna godina.
+- Stranica `/agencija/zavrsni-racun/obrasci` prikazuje obrasce kroz tri taba
+  (Bilans stanja, Bilans uspjeha, Statistički aneks), a aktivni obrazac ima
+  direktnu štampu i edit režim za ručne korekcije.
+- Baza ima trajne ručne korekcije finansijskih izvještaja:
+  `finansijski_izvjestaj_korekcije`
+  (`20260706110000_finansijski_izvjestaj_korekcije`). Korekcije su vezane za
+  agenciju, firmu, poslovnu godinu, tip obrasca, AOP i kolonu. Primjenjuju se na
+  osnovne redove, a formula/zbirni redovi se i dalje računaju automatski iz
+  korigovanih vrijednosti.
 - Stranica `/agencija/zavrsni-racun/podesavanja` omogućava izmjenu konta,
   izuzetaka, formula i znaka po pozicijama za aktivnu firmu; sistemski šablon
-  ostaje netaknut, a firma dobija svoju kopiju šeme pri prvom čuvanju.
+  ostaje netaknut, a firma dobija svoju kopiju šeme pri prvom čuvanju. U meniju
+  postoji jedna stavka `Podešavanja`, sa tabovima za sva tri obrasca.
 - Stranica `/agencija/zavrsni-racun/podesavanja/bilans-stanja` omogućava istu
   korekciju šeme za Bilans stanja.
 - Stranica `/agencija/zavrsni-racun/podesavanja/statisticki-aneks` omogućava istu
@@ -202,15 +212,17 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   banke, dorada UX-a pravila i naprednije alokacije kada jedna uplata zatvara
   više KIF/KUF računa.
 - Plate, klijentski portal, većina dashboard izvještaja.
-- Završni račun: Bilans uspjeha, Bilans stanja i Statistički aneks postoje;
-  ostaju ručni iznosi, arhiva generisanih obrazaca, XML/export i zaključna
-  knjiženja.
+- Završni račun: Bilans uspjeha, Bilans stanja, Statistički aneks i trajne
+  ručne korekcije po AOP/koloni postoje; ostaju arhiva generisanih obrazaca,
+  XML/export i zaključna knjiženja.
 - PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
 
 ## Zadnje provjere
 - `npm run lint` prolazi (stari warning `_prev` u `src/app/admin/actions.ts` i
   stari warning za neiskorišćene varijable u `src/app/agencija/racuni/actions.ts`).
 - `npx tsc --noEmit` prolazi.
+- `npx prisma migrate deploy` primijenio migraciju
+  `20260706110000_finansijski_izvjestaj_korekcije`.
 - `npx prisma migrate deploy` primijenio migraciju
   `20260705182000_statisticki_aneks_sablon`.
 - `npx prisma migrate deploy` primijenio migraciju

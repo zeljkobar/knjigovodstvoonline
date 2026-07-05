@@ -3,6 +3,19 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-07-06
+- U završnom računu dodate trajne ručne korekcije vrijednosti obrazaca:
+  migracija `20260706110000_finansijski_izvjestaj_korekcije` uvodi tabelu
+  `finansijski_izvjestaj_korekcije` po agenciji, firmi, poslovnoj godini, tipu
+  obrasca, AOP-u i koloni.
+- Obračun Bilansa stanja, Bilansa uspjeha i Statističkog aneksa primjenjuje
+  ručne korekcije na osnovne redove, a zatim ponovo računa formule, tako da
+  zbirne pozicije ostaju automatske. Print rute koriste iste korigovane
+  vrijednosti.
+- Stranica `/agencija/zavrsni-racun/obrasci` prebačena je na tri taba za
+  obrasce, sa edit režimom `Ručne korekcije`, dugmetom `Vrati` za pojedinačno
+  polje i jednom stavkom `Podešavanja` sa tabovima za sva tri obrasca.
+
 ## 2026-07-05
 - Dodata prva implementacija Statističkog aneksa u modulu Završni račun:
   migracija `20260705182000_statisticki_aneks_sablon` dodaje sistemski šablon

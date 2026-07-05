@@ -160,6 +160,7 @@ model Firma {
   partnerBankAccounts   PartnerBankAccount[]
   bankStatementSettings BankStatementAccountSetting[]
   bankPostingRules      BankPostingRule[]
+  finansijskiIzvjestajKorekcije FinansijskiIzvjestajKorekcija[]
   ugovor               FirmaUgovor?
   konta                FirmaKonto[]
   podrazumijevanaKonta FirmaPodrazumijevanoKonto[]
@@ -337,6 +338,7 @@ model PoslovnaGodina {
   pdvPrijave PdvPrijava[]
   pdvPodesavanja PdvPodesavanja[]
   bankStatements BankStatement[]
+  finansijskiIzvjestajKorekcije FinansijskiIzvjestajKorekcija[]
 
   @@unique([firma_id, godina])
   @@map("poslovne_godine")
@@ -1280,6 +1282,28 @@ model FinansijskiIzvjestajPozicija {
   @@unique([sablon_id, aop])
   @@index([sablon_id, prikazi])
   @@map("finansijski_izvjestaj_pozicije")
+}
+
+model FinansijskiIzvjestajKorekcija {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id          String         @db.Uuid
+  firma_id             String         @db.Uuid
+  firma                Firma          @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id   String         @db.Uuid
+  poslovna_godina      PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  tip_sifra            String
+  aop                 String
+  kolona              String
+  vrijednost          Decimal        @db.Decimal(14, 2)
+  napomena            String?
+  created_at          DateTime       @default(now())
+  created_by          String?        @db.Uuid
+  updated_at          DateTime       @updatedAt
+  updated_by          String?        @db.Uuid
+
+  @@unique([firma_id, poslovna_godina_id, tip_sifra, aop, kolona])
+  @@index([agencija_id, firma_id, poslovna_godina_id, tip_sifra])
+  @@map("finansijski_izvjestaj_korekcije")
 }
 
 model StavkaNaloga {
