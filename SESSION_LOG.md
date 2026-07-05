@@ -4,6 +4,23 @@
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
 ## 2026-07-05
+- Dodata prva implementacija Statističkog aneksa u modulu Završni račun:
+  migracija `20260705182000_statisticki_aneks_sablon` dodaje sistemski šablon
+  sa 63 pozicije. Obračun prikazuje tekuću i prethodnu godinu, a dodate su
+  stranice za podešavanja i print `/stampa/zavrsni-racun/statisticki-aneks`.
+- Dodata prva implementacija Bilansa stanja u modulu Završni račun:
+  migracija `20260705170000_bilans_stanja_sablon` dodaje sistemski šablon sa
+  92 pozicije i dozvoljava naslovne redove bez AOP-a. Obračun prikazuje tekuću
+  godinu, prethodnu godinu - krajnje stanje i prethodnu godinu - početno stanje,
+  a dodate su stranice za podešavanja i print
+  `/stampa/zavrsni-racun/bilans-stanja`.
+- Dodata prva implementacija Bilansa uspjeha u modulu Završni račun:
+  migracija `20260705133000_finansijski_izvjestaji_sabloni` uvodi šablone
+  finansijskih izvještaja i pozicije, sistemski šablon Bilansa uspjeha, a
+  `/agencija/zavrsni-racun/obrasci` računa
+  tekuću i prethodnu godinu iz POSTED naloga. Dodata su podešavanja konta,
+  izuzetaka, formula i znaka po firmi, kao i print ruta
+  `/stampa/zavrsni-racun/bilans-uspjeha`.
 - Dodato brzo kreiranje partnera direktno iz polja za izbor partnera:
   `PartnerSearchInput` i `JournalPartnerCell` sada imaju `+ Novi partner`,
   otvaraju modal i koriste endpoint `/api/partners/quick-create`. Novi partner

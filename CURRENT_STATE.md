@@ -159,6 +159,41 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   proknjižen u glavnu knjigu, i porede PDV evidenciju sa POSTED stavkama glavne
   knjige po kontima iz PDV šeme.
 
+### Modul 10 — Završni račun
+- Dodata prva implementacija Bilansa uspjeha, Bilansa stanja i Statističkog
+  aneksa.
+- Baza ima šablone finansijskih izvještaja i pozicije šablona:
+  `finansijski_izvjestaj_sabloni` i `finansijski_izvjestaj_pozicije`
+  (`20260705133000_finansijski_izvjestaji_sabloni`).
+- Sistemski šablon Bilansa uspjeha sadrži AOP redove, konta, izuzetke, formule,
+  ručne redove i znak salda.
+- Sistemski šablon Bilansa stanja sadrži 92 pozicije, AOP redove, konta,
+  izuzetke, formule i znak salda; migracija
+  `20260705170000_bilans_stanja_sablon` dozvoljava naslovne redove bez AOP-a.
+- Sistemski šablon Statističkog aneksa sadrži 63 pozicije; migracija
+  `20260705182000_statisticki_aneks_sablon` dodaje šemu pozicija.
+- Stranica `/agencija/zavrsni-racun/obrasci` računa Bilans uspjeha za aktivnu
+  firmu/godinu iz POSTED naloga, uz poređenje sa prethodnom poslovnom godinom.
+  Iz obračuna se izuzimaju nalog početnog stanja i nalog završnog računa.
+- Ista stranica računa Bilans stanja za aktivnu firmu/godinu, sa kolonama
+  tekuća godina, prethodna godina - krajnje stanje i prethodna godina - početno
+  stanje.
+- Ista stranica računa Statistički aneks za aktivnu firmu/godinu, sa kolonama
+  tekuća i prethodna godina.
+- Stranica `/agencija/zavrsni-racun/podesavanja` omogućava izmjenu konta,
+  izuzetaka, formula i znaka po pozicijama za aktivnu firmu; sistemski šablon
+  ostaje netaknut, a firma dobija svoju kopiju šeme pri prvom čuvanju.
+- Stranica `/agencija/zavrsni-racun/podesavanja/bilans-stanja` omogućava istu
+  korekciju šeme za Bilans stanja.
+- Stranica `/agencija/zavrsni-racun/podesavanja/statisticki-aneks` omogućava istu
+  korekciju šeme za Statistički aneks.
+- Print ruta `/stampa/zavrsni-racun/bilans-uspjeha` prikazuje formalni HTML/CSS
+  obrazac po uzoru na slike iz `zadaci/bilansi/`.
+- Print ruta `/stampa/zavrsni-racun/bilans-stanja` prikazuje formalni HTML/CSS
+  obrazac Bilansa stanja u vertikalnom višestraničnom toku.
+- Print ruta `/stampa/zavrsni-racun/statisticki-aneks` prikazuje formalni
+  HTML/CSS obrazac Statističkog aneksa.
+
 ## Nije početo / samo pripremljeno
 - Robno knjigovodstvo: spec pročitan, samo navigacioni placeholderi.
 - Izvodi: prva MVP baza/stranica/import/preview/knjiženje i pregledne
@@ -166,13 +201,22 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   PDF, Hipotekarna PDF, Lovćen PDF i Prva banka PDF; ostaju parseri za ostale
   banke, dorada UX-a pravila i naprednije alokacije kada jedna uplata zatvara
   više KIF/KUF računa.
-- Plate, završni račun, klijentski portal, većina dashboard izvještaja.
+- Plate, klijentski portal, većina dashboard izvještaja.
+- Završni račun: Bilans uspjeha, Bilans stanja i Statistički aneks postoje;
+  ostaju ručni iznosi, arhiva generisanih obrazaca, XML/export i zaključna
+  knjiženja.
 - PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
 
 ## Zadnje provjere
 - `npm run lint` prolazi (stari warning `_prev` u `src/app/admin/actions.ts` i
   stari warning za neiskorišćene varijable u `src/app/agencija/racuni/actions.ts`).
 - `npx tsc --noEmit` prolazi.
+- `npx prisma migrate deploy` primijenio migraciju
+  `20260705182000_statisticki_aneks_sablon`.
+- `npx prisma migrate deploy` primijenio migraciju
+  `20260705170000_bilans_stanja_sablon`.
+- `npx prisma migrate deploy` primijenio migraciju
+  `20260705133000_finansijski_izvjestaji_sabloni`.
 - `npx prisma migrate deploy` primijenio migraciju
   `20260705120000_bank_statement_line_allocations`.
 - `npx prisma migrate deploy` primijenio migraciju

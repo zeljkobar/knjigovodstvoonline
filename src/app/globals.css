@@ -1491,7 +1491,8 @@ td small {
 
   .balance-print-document,
   .journal-print-document,
-  .ledger-print-document {
+  .ledger-print-document,
+  .financial-print-document {
     width: 100%;
     min-height: auto;
     padding: 0;
@@ -1899,6 +1900,433 @@ td small {
   background: #0f4c95;
   color: #ffffff;
   font-weight: 900;
+}
+
+.income-statement-table td,
+.income-settings-table td {
+  vertical-align: top;
+}
+
+.income-statement-table .num-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.income-bold-row td {
+  font-weight: 800;
+}
+
+.income-settings-table input,
+.income-settings-table select {
+  min-width: 120px;
+  width: 100%;
+}
+
+.income-settings-table th:nth-child(3),
+.income-settings-table td:nth-child(3) {
+  min-width: 300px;
+}
+
+.financial-print-document {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  color: #000000;
+  font-family: "Times New Roman", Times, serif;
+  padding: 12mm 10mm;
+}
+
+.income-print-header {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  align-items: start;
+  margin-bottom: 26mm;
+}
+
+.income-title-block {
+  text-align: center;
+}
+
+.income-title-block h1 {
+  color: #000000;
+  font-size: 18px;
+  line-height: 1.2;
+  margin: 0 0 4px;
+}
+
+.income-title-block p,
+.income-report-number {
+  color: #000000;
+  font-size: 14px;
+  margin: 0;
+}
+
+.income-report-number {
+  text-align: right;
+}
+
+.income-legal-box {
+  border: 1px solid #000000;
+  border-bottom: 0;
+  color: #000000;
+  font-size: 14px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.income-legal-box div {
+  border-bottom: 1px solid #000000;
+  min-height: 20px;
+  padding: 2px 6px;
+}
+
+.income-legal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.income-company-box {
+  border-bottom: 1px solid #000000;
+  margin: 10px 0 12px;
+}
+
+.income-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #000000;
+  font-family: "Times New Roman", Times, serif;
+  font-size: 14px;
+  line-height: 1.15;
+}
+
+.income-print-table thead {
+  display: table-header-group;
+}
+
+.income-print-table tr {
+  break-inside: avoid;
+}
+
+.income-print-table th,
+.income-print-table td {
+  border: 1px solid #000000;
+  color: #000000;
+  padding: 3px 5px;
+  vertical-align: top;
+}
+
+.income-print-table th {
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.income-print-table th:nth-child(1),
+.income-print-table td:nth-child(1) {
+  width: 17%;
+}
+
+.income-print-table th:nth-child(2),
+.income-print-table td:nth-child(2) {
+  width: 36%;
+}
+
+.income-print-table th:nth-child(3),
+.income-print-table td:nth-child(3) {
+  width: 5%;
+  text-align: center;
+}
+
+.income-print-table th:nth-child(4),
+.income-print-table td:nth-child(4) {
+  width: 17%;
+}
+
+.income-print-table th:nth-child(5),
+.income-print-table td:nth-child(5),
+.income-print-table th:nth-child(6),
+.income-print-table td:nth-child(6) {
+  width: 12%;
+  text-align: right;
+}
+
+.income-print-column-numbers th {
+  font-weight: 800;
+  text-align: center !important;
+}
+
+.balance-print-table th:nth-child(1),
+.balance-print-table td:nth-child(1) {
+  width: 10%;
+}
+
+.balance-print-table th:nth-child(2),
+.balance-print-table td:nth-child(2) {
+  width: 31%;
+}
+
+.balance-print-table th:nth-child(3),
+.balance-print-table td:nth-child(3) {
+  width: 7%;
+  text-align: center;
+}
+
+.balance-print-table th:nth-child(4),
+.balance-print-table td:nth-child(4) {
+  width: 9%;
+}
+
+.balance-print-table th:nth-child(5),
+.balance-print-table th:nth-child(6),
+.balance-print-table th:nth-child(7),
+.balance-print-table td:nth-child(5),
+.balance-print-table td:nth-child(6),
+.balance-print-table td:nth-child(7) {
+  width: 14%;
+  text-align: right;
+}
+
+.balance-print-table {
+  table-layout: fixed;
+  font-size: 12px;
+  line-height: 1.08;
+}
+
+.balance-print-table th {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  padding: 2px 3px;
+  white-space: normal;
+}
+
+.balance-print-table td {
+  padding: 2px 3px;
+  overflow-wrap: anywhere;
+}
+
+.balance-print-table td:nth-child(5),
+.balance-print-table td:nth-child(6),
+.balance-print-table td:nth-child(7) {
+  white-space: nowrap;
+}
+
+.statistical-print-document {
+  padding-top: 44px;
+}
+
+.statistical-print-header {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  align-items: start;
+  color: #000000;
+  font-family: "Times New Roman", Times, serif;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.statistical-print-header h1 {
+  font-size: 24px;
+  margin: 8px 0 4px;
+}
+
+.statistical-print-header p {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.statistical-print-header span {
+  font-size: 20px;
+  text-align: right;
+}
+
+.statistical-emblem {
+  justify-self: center;
+  border: 1px solid #000000;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  color: #000000;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 48px;
+}
+
+.statistical-print-document h2 {
+  color: #000000;
+  font-family: "Times New Roman", Times, serif;
+  font-size: 21px;
+  margin: 0 0 4px;
+}
+
+.statistical-legal-box,
+.statistical-company-box {
+  border: 1px solid #000000;
+  color: #000000;
+  font-family: "Times New Roman", Times, serif;
+  font-size: 16px;
+  margin-bottom: 18px;
+}
+
+.statistical-legal-box > div,
+.statistical-company-box p {
+  border-bottom: 1px solid #000000;
+  margin: 0;
+  min-height: 22px;
+  padding: 2px 4px;
+}
+
+.statistical-legal-box > div:last-child,
+.statistical-company-box p:last-child {
+  border-bottom: 0;
+}
+
+.statistical-code-row {
+  display: grid;
+  grid-template-columns: 1fr 150px 290px;
+  gap: 36px;
+  align-items: center;
+}
+
+.statistical-code-cells {
+  display: grid;
+  grid-template-columns: repeat(13, 24px);
+  justify-content: end;
+}
+
+.statistical-code-cells.short {
+  grid-template-columns: repeat(4, 24px);
+}
+
+.statistical-code-cells.medium {
+  grid-template-columns: repeat(9, 24px);
+}
+
+.statistical-code-cells span {
+  border-left: 1px solid #000000;
+  min-height: 22px;
+  text-align: center;
+}
+
+.statistical-code-cells span:last-child {
+  border-right: 1px solid #000000;
+}
+
+.statistical-label-row {
+  display: grid;
+  grid-template-columns: 1fr 180px 290px;
+}
+
+.statistical-options,
+.statistical-size-options {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  color: #000000;
+  font-family: "Times New Roman", Times, serif;
+  font-size: 15px;
+  margin: 18px 0 20px;
+}
+
+.statistical-options span,
+.statistical-size-options span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.statistical-options i,
+.statistical-size-options i {
+  display: inline-block;
+  border: 1px solid #000000;
+  width: 34px;
+  height: 24px;
+  font-style: normal;
+  line-height: 22px;
+  text-align: center;
+}
+
+.statistical-size-options {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-left: 0;
+}
+
+.statistical-size-options span {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.statistical-annex-table {
+  table-layout: fixed;
+  font-size: 14px;
+}
+
+.statistical-annex-table th:nth-child(1),
+.statistical-annex-table td:nth-child(1) {
+  width: 17%;
+}
+
+.statistical-annex-table th:nth-child(2),
+.statistical-annex-table td:nth-child(2) {
+  width: 35%;
+}
+
+.statistical-annex-table th:nth-child(3),
+.statistical-annex-table td:nth-child(3) {
+  width: 7%;
+  text-align: center;
+}
+
+.statistical-annex-table th:nth-child(4),
+.statistical-annex-table td:nth-child(4) {
+  width: 17%;
+}
+
+.statistical-annex-table th:nth-child(5),
+.statistical-annex-table th:nth-child(6),
+.statistical-annex-table td:nth-child(5),
+.statistical-annex-table td:nth-child(6) {
+  width: 12%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.statistical-print-footer {
+  margin-top: 32px;
+}
+
+.income-print-footer {
+  color: #000000;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.income-print-footer p {
+  margin: 0 0 18px;
+}
+
+.income-signatures {
+  display: grid;
+  grid-template-columns: 1.1fr 2fr 0.8fr 1.4fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.signature-line {
+  display: inline-block;
+  border-bottom: 1px solid #000000;
+  width: 110px;
+  transform: translateY(-3px);
+}
+
+.stamp-box {
+  align-self: end;
+  text-align: center;
 }
 
 .journal-print-document {

@@ -1239,6 +1239,49 @@ model PdvPodesavanjePravilo {
   @@map("pdv_podesavanja_pravila")
 }
 
+model FinansijskiIzvjestajSablon {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String? @db.Uuid
+  firma_id  String?  @db.Uuid
+  tip_sifra String
+  naziv     String
+  sistemski Boolean  @default(false)
+  created_at DateTime @default(now())
+  created_by String?  @db.Uuid
+  updated_at DateTime @updatedAt
+  updated_by String?  @db.Uuid
+  pozicije  FinansijskiIzvjestajPozicija[]
+
+  @@index([agencija_id, firma_id, tip_sifra])
+  @@map("finansijski_izvjestaj_sabloni")
+}
+
+model FinansijskiIzvjestajPozicija {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sablon_id       String   @db.Uuid
+  sablon          FinansijskiIzvjestajSablon @relation(fields: [sablon_id], references: [id], onDelete: Cascade)
+  rbr             Int
+  uslov           String?
+  bold            Boolean  @default(false)
+  grupa           Int      @default(0)
+  pozicija        String
+  aop             String?
+  nivo            Int      @default(0)
+  prikazi         Boolean  @default(true)
+  formula         String?
+  konto           String?
+  preskoci_konta  String?
+  rucni_unos      Boolean  @default(false)
+  znak            Int      @default(1)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@unique([sablon_id, rbr])
+  @@unique([sablon_id, aop])
+  @@index([sablon_id, prikazi])
+  @@map("finansijski_izvjestaj_pozicije")
+}
+
 model StavkaNaloga {
   id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nalog_id        String     @db.Uuid

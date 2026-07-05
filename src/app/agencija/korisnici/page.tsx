@@ -40,6 +40,7 @@ const moduli = [
   "izvodi",
   "plate",
   "pdv",
+  "zavrsni_racun",
   "izvjestaji"
 ];
 

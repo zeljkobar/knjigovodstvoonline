@@ -46,9 +46,12 @@
   cache MAPR odgovora; bolji QA štampe na mnogo redova.
 - **Modul 8:** finalni IRMS XML, zaključavanje/otključavanje PDV perioda,
   štampa prijave i testovi knjiženja PDV prijave.
+- **Modul 10 Završni račun:** Bilans uspjeha, Bilans stanja i Statistički aneks
+  imaju prvu implementaciju iz POSTED naloga i podesivu šemu po firmi. Ostaju
+  ručni iznosi, arhiva generisanih obrazaca, XML/export i zaključna knjiženja.
 
 ## Nije implementirano
-- Plate i zaposleni, završni račun, klijentski portal, dashboard izvještaji.
+- Plate i zaposleni, klijentski portal, dashboard izvještaji.
 
 ## Invarijante koje treba čuvati (provjera prije/poslije rada)
 - POSTED nalozi ulaze u bruto bilans; DRAFT/DELETED ne ulaze u izvještaje.
