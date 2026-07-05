@@ -92,6 +92,108 @@ function centsToDecimal(cents: number) {
   return (cents / 100).toFixed(2);
 }
 
+function decimalToCents(value: Prisma.Decimal | number | string | null | undefined) {
+  return Math.round(Number(value ?? 0) * 100);
+}
+
+function paymentStatus(totalCents: number, paidCents: number) {
+  if (paidCents <= 0) {
+    return "UNPAID";
+  }
+
+  if (paidCents < totalCents) {
+    return "PARTIALLY_PAID";
+  }
+
+  if (paidCents === totalCents) {
+    return "PAID";
+  }
+
+  return "OVERPAID";
+}
+
+async function refreshKifPaymentStatus(
+  tx: Prisma.TransactionClient,
+  entryId: string,
+  userId: string
+) {
+  const entry = await tx.kifEntry.findUnique({
+    where: {
+      id: entryId
+    },
+    select: {
+      total_gross: true
+    }
+  });
+
+  if (!entry) {
+    return;
+  }
+
+  const allocations = await tx.bankStatementLineAllocation.aggregate({
+    where: {
+      kif_entry_id: entryId
+    },
+    _sum: {
+      amount: true
+    }
+  });
+
+  await tx.kifEntry.update({
+    where: {
+      id: entryId
+    },
+    data: {
+      payment_status: paymentStatus(
+        decimalToCents(entry.total_gross),
+        decimalToCents(allocations._sum.amount)
+      ),
+      updated_by: userId
+    }
+  });
+}
+
+async function refreshKufPaymentStatus(
+  tx: Prisma.TransactionClient,
+  entryId: string,
+  userId: string
+) {
+  const entry = await tx.kufEntry.findUnique({
+    where: {
+      id: entryId
+    },
+    select: {
+      total_gross: true
+    }
+  });
+
+  if (!entry) {
+    return;
+  }
+
+  const allocations = await tx.bankStatementLineAllocation.aggregate({
+    where: {
+      kuf_entry_id: entryId
+    },
+    _sum: {
+      amount: true
+    }
+  });
+
+  await tx.kufEntry.update({
+    where: {
+      id: entryId
+    },
+    data: {
+      payment_status: paymentStatus(
+        decimalToCents(entry.total_gross),
+        decimalToCents(allocations._sum.amount)
+      ),
+      updated_by: userId
+    }
+  });
+}
+
 async function resolveCompanyAccount(
   tx: Prisma.TransactionClient | typeof prisma,
   firmaId: string,
@@ -2519,9 +2621,13 @@ export async function updateBankStatementLines(formData: FormData) {
   const debitAccountCodes = formData.getAll("debit_account_code").map((item) => String(item).trim() || null);
   const creditAccountCodes = formData.getAll("credit_account_code").map((item) => String(item).trim() || null);
   const lineDirections = formData.getAll("line_direction").map((item) => String(item));
+  const allocationTargets = formData.getAll("allocation_target").map((item) => String(item).trim());
   const ignoredIds = new Set(formData.getAll("ignored_line_id").map((item) => String(item)));
 
   await prisma.$transaction(async (tx) => {
+    const affectedKifEntryIds = new Set<string>();
+    const affectedKufEntryIds = new Set<string>();
+
     for (let index = 0; index < lineIds.length; index += 1) {
       const lineId = lineIds[index];
       const lineDirection = lineDirections[index] ?? "";
@@ -2565,21 +2671,160 @@ export async function updateBankStatementLines(formData: FormData) {
       });
 
       const selectedAccount = lineDirection === "INFLOW" ? creditAccount : debitAccount;
+      const savedLine = await tx.bankStatementLine.findFirst({
+        where: {
+          id: lineId,
+          bank_statement_id: statement.id
+        },
+        select: {
+          id: true,
+          direction: true,
+          inflow_amount: true,
+          outflow_amount: true,
+          partner_id: true,
+          counterparty_account_number: true,
+          counterparty_account_number_normalized: true,
+          description: true,
+          payment_code: true,
+          reference_number: true,
+          allocations: {
+            select: {
+              kif_entry_id: true,
+              kuf_entry_id: true
+            }
+          }
+        }
+      });
 
-      if (postingStatus !== lineStatuses.ignored && selectedAccount) {
-        const savedLine = await tx.bankStatementLine.findFirst({
-          where: {
-            id: lineId,
-            bank_statement_id: statement.id
-          },
-          select: {
-            counterparty_account_number: true,
-            counterparty_account_number_normalized: true,
-            description: true,
-            payment_code: true,
-            reference_number: true
+      if (savedLine) {
+        savedLine.allocations.forEach((allocation) => {
+          if (allocation.kif_entry_id) {
+            affectedKifEntryIds.add(allocation.kif_entry_id);
+          }
+
+          if (allocation.kuf_entry_id) {
+            affectedKufEntryIds.add(allocation.kuf_entry_id);
           }
         });
+
+        await tx.bankStatementLineAllocation.deleteMany({
+          where: {
+            bank_statement_line_id: savedLine.id
+          }
+        });
+
+        const allocationTarget = allocationTargets[index] ?? "";
+
+        if (postingStatus !== lineStatuses.ignored && allocationTarget) {
+          const [documentType, entryId] = allocationTarget.split(":");
+          const lineAmountCents =
+            savedLine.direction === "INFLOW"
+              ? decimalToCents(savedLine.inflow_amount)
+              : decimalToCents(savedLine.outflow_amount);
+
+          if (documentType === "KIF" && savedLine.direction === "INFLOW" && entryId && savedLine.partner_id) {
+            const entry = await tx.kifEntry.findFirst({
+              where: {
+                id: entryId,
+                agencija_id: agencijaId,
+                firma_id: firma.id,
+                poslovna_godina_id: poslovnaGodina.id,
+                is_deleted: false,
+                kupac_id: savedLine.partner_id
+              },
+              select: {
+                id: true,
+                total_gross: true
+              }
+            });
+
+            if (entry) {
+              const allocated = await tx.bankStatementLineAllocation.aggregate({
+                where: {
+                  kif_entry_id: entry.id
+                },
+                _sum: {
+                  amount: true
+                }
+              });
+              const remainingCents = Math.max(
+                0,
+                decimalToCents(entry.total_gross) - decimalToCents(allocated._sum.amount)
+              );
+              const allocationCents = Math.min(lineAmountCents, remainingCents || lineAmountCents);
+
+              if (allocationCents > 0) {
+                await tx.bankStatementLineAllocation.create({
+                  data: {
+                    agencija_id: agencijaId,
+                    firma_id: firma.id,
+                    poslovna_godina_id: poslovnaGodina.id,
+                    bank_statement_line_id: savedLine.id,
+                    document_type: "KIF",
+                    kif_entry_id: entry.id,
+                    amount: centsToDecimal(allocationCents),
+                    created_by: user.id,
+                    updated_by: user.id
+                  }
+                });
+                affectedKifEntryIds.add(entry.id);
+              }
+            }
+          }
+
+          if (documentType === "KUF" && savedLine.direction === "OUTFLOW" && entryId && savedLine.partner_id) {
+            const entry = await tx.kufEntry.findFirst({
+              where: {
+                id: entryId,
+                agencija_id: agencijaId,
+                firma_id: firma.id,
+                poslovna_godina_id: poslovnaGodina.id,
+                is_deleted: false,
+                dobavljac_id: savedLine.partner_id
+              },
+              select: {
+                id: true,
+                total_gross: true
+              }
+            });
+
+            if (entry) {
+              const allocated = await tx.bankStatementLineAllocation.aggregate({
+                where: {
+                  kuf_entry_id: entry.id
+                },
+                _sum: {
+                  amount: true
+                }
+              });
+              const remainingCents = Math.max(
+                0,
+                decimalToCents(entry.total_gross) - decimalToCents(allocated._sum.amount)
+              );
+              const allocationCents = Math.min(lineAmountCents, remainingCents || lineAmountCents);
+
+              if (allocationCents > 0) {
+                await tx.bankStatementLineAllocation.create({
+                  data: {
+                    agencija_id: agencijaId,
+                    firma_id: firma.id,
+                    poslovna_godina_id: poslovnaGodina.id,
+                    bank_statement_line_id: savedLine.id,
+                    document_type: "KUF",
+                    kuf_entry_id: entry.id,
+                    amount: centsToDecimal(allocationCents),
+                    created_by: user.id,
+                    updated_by: user.id
+                  }
+                });
+                affectedKufEntryIds.add(entry.id);
+              }
+            }
+          }
+        }
+      }
+
+      if (postingStatus !== lineStatuses.ignored && selectedAccount) {
         const normalizedAccount = savedLine?.counterparty_account_number_normalized;
         const partnerId = partnerIds[index] ?? null;
 
@@ -2768,6 +3013,14 @@ export async function updateBankStatementLines(formData: FormData) {
           }
         }
       }
+    }
+
+    for (const entryId of affectedKifEntryIds) {
+      await refreshKifPaymentStatus(tx, entryId, user.id);
+    }
+
+    for (const entryId of affectedKufEntryIds) {
+      await refreshKufPaymentStatus(tx, entryId, user.id);
     }
 
     const lines = await tx.bankStatementLine.findMany({

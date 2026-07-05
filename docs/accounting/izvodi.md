@@ -131,11 +131,16 @@ Za ručno kontiranje stavka mora podržati konto duguje, konto potražuje, partn
 ako je potreban i opis.
 
 ## Fakture
-Izvod zatvara KIF/KUF fakture kroz alokacije. Veza je many-to-many:
+Izvod zatvara KIF/KUF fakture kroz alokacije. Implementirana je osnovna veza:
 
 ```text
 bank_statement_line ↔ KIF/KUF faktura
 ```
+
+U tabu `Predlog naloga` korisnik za stavku izvoda bira otvoreni račun istog
+partnera. Za priliv se nude KIF računi kupca, a za odliv KUF računi dobavljača.
+Prva verzija UI-a podržava jednu alokaciju po stavci izvoda; tabela i statusi su
+spremni za kasnije proširenje na više računa po jednoj uplati.
 
 Status plaćanja faktura:
 

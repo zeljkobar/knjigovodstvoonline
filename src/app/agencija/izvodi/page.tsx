@@ -361,6 +361,31 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                     sifra: true,
                     naziv: true
                   }
+                },
+                allocations: {
+                  select: {
+                    id: true,
+                    document_type: true,
+                    amount: true,
+                    kif_entry_id: true,
+                    kuf_entry_id: true,
+                    kif_entry: {
+                      select: {
+                        internal_kif_number: true,
+                        customer_invoice_number: true,
+                        invoice_date: true,
+                        total_gross: true
+                      }
+                    },
+                    kuf_entry: {
+                      select: {
+                        internal_kuf_number: true,
+                        supplier_invoice_number: true,
+                        invoice_date: true,
+                        total_gross: true
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -389,6 +414,131 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
   const totalDebitPreview =
     totalInflowPreview + totalOutflowPreview;
   const totalCreditPreview = totalDebitPreview;
+  const selectedLinePartners = Array.from(
+    new Set(
+      selectedStatement?.lines
+        .map((line) => line.partner_id)
+        .filter((partnerId): partnerId is string => Boolean(partnerId)) ?? []
+    )
+  );
+  const selectedKifAllocationIds = Array.from(
+    new Set(
+      selectedStatement?.lines
+        .flatMap((line) => line.allocations.map((allocation) => allocation.kif_entry_id))
+        .filter((entryId): entryId is string => Boolean(entryId)) ?? []
+    )
+  );
+  const selectedKufAllocationIds = Array.from(
+    new Set(
+      selectedStatement?.lines
+        .flatMap((line) => line.allocations.map((allocation) => allocation.kuf_entry_id))
+        .filter((entryId): entryId is string => Boolean(entryId)) ?? []
+    )
+  );
+  const [kifPaymentCandidates, kufPaymentCandidates] =
+    activeCompany && activeYear && selectedStatement && selectedLinePartners.length > 0
+      ? await Promise.all([
+          prisma.kifEntry.findMany({
+            where: {
+              agencija_id: user.agencija_id,
+              firma_id: activeCompany.id,
+              poslovna_godina_id: activeYear.id,
+              is_deleted: false,
+              kupac_id: {
+                in: selectedLinePartners
+              },
+              OR: [
+                {
+                  payment_status: {
+                    in: ["UNPAID", "PARTIALLY_PAID"]
+                  }
+                },
+                {
+                  id: {
+                    in: selectedKifAllocationIds
+                  }
+                }
+              ]
+            },
+            orderBy: [
+              {
+                invoice_date: "asc"
+              },
+              {
+                redni_broj: "asc"
+              }
+            ],
+            include: {
+              bankStatementAllocations: {
+                select: {
+                  amount: true
+                }
+              }
+            }
+          }),
+          prisma.kufEntry.findMany({
+            where: {
+              agencija_id: user.agencija_id,
+              firma_id: activeCompany.id,
+              poslovna_godina_id: activeYear.id,
+              is_deleted: false,
+              dobavljac_id: {
+                in: selectedLinePartners
+              },
+              OR: [
+                {
+                  payment_status: {
+                    in: ["UNPAID", "PARTIALLY_PAID"]
+                  }
+                },
+                {
+                  id: {
+                    in: selectedKufAllocationIds
+                  }
+                }
+              ]
+            },
+            orderBy: [
+              {
+                invoice_date: "asc"
+              },
+              {
+                redni_broj: "asc"
+              }
+            ],
+            include: {
+              bankStatementAllocations: {
+                select: {
+                  amount: true
+                }
+              }
+            }
+          })
+        ])
+      : [[], []];
+  const kifCandidatesByPartner = new Map<string, typeof kifPaymentCandidates>();
+  const kufCandidatesByPartner = new Map<string, typeof kufPaymentCandidates>();
+
+  for (const entry of kifPaymentCandidates) {
+    const entries = kifCandidatesByPartner.get(entry.kupac_id) ?? [];
+
+    entries.push(entry);
+    kifCandidatesByPartner.set(entry.kupac_id, entries);
+  }
+
+  for (const entry of kufPaymentCandidates) {
+    const entries = kufCandidatesByPartner.get(entry.dobavljac_id) ?? [];
+
+    entries.push(entry);
+    kufCandidatesByPartner.set(entry.dobavljac_id, entries);
+  }
+
+  const allocatedCents = (allocations: { amount: unknown }[]) =>
+    allocations.reduce((sum, allocation) => sum + Math.round(Number(allocation.amount) * 100), 0);
+  const entryRemainingCents = (entry: {
+    total_gross: unknown;
+    bankStatementAllocations: { amount: unknown }[];
+  }) => Math.round(Number(entry.total_gross) * 100) - allocatedCents(entry.bankStatementAllocations);
 
   return (
     <div className="admin-stack">
@@ -597,6 +747,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                         <th>Šifra</th>
                         <th>Žiro račun</th>
                         <th>Partner</th>
+                        <th>Zatvara račun</th>
                         <th>Odliv</th>
                         <th>Priliv</th>
                         <th>Status</th>
@@ -623,6 +774,21 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                               "-"
                             )}
                           </td>
+                          <td>
+                            {line.allocations.length > 0 ? (
+                              line.allocations.map((allocation) => (
+                                <small key={allocation.id}>
+                                  {allocation.document_type}{" "}
+                                  {allocation.kif_entry?.customer_invoice_number ??
+                                    allocation.kuf_entry?.supplier_invoice_number ??
+                                    "-"}{" "}
+                                  · {money(Number(allocation.amount))}
+                                </small>
+                              ))
+                            ) : (
+                              "-"
+                            )}
+                          </td>
                           <td>{money(Number(line.outflow_amount))}</td>
                           <td>{money(Number(line.inflow_amount))}</td>
                           <td>{lineStatusLabels[line.posting_status] ?? line.posting_status}</td>
@@ -641,6 +807,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                           <th className="statement-col-number">#</th>
                           <th className="statement-col-description">Opis</th>
                           <th className="statement-col-partner">Partner</th>
+                          <th className="statement-col-account">Zatvara račun</th>
                           <th className="statement-col-account">Konto stavke</th>
                           <th className="statement-col-amount">Duguje</th>
                           <th className="statement-col-amount">Potražuje</th>
@@ -656,6 +823,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                               <small>Banka se knjiži zbirno automatski</small>
                             </td>
                             <td className="statement-col-partner">-</td>
+                            <td className="statement-col-account">-</td>
                             <td className="statement-col-account">
                               {selectedStatement.bank_account_konto.sifra} - {selectedStatement.bank_account_konto.naziv}
                             </td>
@@ -672,6 +840,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                               <small>Banka se knjiži zbirno automatski</small>
                             </td>
                             <td className="statement-col-partner">-</td>
+                            <td className="statement-col-account">-</td>
                             <td className="statement-col-account">
                               {selectedStatement.bank_account_konto.sifra} - {selectedStatement.bank_account_konto.naziv}
                             </td>
@@ -686,6 +855,17 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                           const selectedAccountCode = isInflow
                             ? line.credit_account?.sifra
                             : line.debit_account?.sifra;
+                          const selectedAllocation = line.allocations[0] ?? null;
+                          const allocationValue = selectedAllocation
+                            ? `${selectedAllocation.document_type}:${
+                                selectedAllocation.kif_entry_id ?? selectedAllocation.kuf_entry_id ?? ""
+                              }`
+                            : "";
+                          const paymentCandidates = line.partner_id
+                            ? isInflow
+                              ? kifCandidatesByPartner.get(line.partner_id) ?? []
+                              : kufCandidatesByPartner.get(line.partner_id) ?? []
+                            : [];
 
                           return (
                             <tr key={line.id}>
@@ -715,6 +895,44 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                                   label=""
                                   name="partner_id"
                                 />
+                              </td>
+                              <td className="statement-col-account">
+                                <select defaultValue={allocationValue} name="allocation_target">
+                                  <option value="">
+                                    {line.partner_id ? "Ne zatvara račun" : "Prvo izaberite partnera"}
+                                  </option>
+                                  {paymentCandidates.map((entry) => {
+                                    const remaining = entryRemainingCents(entry);
+                                    const current =
+                                      selectedAllocation?.kif_entry_id === entry.id ||
+                                      selectedAllocation?.kuf_entry_id === entry.id;
+                                    const documentType = isInflow ? "KIF" : "KUF";
+                                    const invoiceNumber = isInflow
+                                      ? "customer_invoice_number" in entry
+                                        ? entry.customer_invoice_number
+                                        : ""
+                                      : "supplier_invoice_number" in entry
+                                        ? entry.supplier_invoice_number
+                                        : "";
+                                    const internalNumber = isInflow
+                                      ? "internal_kif_number" in entry
+                                        ? entry.internal_kif_number
+                                        : ""
+                                      : "internal_kuf_number" in entry
+                                        ? entry.internal_kuf_number
+                                        : "";
+                                    const openAmount = Math.max(0, current ? remaining + Math.round(Number(selectedAllocation?.amount ?? 0) * 100) : remaining);
+
+                                    return (
+                                      <option key={`${documentType}:${entry.id}`} value={`${documentType}:${entry.id}`}>
+                                        {internalNumber} · {invoiceNumber} · otvoreno {money(openAmount / 100)}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                                {selectedAllocation ? (
+                                  <small>Vezano: {money(Number(selectedAllocation.amount))}</small>
+                                ) : null}
                               </td>
                               <td className="statement-col-account">
                                 <select
@@ -754,7 +972,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                       </tbody>
                       <tfoot>
                         <tr>
-                          <td colSpan={4}>Ukupno preview naloga</td>
+                          <td colSpan={5}>Ukupno preview naloga</td>
                           <td className="statement-col-amount">{money(totalDebitPreview)}</td>
                           <td className="statement-col-amount">{money(totalCreditPreview)}</td>
                           <td />

@@ -1,12 +1,22 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  QuickPartnerCreateModal,
+  type QuickPartnerResult
+} from "@/components/QuickPartnerCreateModal";
 
 type PartnerResult = {
   id: string;
+  label?: string;
   naziv: string;
   pib: string | null;
   scope?: string;
+  isForeign?: boolean;
+  countryCode?: string | null;
+  countryName?: string | null;
+  defaultKufAccountCode?: string | null;
+  defaultKufVatRateCode?: string | null;
 };
 
 type JournalPartnerCellProps = {
@@ -28,13 +38,12 @@ export function JournalPartnerCell({
   initialPib = null,
   onActivity
 }: JournalPartnerCellProps) {
-  const listId = useId();
   const [query, setQuery] = useState(
     initialNaziv ? partnerDisplay(initialNaziv, initialPib) : ""
   );
   const [partnerId, setPartnerId] = useState(initialId);
   const [results, setResults] = useState<PartnerResult[]>([]);
-  const valueToId = useRef(new Map<string, string>());
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const latestQueryRef = useRef("");
 
   useEffect(() => {
@@ -66,15 +75,7 @@ export function JournalPartnerCell({
           return;
         }
 
-        const found = data.results ?? [];
-        const map = new Map<string, string>();
-
-        for (const partner of found) {
-          map.set(partnerDisplay(partner.naziv, partner.pib), partner.id);
-        }
-
-        valueToId.current = map;
-        setResults(found);
+        setResults(data.results ?? []);
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
           setResults([]);
@@ -90,32 +91,88 @@ export function JournalPartnerCell({
 
   function handleChange(value: string) {
     setQuery(value);
-    setPartnerId(valueToId.current.get(value.trim()) ?? "");
+    setPartnerId("");
     onActivity?.();
+  }
+
+  function selectPartner(partner: PartnerResult) {
+    setQuery(partnerDisplay(partner.naziv, partner.pib));
+    setPartnerId(partner.id);
+    setResults([]);
+    setIsCreateOpen(false);
+    onActivity?.();
+    document.dispatchEvent(
+      new CustomEvent("partner-selected", {
+        detail: {
+          partnerId: partner.id,
+          isForeign: partner.isForeign ?? false,
+          countryCode: partner.countryCode ?? null,
+          countryName: partner.countryName ?? null,
+          defaultKufAccountCode: partner.defaultKufAccountCode ?? null,
+          defaultKufVatRateCode: partner.defaultKufVatRateCode ?? null
+        }
+      })
+    );
+  }
+
+  function openCreateModal() {
+    if (disabled) {
+      return;
+    }
+
+    setResults([]);
+    setIsCreateOpen(true);
+    onActivity?.();
+  }
+
+  function handleCreatedPartner(partner: QuickPartnerResult) {
+    selectPartner(partner);
   }
 
   return (
     <div className="journal-partner-cell">
-      <input
-        autoComplete="off"
-        data-partner-input="true"
-        disabled={disabled}
-        list={listId}
-        onChange={(event) => handleChange(event.target.value)}
-        onFocus={() => onActivity?.()}
-        placeholder="Naziv ili PIB"
-        value={query}
-      />
-      <datalist id={listId}>
-        {results.map((partner) => (
-          <option
-            key={partner.id}
-            label={[partner.pib, partner.scope].filter(Boolean).join(" · ")}
-            value={partnerDisplay(partner.naziv, partner.pib)}
-          />
-        ))}
-      </datalist>
+      <div className="partner-search-input-row">
+        <input
+          autoComplete="off"
+          data-partner-input="true"
+          disabled={disabled}
+          onChange={(event) => handleChange(event.target.value)}
+          onFocus={() => onActivity?.()}
+          placeholder="Naziv ili PIB"
+          value={query}
+        />
+        <button
+          aria-label="Dodaj novog partnera"
+          disabled={disabled}
+          title="Dodaj novog partnera"
+          type="button"
+          onClick={openCreateModal}
+        >
+          +
+        </button>
+      </div>
+      {results.length > 0 || (query.trim().length >= 2 && !partnerId) ? (
+        <div className="partner-search-results">
+          {results.map((partner) => (
+            <button key={partner.id} type="button" onClick={() => selectPartner(partner)}>
+              <strong>{partner.naziv}</strong>
+              <small>{[partner.pib, partner.scope].filter(Boolean).join(" · ")}</small>
+            </button>
+          ))}
+          <button className="partner-search-create-option" type="button" onClick={openCreateModal}>
+            <strong>+ Dodaj novog partnera</strong>
+            <small>{query.trim() ? `"${query.trim()}"` : "Ručni unos"}</small>
+          </button>
+        </div>
+      ) : null}
       <input name="komitent_id" type="hidden" value={partnerId} />
+      {isCreateOpen ? (
+        <QuickPartnerCreateModal
+          initialName={query}
+          onClose={() => setIsCreateOpen(false)}
+          onCreated={handleCreatedPartner}
+        />
+      ) : null}
     </div>
   );
 }

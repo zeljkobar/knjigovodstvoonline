@@ -26,6 +26,8 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - Globalni kontni plan + firmi specifičan override, sa pretragom po šifri/nazivu
   na kontnom planu firme.
 - Centralni/globalni partneri + agencijski/firmski; ~64k globalnih importovano.
+- Polja za izbor partnera u KIF/KUF, izvodima i stavkama naloga podržavaju brzi
+  unos novog partnera kroz modal bez napuštanja ekrana.
 - PIB partnera je unique samo u okviru agencije (scope).
 - Polja partnera/firme: pravna forma, šifra djelatnosti, datum registracije.
 - Komitent može biti označen kao ino (`is_foreign`), sa državom i inostranim
@@ -114,6 +116,10 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - Predlog naloga omogućava izbor partnera async pretragom, izbor duguje/potražuje
   konta po stavci i ignorisanje stavki; konta se čuvaju preko šifre i backend ih
   automatski povezuje na `firma_konta`, pa izbor iz globalnog plana ne ruši FK.
+- Predlog naloga može vezati stavku izvoda za otvoreni KIF/KUF račun istog
+  partnera. Veza se čuva u `bank_statement_line_allocations`, a status plaćanja
+  računa se automatski osvježava na `UNPAID`, `PARTIALLY_PAID`, `PAID` ili
+  `OVERPAID`.
 - Preview/knjiženje naloga izvoda knjiži banku zbirno: prvo ukupan priliv na
   duguje banke i ukupan odliv na potražuje banke, zatim pojedinačne stavke
   izvoda na izabrana konta.
@@ -156,9 +162,10 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 ## Nije početo / samo pripremljeno
 - Robno knjigovodstvo: spec pročitan, samo navigacioni placeholderi.
 - Izvodi: prva MVP baza/stranica/import/preview/knjiženje i pregledne
-  podstranice postoje. Implementirani su parseri za NLB XML, Erste HTM, CKB PDF,
-  Hipotekarna PDF, Lovćen PDF i Prva banka PDF; ostaju
-  parseri za ostale banke, dorada UX-a pravila i alokacije na KIF/KUF fakture.
+  podstranice postoje. Implementirani su parseri za NLB XML/PDF, Erste HTM, CKB
+  PDF, Hipotekarna PDF, Lovćen PDF i Prva banka PDF; ostaju parseri za ostale
+  banke, dorada UX-a pravila i naprednije alokacije kada jedna uplata zatvara
+  više KIF/KUF računa.
 - Plate, završni račun, klijentski portal, većina dashboard izvještaja.
 - PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
 
@@ -166,6 +173,8 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - `npm run lint` prolazi (stari warning `_prev` u `src/app/admin/actions.ts` i
   stari warning za neiskorišćene varijable u `src/app/agencija/racuni/actions.ts`).
 - `npx tsc --noEmit` prolazi.
+- `npx prisma migrate deploy` primijenio migraciju
+  `20260705120000_bank_statement_line_allocations`.
 - `npx prisma migrate deploy` primijenio migraciju
   `20260702110000_bank_posting_rule_scopes`.
 - `npx prisma migrate deploy` primijenio migraciju

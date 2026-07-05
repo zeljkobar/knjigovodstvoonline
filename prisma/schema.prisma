@@ -681,6 +681,7 @@ model KufEntry {
   updated_at               DateTime          @updatedAt
   updated_by               String?           @db.Uuid
   tax_lines                KufEntryTaxLine[]
+  bankStatementAllocations BankStatementLineAllocation[]
 
   @@unique([firma_id, poslovna_godina_id, redni_broj])
   @@index([kuf_book_id])
@@ -788,6 +789,7 @@ model KifEntry {
   updated_at               DateTime          @updatedAt
   updated_by               String?           @db.Uuid
   tax_lines                KifEntryTaxLine[]
+  bankStatementAllocations BankStatementLineAllocation[]
 
   @@unique([firma_id, poslovna_godina_id, redni_broj])
   @@index([kif_book_id])
@@ -1040,12 +1042,38 @@ model BankStatementLine {
   created_by                           String?       @db.Uuid
   updated_at                           DateTime      @updatedAt
   updated_by                           String?       @db.Uuid
+  allocations                          BankStatementLineAllocation[]
 
   @@unique([bank_statement_id, line_number])
   @@index([counterparty_account_number_normalized])
   @@index([payment_code])
   @@index([partner_id])
   @@map("bank_statement_lines")
+}
+
+model BankStatementLineAllocation {
+  id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id            String            @db.Uuid
+  firma_id               String            @db.Uuid
+  poslovna_godina_id     String            @db.Uuid
+  bank_statement_line_id String            @db.Uuid
+  bank_statement_line    BankStatementLine @relation(fields: [bank_statement_line_id], references: [id], onDelete: Cascade)
+  document_type          String
+  kif_entry_id           String?           @db.Uuid
+  kif_entry              KifEntry?         @relation(fields: [kif_entry_id], references: [id], onDelete: Cascade)
+  kuf_entry_id           String?           @db.Uuid
+  kuf_entry              KufEntry?         @relation(fields: [kuf_entry_id], references: [id], onDelete: Cascade)
+  amount                 Decimal           @db.Decimal(14, 2)
+  created_at             DateTime          @default(now())
+  created_by             String?           @db.Uuid
+  updated_at             DateTime          @updatedAt
+  updated_by             String?           @db.Uuid
+
+  @@index([agencija_id, firma_id, poslovna_godina_id])
+  @@index([bank_statement_line_id])
+  @@index([kif_entry_id])
+  @@index([kuf_entry_id])
+  @@map("bank_statement_line_allocations")
 }
 
 model PartnerBankAccount {

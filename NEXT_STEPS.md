@@ -21,10 +21,11 @@
   batch upload XML/HTM/PDF fajlova, parseri za NLB XML, Erste HTM, CKB PDF i tekst/CSV-like
   redove, preview stavki, preview naloga, zajednička i firm-specific pravila
   knjiženja, prepoznavanje sopstvenih prenosa i knjiženje jednog izvoda u jedan
-  `IZV` nalog, plus pregledne stranice za obradu, parsere, žiro račune, karticu
-  banke i kontrole. Nastaviti sa parserima za ostale banke, dodatnim pravilima
-  knjiženja po novim bankarskim formatima i alokacijama na
-  KIF/KUF fakture. Detalji: [`docs/accounting/izvodi.md`](docs/accounting/izvodi.md).
+  `IZV` nalog, osnovne alokacije na otvorene KIF/KUF račune, plus pregledne
+  stranice za obradu, parsere, žiro račune, karticu banke i kontrole. Nastaviti
+  sa parserima za ostale banke, dodatnim pravilima knjiženja po novim bankarskim
+  formatima i naprednim alokacijama kada jedna uplata zatvara više računa.
+  Detalji: [`docs/accounting/izvodi.md`](docs/accounting/izvodi.md).
 - **Robno knjigovodstvo**: zalihe, lager, kalkulacije, uvozne kalkulacije.
 - **PDV prijava — završni QA.** Prva verzija perioda, evidencija, prijave,
   podešavanja, XML `PR_PDV_2025` i knjiženja postoji. Ostaje zaključavanje
@@ -39,7 +40,7 @@
 - **Modul 3:** formalni unos/prenos početnog stanja; kontrole po poslovnoj
   jedinici; testovi za validacije i prava.
 - **Modul 5/7 Izvodi:** dodati parsere za ostale banke, dodatne uslove pravila
-  po formatima banaka, alokacije na KIF/KUF fakture i
+  po formatima banaka, split alokacije jedne uplate na više KIF/KUF računa i
   vraćanje proknjiženog izvoda u nacrt.
 - **Modul 6:** zaključavanje PDV perioda; payment status;
   cache MAPR odgovora; bolji QA štampe na mnogo redova.

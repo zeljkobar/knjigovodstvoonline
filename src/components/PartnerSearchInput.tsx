@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  QuickPartnerCreateModal,
+  type QuickPartnerResult
+} from "@/components/QuickPartnerCreateModal";
 
 type PartnerResult = {
   id: string;
@@ -40,6 +44,7 @@ export function PartnerSearchInput({
   const [results, setResults] = useState<PartnerResult[]>([]);
   const [status, setStatus] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const latestQueryRef = useRef("");
 
   const selectedLabel = useMemo(() => selected?.label ?? "", [selected]);
@@ -164,31 +169,57 @@ export function PartnerSearchInput({
     );
   }
 
+  function openCreateModal() {
+    if (disabled) {
+      return;
+    }
+
+    setIsCreateOpen(true);
+    setResults([]);
+    setStatus("");
+  }
+
+  function handleCreatedPartner(partner: QuickPartnerResult) {
+    selectPartner(partner);
+    setIsCreateOpen(false);
+  }
+
   return (
     <div className="partner-search-field">
       <label>
         <span>{label}</span>
-        <input
-          autoComplete="off"
-          disabled={disabled}
-          placeholder="Kucajte naziv ili PIB..."
-          required={required && !selected?.id}
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setSelected(null);
-          }}
-          onFocus={() => {
-            if (query.trim().length >= 2 && !selected) {
-              setStatus("");
-            }
-          }}
-        />
+        <div className="partner-search-input-row">
+          <input
+            autoComplete="off"
+            disabled={disabled}
+            placeholder="Kucajte naziv ili PIB..."
+            required={required && !selected?.id}
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSelected(null);
+            }}
+            onFocus={() => {
+              if (query.trim().length >= 2 && !selected) {
+                setStatus("");
+              }
+            }}
+          />
+          <button
+            aria-label="Dodaj novog partnera"
+            disabled={disabled}
+            title="Dodaj novog partnera"
+            type="button"
+            onClick={openCreateModal}
+          >
+            +
+          </button>
+        </div>
       </label>
       <input name={name} type="hidden" value={selected?.id ?? ""} />
       {isSearching ? <p className="partner-search-status">Pretraga...</p> : null}
       {status && !isSearching ? <p className="partner-search-status">{status}</p> : null}
-      {results.length > 0 ? (
+      {results.length > 0 || (query.trim().length >= 2 && !selected) ? (
         <div className="partner-search-results">
           {results.map((partner) => (
             <button
@@ -202,7 +233,18 @@ export function PartnerSearchInput({
               </small>
             </button>
           ))}
+          <button className="partner-search-create-option" type="button" onClick={openCreateModal}>
+            <strong>+ Dodaj novog partnera</strong>
+            <small>{query.trim() ? `"${query.trim()}"` : "Ručni unos"}</small>
+          </button>
         </div>
+      ) : null}
+      {isCreateOpen ? (
+        <QuickPartnerCreateModal
+          initialName={query}
+          onClose={() => setIsCreateOpen(false)}
+          onCreated={handleCreatedPartner}
+        />
       ) : null}
     </div>
   );

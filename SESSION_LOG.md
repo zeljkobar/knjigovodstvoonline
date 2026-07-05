@@ -4,6 +4,15 @@
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
 ## 2026-07-05
+- Dodato brzo kreiranje partnera direktno iz polja za izbor partnera:
+  `PartnerSearchInput` i `JournalPartnerCell` sada imaju `+ Novi partner`,
+  otvaraju modal i koriste endpoint `/api/partners/quick-create`. Novi partner
+  se odmah selektuje u formi bez odlaska na stranicu partnera.
+- Dodate alokacije stavki izvoda na otvorene KIF/KUF račune:
+  `bank_statement_line_allocations` veže stavku izvoda sa računom, a čuvanje
+  predloga naloga osvježava status plaćanja računa (`UNPAID`,
+  `PARTIALLY_PAID`, `PAID`, `OVERPAID`). UI u tabu `Predlog naloga` sada nudi
+  otvorene račune istog partnera za zatvaranje.
 - Implementiran NLB PDF parser izvoda za čitljivi tabelarni PDF format iz
   `zadaci/nlb`: čita zaglavlje, račun firme, početno/krajnje stanje, ukupan
   priliv/odliv i stavke po koordinatama, uključujući višestranične izvode.
