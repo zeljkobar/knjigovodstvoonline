@@ -1435,6 +1435,189 @@ function parseNlbXml(text: string): ParsedStatement | null {
   };
 }
 
+function nlbMoneyValues(row: PdfTextRow) {
+  return row.items
+    .filter((item) => item.x >= 40 && item.x <= 530)
+    .map((item) => item.text.trim())
+    .filter(isMoneyText)
+    .map((item) => parseMoneyToCents(item))
+    .filter((amount): amount is number => amount !== null);
+}
+
+function parseNlbPdfHeader(text: string, rows: PdfTextRow[]) {
+  const normalizedText = text.replace(/\s+/g, " ");
+  const headerMatch = normalizedText.match(
+    /IZVOD\s+BR\.\s*(\d+)\s+ZA\s+PROMJENU\s+SREDSTAVA\s+NA\s+RA[ČC]UNU\s+DANA\s+(\d{2}\.\d{2}\.\d{4})/i
+  );
+  const accountRow = rows.find((row) => firstPdfItemInRange(row, 650, 780, /^\d{3}-[\d-]+$/));
+  const balanceRow = rows.find((row) => nlbMoneyValues(row).length >= 4);
+  const balances = balanceRow ? nlbMoneyValues(balanceRow) : [];
+
+  return {
+    statementNumber: headerMatch?.[1] ?? null,
+    statementDate: parseDateInput(headerMatch?.[2] ?? ""),
+    companyAccountNumber: accountRow
+      ? firstPdfItemInRange(accountRow, 650, 780, /^\d{3}-[\d-]+$/) || null
+      : null,
+    openingBalance: balances[0] ?? null,
+    totalOutflow: balances[1] ?? null,
+    totalInflow: balances[2] ?? null,
+    closingBalance: balances[3] ?? null
+  };
+}
+
+function isNlbAccountNumber(input: string | null | undefined) {
+  return /^\d{3}-\d{1,13}-\d{1,3}$/.test(String(input ?? "").trim());
+}
+
+function nlbTextInRange(rows: PdfTextRow[], minX: number, maxX: number) {
+  return rows
+    .flatMap((row) => pdfItemsInRange(row, minX, maxX))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function nlbFirstMoneyInRange(rows: PdfTextRow[], minX: number, maxX: number) {
+  const item = rows
+    .flatMap((row) =>
+      row.items
+        .filter((pdfItem) => pdfItem.x >= minX && pdfItem.x <= maxX)
+        .map((pdfItem) => pdfItem.text.trim())
+    )
+    .filter((value) => !/^Naknada:/i.test(value))
+    .find(isMoneyText);
+
+  return parseMoneyToCents(item ?? "") ?? 0;
+}
+
+function parseNlbPdfLine(rows: PdfTextRow[]): ParsedStatementLine | null {
+  const mainRow = rows.find((row) => firstPdfItemInRange(row, 30, 50, /^\d+$/));
+  const rowNumber = mainRow ? firstPdfItemInRange(mainRow, 30, 50, /^\d+$/) : "";
+
+  if (!rowNumber) {
+    return null;
+  }
+
+  const postingDateText = rows
+    .flatMap((row) => pdfItemsInRange(row, 210, 260))
+    .find((item) => /^\d{2}\.\d{2}\.\d{4}$/.test(item));
+  const postingDate = parseDateInput(postingDateText ?? "");
+  const outflow = nlbFirstMoneyInRange(rows, 300, 380);
+  const inflow = nlbFirstMoneyInRange(rows, 380, 430);
+  const paymentCode =
+    rows.flatMap((row) => pdfItemsInRange(row, 430, 465)).find((item) => /^\d{3}$/.test(item)) ??
+    null;
+
+  if (!postingDate || (outflow === 0 && inflow === 0)) {
+    return null;
+  }
+
+  const accountNumber =
+    rows
+      .flatMap((row) => pdfItemsInRange(row, 50, 190))
+      .find(isNlbAccountNumber) ?? null;
+  const normalizedAccountNumber = normalizeAccountNumber(accountNumber);
+  const counterpartyName =
+    rows
+      .flatMap((row) => pdfItemsInRange(row, 55, 220))
+      .filter((item) => !isNlbAccountNumber(item))
+      .filter((item) => !/^\d{2}\.\d{2}\.\d{4}$/.test(item))
+      .filter((item) => !/^BANKE$/i.test(item))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim() || null;
+  const purpose = nlbTextInRange(rows, 465, 645);
+  const referenceNumber = nlbTextInRange(rows, 645, 830)
+    .replace(/\(\d+\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim() || null;
+  const feeText =
+    rows
+      .flatMap((row) => row.items.map((item) => item.text.trim()))
+      .find((item) => /^Naknada:/i.test(item))
+      ?.replace(/\s+/g, " ") ?? "";
+  const description = [purpose, counterpartyName, feeText].filter(Boolean).join(" · ");
+
+  return {
+    postingDate,
+    valueDate: postingDate,
+    description: description || `NLB PDF stavka ${rowNumber}`,
+    accountNumber,
+    normalizedAccountNumber: normalizedAccountNumber || null,
+    counterpartyName,
+    referenceNumber,
+    paymentCode,
+    outflow,
+    inflow,
+    rawText: description || `NLB PDF stavka ${rowNumber}`
+  };
+}
+
+function parseNlbPdf(text: string, pdfRows?: PdfTextRow[]): ParsedStatement | null {
+  if (
+    !pdfRows?.length ||
+    !/IZVOD\s+BR\./i.test(text) ||
+    !/PROMJENU\s+SREDSTAVA\s+NA\s+RA[ČC]UNU/i.test(text)
+  ) {
+    return null;
+  }
+
+  const header = parseNlbPdfHeader(text, pdfRows);
+
+  if (!header.statementNumber || !header.companyAccountNumber) {
+    return null;
+  }
+
+  const lines: ParsedStatementLine[] = [];
+  const transactionRows = pdfRows.filter((row) => {
+    const rowText = pdfRowText(row);
+
+    return !(
+      rowText.includes("PROMENE") ||
+      rowText.includes("Naziv i sjedište") ||
+      rowText.includes("Model i poziv") ||
+      rowText.includes("broj računa") ||
+      rowText.includes("nal.") ||
+      rowText.includes("Ukupno za račun") ||
+      rowText.includes("Ukupno EURA") ||
+      rowText.includes("(postoji") ||
+      rowText.includes("Prenos na sledeću stranu") ||
+      rowText.includes("Prenos sa prethodne strane") ||
+      rowText.startsWith("Izvod br.")
+    );
+  });
+  const mainRows = transactionRows.filter((row) => firstPdfItemInRange(row, 30, 50, /^\d+$/));
+
+  for (const mainRow of mainRows) {
+    const lineRows = transactionRows.filter(
+      (row) => row.page === mainRow.page && row.y <= mainRow.y + 22 && row.y >= mainRow.y - 16
+    );
+    const line = parseNlbPdfLine(lineRows);
+
+    if (line) {
+      lines.push(line);
+    }
+  }
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return {
+    parser: "NLB_PDF",
+    companyAccountNumber: header.companyAccountNumber,
+    statementNumber: header.statementNumber,
+    statementDate: header.statementDate,
+    openingBalance: header.openingBalance,
+    totalInflow: header.totalInflow,
+    totalOutflow: header.totalOutflow,
+    closingBalance: header.closingBalance,
+    lines,
+    notes: "PDF parser za NLB izvode čita zaglavlje, rekapitulaciju i tabelarne stavke po koordinatama."
+  };
+}
+
 function parseStatementText(text: string): ParsedStatement {
   const lines = text
     .replace(/\u0000/g, "")
@@ -1453,7 +1636,7 @@ function parseStatementText(text: string): ParsedStatement {
 type StatementParser = (text: string, pdfRows?: PdfTextRow[]) => ParsedStatement | null;
 
 const statementParserRegistry: Record<string, StatementParser[]> = {
-  NLB: [parseNlbXml],
+  NLB: [parseNlbXml, parseNlbPdf],
   ERSTE: [parseErsteHtml],
   CKB: [parseCkbPdf],
   HIPOTEKARNA: [parseHipotekarnaPdf],
@@ -1463,6 +1646,7 @@ const statementParserRegistry: Record<string, StatementParser[]> = {
 
 const defaultStatementParsers: StatementParser[] = [
   parseNlbXml,
+  parseNlbPdf,
   parseErsteHtml,
   parseCkbPdf,
   parseHipotekarnaPdf,

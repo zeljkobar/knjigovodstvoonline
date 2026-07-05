@@ -85,7 +85,8 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   tabovima `Stavke izvoda` i `Predlog naloga`. Kad je izvod otvoren, ekran
   prelazi u detalj režim sa dugmetom `Povrat na spisak izvoda`, bez velikog
   spiska iznad detalja.
-- Parseri u MVP-u čitaju NLB XML izvode (`zadaci/nlb izvodi xml` format),
+- Parseri u MVP-u čitaju NLB XML izvode (`zadaci/nlb izvodi xml` format) i
+  NLB PDF izvode sa tabelarnim prometom po računu,
   uključujući UTF-16 fajlove, Erste HTML izvode (`zadaci/erste banka` format)
   sa `windows-1250` dekodiranjem, te CKB, Hipotekarna, Lovćen i Prva banka PDF izvode preko
   `pdfjs-dist`. Čitaju broj izvoda, datum, početno/krajnje stanje i

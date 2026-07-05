@@ -49,6 +49,12 @@ export default async function ParseriBanakaPage() {
       stats: parserStats.get("NLB_XML")
     },
     {
+      name: "NLB_PDF",
+      status: "Aktivan",
+      description: "PDF parser za NLB izvode sa tabelarnim prometom po računu.",
+      stats: parserStats.get("NLB_PDF")
+    },
+    {
       name: "ERSTE_HTM",
       status: "Aktivan",
       description: "HTML parser za Erste izvode (.htm/.html) sa prometom po računu.",

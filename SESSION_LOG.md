@@ -4,6 +4,11 @@
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
 ## 2026-07-05
+- Implementiran NLB PDF parser izvoda za čitljivi tabelarni PDF format iz
+  `zadaci/nlb`: čita zaglavlje, račun firme, početno/krajnje stanje, ukupan
+  priliv/odliv i stavke po koordinatama, uključujući višestranične izvode.
+  Provjereni su uzorci `002-008.pdf`; zbir stavki se poklapa sa
+  rekapitulacijom izvoda.
 - Implementiran Prva banka PDF parser izvoda: čita tabelarni PDF format, broj i
   datum izvoda, račun firme, početno/krajnje stanje, ukupne prilive/odlive i
   višeredne stavke sa pozivom na broj. Ručno je provjereno 6 uzoraka iz

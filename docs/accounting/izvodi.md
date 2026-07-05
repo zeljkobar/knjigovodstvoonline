@@ -26,6 +26,8 @@ stavke, import sesiju, kontrole, povezivanje sa fakturama i generiše jedan nalo
   - batch upload XML/HTM/PDF fajlova ili paste teksta,
   - NLB XML parser za format iz `zadaci/nlb izvodi xml`, uključujući UTF-16
     dekodiranje, zaglavlje i debit/credit stavke,
+  - NLB PDF parser za format iz `zadaci/nlb`, preko `pdfjs-dist`; čita broj
+    izvoda, račun firme, datum, početno/krajnje stanje i stavke po koordinatama,
   - Erste HTML parser za format iz `zadaci/erste banka`, uključujući
     `windows-1250` dekodiranje, broj izvoda iz oblika `002/2026`, zaglavlje,
     kontrolu stanja i stavke iz tabele prometa,
