@@ -203,6 +203,19 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   obrazac Bilansa stanja u vertikalnom višestraničnom toku.
 - Print ruta `/stampa/zavrsni-racun/statisticki-aneks` prikazuje formalni
   HTML/CSS obrazac Statističkog aneksa.
+- Stranica `/agencija/zavrsni-racun/zakljucna-knjizenja` priprema nacrt naloga
+  završnog računa: uzima salda svih konta klase 5 i 6 iz POSTED naloga aktivne
+  godine, izuzima već postojeće naloge tipa `FINAL_ACCOUNT`, knjiži svako saldo
+  kontra i dodaje zbirne kontra stavke na 5990 i 6990. Predlog se može ručno
+  provjeriti/korigovati i sačuvati kao standardni nacrt naloga tipa Završni
+  račun.
+- Završni račun ima arhivu snimljenih obrazaca:
+  `finansijski_izvjestaj_arhive`
+  (`20260707110000_finansijski_izvjestaj_arhiva`). Dugme `Snimi` na
+  `/agencija/zavrsni-racun/obrasci` čuva snapshot Bilansa stanja, Bilansa
+  uspjeha i Statističkog aneksa za aktivnu firmu/godinu. Live obrasci se i dalje
+  svaki put preračunavaju iz bruto bilansa i ručnih korekcija; arhivski detalj
+  čita zamrznuti JSON snapshot bez ponovnog preračuna.
 
 ## Nije početo / samo pripremljeno
 - Robno knjigovodstvo: spec pročitan, samo navigacioni placeholderi.
@@ -212,15 +225,17 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   banke, dorada UX-a pravila i naprednije alokacije kada jedna uplata zatvara
   više KIF/KUF računa.
 - Plate, klijentski portal, većina dashboard izvještaja.
-- Završni račun: Bilans uspjeha, Bilans stanja, Statistički aneks i trajne
-  ručne korekcije po AOP/koloni postoje; ostaju arhiva generisanih obrazaca,
-  XML/export i zaključna knjiženja.
+- Završni račun: Bilans uspjeha, Bilans stanja, Statistički aneks, trajne ručne
+  korekcije po AOP/koloni, predlog zaključnog naloga za klase 5/6 i arhiva
+  snimljenih obrazaca postoje; ostaje XML/export.
 - PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
 
 ## Zadnje provjere
 - `npm run lint` prolazi (stari warning `_prev` u `src/app/admin/actions.ts` i
   stari warning za neiskorišćene varijable u `src/app/agencija/racuni/actions.ts`).
 - `npx tsc --noEmit` prolazi.
+- `npx prisma migrate deploy` primijenio migraciju
+  `20260707110000_finansijski_izvjestaj_arhiva`.
 - `npx prisma migrate deploy` primijenio migraciju
   `20260706110000_finansijski_izvjestaj_korekcije`.
 - `npx prisma migrate deploy` primijenio migraciju

@@ -2,15 +2,21 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@prisma/client";
 import { auditLog } from "@/lib/audit";
+import { accountOverrideTypes } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import {
+  calculateBalanceSheet,
+  calculateIncomeStatement,
+  calculateStatisticalAnnex,
   financialReportTypes,
   getBalanceSheetSettings,
   getIncomeStatementSettings,
   getStatisticalAnnexSettings,
   type ReportCorrectionColumn
 } from "@/lib/financial-reports";
+import { formatJournalCode, journalStatuses, standardJournalTypes } from "@/lib/journals";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
@@ -25,6 +31,18 @@ function numberValue(value: FormDataEntryValue | null, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function redirectFinalClosing(message: string, detail?: string): never {
+  const params = new URLSearchParams({
+    poruka: message
+  });
+
+  if (detail) {
+    params.set("detalj", detail);
+  }
+
+  redirect(`/agencija/zavrsni-racun/zakljucna-knjizenja?${params.toString()}`);
+}
+
 function reportMoneyValue(value: FormDataEntryValue | null) {
   const raw = text(value);
 
@@ -32,10 +50,43 @@ function reportMoneyValue(value: FormDataEntryValue | null) {
     return null;
   }
 
-  const normalized = raw.replace(/\./g, "").replace(",", ".");
+  const normalized =
+    raw.includes(",") && raw.includes(".")
+      ? raw.replace(/\./g, "").replace(",", ".")
+      : raw.replace(",", ".");
   const parsed = Number(normalized);
 
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parsePositiveMoney(value: FormDataEntryValue | null) {
+  if (!text(value)) {
+    return 0;
+  }
+
+  const parsed = reportMoneyValue(value);
+
+  if (parsed === null || parsed < 0) {
+    return null;
+  }
+
+  return Math.round(parsed * 100);
+}
+
+function centsToDecimal(cents: number) {
+  return (cents / 100).toFixed(2);
+}
+
+function parseFinalClosingDate(value: FormDataEntryValue | null) {
+  const raw = text(value);
+
+  if (!raw) {
+    return null;
+  }
+
+  const parsed = new Date(`${raw}T00:00:00.000Z`);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 async function requireFinalAccountManageContext() {
@@ -116,8 +167,93 @@ function reportCorrectionsPath(slug: string, message: string) {
   return `/agencija/zavrsni-racun/obrasci?obrazac=${slug}&edit=1&poruka=${message}`;
 }
 
+function reportFormsPath(message: string) {
+  return `/agencija/zavrsni-racun/obrasci?poruka=${message}`;
+}
+
 function isValidReportColumn(tipSifra: string, column: string): column is ReportCorrectionColumn {
   return validReportColumnsByType[tipSifra]?.includes(column as ReportCorrectionColumn) ?? false;
+}
+
+async function resolveCompanyAccountForFinalClosing(
+  tx: Prisma.TransactionClient,
+  firmaId: string,
+  accountCode: string
+) {
+  const companyAccount = await tx.firmaKonto.findUnique({
+    where: {
+      firma_id_sifra: {
+        firma_id: firmaId,
+        sifra: accountCode
+      }
+    },
+    select: {
+      id: true,
+      konto_id: true,
+      sifra: true,
+      naziv: true,
+      analitika_obavezna: true,
+      override_type: true,
+      aktivan: true
+    }
+  });
+
+  if (companyAccount) {
+    if (
+      !companyAccount.aktivan ||
+      companyAccount.override_type === accountOverrideTypes.deactivated
+    ) {
+      return null;
+    }
+
+    return companyAccount;
+  }
+
+  const baseAccount = await tx.konto.findUnique({
+    where: {
+      sifra: accountCode
+    },
+    select: {
+      id: true,
+      sifra: true,
+      naziv: true,
+      tip_konta: true,
+      analitika_obavezna: true,
+      sinteticki_konto: true,
+      normalni_saldo: true,
+      koristi_radnu_jedinicu: true,
+      aktivan: true
+    }
+  });
+
+  if (!baseAccount?.aktivan) {
+    return null;
+  }
+
+  return tx.firmaKonto.create({
+    data: {
+      firma_id: firmaId,
+      konto_id: baseAccount.id,
+      sifra: baseAccount.sifra,
+      naziv: baseAccount.naziv,
+      tip_konta: baseAccount.tip_konta,
+      analitika_obavezna: baseAccount.analitika_obavezna,
+      sinteticki_konto: baseAccount.sinteticki_konto,
+      normalni_saldo: baseAccount.normalni_saldo,
+      koristi_radnu_jedinicu: baseAccount.koristi_radnu_jedinicu,
+      override_type: accountOverrideTypes.baseLink,
+      aktivan: true
+    },
+    select: {
+      id: true,
+      konto_id: true,
+      sifra: true,
+      naziv: true,
+      analitika_obavezna: true,
+      override_type: true,
+      aktivan: true
+    }
+  });
 }
 
 async function saveFinancialReportSettings({
@@ -425,4 +561,331 @@ export async function saveFinancialReportCorrections(formData: FormData) {
   revalidatePath("/stampa/zavrsni-racun/bilans-uspjeha");
   revalidatePath("/stampa/zavrsni-racun/statisticki-aneks");
   redirect(reportCorrectionsPath(reportSlug, "korekcije_sacuvane"));
+}
+
+export async function saveFinalAccountArchive() {
+  const context = await requireFinalAccountManageContextWithYear(
+    "/agencija/zavrsni-racun/obrasci"
+  );
+
+  const [firma, godina, incomeResult, balanceResult, annexResult] = await Promise.all([
+    prisma.firma.findFirst({
+      where: {
+        id: context.firmaId,
+        agencija_id: context.agencijaId,
+        is_deleted: false
+      },
+      select: {
+        id: true,
+        naziv: true,
+        pib: true,
+        maticni_broj: true,
+        sifra_djelatnosti: true
+      }
+    }),
+    prisma.poslovnaGodina.findFirst({
+      where: {
+        id: context.poslovnaGodinaId,
+        firma_id: context.firmaId
+      },
+      select: {
+        id: true,
+        godina: true,
+        datum_od: true,
+        datum_do: true
+      }
+    }),
+    calculateIncomeStatement({
+      agencijaId: context.agencijaId,
+      firmaId: context.firmaId,
+      poslovnaGodinaId: context.poslovnaGodinaId
+    }),
+    calculateBalanceSheet({
+      agencijaId: context.agencijaId,
+      firmaId: context.firmaId,
+      poslovnaGodinaId: context.poslovnaGodinaId
+    }),
+    calculateStatisticalAnnex({
+      agencijaId: context.agencijaId,
+      firmaId: context.firmaId,
+      poslovnaGodinaId: context.poslovnaGodinaId
+    })
+  ]);
+
+  if (!firma || !godina) {
+    redirect(reportFormsPath("kontekst"));
+  }
+
+  const snapshot = JSON.parse(
+    JSON.stringify({
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      firma: {
+        naziv: firma.naziv,
+        pib: firma.pib,
+        maticniBroj: firma.maticni_broj,
+        sifraDjelatnosti: firma.sifra_djelatnosti
+      },
+      godina: {
+        godina: godina.godina,
+        datumOd: godina.datum_od.toISOString(),
+        datumDo: godina.datum_do.toISOString()
+      },
+      reports: {
+        incomeStatement: {
+          templateSource: incomeResult.templateSource,
+          rows: incomeResult.rows
+        },
+        balanceSheet: {
+          templateSource: balanceResult.templateSource,
+          rows: balanceResult.rows
+        },
+        statisticalAnnex: {
+          templateSource: annexResult.templateSource,
+          rows: annexResult.rows
+        }
+      }
+    })
+  ) as Prisma.InputJsonValue;
+
+  const archive = await prisma.finansijskiIzvjestajArhiva.create({
+    data: {
+      agencija_id: context.agencijaId,
+      firma_id: context.firmaId,
+      poslovna_godina_id: context.poslovnaGodinaId,
+      naziv: `Završni račun ${firma.naziv} ${godina.godina}`,
+      snapshot,
+      created_by: context.user.id,
+      updated_by: context.user.id
+    },
+    select: {
+      id: true,
+      naziv: true,
+      created_at: true
+    }
+  });
+
+  await auditLog({
+    korisnikId: context.user.id,
+    agencijaId: context.agencijaId,
+    firmaId: context.firmaId,
+    modul: "zavrsni_racun",
+    akcija: "snimi_zavrsni_racun",
+    tipEntiteta: "finansijski_izvjestaj_arhiva",
+    entitetId: archive.id,
+    novaVrijednost: archive
+  });
+
+  revalidatePath("/agencija/zavrsni-racun/obrasci");
+  revalidatePath("/agencija/zavrsni-racun/arhiva");
+  redirect(`/agencija/zavrsni-racun/arhiva/${archive.id}?poruka=snimljeno`);
+}
+
+export async function createFinalClosingJournal(formData: FormData) {
+  const context = await requireFinalAccountManageContextWithYear(
+    "/agencija/zavrsni-racun/zakljucna-knjizenja"
+  );
+  const datum = parseFinalClosingDate(formData.get("datum"));
+  const opis = text(formData.get("opis")) || "Zaključno knjiženje klasa 5 i 6";
+
+  if (!datum) {
+    redirectFinalClosing("nalog_obavezno");
+  }
+
+  const accountCodes = formData.getAll("konto_sifra").map((item) => text(item));
+  const descriptions = formData.getAll("stavka_opis").map((item) => text(item));
+  const debitValues = formData.getAll("duguje");
+  const creditValues = formData.getAll("potrazuje");
+  const lines: Array<{
+    accountCode: string;
+    description: string;
+    debit: number;
+    credit: number;
+    lineNumber: number;
+  }> = [];
+
+  for (let index = 0; index < accountCodes.length; index += 1) {
+    const accountCode = accountCodes[index] ?? "";
+    const description = descriptions[index] ?? "";
+    const debit = parsePositiveMoney(debitValues[index] ?? null);
+    const credit = parsePositiveMoney(creditValues[index] ?? null);
+
+    if (!accountCode && !description && !debitValues[index] && !creditValues[index]) {
+      continue;
+    }
+
+    if (!accountCode || debit === null || credit === null) {
+      redirectFinalClosing("stavke_nevalidne");
+    }
+
+    if ((debit > 0 && credit > 0) || (debit === 0 && credit === 0)) {
+      redirectFinalClosing("stavka_iznos");
+    }
+
+    lines.push({
+      accountCode,
+      description,
+      debit,
+      credit,
+      lineNumber: lines.length + 1
+    });
+  }
+
+  if (lines.length === 0) {
+    redirectFinalClosing("stavke_obavezne");
+  }
+
+  const totalDebit = lines.reduce((sum, line) => sum + line.debit, 0);
+  const totalCredit = lines.reduce((sum, line) => sum + line.credit, 0);
+
+  if (totalDebit !== totalCredit) {
+    redirectFinalClosing("nalog_nebalansiran");
+  }
+
+  const finalAccountTypeCode = standardJournalTypes[8][0];
+  const journal = await prisma.$transaction(async (tx) => {
+    const [firma, poslovnaGodina, journalType] = await Promise.all([
+      tx.firma.findFirst({
+        where: {
+          id: context.firmaId,
+          agencija_id: context.agencijaId,
+          is_deleted: false,
+          aktivan: true
+        },
+        select: {
+          id: true,
+          agencija_id: true
+        }
+      }),
+      tx.poslovnaGodina.findFirst({
+        where: {
+          id: context.poslovnaGodinaId,
+          firma_id: context.firmaId
+        },
+        select: {
+          id: true,
+          godina: true,
+          zakljucena: true
+        }
+      }),
+      tx.vrstaNaloga.findFirst({
+        where: {
+          sifra: finalAccountTypeCode,
+          aktivan: true,
+          OR: [
+            {
+              sistemska: true
+            },
+            {
+              agencija_id: context.agencijaId
+            },
+            {
+              firma_id: context.firmaId
+            }
+          ]
+        },
+        select: {
+          id: true,
+          prefiks: true
+        }
+      })
+    ]);
+
+    if (!firma || !poslovnaGodina || poslovnaGodina.zakljucena || !journalType) {
+      throw new Error("nalog_obavezno");
+    }
+
+    const lastJournal = await tx.nalog.findFirst({
+      where: {
+        firma_id: firma.id,
+        poslovna_godina_id: poslovnaGodina.id,
+        vrsta_naloga_id: journalType.id
+      },
+      orderBy: {
+        broj: "desc"
+      },
+      select: {
+        broj: true
+      }
+    });
+    const broj = (lastJournal?.broj ?? 0) + 1;
+    const sifra = formatJournalCode(journalType.prefiks, poslovnaGodina.godina, broj);
+    const nalog = await tx.nalog.create({
+      data: {
+        agencija_id: firma.agencija_id,
+        firma_id: firma.id,
+        poslovna_godina_id: poslovnaGodina.id,
+        vrsta_naloga_id: journalType.id,
+        broj,
+        sifra,
+        datum,
+        opis,
+        status: journalStatuses.draft,
+        source_type: "FINAL_ACCOUNT",
+        source_module: "zavrsni_racun",
+        kreirao_korisnik_id: context.user.id,
+        created_by: context.user.id,
+        updated_by: context.user.id
+      },
+      select: {
+        id: true,
+        sifra: true,
+        broj: true,
+        status: true
+      }
+    });
+
+    for (const line of lines) {
+      const account = await resolveCompanyAccountForFinalClosing(
+        tx,
+        firma.id,
+        line.accountCode
+      );
+
+      if (!account) {
+        throw new Error("konto_nevalidno");
+      }
+
+      if (account.analitika_obavezna) {
+        throw new Error(`partner_obavezan:${account.sifra}`);
+      }
+
+      await tx.stavkaNaloga.create({
+        data: {
+          nalog_id: nalog.id,
+          konto_id: account.id,
+          duguje: centsToDecimal(line.debit),
+          potrazuje: centsToDecimal(line.credit),
+          opis: line.description || opis,
+          redni_broj: line.lineNumber,
+          created_by: context.user.id,
+          updated_by: context.user.id
+        }
+      });
+    }
+
+    return nalog;
+  }).catch((error) => {
+    if (error instanceof Error) {
+      const [message, detail] = error.message.split(":");
+      redirectFinalClosing(message || "nalog_greska", detail);
+    }
+
+    redirectFinalClosing("nalog_greska");
+  });
+
+  await auditLog({
+    korisnikId: context.user.id,
+    agencijaId: context.agencijaId,
+    firmaId: context.firmaId,
+    modul: "zavrsni_racun",
+    akcija: "create_final_closing_journal",
+    tipEntiteta: "Nalog",
+    entitetId: journal.id,
+    novaVrijednost: journal
+  });
+
+  revalidatePath("/agencija/zavrsni-racun/zakljucna-knjizenja");
+  revalidatePath("/agencija/nalozi");
+  redirect(`/agencija/nalozi/${journal.id}?poruka=nalog_kreiran`);
 }

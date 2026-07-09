@@ -4,6 +4,11 @@
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
 ## 2026-07-06
+- Dodata stranica `/agencija/zavrsni-racun/zakljucna-knjizenja`: priprema
+  predlog zaključnog naloga za aktivnu firmu/godinu, zatvara salda klasa 5 i 6
+  kontra stavkama, izuzima već postojeće `FINAL_ACCOUNT` naloge iz obračuna i
+  dodaje završne stavke 5990/6990. Predlog se čuva kao standardni nacrt naloga
+  tipa Završni račun.
 - U završnom računu dodate trajne ručne korekcije vrijednosti obrazaca:
   migracija `20260706110000_finansijski_izvjestaj_korekcije` uvodi tabelu
   `finansijski_izvjestaj_korekcije` po agenciji, firmi, poslovnoj godini, tipu
@@ -134,6 +139,18 @@
   banaka`. Ručno je provjereno 8 uzoraka iz `zadaci/Lovcen` (001, 007, 011,
   015, 016, 018, 020, 034): zbir stavki se poklapa sa ukupnim prilivom/odlivom
   iz zaglavlja.
+
+## 2026-07-07
+- Dodata arhiva završnih računa: migracija
+  `20260707110000_finansijski_izvjestaj_arhiva` uvodi tabelu
+  `finansijski_izvjestaj_arhive` sa JSON snapshotom sva tri obrasca za firmu i
+  poslovnu godinu.
+- Na `/agencija/zavrsni-racun/obrasci` dodato dugme `Snimi`; live obrasci se i
+  dalje svaki put preračunavaju iz bruto bilansa i ručnih korekcija, a snimljeni
+  završni račun ostaje zamrznut u arhivi.
+- Dodate stranice `/agencija/zavrsni-racun/arhiva` i
+  `/agencija/zavrsni-racun/arhiva/[id]` za pregled snimljenih završnih računa i
+  njihovih arhiviranih obrazaca.
 
 ## 2026-06-29
 - Implementirana prva MVP osnova modula Izvodi: migracija

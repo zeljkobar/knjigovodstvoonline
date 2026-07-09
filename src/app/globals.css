@@ -239,17 +239,21 @@ p {
 }
 
 .secondary-button {
+  align-items: center;
   min-height: 44px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: #f8fcff;
   color: var(--primary-strong);
   cursor: pointer;
+  display: inline-flex;
   font: inherit;
   font-size: 15px;
   font-weight: 700;
+  justify-content: center;
   margin-top: 26px;
   padding: 10px 16px;
+  text-decoration: none;
 }
 
 .secondary-button:hover {
@@ -524,6 +528,18 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
+}
+
+.header-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.header-actions form {
+  margin: 0;
 }
 
 .admin-header h2,
@@ -2814,6 +2830,16 @@ td small {
   padding: 4px 3px;
 }
 
+.journal-lines-table .journal-partner-td {
+  overflow: visible;
+  position: relative;
+  z-index: 5;
+}
+
+.journal-lines-table .journal-partner-td:focus-within {
+  z-index: 80;
+}
+
 .journal-partner-cell {
   position: relative;
   width: 100%;
@@ -2825,6 +2851,7 @@ td small {
 
 .journal-partner-cell .partner-search-results {
   min-width: 260px;
+  z-index: 90;
 }
 
 .journal-lines-table th {

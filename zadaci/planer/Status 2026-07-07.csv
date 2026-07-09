@@ -1,0 +1,2 @@
+Modul,Status,Implementirano,Otvoreno,Napomena
+Zavrsni racun,Djelimicno implementirano,"Dodato snimanje zavrsnog racuna u arhivu: tabela finansijski_izvjestaj_arhive cuva JSON snapshot Bilansa stanja, Bilansa uspjeha i Statistickog aneksa za aktivnu firmu/godinu; /agencija/zavrsni-racun/arhiva prikazuje snimljene zavrsne racune, a /arhiva/[id] prikazuje zamrznuti snapshot.","XML/export zavrsnog racuna i eventualna stampana verzija direktno iz arhivskog snimka.","Live obrasci se i dalje preracunavaju iz bruto bilansa i sacuvanih rucnih korekcija; arhiva se ne preracunava."

@@ -48,8 +48,9 @@
   štampa prijave i testovi knjiženja PDV prijave.
 - **Modul 10 Završni račun:** Bilans uspjeha, Bilans stanja i Statistički aneks
   imaju prvu implementaciju iz POSTED naloga, podesivu šemu po firmi i trajne
-  ručne korekcije po AOP/koloni. Ostaju arhiva generisanih obrazaca, XML/export
-  i zaključna knjiženja.
+  ručne korekcije po AOP/koloni. Predlog zaključnog naloga za zatvaranje klasa
+  5/6 u nacrt naloga tipa Završni račun postoji, kao i arhiva snimljenih
+  obrazaca. Ostaje XML/export.
 
 ## Nije implementirano
 - Plate i zaposleni, klijentski portal, dashboard izvještaji.

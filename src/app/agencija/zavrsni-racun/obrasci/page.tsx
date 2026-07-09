@@ -13,7 +13,7 @@ import {
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
-import { saveFinancialReportCorrections } from "../actions";
+import { saveFinalAccountArchive, saveFinancialReportCorrections } from "../actions";
 
 type PageProps = {
   searchParams?: Promise<{
@@ -44,6 +44,7 @@ const reportTabs = [
 const messages: Record<string, string> = {
   korekcije_sacuvane: "Ručne korekcije su sačuvane.",
   korekcija_resetovana: "Polje je vraćeno na obračunatu vrijednost.",
+  snimljeno: "Završni račun je snimljen u arhivu.",
   godina_zakljucena: "Poslovna godina je zaključana i korekcije nijesu dozvoljene.",
   kontekst: "Izaberite firmu i poslovnu godinu.",
   prava: "Nemate pravo za izmjenu završnog računa.",
@@ -231,6 +232,11 @@ export default async function ZavrsniRacunObrasciPage({ searchParams }: PageProp
           <Link className="secondary-button" href="/agencija/zavrsni-racun/podesavanja">
             Podešavanja
           </Link>
+          <form action={saveFinalAccountArchive}>
+            <button className="secondary-button" type="submit">
+              Snimi
+            </button>
+          </form>
           <Link className="secondary-button" href={reportHref(activeReport ?? "bilans-stanja", !editMode)}>
             {editMode ? "Pregled" : "Ručne korekcije"}
           </Link>
