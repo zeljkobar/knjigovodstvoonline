@@ -31,6 +31,11 @@
   podešavanja, XML `PR_PDV_2025` i knjiženja postoji. Ostaje zaključavanje
   perioda, ručni QA XML upload-a na portalu i provjera knjiženja na kontima
   2700/4700. Detalji: [`docs/accounting/pdv.md`](docs/accounting/pdv.md).
+- **Plate i zaposleni:** prva MVP osnova postoji: zaposleni, sistemski šifarnici
+  za IOPPD/vrste obračuna/poreze/doprinose/prirez, redovan obračun zarade 001 i
+  obračunske stavke sa mjesečnom pripremom, ručnim korekcijama i dodatnim
+  stavkama po radniku. Sljedeće: obustave, IOPPD podaci,
+  uplatnice i automatski nalog za knjiženje.
 
 ## Otvoreno po modulima
 - **Modul 1:** kompletan backend enforcement prava kroz sve rute/server actions;
@@ -46,6 +51,8 @@
   cache MAPR odgovora; bolji QA štampe na mnogo redova.
 - **Modul 8:** finalni IRMS XML, zaključavanje/otključavanje PDV perioda,
   štampa prijave i testovi knjiženja PDV prijave.
+- **Modul 9 Plate:** doraditi zaposlene/ugovore, obustave, IOPPD/JPR pripremu,
+  uplatnice, knjiženje u `PAYROLL` nalog i print/export obračuna.
 - **Modul 10 Završni račun:** Bilans uspjeha, Bilans stanja i Statistički aneks
   imaju prvu implementaciju iz POSTED naloga, podesivu šemu po firmi i trajne
   ručne korekcije po AOP/koloni. Predlog zaključnog naloga za zatvaranje klasa
@@ -53,7 +60,7 @@
   obrazaca. Ostaje XML/export.
 
 ## Nije implementirano
-- Plate i zaposleni, klijentski portal, dashboard izvještaji.
+- Klijentski portal, dashboard izvještaji.
 
 ## Invarijante koje treba čuvati (provjera prije/poslije rada)
 - POSTED nalozi ulaze u bruto bilans; DRAFT/DELETED ne ulaze u izvještaje.

@@ -217,6 +217,30 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   svaki put preračunavaju iz bruto bilansa i ručnih korekcija; arhivski detalj
   čita zamrznuti JSON snapshot bez ponovnog preračuna.
 
+### Modul 9 — Plate i zaposleni
+- Dodata prva MVP osnova modula plata (`20260709100000_plate_mvp`): sistemski
+  šifarnici IOPPD šifara, vrste obračuna, poreski razredi, doprinosi, prirez po
+  opštini i šifre primanja, plus tabele zaposlenih, obračuna, radnika na
+  obračunu i obračunskih stavki.
+- Stranica `/agencija/plate` prikazuje zaposlene aktivne firme i omogućava unos
+  osnovnih podataka za obračun (JMBG, opština, tekući račun, radno vrijeme,
+  neto/bruto/fiksni dio, koeficijenti i minuli rad). Pregled zaposlenih ima
+  tabove aktivni i neaktivni/bivši, datum zaposlenja u tabeli, formu za dodavanje
+  na dugme i izmjenu postojećeg radnika, uključujući status aktivan/zaposlen i
+  datum prestanka.
+- Stranica `/agencija/plate/obracun` omogućava kreiranje obračuna redovnog rada
+  za aktivnu firmu/godinu, pripremu radnika u nacrtu, izbor radnika iz lijeve
+  liste i mjesečne korekcije stavki prije obračuna (šifra primanja, vrsta
+  obračuna, sati, neto/bruto/fiksni dio, koeficijenti i minuli rad). Obračun
+  koristi pripremljene mjesečne stavke i ne briše ručne korekcije.
+- Na izabranom radniku u obračunu moguće je dodati dodatnu stavku za taj mjesec
+  prije obrade, npr. bonus ili korekciju, pa ponovo pokrenuti obračun.
+- `src/lib/payroll.ts` računa bruto/neto iz šifarnika, ne iz hardkodiranih stopa:
+  koristi važeće poreske razrede, stope doprinosa i prirez po opštini. Neto u
+  bruto se rješava binarnom pretragom i podržava proporcionalni obračun po
+  satima/fondu.
+- Stranica `/agencija/plate/podesavanja` prikazuje početne šifarnike i pravila.
+
 ## Nije početo / samo pripremljeno
 - Robno knjigovodstvo: spec pročitan, samo navigacioni placeholderi.
 - Izvodi: prva MVP baza/stranica/import/preview/knjiženje i pregledne
@@ -224,7 +248,11 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   PDF, Hipotekarna PDF, Lovćen PDF i Prva banka PDF; ostaju parseri za ostale
   banke, dorada UX-a pravila i naprednije alokacije kada jedna uplata zatvara
   više KIF/KUF računa.
-- Plate, klijentski portal, većina dashboard izvještaja.
+- Plate: prva MVP osnova postoji za zaposlene i redovan obračun zarade 001 sa
+  pripremom radnika, ručnim korekcijama i dodatnim mjesečnim stavkama;
+  ostaju ugovori, obustave, IOPPD/JPR, uplatnice, automatsko knjiženje plata i
+  arhiva/finalni print/export.
+- Klijentski portal, većina dashboard izvještaja.
 - Završni račun: Bilans uspjeha, Bilans stanja, Statistički aneks, trajne ručne
   korekcije po AOP/koloni, predlog zaključnog naloga za klase 5/6 i arhiva
   snimljenih obrazaca postoje; ostaje XML/export.
@@ -235,6 +263,8 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   stari warning za neiskorišćene varijable u `src/app/agencija/racuni/actions.ts`).
 - `npx tsc --noEmit` prolazi.
 - `npx prisma migrate deploy` primijenio migraciju
+  `20260709100000_plate_mvp`.
+- Poslije migracije restartovan je dev server da učita novi Prisma client.
   `20260707110000_finansijski_izvjestaj_arhiva`.
 - `npx prisma migrate deploy` primijenio migraciju
   `20260706110000_finansijski_izvjestaj_korekcije`.

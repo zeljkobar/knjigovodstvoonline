@@ -1675,6 +1675,67 @@ td small {
   padding: 14px;
 }
 
+.payroll-workspace {
+  align-items: start;
+  display: grid;
+  grid-template-columns: minmax(240px, 0.32fr) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.payroll-worker-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fcff;
+  padding: 14px;
+}
+
+.payroll-worker-list h4,
+.payroll-worker-detail h4 {
+  margin: 0;
+}
+
+.payroll-worker-link {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--foreground);
+  padding: 12px;
+  text-decoration: none;
+}
+
+.payroll-worker-link:hover,
+.payroll-worker-link.active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.payroll-worker-link span,
+.payroll-worker-link small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.payroll-worker-detail,
+.payroll-line-stack {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.payroll-line-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.payroll-result-table {
+  margin-top: 14px;
+}
+
 .assignment-list,
 .compact-form {
   display: grid;
@@ -3306,7 +3367,9 @@ td small {
   .metric-grid,
   .admin-form,
   .user-admin-grid,
-  .user-company-grid {
+  .user-company-grid,
+  .payroll-workspace,
+  .payroll-line-form {
     grid-template-columns: 1fr;
   }
 

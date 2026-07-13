@@ -1327,6 +1327,311 @@ model FinansijskiIzvjestajArhiva {
   @@map("finansijski_izvjestaj_arhive")
 }
 
+model PlateIoppdSifra {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sifra       String
+  naziv       String
+  opis        String?
+  kategorija  String?
+  aktivan     Boolean  @default(true)
+  valid_from  DateTime @db.Date
+  valid_to    DateTime? @db.Date
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@unique([sifra, valid_from])
+  @@index([sifra, aktivan])
+  @@map("plate_ioppd_sifre")
+}
+
+model PlateVrstaObracuna {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sifra                    String   @unique
+  naziv                    String
+  input_type               String
+  koristi_neto             Boolean  @default(false)
+  koristi_bruto            Boolean  @default(false)
+  koristi_koeficijent      Boolean  @default(false)
+  koristi_minuli_rad       Boolean  @default(false)
+  seniority_mode           String   @default("INCLUDED_IN_NET")
+  algoritam                String
+  aktivan                  Boolean  @default(true)
+  valid_from               DateTime @db.Date
+  valid_to                 DateTime? @db.Date
+  created_at               DateTime @default(now())
+  updated_at               DateTime @updatedAt
+
+  @@map("plate_vrste_obracuna")
+}
+
+model PlatePorezRazred {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sifra       String
+  naziv       String
+  bruto_od    Int
+  bruto_do    Int?
+  stopa       Decimal  @db.Decimal(8, 6)
+  aktivan     Boolean  @default(true)
+  valid_from  DateTime @db.Date
+  valid_to    DateTime? @db.Date
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([sifra, aktivan, valid_from])
+  @@map("plate_porez_razredi")
+}
+
+model PlateDoprinosStopa {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sifra       String
+  naziv       String
+  payer_type  String
+  stopa       Decimal  @db.Decimal(8, 6)
+  aktivan     Boolean  @default(true)
+  valid_from  DateTime @db.Date
+  valid_to    DateTime? @db.Date
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@unique([sifra, valid_from])
+  @@index([payer_type, aktivan, valid_from])
+  @@map("plate_doprinos_stope")
+}
+
+model PlatePrirezStopa {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  opstina     String
+  stopa       Decimal  @db.Decimal(8, 6)
+  aktivan     Boolean  @default(true)
+  valid_from  DateTime @db.Date
+  valid_to    DateTime? @db.Date
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@unique([opstina, valid_from])
+  @@index([opstina, aktivan, valid_from])
+  @@map("plate_prirez_stope")
+}
+
+model PlateSifraPrimanja {
+  id                              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id                     String?  @db.Uuid
+  firma_id                        String?  @db.Uuid
+  sifra                           String
+  naziv                           String
+  skraceni_naziv                  String?
+  ioppd_sifra_id                  String   @db.Uuid
+  vrsta_obracuna_id               String   @db.Uuid
+  kategorija                      String   @default("REDOVAN_RAD")
+  osnovica_tip                    String   @default("NETO")
+  procenat_osnovice               Decimal  @default(100) @db.Decimal(8, 2)
+  koristi_porez                   Boolean  @default(true)
+  koristi_zaposleni_pio           Boolean  @default(true)
+  koristi_zaposleni_zdravstvo     Boolean  @default(false)
+  koristi_zaposleni_nezaposleni   Boolean  @default(true)
+  koristi_poslodavac_pio          Boolean  @default(false)
+  koristi_poslodavac_zdravstvo    Boolean  @default(false)
+  koristi_poslodavac_nezaposleni  Boolean  @default(true)
+  koristi_fond_rada               Boolean  @default(true)
+  koristi_sindikat                Boolean  @default(true)
+  koristi_privredna_komora        Boolean  @default(true)
+  prikazi_na_ioppd                Boolean  @default(true)
+  bez_bruto_iznosa                Boolean  @default(false)
+  bez_neto_iznosa                 Boolean  @default(false)
+  aktivan                         Boolean  @default(true)
+  valid_from                      DateTime @db.Date
+  valid_to                        DateTime? @db.Date
+  created_at                      DateTime @default(now())
+  created_by                      String?  @db.Uuid
+  updated_at                      DateTime @updatedAt
+  updated_by                      String?  @db.Uuid
+
+  @@unique([agencija_id, firma_id, sifra, valid_from])
+  @@index([agencija_id, firma_id, aktivan])
+  @@map("plate_sifre_primanja")
+}
+
+model PlateRadnik {
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id                 String    @db.Uuid
+  firma_id                    String    @db.Uuid
+  redni_broj                  Int?
+  ime                         String
+  prezime                     String
+  ime_roditelja               String?
+  jmbg                        String?
+  datum_rodjenja              DateTime? @db.Date
+  pol                         String?
+  adresa                      String?
+  opstina                     String?
+  poreska_opstina             String?
+  email                       String?
+  telefon                     String?
+  tekuci_racun                String?
+  datum_pocetka               DateTime? @db.Date
+  datum_prestanka             DateTime? @db.Date
+  razlog_prestanka            String?
+  aktivan                     Boolean   @default(true)
+  zaposlen                    Boolean   @default(true)
+  radno_mjesto                String?
+  organizaciona_jedinica      String?
+  vrsta_radnog_vremena        String?
+  procenat_radnog_vremena     Decimal   @default(100) @db.Decimal(8, 2)
+  mjesecni_sati               Int?
+  koristi_minuli_rad          Boolean   @default(false)
+  minuli_rad_godina           Int       @default(0)
+  minuli_rad_mjeseci          Int       @default(0)
+  minuli_rad_dana             Int       @default(0)
+  koeficijent_minuli_rad      Decimal   @default(0) @db.Decimal(8, 4)
+  koeficijent_slozenosti      Decimal?  @db.Decimal(14, 6)
+  fiksni_dio_cent             Int       @default(0)
+  neto_iznos_cent             Int       @default(0)
+  bruto_iznos_cent            Int       @default(0)
+  podrazumijevana_sifra_id    String?   @db.Uuid
+  podrazumijevana_vrsta_id    String?   @db.Uuid
+  isplata_gotovina            Boolean   @default(false)
+  clan_sindikata              Boolean   @default(false)
+  invalid                     Boolean   @default(false)
+  sezonski_rad                Boolean   @default(false)
+  is_deleted                  Boolean   @default(false)
+  deleted_at                  DateTime?
+  deleted_by                  String?   @db.Uuid
+  delete_reason               String?
+  created_at                  DateTime  @default(now())
+  created_by                  String?   @db.Uuid
+  updated_at                  DateTime  @updatedAt
+  updated_by                  String?   @db.Uuid
+
+  @@index([agencija_id, firma_id, aktivan, is_deleted])
+  @@index([agencija_id, firma_id, prezime, ime])
+  @@map("plate_radnici")
+}
+
+model PlateObracun {
+  id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id             String    @db.Uuid
+  firma_id                String    @db.Uuid
+  poslovna_godina_id      String    @db.Uuid
+  kategorija              String    @default("REDOVAN_RAD")
+  broj                    Int
+  oznaka                  String?
+  godina                  Int
+  mjesec                  Int
+  datum_od                DateTime  @db.Date
+  datum_do                DateTime  @db.Date
+  datum_obracuna          DateTime  @db.Date
+  datum_isplate           DateTime? @db.Date
+  fond_sati               Int
+  koristi_minuli_rad      Boolean   @default(false)
+  status                  String    @default("DRAFT")
+  napomena                String?
+  nalog_id                String?   @db.Uuid
+  calculated_at           DateTime?
+  calculated_by           String?   @db.Uuid
+  posted_at               DateTime?
+  posted_by               String?   @db.Uuid
+  locked_at               DateTime?
+  locked_by               String?   @db.Uuid
+  is_deleted              Boolean   @default(false)
+  deleted_at              DateTime?
+  deleted_by              String?   @db.Uuid
+  delete_reason           String?
+  created_at              DateTime  @default(now())
+  created_by              String?   @db.Uuid
+  updated_at              DateTime  @updatedAt
+  updated_by              String?   @db.Uuid
+  radnici                 PlateObracunRadnik[]
+  stavke                  PlateObracunStavka[]
+
+  @@unique([firma_id, poslovna_godina_id, kategorija, broj])
+  @@index([agencija_id, firma_id, poslovna_godina_id, status])
+  @@map("plate_obracuni")
+}
+
+model PlateObracunRadnik {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id         String       @db.Uuid
+  firma_id            String       @db.Uuid
+  obracun_id          String       @db.Uuid
+  obracun             PlateObracun @relation(fields: [obracun_id], references: [id])
+  radnik_id           String       @db.Uuid
+  snapshot            Json
+  minuli_rad_godina   Int          @default(0)
+  minuli_rad_mjeseci  Int          @default(0)
+  minuli_rad_dana     Int          @default(0)
+  fond_sati           Int
+  ukupno_sati         Int
+  status              String       @default("DRAFT")
+  email_sent          Boolean      @default(false)
+  created_at          DateTime     @default(now())
+  created_by          String?      @db.Uuid
+  updated_at          DateTime     @updatedAt
+  updated_by          String?      @db.Uuid
+
+  @@unique([obracun_id, radnik_id])
+  @@index([agencija_id, firma_id, obracun_id])
+  @@map("plate_obracun_radnici")
+}
+
+model PlateObracunStavka {
+  id                            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id                    String       @db.Uuid
+  firma_id                       String       @db.Uuid
+  obracun_id                     String       @db.Uuid
+  obracun                        PlateObracun @relation(fields: [obracun_id], references: [id])
+  radnik_id                      String       @db.Uuid
+  obracun_radnik_id              String?      @db.Uuid
+  redni_broj                     Int
+  sifra_primanja_id              String       @db.Uuid
+  ioppd_sifra_id                 String       @db.Uuid
+  vrsta_obracuna_id              String       @db.Uuid
+  sifra_primanja                 String
+  naziv_primanja                 String
+  datum_od                       DateTime     @db.Date
+  datum_do                       DateTime     @db.Date
+  fond_sati                      Int
+  ukupno_sati                    Int
+  procenat                       Decimal      @default(100) @db.Decimal(8, 2)
+  osnovica_cent                  Int          @default(0)
+  input_neto_cent                Int          @default(0)
+  input_bruto_cent               Int          @default(0)
+  fiksni_dio_cent                Int          @default(0)
+  koeficijent_slozenosti         Decimal?     @db.Decimal(14, 6)
+  koeficijent_minuli_rad         Decimal      @default(0) @db.Decimal(8, 4)
+  koristi_minuli_rad             Boolean      @default(false)
+  iznos_za_obracun_cent          Int          @default(0)
+  neto_cent                      Int          @default(0)
+  bruto_cent                     Int          @default(0)
+  oporezivi_bruto_cent           Int          @default(0)
+  porez_cent                     Int          @default(0)
+  prirez_cent                    Int          @default(0)
+  zaposleni_pio_cent             Int          @default(0)
+  zaposleni_zdravstvo_cent       Int          @default(0)
+  zaposleni_nezaposleni_cent     Int          @default(0)
+  poslodavac_pio_cent            Int          @default(0)
+  poslodavac_zdravstvo_cent      Int          @default(0)
+  poslodavac_nezaposleni_cent    Int          @default(0)
+  fond_rada_cent                 Int          @default(0)
+  sindikat_cent                  Int          @default(0)
+  privredna_komora_cent          Int          @default(0)
+  doprinosi_zaposleni_cent       Int          @default(0)
+  doprinosi_poslodavac_cent      Int          @default(0)
+  ukupni_trosak_cent             Int          @default(0)
+  neto_za_isplatu_cent           Int          @default(0)
+  stopa_prireza                  Decimal      @default(0) @db.Decimal(8, 6)
+  detalji                        Json?
+  status                         String       @default("CALCULATED")
+  warning_message                String?
+  created_at                     DateTime     @default(now())
+  created_by                     String?      @db.Uuid
+  updated_at                     DateTime     @updatedAt
+  updated_by                     String?      @db.Uuid
+
+  @@index([agencija_id, firma_id, obracun_id])
+  @@index([obracun_id, radnik_id])
+  @@map("plate_obracun_stavke")
+}
+
 model StavkaNaloga {
   id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nalog_id        String     @db.Uuid

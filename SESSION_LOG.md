@@ -3,6 +3,31 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-07-09
+- Doradjen ekran `/agencija/plate`: unos novog radnika otvara se na dugme,
+  zaposleni su prikazani kroz tabove aktivni i neaktivni/bivši, tabela prikazuje
+  datum zaposlenja, a postojeći radnik se može izmijeniti kroz istu formu uz
+  audit log.
+- Doradjen tok obračuna plata: nacrt obračuna se prvo priprema sa radnicima i
+  mjesečnim stavkama, ekran prikazuje listu radnika lijevo i podešavanja
+  izabranog radnika desno, a prije obrade se mogu mijenjati sati, šifra
+  primanja, vrsta obračuna, neto/bruto/fiksni dio, koeficijenti i minuli rad.
+- Dodato je dodavanje dodatne mjesečne stavke po radniku; izmjena stavke vraća
+  obračun u nacrt, a ponovna obrada računa iz pripremljenih stavki bez brisanja
+  ručnih korekcija.
+- Započet modul Plate: migracija `20260709100000_plate_mvp` uvodi sistemske
+  šifarnike IOPPD šifara, vrsta obračuna, poreskih razreda, doprinosa, prireza i
+  šifri primanja, te tabele `plate_radnici`, `plate_obracuni`,
+  `plate_obracun_radnici` i `plate_obracun_stavke`.
+- Dodata stranica `/agencija/plate` za unos i pregled zaposlenih aktivne firme,
+  stranica `/agencija/plate/obracun` za kreiranje i obradu redovnog obračuna
+  zarade 001, i `/agencija/plate/podesavanja` za pregled početnih šifarnika.
+- Dodan `src/lib/payroll.ts`: bruto/neto obračun čita važeće stope i poreske
+  razrede iz baze, podržava proporcionalne sate i čuva rezultat po stavci.
+- Nakon migracije urađen `npm run prisma:generate`, primijenjen
+  `npx prisma migrate deploy`, restartovan dev server i `npx tsc --noEmit`
+  prolazi.
+
 ## 2026-07-06
 - Dodata stranica `/agencija/zavrsni-racun/zakljucna-knjizenja`: priprema
   predlog zaključnog naloga za aktivnu firmu/godinu, zatvara salda klasa 5 i 6
