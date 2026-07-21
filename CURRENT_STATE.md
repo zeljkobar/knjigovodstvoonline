@@ -227,19 +227,70 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   neto/bruto/fiksni dio, koeficijenti i minuli rad). Pregled zaposlenih ima
   tabove aktivni i neaktivni/bivši, datum zaposlenja u tabeli, formu za dodavanje
   na dugme i izmjenu postojećeg radnika, uključujući status aktivan/zaposlen i
-  datum prestanka.
-- Stranica `/agencija/plate/obracun` omogućava kreiranje obračuna redovnog rada
-  za aktivnu firmu/godinu, pripremu radnika u nacrtu, izbor radnika iz lijeve
-  liste i mjesečne korekcije stavki prije obračuna (šifra primanja, vrsta
-  obračuna, sati, neto/bruto/fiksni dio, koeficijenti i minuli rad). Obračun
-  koristi pripremljene mjesečne stavke i ne briše ručne korekcije.
+  datum prestanka. Aktivni radnik se može eksplicitno odjaviti sa datumom i
+  razlogom prestanka, a neaktivni/bivši radnik se može reaktivirati.
+- Stranica `/agencija/plate/obracun` omogućava kreiranje obračuna po kategoriji
+  (`Redovan rad`, `Ugovor o djelu`, `Zakup`, `Ostali ugovori`) za aktivnu
+  firmu/godinu. Redovan rad priprema samo trenutno zaposlene radnike, dok
+  zakup/ugovori mogu koristiti aktivna lica koja ne moraju biti zaposlena u
+  firmi. U nacrtu se bira radnik iz lijeve liste i rade mjesečne korekcije
+  stavki prije obračuna (šifra primanja, vrsta obračuna, sati, neto/bruto/fiksni
+  dio, koeficijenti i minuli rad). Obračun koristi pripremljene mjesečne stavke
+  i ne briše ručne korekcije. Postojeći obračun se može obrisati dok nije
+  proknjižen/zaključan, a radnici se mogu naknadno dodavati u obračun ili
+  izbacivati iz njega bez brisanja cijelog obračuna.
+- Obračun plata prikazuje kontrole prije obrade: blokirajuće greške za JMBG,
+  poresku opštinu/opštinu, sate, šifru/vrstu obračuna i osnovicu, te upozorenje
+  za tekući račun. Dugme `Obradi` je onemogućeno dok postoje greške, a backend
+  dodatno blokira obradu ako se greške ipak pošalju.
 - Na izabranom radniku u obračunu moguće je dodati dodatnu stavku za taj mjesec
   prije obrade, npr. bonus ili korekciju, pa ponovo pokrenuti obračun.
 - `src/lib/payroll.ts` računa bruto/neto iz šifarnika, ne iz hardkodiranih stopa:
   koristi važeće poreske razrede, stope doprinosa i prirez po opštini. Neto u
   bruto se rješava binarnom pretragom i podržava proporcionalni obračun po
   satima/fondu.
-- Stranica `/agencija/plate/podesavanja` prikazuje početne šifarnike i pravila.
+- Obračun koristi strukturisana pravila iz `plate_osnova_pravila` i
+  `plate_osnova_stope` za šifre primanja vezane na osnovu obračuna sa
+  linearnim stopama, npr. `047` i `065`: poreska osnovica 70% bruto, porez po
+  stopi iz šifarnika i prirez po opštini, bez doprinosa ako nijesu definisani
+  u pravilima. Redovna zarada `001` ostaje na posebnom razrednom obračunu poreza
+  i doprinosima iz sistemskih stopa.
+- Minuli rad se računa po pravilu iz
+  `zadaci/plate/pravilo-obracuna-minulog-rada-crna-gora.md`: samo navršene
+  godine staža, progresivno 0,50% za prvih 10 godina, 0,75% za narednih 10 i
+  1,00% za godine preko 20. Uvećanje ide na osnovnu zaradu prije bruto/neto
+  preračuna, a efektivni koeficijent se čuva na obračunskoj stavci. Ako ručno
+  polje `Minuli rad godina` nije popunjeno, obračun pokušava izračunati
+  navršene godine iz datuma zaposlenja do datuma obračuna; ako je i to 0,
+  kontrola blokira obračun stavke sa uključenim minulim radom.
+- Stranica `/agencija/plate/podesavanja` prikazuje početne šifarnike i pravila,
+  uključujući šifarnik osnova za obračun iz IOPPD specifikacije. Osnove su
+  modelovane posebno od šifri primanja: glavna osnova, period pravila i stope po
+  tipu/teretu.
+- Stranica `/agencija/plate/ioppd` prikazuje IOPPD po mjesecima. Jedan mjesečni
+  IOPPD sabira sve obrađene obračune za aktivnu firmu/godinu u tom mjesecu
+  (redovan rad, zakup, ugovor o djelu i ostali ugovori). Dugme `Pregled` otvara
+  HTML/CSS štampu `/stampa/plate/ioppd` sa opštim dijelom na uspravnoj strani i
+  posebnim dijelom na horizontalnoj strani. Dugme `Download XML` preuzima
+  zvaničnu IOPPD XML strukturu `Izvjestaj` / `Ukupno` /
+  `PojedinacniObracun`, po istom formatu koji prihvata IRMS portal.
+- Migracija `20260719120000_plate_obracun_kategorije` dodaje početne sistemske
+  vrste za ostale obračune i šifre primanja `047` za ugovor o djelu/ostale
+  ugovore i `065` za zakup.
+- Migracija `20260719130000_plate_osnove_obracuna` dodaje tabele
+  `plate_osnove_obracuna`, `plate_osnova_pravila` i `plate_osnova_stope`, vezu
+  `plate_sifre_primanja.osnova_obracuna_id`, te početna pravila za osnove `047`
+  i `065`: porezna osnovica 70% bruto i porez 15% od 01.01.2022.
+- Migracija `20260719133000_plate_osnove_full_import` importuje svih 108 šifara
+  osnova iz zvaničnog Excel dokumenta
+  `zadaci/plate/specifikacija-osnova-za-obracun-oktobar-2024-novine-pio-i-od-01012025.xls`.
+  Svaki red čuva kompletne originalne podatke u JSON-u pravila, a strukturisana
+  polja se popunjavaju gdje je pravilo jednoznačno mapirano. Migracija
+  `20260719134000_plate_osnove_opis_cleanup` čisti pomoćni opis poslije importa.
+- Migracija `20260719135000_plate_sifre_primanja_from_osnove` iz svih osnova
+  obračuna generiše/povezuje aktivne IOPPD šifre i šifre primanja, tako da kod
+  unosa/izmjene radnika dropdown `IOPPD šifra / šifra primanja` prikazuje svih
+  108 zvaničnih šifara.
 
 ## Nije početo / samo pripremljeno
 - Robno knjigovodstvo: spec pročitan, samo navigacioni placeholderi.
@@ -248,10 +299,12 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   PDF, Hipotekarna PDF, Lovćen PDF i Prva banka PDF; ostaju parseri za ostale
   banke, dorada UX-a pravila i naprednije alokacije kada jedna uplata zatvara
   više KIF/KUF računa.
-- Plate: prva MVP osnova postoji za zaposlene i redovan obračun zarade 001 sa
-  pripremom radnika, ručnim korekcijama i dodatnim mjesečnim stavkama;
-  ostaju ugovori, obustave, IOPPD/JPR, uplatnice, automatsko knjiženje plata i
-  arhiva/finalni print/export.
+- Plate: prva MVP osnova postoji za zaposlene, redovan obračun zarade 001,
+  kategorije ugovora/zakupa, šifarnik osnova za obračun i mjesečnu IOPPD
+  štampu; detaljna pravila osnova su povezana za linearne obračune poput
+  ugovora/zakupa, a ostaju obustave, uplatnice, automatsko knjiženje plata,
+  arhiva/finalni print/export i dodatna opisna pravila koja traže ručne
+  parametre.
 - Klijentski portal, većina dashboard izvještaja.
 - Završni račun: Bilans uspjeha, Bilans stanja, Statistički aneks, trajne ručne
   korekcije po AOP/koloni, predlog zaključnog naloga za klase 5/6 i arhiva
@@ -262,6 +315,8 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - `npm run lint` prolazi (stari warning `_prev` u `src/app/admin/actions.ts` i
   stari warning za neiskorišćene varijable u `src/app/agencija/racuni/actions.ts`).
 - `npx tsc --noEmit` prolazi.
+- `npx prisma migrate deploy` primijenio migraciju
+  `20260718110000_plate_minuli_rad_mode`.
 - `npx prisma migrate deploy` primijenio migraciju
   `20260709100000_plate_mvp`.
 - Poslije migracije restartovan je dev server da učita novi Prisma client.

@@ -1,4 +1,9 @@
-import { createPayrollEmployee, updatePayrollEmployee } from "./actions";
+import {
+  createPayrollEmployee,
+  deactivatePayrollEmployee,
+  reactivatePayrollEmployee,
+  updatePayrollEmployee
+} from "./actions";
 import { getPlateContext, MissingPlateContext } from "./_shared";
 import { dateInputValue, money } from "@/lib/payroll";
 import { prisma } from "@/lib/prisma";
@@ -15,7 +20,10 @@ type PageProps = {
 const messages: Record<string, string> = {
   radnik_dodat: "Zaposleni je dodat.",
   radnik_izmijenjen: "Podaci zaposlenog su sačuvani.",
+  radnik_odjavljen: "Radnik je odjavljen i premješten u neaktivne/bivše.",
+  radnik_reaktiviran: "Radnik je reaktiviran.",
   radnik_nevalidan: "Ime, prezime i ispravni iznosi su obavezni.",
+  odjava_nevalidna: "Za odjavu je obavezan datum prestanka.",
   kontekst: "Izaberite firmu i poslovnu godinu.",
   prava: "Nemate pravo za rad sa platama.",
   godina_zakljucena: "Poslovna godina je zaključana."
@@ -99,6 +107,13 @@ export default async function PlatePage({ searchParams }: PageProps) {
   const showForm = params?.novi === "1" || Boolean(editedEmployee);
   const activeEmployees = employees.filter((employee) => employee.aktivan && employee.zaposlen);
   const inactiveEmployees = employees.filter((employee) => !employee.aktivan || !employee.zaposlen);
+  const employeeIncomeTypes = incomeTypes.filter((type, index, allTypes) => {
+    if (type.id === editedEmployee?.podrazumijevana_sifra_id) {
+      return true;
+    }
+
+    return allTypes.findIndex((candidate) => candidate.sifra === type.sifra) === index;
+  });
   const activeTab = params?.tab === "neaktivni" ? "neaktivni" : "aktivni";
   const formQuery = showForm && !editedEmployee ? "&novi=1" : "";
   const closeFormHref = `/agencija/plate?tab=${activeTab}`;
@@ -218,10 +233,10 @@ export default async function PlatePage({ searchParams }: PageProps) {
               />
             </label>
             <label>
-              <span>Šifra primanja</span>
+              <span>IOPPD šifra / šifra primanja</span>
               <select name="podrazumijevana_sifra_id" defaultValue={editedEmployee?.podrazumijevana_sifra_id ?? ""}>
                 <option value="">Podrazumijevano: 001 Zarada</option>
-                {incomeTypes.map((type) => (
+                {employeeIncomeTypes.map((type) => (
                   <option key={type.id} value={type.id}>
                     {type.sifra} - {type.naziv}
                   </option>
@@ -329,9 +344,19 @@ export default async function PlatePage({ searchParams }: PageProps) {
                       <td>{money(employee.bruto_iznos_cent)}</td>
                       <td>Aktivan</td>
                       <td>
-                        <a className="table-button" href={`/agencija/plate?tab=aktivni&edit=${employee.id}`}>
-                          Izmijeni
-                        </a>
+                        <div className="table-actions">
+                          <a className="table-button" href={`/agencija/plate?tab=aktivni&edit=${employee.id}`}>
+                            Izmijeni
+                          </a>
+                          <form className="table-inline-form payroll-deactivate-form" action={deactivatePayrollEmployee}>
+                            <input name="radnik_id" type="hidden" value={employee.id} />
+                            <input name="datum_prestanka" type="date" required />
+                            <input name="razlog_prestanka" placeholder="Razlog" />
+                            <button className="table-button table-button-danger" type="submit">
+                              Odjavi
+                            </button>
+                          </form>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -373,9 +398,17 @@ export default async function PlatePage({ searchParams }: PageProps) {
                       <td>{money(employee.neto_iznos_cent)}</td>
                       <td>{employee.zaposlen ? "Neaktivan" : "Bivši radnik"}</td>
                       <td>
-                        <a className="table-button" href={`/agencija/plate?tab=neaktivni&edit=${employee.id}`}>
-                          Izmijeni
-                        </a>
+                        <div className="table-actions">
+                          <a className="table-button" href={`/agencija/plate?tab=neaktivni&edit=${employee.id}`}>
+                            Izmijeni
+                          </a>
+                          <form action={reactivatePayrollEmployee}>
+                            <input name="radnik_id" type="hidden" value={employee.id} />
+                            <button className="table-button" type="submit">
+                              Reaktiviraj
+                            </button>
+                          </form>
+                        </div>
                       </td>
                     </tr>
                   ))

@@ -1,7 +1,25 @@
 import { getPlateContext, MissingPlateContext } from "../_shared";
+import { savePayrollBasisRule } from "../actions";
 import { prisma } from "@/lib/prisma";
 
-export default async function PayrollSettingsPage() {
+type PageProps = {
+  searchParams?: Promise<{
+    poruka?: string;
+  }>;
+};
+
+function dateInput(value: Date | null | undefined) {
+  return value ? value.toISOString().slice(0, 10) : "";
+}
+
+function percentValue(value: unknown, multiplier = 1) {
+  const numeric = Number(value ?? 0) * multiplier;
+
+  return Number.isFinite(numeric) ? numeric.toFixed(2) : "0.00";
+}
+
+export default async function PayrollSettingsPage({ searchParams }: PageProps) {
+  const params = await searchParams;
   const context = await getPlateContext("view");
 
   if (!context.firma || !context.godina || !context.user.agencija_id) {
@@ -16,218 +34,147 @@ export default async function PayrollSettingsPage() {
     );
   }
 
-  const [ioppdCodes, calculationTypes, incomeTypes, taxBrackets, contributionRates, surtaxRates] =
-    await Promise.all([
-      prisma.plateIoppdSifra.findMany({
+  const payrollBases = await prisma.plateOsnovaObracuna.findMany({
+    where: {
+      aktivan: true
+    },
+    include: {
+      pravila: {
         where: {
           aktivan: true
         },
-        orderBy: {
-          sifra: "asc"
-        }
-      }),
-      prisma.plateVrstaObracuna.findMany({
-        where: {
-          aktivan: true
-        },
-        orderBy: {
-          naziv: "asc"
-        }
-      }),
-      prisma.plateSifraPrimanja.findMany({
-        where: {
-          aktivan: true,
-          OR: [
-            {
-              agencija_id: context.user.agencija_id,
-              firma_id: context.firma.id
+        include: {
+          stope: {
+            where: {
+              aktivan: true
             },
-            {
-              agencija_id: context.user.agencija_id,
-              firma_id: null
-            },
-            {
-              agencija_id: null,
-              firma_id: null
+            orderBy: {
+              tip: "asc"
             }
-          ]
+          }
         },
         orderBy: {
-          sifra: "asc"
-        }
-      }),
-      prisma.platePorezRazred.findMany({
-        where: {
-          aktivan: true
+          valid_from: "desc"
         },
-        orderBy: {
-          bruto_od: "asc"
-        }
-      }),
-      prisma.plateDoprinosStopa.findMany({
-        where: {
-          aktivan: true
-        },
-        orderBy: {
-          sifra: "asc"
-        }
-      }),
-      prisma.platePrirezStopa.findMany({
-        where: {
-          aktivan: true
-        },
-        orderBy: {
-          opstina: "asc"
-        }
-      })
-    ]);
+        take: 1
+      }
+    },
+    orderBy: {
+      sifra: "asc"
+    }
+  });
 
   return (
     <div className="admin-stack">
       <header className="admin-header">
         <div>
           <h2>Podešavanja plata</h2>
-          <p>Početni sistemski šifarnici za MVP obračun zarade 001.</p>
+          <p>Osnove za obračun plata i pravila po IOPPD šiframa.</p>
         </div>
       </header>
 
-      <section className="admin-panel">
-        <div className="panel-header">
-          <h3>Šifre primanja</h3>
-          <span>{incomeTypes.length} aktivno</span>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Šifra</th>
-                <th>Naziv</th>
-                <th>Kategorija</th>
-                <th>Osnovica</th>
-                <th>IOPPD</th>
-              </tr>
-            </thead>
-            <tbody>
-              {incomeTypes.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.sifra}</td>
-                  <td>{item.naziv}</td>
-                  <td>{item.kategorija}</td>
-                  <td>{item.osnovica_tip}</td>
-                  <td>{item.prikazi_na_ioppd ? "Da" : "Ne"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {params?.poruka === "osnova_sacuvana" ? (
+        <section className="status-banner success">Osnova za obračun je sačuvana.</section>
+      ) : null}
+      {params?.poruka === "osnova_nevalidna" ? (
+        <section className="status-banner error">Unesite šifru, naziv i datum važenja osnove.</section>
+      ) : null}
 
       <section className="admin-panel">
         <div className="panel-header">
-          <h3>Vrste obračuna</h3>
-          <span>{calculationTypes.length} aktivno</span>
+          <h3>Osnove za obračun</h3>
+          <span>{payrollBases.length} aktivno</span>
         </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Šifra</th>
-                <th>Naziv</th>
-                <th>Ulaz</th>
-                <th>Algoritam</th>
-                <th>Minuli rad</th>
-              </tr>
-            </thead>
-            <tbody>
-              {calculationTypes.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.sifra}</td>
-                  <td>{item.naziv}</td>
-                  <td>{item.input_type}</td>
-                  <td>{item.algoritam}</td>
-                  <td>{item.koristi_minuli_rad ? "Da" : "Ne"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+        <p className="muted-text">
+          Matrica iz specifikacije povezuje IOPPD šifru sa osnovicom, stopama i rokom. Originalni red iz
+          zvaničnog dokumenta se čuva uz pravilo, a strukturisana polja služe za obračun i kontrole.
+        </p>
+        <div className="settings-grid">
+          {payrollBases.map((basis) => {
+            const rule = basis.pravila[0];
+            const taxRate = rule?.stope.find((rate) => rate.tip === "POREZ");
 
-      <section className="admin-panel">
-        <div className="panel-header">
-          <h3>IOPPD šifre</h3>
-          <span>{ioppdCodes.length} seed</span>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Šifra</th>
-                <th>Naziv</th>
-                <th>Kategorija</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ioppdCodes.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.sifra}</td>
-                  <td>{item.naziv}</td>
-                  <td>{item.kategorija ?? "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            return (
+              <details className="settings-card" key={basis.id}>
+                <summary>
+                  <strong>
+                    {basis.sifra} - {basis.naziv}
+                  </strong>
+                  <span>
+                    {basis.kategorija ?? "OSTALO"} / {rule?.osnovica_porez_tip ?? "bez poreza"}{" "}
+                    {taxRate ? `/ porez ${percentValue(taxRate.stopa, 100)}%` : ""}
+                  </span>
+                </summary>
+                <form action={savePayrollBasisRule}>
+                  <input type="hidden" name="osnova_id" value={basis.id} />
+                  <input type="hidden" name="pravilo_id" value={rule?.id ?? ""} />
+                  <label className="checkbox-card compact">
+                    <input type="checkbox" name="aktivan" defaultChecked={basis.aktivan} />
+                    Aktivan
+                  </label>
 
-      <section className="admin-panel">
-        <div className="panel-header">
-          <h3>Porezi i doprinosi</h3>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Tip</th>
-                <th>Šifra/opština</th>
-                <th>Naziv</th>
-                <th>Osnovica</th>
-                <th>Stopa</th>
-              </tr>
-            </thead>
-            <tbody>
-              {taxBrackets.map((item) => (
-                <tr key={item.id}>
-                  <td>Porez</td>
-                  <td>{item.sifra}</td>
-                  <td>{item.naziv}</td>
-                  <td>
-                    {(item.bruto_od / 100).toFixed(2)} -{" "}
-                    {item.bruto_do ? (item.bruto_do / 100).toFixed(2) : "∞"}
-                  </td>
-                  <td>{(Number(item.stopa) * 100).toFixed(2)}%</td>
-                </tr>
-              ))}
-              {contributionRates.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.payer_type}</td>
-                  <td>{item.sifra}</td>
-                  <td>{item.naziv}</td>
-                  <td>Bruto</td>
-                  <td>{(Number(item.stopa) * 100).toFixed(2)}%</td>
-                </tr>
-              ))}
-              {surtaxRates.map((item) => (
-                <tr key={item.id}>
-                  <td>Prirez</td>
-                  <td>{item.opstina}</td>
-                  <td>Prirez po opštini</td>
-                  <td>Porez</td>
-                  <td>{(Number(item.stopa) * 100).toFixed(2)}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  <div className="admin-form compact-form">
+                    <label>
+                      <span>Naziv</span>
+                      <input name="naziv" defaultValue={basis.naziv} />
+                    </label>
+                    <label>
+                      <span>Kategorija</span>
+                      <input name="kategorija" defaultValue={basis.kategorija ?? ""} />
+                    </label>
+                    <label>
+                      <span>Važi od</span>
+                      <input type="date" name="valid_from" defaultValue={dateInput(rule?.valid_from ?? basis.valid_from)} />
+                    </label>
+                    <label>
+                      <span>Važi do</span>
+                      <input type="date" name="valid_to" defaultValue={dateInput(rule?.valid_to ?? basis.valid_to)} />
+                    </label>
+                    <label>
+                      <span>Tip porezne osnovice</span>
+                      <select name="osnovica_porez_tip" defaultValue={rule?.osnovica_porez_tip ?? ""}>
+                        <option value="">Nema porezne osnovice</option>
+                        <option value="BRUTO">Bruto</option>
+                        <option value="NETO">Neto</option>
+                        <option value="PROCENAT_BRUTO">Procenat bruto iznosa</option>
+                        <option value="PROCENAT_NETO">Procenat neto iznosa</option>
+                        <option value="OPISNO">Opisno pravilo</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Osnovica poreza %</span>
+                      <input
+                        name="osnovica_porez_proc"
+                        inputMode="decimal"
+                        defaultValue={percentValue(rule?.osnovica_porez_proc)}
+                      />
+                    </label>
+                    <label>
+                      <span>Stopa poreza %</span>
+                      <input name="porez_stopa" inputMode="decimal" defaultValue={percentValue(taxRate?.stopa, 100)} />
+                    </label>
+                    <label>
+                      <span>Rok</span>
+                      <input name="porez_rok" defaultValue={rule?.porez_rok ?? ""} />
+                    </label>
+                    <label className="form-span-2">
+                      <span>Opis</span>
+                      <textarea name="opis" defaultValue={basis.opis ?? ""} />
+                    </label>
+                    <label className="form-span-2">
+                      <span>Napomena pravila</span>
+                      <textarea name="napomena" defaultValue={rule?.napomena ?? ""} />
+                    </label>
+                    <label className="checkbox-card compact">
+                      <input type="checkbox" name="pravilo_aktivan" defaultChecked={rule?.aktivan ?? true} />
+                      Pravilo aktivno
+                    </label>
+                    <button type="submit">Sačuvaj osnovu</button>
+                  </div>
+                </form>
+              </details>
+            );
+          })}
         </div>
       </section>
     </div>

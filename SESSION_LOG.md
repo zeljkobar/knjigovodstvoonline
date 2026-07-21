@@ -3,7 +3,68 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-07-20
+- Povezan obračun plata sa strukturisanim pravilima osnova iz
+  `plate_osnova_pravila` i `plate_osnova_stope` za linearne šifre primanja
+  vezane na zvanične IOPPD osnove. Šifre poput `047` i `065` sada računaju
+  osnovicu poreza procentom bruto iznosa, porez po stopi iz pravila i prirez po
+  opštini, bez doprinosa kada ih pravilo ne definiše. Redovna zarada `001`
+  ostaje na postojećem razrednom obračunu poreza.
+- Suženo IOPPD razdvajanje poreza na šifru `097` na redovnu zaradu `001`, da
+  porez po drugim osnovama kao `047` ostane na njihovoj zvaničnoj šifri.
+- Implementiran IOPPD XML download na `/api/plate/ioppd/xml`: koristi aktivnu
+  firmu/godinu iz radnog konteksta, sabira sve obrađene obračune istog mjeseca
+  i generiše XML šemu `Izvjestaj` / `Ukupno` / `PojedinacniObracun` sa istim
+  tagovima kao postojeći generator koji prihvata IRMS portal. Dugme `Download
+  XML` na `/agencija/plate/ioppd` sada preuzima fajl.
+- Ispravljeno mapiranje šifre primanja `001 - Zarada`: dodata korektivna
+  migracija `20260720113000_plate_001_employee_pio_fix`, jer je import
+  zvaničnih osnova preskočio PIO doprinos na teret zaposlenog od 10% iz
+  tekstualnog pravila “zaključno ... a od ...”. Šifra `001` sada ponovo ima
+  uključen PIO zaposlenog, nezaposlenost i fond rada za obračun zarade.
+- Popravljen parser za buduće generisanje import migracije šifarnika osnova, da
+  ne odbacuje stope koje u tekstu imaju istorijsku stopu i važeću stopu poslije
+  formulacije “od”.
+
 ## 2026-07-09
+- Implementiran IOPPD pregled po mjesecima na `/agencija/plate/ioppd`: jedan
+  mjesečni red sabira sve obrađene obračune za taj mjesec, uključujući redovan
+  rad, zakup, ugovore o djelu i ostale ugovore. Dodata je print ruta
+  `/stampa/plate/ioppd` sa najmanje dvije strane: opšti dio uspravno i posebni
+  dio horizontalno; XML download ostaje za naredni korak.
+- Ispravljena podjela u platama između kategorije obračuna i algoritamske vrste
+  obračuna: forma za novi obračun sada bira kategoriju (`Redovan rad`, `Ugovor o
+  djelu`, `Zakup`, `Ostali ugovori`) umjesto ručnog teksta. Numeracija ide po
+  kategoriji, redovan rad uključuje samo trenutno zaposlene radnike, a zakup i
+  ugovori mogu uključiti aktivna lica koja nisu zaposlena u firmi.
+- Dodata migracija `20260719120000_plate_obracun_kategorije`, koja uvodi
+  sistemske vrste `NET/GROSS/GROSS2_OTHER_INCOME` i početne šifre primanja `047`
+  za ugovore i `065` za zakup. Detaljna poreska pravila za zakup/ugovore ostaju
+  za posebnu doradu.
+- Dodato brisanje obračuna plata dok nije proknjižen/zaključan. Obračun se
+  soft-delete-uje i nestaje iz pregleda, uz audit log.
+- Na obračunu plata dodato ručno dodavanje aktivnog radnika koji još nije u tom
+  obračunu i izbacivanje radnika iz postojećeg obračuna. Obje akcije vraćaju
+  obračun u nacrt i ne brišu ostale radnike ni njihove korekcije.
+- Implementirano pravilo minulog rada iz
+  `zadaci/plate/pravilo-obracuna-minulog-rada-crna-gora.md`: obračun koristi
+  samo navršene godine staža i progresivne intervale 0,50% / 0,75% / 1,00%.
+  Minuli rad se dodaje na osnovnu zaradu prije bruto/neto preračuna, efektivni
+  koeficijent se čuva na stavci, a rezultat prikazuje osnovicu i iznos minulog
+  rada.
+- Doradjeno računanje efektivnih godina staža: ako je ručni unos godina 0,
+  sistem računa navršene godine iz datuma zaposlenja do datuma obračuna, a ako
+  je minuli rad uključen i efektivne godine su 0, kontrola blokira obračun sa
+  jasnom porukom.
+- Dodata migracija `20260718110000_plate_minuli_rad_mode`, koja vrste obračuna
+  sa minulim radom prebacuje na mod dodavanja minulog rada na osnovicu prije
+  bruto/neto preračuna.
+- Dodate su akcije odjave i reaktivacije radnika u modulu plata: odjava čuva
+  datum i razlog prestanka i prebacuje radnika u neaktivne/bivše, a reaktivacija
+  ga vraća među aktivne.
+- Dodate su kontrole prije obrade obračuna plata: ekran prikazuje greške i
+  upozorenja za radnike/stavke, `Obradi` je onemogućen dok postoje blokirajuće
+  greške, a server akcija dodatno odbija obradu sa greškama.
 - Doradjen ekran `/agencija/plate`: unos novog radnika otvara se na dugme,
   zaposleni su prikazani kroz tabove aktivni i neaktivni/bivši, tabela prikazuje
   datum zaposlenja, a postojeći radnik se može izmijeniti kroz istu formu uz
@@ -176,6 +237,29 @@
 - Dodate stranice `/agencija/zavrsni-racun/arhiva` i
   `/agencija/zavrsni-racun/arhiva/[id]` za pregled snimljenih završnih računa i
   njihovih arhiviranih obrazaca.
+
+## 2026-07-19
+- U modulu Plate dodata baza za šifarnik osnova obračuna iz IOPPD specifikacije:
+  migracija `20260719130000_plate_osnove_obracuna` uvodi
+  `plate_osnove_obracuna`, `plate_osnova_pravila`, `plate_osnova_stope` i vezu
+  `plate_sifre_primanja.osnova_obracuna_id`.
+- Seedovana početna pravila za osnove `047` i `065` prema pročitanoj
+  specifikaciji: porezna osnovica je 70% bruto, a stopa poreza 15% od
+  01.01.2022; doprinosi za te dvije osnove nijesu navedeni u tim redovima.
+- `/agencija/plate/podesavanja` proširena je sekcijom `Osnove za obračun` sa
+  formom za ažuriranje naziva/opisa/kategorije, perioda važenja, porezne
+  osnovice, roka, napomene i stope poreza. Čuvanje ide kroz `manage` pravo za
+  plate, blokira zaključanu godinu i upisuje audit log.
+- Dodata migracija `20260719133000_plate_osnove_full_import`, generisana iz
+  zvaničnog Excel dokumenta u `zadaci/plate`, kojom je importovano svih 108
+  stvarnih šifara osnova. Svaki red čuva originalne podatke iz Excela u
+  `plate_osnova_pravila.izvorni_podaci`, a strukturisana polja i stope se
+  popunjavaju gdje ih je moguće jednoznačno izvesti. Dodata je i cleanup
+  migracija `20260719134000_plate_osnove_opis_cleanup`.
+- Dodata migracija `20260719135000_plate_sifre_primanja_from_osnove`, koja iz
+  svih 108 osnova puni/povezuje `plate_ioppd_sifre` i `plate_sifre_primanja`.
+  Forma radnika sada prikazuje dedupliranu listu svih IOPPD šifara, umjesto samo
+  početnih šifara `001`, `047` i `065`.
 
 ## 2026-06-29
 - Implementirana prva MVP osnova modula Izvodi: migracija

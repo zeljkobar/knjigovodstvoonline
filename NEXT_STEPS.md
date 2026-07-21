@@ -32,10 +32,20 @@
   perioda, ručni QA XML upload-a na portalu i provjera knjiženja na kontima
   2700/4700. Detalji: [`docs/accounting/pdv.md`](docs/accounting/pdv.md).
 - **Plate i zaposleni:** prva MVP osnova postoji: zaposleni, sistemski šifarnici
-  za IOPPD/vrste obračuna/poreze/doprinose/prirez, redovan obračun zarade 001 i
+  za IOPPD/vrste obračuna/poreze/doprinose/prirez, kategorije obračuna (redovan
+  rad, ugovor o djelu, zakup, ostali ugovori), redovan obračun zarade 001 i
   obračunske stavke sa mjesečnom pripremom, ručnim korekcijama i dodatnim
-  stavkama po radniku. Sljedeće: obustave, IOPPD podaci,
-  uplatnice i automatski nalog za knjiženje.
+  stavkama po radniku. Odjava/reaktivacija radnika, osnovne kontrole prije
+  obračuna, progresivni minuli rad po navršenim godinama staža, brisanje
+  obračuna i ručno dodavanje/izbacivanje radnika iz obračuna su dodati. Dodata
+  je baza za šifarnik osnova obračuna iz IOPPD specifikacije i importovano je
+  svih 108 šifara iz zvaničnog Excel dokumenta, sa ekranom za ažuriranje i
+  izborom svih IOPPD šifara kod radnika.
+  IOPPD pregled po mjesecima, HTML/CSS štampa sa opštim i posebnim dijelom i
+  XML download u formatu koji prihvata IRMS portal su dodati. Obračun koristi
+  strukturisana pravila osnova za linearne osnove poput ugovora i zakupa.
+  Sljedeće: obustave, opisna pravila koja traže ručne parametre, ručni QA IOPPD
+  XML upload-a na portalu, uplatnice i automatski nalog za knjiženje.
 
 ## Otvoreno po modulima
 - **Modul 1:** kompletan backend enforcement prava kroz sve rute/server actions;
@@ -51,8 +61,10 @@
   cache MAPR odgovora; bolji QA štampe na mnogo redova.
 - **Modul 8:** finalni IRMS XML, zaključavanje/otključavanje PDV perioda,
   štampa prijave i testovi knjiženja PDV prijave.
-- **Modul 9 Plate:** doraditi zaposlene/ugovore, obustave, IOPPD/JPR pripremu,
-  uplatnice, knjiženje u `PAYROLL` nalog i print/export obračuna.
+- **Modul 9 Plate:** doraditi obustave, opisna pravila osnova koja traže ručne
+  parametre, ručni QA IOPPD XML upload-a na portalu, uplatnice, posebna pravila minulog rada po
+  kolektivnim/granskim ugovorima, knjiženje u `PAYROLL` nalog i print/export
+  obračuna.
 - **Modul 10 Završni račun:** Bilans uspjeha, Bilans stanja i Statistički aneks
   imaju prvu implementaciju iz POSTED naloga, podesivu šemu po firmi i trajne
   ručne korekcije po AOP/koloni. Predlog zaključnog naloga za zatvaranje klasa

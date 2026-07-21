@@ -1,17 +1,30 @@
 import {
+  addPayrollWorkerToCalculation,
   addPayrollCalculationLine,
   calculatePayrollCalculation,
   createPayrollCalculation,
+  deletePayrollCalculation,
   preparePayrollCalculation,
+  removePayrollWorkerFromCalculation,
   updatePayrollCalculationLine
 } from "../actions";
 import { getPlateContext, MissingPlateContext } from "../_shared";
-import { dateInputValue, money, payrollStatuses, payrollStatusLabel } from "@/lib/payroll";
+import { PayrollCalculationForm } from "./PayrollCalculationForm";
+import {
+  calculateSeniorityCoefficient,
+  effectiveSeniorityYears,
+  money,
+  payrollCategoryLabel,
+  payrollCategoryRequiresEmployment,
+  payrollStatuses,
+  payrollStatusLabel
+} from "@/lib/payroll";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
   searchParams?: Promise<{
     obracun?: string;
+    novi?: string;
     poruka?: string;
     radnik?: string;
   }>;
@@ -24,7 +37,13 @@ const messages: Record<string, string> = {
   obracun_nevalidan: "Podaci obračuna nisu ispravni.",
   obracun_obavezan: "Izaberite obračun.",
   obracun_zakljucan: "Zaključan ili proknjižen obračun nije moguće mijenjati.",
+  obracun_obrisan: "Obračun je obrisan.",
+  kontrole_greske: "Obračun nije moguće obraditi dok postoje blokirajuće kontrole.",
   radnici_prazno: "Nema aktivnih zaposlenih za obračun.",
+  radnik_dodat_u_obracun: "Radnik je dodat u obračun. Obračun je vraćen u nacrt.",
+  radnik_izbacen_iz_obracuna: "Radnik je izbačen iz obračuna. Obračun je vraćen u nacrt.",
+  radnik_vec_u_obracunu: "Radnik je već u ovom obračunu.",
+  radnik_nevalidan: "Radnik nije ispravan za ovaj obračun.",
   stavka_sacuvana: "Stavka je sačuvana. Obračun je vraćen u nacrt dok ga ponovo ne obradite.",
   stavka_dodata: "Dodatna stavka je dodata.",
   stavka_nevalidna: "Podaci stavke nisu ispravni.",
@@ -33,16 +52,165 @@ const messages: Record<string, string> = {
   godina_zakljucena: "Poslovna godina je zaključana."
 };
 
-function monthDate(year: number, month: number, day: number) {
-  return new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10);
-}
-
 function moneyInput(cents: number) {
   return (cents / 100).toFixed(2);
 }
 
 function decimalInput(value: { toString(): string } | null | undefined) {
   return value?.toString() ?? "";
+}
+
+function displayDate(date: Date | string | null | undefined) {
+  if (!date) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("sr-Latn-ME", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(new Date(date));
+}
+
+type PayrollControlIssue = {
+  level: "error" | "warning";
+  message: string;
+};
+
+function employeeName(employee: { ime: string; prezime: string }) {
+  return `${employee.prezime} ${employee.ime}`;
+}
+
+function employeePreparationIssues(employee: {
+  ime: string;
+  prezime: string;
+  jmbg: string | null;
+  opstina: string | null;
+  poreska_opstina: string | null;
+  tekuci_racun: string | null;
+  mjesecni_sati: number | null;
+  neto_iznos_cent: number;
+  bruto_iznos_cent: number;
+  fiksni_dio_cent: number;
+  koeficijent_slozenosti: { toString(): string } | null;
+}) {
+  const issues: PayrollControlIssue[] = [];
+  const name = employeeName(employee);
+
+  if (!employee.jmbg?.trim()) {
+    issues.push({ level: "error", message: `${name}: nedostaje JMBG.` });
+  }
+
+  if (!(employee.poreska_opstina ?? employee.opstina)?.trim()) {
+    issues.push({ level: "error", message: `${name}: nedostaje poreska opština/opština.` });
+  }
+
+  if (!employee.tekuci_racun?.trim()) {
+    issues.push({ level: "warning", message: `${name}: nedostaje tekući račun za isplatu.` });
+  }
+
+  if (employee.mjesecni_sati !== null && employee.mjesecni_sati <= 0) {
+    issues.push({ level: "error", message: `${name}: mjesečni sati moraju biti veći od nule.` });
+  }
+
+  if (
+    employee.neto_iznos_cent === 0 &&
+    employee.bruto_iznos_cent === 0 &&
+    employee.fiksni_dio_cent === 0 &&
+    Number(employee.koeficijent_slozenosti ?? 0) === 0
+  ) {
+    issues.push({
+      level: "error",
+      message: `${name}: nedostaje neto/bruto/fiksni dio ili koeficijent za obračun.`
+    });
+  }
+
+  return issues;
+}
+
+function lineControlIssues({
+  employee,
+  line,
+  calculationDate
+}: {
+  employee?: {
+    ime: string;
+    prezime: string;
+    jmbg: string | null;
+    opstina: string | null;
+    poreska_opstina: string | null;
+    tekuci_racun: string | null;
+    datum_pocetka: Date | null;
+    minuli_rad_godina: number;
+  };
+  line: {
+    redni_broj: number;
+    ukupno_sati: number;
+    input_neto_cent: number;
+    input_bruto_cent: number;
+    fiksni_dio_cent: number;
+    koeficijent_slozenosti: { toString(): string } | null;
+    sifra_primanja_id: string;
+    vrsta_obracuna_id: string;
+    koristi_minuli_rad: boolean;
+  };
+  calculationDate: Date;
+}) {
+  const issues: PayrollControlIssue[] = [];
+  const name = employee ? employeeName(employee) : `Stavka ${line.redni_broj}`;
+
+  if (!employee) {
+    issues.push({ level: "error", message: `${name}: radnik nije pronađen.` });
+    return issues;
+  }
+
+  if (!employee.jmbg?.trim()) {
+    issues.push({ level: "error", message: `${name}: nedostaje JMBG.` });
+  }
+
+  if (!(employee.poreska_opstina ?? employee.opstina)?.trim()) {
+    issues.push({ level: "error", message: `${name}: nedostaje poreska opština/opština.` });
+  }
+
+  if (!employee.tekuci_racun?.trim()) {
+    issues.push({ level: "warning", message: `${name}: nedostaje tekući račun za isplatu.` });
+  }
+
+  if (!line.sifra_primanja_id || !line.vrsta_obracuna_id) {
+    issues.push({ level: "error", message: `${name}: nedostaje šifra primanja ili vrsta obračuna.` });
+  }
+
+  if (line.ukupno_sati <= 0) {
+    issues.push({ level: "error", message: `${name}: sati za obračun moraju biti veći od nule.` });
+  }
+
+  if (
+    line.input_neto_cent === 0 &&
+    line.input_bruto_cent === 0 &&
+    line.fiksni_dio_cent === 0 &&
+    Number(line.koeficijent_slozenosti ?? 0) === 0
+  ) {
+    issues.push({
+      level: "error",
+      message: `${name}: nedostaje neto/bruto/fiksni dio ili koeficijent za obračun.`
+    });
+  }
+
+  if (
+    line.koristi_minuli_rad &&
+    effectiveSeniorityYears({
+      manualYears: employee.minuli_rad_godina,
+      startDate: employee.datum_pocetka,
+      referenceDate: calculationDate
+    }) === 0
+  ) {
+    issues.push({
+      level: "error",
+      message: `${name}: uključen je minuli rad, ali nema navršenih godina staža.`
+    });
+  }
+
+  return issues;
 }
 
 export default async function PayrollCalculationPage({ searchParams }: PageProps) {
@@ -121,7 +289,8 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
       }
     })
   ]);
-  const selected = calculations.find((item) => item.id === params?.obracun) ?? calculations[0] ?? null;
+  const showNewCalculationForm = params?.novi === "1";
+  const selected = params?.obracun ? calculations.find((item) => item.id === params.obracun) ?? null : null;
   const [lines, employees, calculationWorkers] = selected
     ? await Promise.all([
         prisma.plateObracunStavka.findMany({
@@ -144,13 +313,6 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
             agencija_id: context.user.agencija_id,
             firma_id: context.firma.id,
             is_deleted: false
-          },
-          select: {
-            id: true,
-            ime: true,
-            prezime: true,
-            jmbg: true,
-            radno_mjesto: true
           }
         }),
         prisma.plateObracunRadnik.findMany({
@@ -166,12 +328,60 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
       ])
     : [[], [], []];
   const employeesById = new Map(employees.map((employee) => [employee.id, employee]));
+  const calculationWorkersByEmployeeId = new Map(
+    calculationWorkers.map((calculationWorker) => [calculationWorker.radnik_id, calculationWorker])
+  );
   const selectedWorkerId =
     params?.radnik && lines.some((line) => line.radnik_id === params.radnik)
       ? params.radnik
       : lines[0]?.radnik_id ?? calculationWorkers[0]?.radnik_id ?? null;
   const selectedWorker = selectedWorkerId ? employeesById.get(selectedWorkerId) : null;
+  const selectedCalculationWorker = selectedWorkerId
+    ? calculationWorkersByEmployeeId.get(selectedWorkerId)
+    : null;
+  const selectedSeniorityYears = effectiveSeniorityYears({
+    manualYears: selectedCalculationWorker?.minuli_rad_godina || selectedWorker?.minuli_rad_godina || 0,
+    startDate: selectedWorker?.datum_pocetka,
+    referenceDate: selected?.datum_do
+  });
+  const selectedSeniorityCoefficient = calculateSeniorityCoefficient(selectedSeniorityYears);
   const selectedLines = selectedWorkerId ? lines.filter((line) => line.radnik_id === selectedWorkerId) : [];
+  const incomeTypesForSelectedCategory = selected
+    ? incomeTypes.filter((type) => type.kategorija === selected.kategorija)
+    : incomeTypes;
+  const seniorityCoefficientForLine = (line: (typeof lines)[number]) => {
+    const employee = employeesById.get(line.radnik_id);
+    const calculationWorker = calculationWorkersByEmployeeId.get(line.radnik_id);
+    const seniorityYears = effectiveSeniorityYears({
+      manualYears: calculationWorker?.minuli_rad_godina || employee?.minuli_rad_godina || 0,
+      startDate: employee?.datum_pocetka,
+      referenceDate: selected?.datum_do
+    });
+
+    return line.koristi_minuli_rad ? calculateSeniorityCoefficient(seniorityYears) : 0;
+  };
+  const eligibleEmployeesForControls = selected
+    ? employees.filter(
+        (employee) =>
+          employee.aktivan &&
+          (!payrollCategoryRequiresEmployment(selected.kategorija) || employee.zaposlen)
+      )
+    : [];
+  const availableEmployeesForCalculation = eligibleEmployeesForControls.filter(
+    (employee) => !calculationWorkersByEmployeeId.has(employee.id)
+  );
+  const controlIssues =
+    selected && lines.length > 0
+      ? lines.flatMap((line) =>
+          lineControlIssues({
+            employee: employeesById.get(line.radnik_id),
+            line,
+            calculationDate: selected.datum_do
+          })
+        )
+      : eligibleEmployeesForControls.flatMap(employeePreparationIssues);
+  const blockingControlCount = controlIssues.filter((issue) => issue.level === "error").length;
+  const warningControlCount = controlIssues.filter((issue) => issue.level === "warning").length;
   const editable = selected
     ? ![payrollStatuses.posted, payrollStatuses.locked].includes(selected.status as never)
     : false;
@@ -180,6 +390,7 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
       neto: sum.neto + line.neto_cent,
       bruto: sum.bruto + line.bruto_cent,
       porez: sum.porez + line.porez_cent,
+      prirez: sum.prirez + line.prirez_cent,
       doprinosiZaposleni: sum.doprinosiZaposleni + line.doprinosi_zaposleni_cent,
       doprinosiPoslodavac: sum.doprinosiPoslodavac + line.doprinosi_poslodavac_cent,
       trosak: sum.trosak + line.ukupni_trosak_cent
@@ -188,6 +399,7 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
       neto: 0,
       bruto: 0,
       porez: 0,
+      prirez: 0,
       doprinosiZaposleni: 0,
       doprinosiPoslodavac: 0,
       trosak: 0
@@ -205,56 +417,31 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
             {context.firma.naziv} / {context.godina.godina}
           </p>
         </div>
+        <div className="button-row">
+          {showNewCalculationForm ? (
+            <a className="secondary-button" href="/agencija/plate/obracun">
+              Zatvori unos
+            </a>
+          ) : (
+            <a className="primary-button" href="/agencija/plate/obracun?novi=1">
+              Novi obračun
+            </a>
+          )}
+        </div>
       </header>
 
       {message ? <p className="admin-message">{message}</p> : null}
 
-      <section className="admin-form-section">
-        <h3>Novi obračun</h3>
-        <form className="admin-form" action={createPayrollCalculation}>
-          <label>
-            <span>Vrsta obračuna</span>
-            <input name="oznaka" defaultValue="Redovan rad" />
-          </label>
-          <label>
-            <span>Mjesec</span>
-            <input name="mjesec" type="number" defaultValue={defaultMonth} min="1" max="12" required />
-          </label>
-          <label>
-            <span>Godina</span>
-            <input name="godina" type="number" defaultValue={defaultYear} required />
-          </label>
-          <label>
-            <span>Datum od</span>
-            <input name="datum_od" type="date" defaultValue={monthDate(defaultYear, defaultMonth, 1)} required />
-          </label>
-          <label>
-            <span>Datum do</span>
-            <input name="datum_do" type="date" defaultValue={monthDate(defaultYear, defaultMonth + 1, 0)} required />
-          </label>
-          <label>
-            <span>Datum obračuna</span>
-            <input name="datum_obracuna" type="date" defaultValue={monthDate(defaultYear, defaultMonth + 1, 0)} required />
-          </label>
-          <label>
-            <span>Datum isplate</span>
-            <input name="datum_isplate" type="date" />
-          </label>
-          <label>
-            <span>Fond sati</span>
-            <input name="fond_sati" type="number" defaultValue="176" min="1" required />
-          </label>
-          <label className="single-checkbox form-checkbox">
-            <input name="koristi_minuli_rad" type="checkbox" />
-            <span>Koristi minuli rad</span>
-          </label>
-          <label>
-            <span>Napomena</span>
-            <textarea name="napomena" rows={3} />
-          </label>
-          <button type="submit">Kreiraj obračun</button>
-        </form>
-      </section>
+      {showNewCalculationForm ? (
+        <section className="admin-form-section">
+          <h3>Novi obračun</h3>
+          <PayrollCalculationForm
+            action={createPayrollCalculation}
+            defaultMonth={defaultMonth}
+            defaultYear={defaultYear}
+          />
+        </section>
+      ) : null}
 
       <section className="admin-panel">
         <div className="panel-header">
@@ -281,27 +468,43 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                   <td colSpan={8}>Nema obračuna.</td>
                 </tr>
               ) : (
-                calculations.map((calculation) => (
-                  <tr key={calculation.id}>
-                    <td>{calculation.broj}</td>
-                    <td>
-                      {calculation.mjesec}/{calculation.godina}
-                      <small>
-                        {dateInputValue(calculation.datum_od)} - {dateInputValue(calculation.datum_do)}
-                      </small>
-                    </td>
-                    <td>{calculation.oznaka ?? calculation.kategorija}</td>
-                    <td>{calculation.fond_sati}</td>
-                    <td>{payrollStatusLabel(calculation.status)}</td>
-                    <td>{calculation._count.radnici}</td>
-                    <td>{calculation._count.stavke}</td>
-                    <td>
-                      <a className="table-link" href={`/agencija/plate/obracun?obracun=${calculation.id}`}>
-                        Otvori
-                      </a>
-                    </td>
-                  </tr>
-                ))
+                calculations.map((calculation) => {
+                  const canEditCalculation = ![payrollStatuses.posted, payrollStatuses.locked].includes(
+                    calculation.status as never
+                  );
+
+                  return (
+                    <tr key={calculation.id}>
+                      <td>{calculation.broj}</td>
+                      <td>
+                        {calculation.mjesec}/{calculation.godina}
+                        <small>
+                          {displayDate(calculation.datum_od)} - {displayDate(calculation.datum_do)}
+                        </small>
+                      </td>
+                      <td>{calculation.oznaka ?? payrollCategoryLabel(calculation.kategorija)}</td>
+                      <td>{calculation.fond_sati}</td>
+                      <td>{payrollStatusLabel(calculation.status)}</td>
+                      <td>{calculation._count.radnici}</td>
+                      <td>{calculation._count.stavke}</td>
+                      <td>
+                        <div className="table-actions">
+                          <a className="table-link" href={`/agencija/plate/obracun?obracun=${calculation.id}`}>
+                            Otvori
+                          </a>
+                          {canEditCalculation ? (
+                            <form action={deletePayrollCalculation}>
+                              <input name="obracun_id" type="hidden" value={calculation.id} />
+                              <button className="table-button table-button-danger" type="submit">
+                                Izbriši
+                              </button>
+                            </form>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -316,7 +519,7 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                 Obračun {selected.broj} / {selected.godina}
               </h3>
               <span>
-                {selected.oznaka ?? selected.kategorija} - {payrollStatusLabel(selected.status)}
+                {selected.oznaka ?? payrollCategoryLabel(selected.kategorija)} - {payrollStatusLabel(selected.status)}
               </span>
             </div>
             <div className="button-row">
@@ -331,7 +534,7 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
               {editable ? (
                 <form action={calculatePayrollCalculation}>
                   <input name="obracun_id" type="hidden" value={selected.id} />
-                  <button className="primary-button" type="submit">
+                  <button className="primary-button" type="submit" disabled={blockingControlCount > 0}>
                     Obradi
                   </button>
                 </form>
@@ -353,6 +556,10 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
               <strong>{money(totals.porez)}</strong>
             </div>
             <div className="stat-card">
+              <span>Prirez</span>
+              <strong>{money(totals.prirez)}</strong>
+            </div>
+            <div className="stat-card">
               <span>Dopr. zaposleni</span>
               <strong>{money(totals.doprinosiZaposleni)}</strong>
             </div>
@@ -366,14 +573,76 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
             </div>
           </div>
 
+          <section className="embedded-panel payroll-controls-panel">
+            <div className="panel-header compact-panel-header">
+              <div>
+                <h4>Kontrole prije obračuna</h4>
+                <span>
+                  {blockingControlCount} grešaka / {warningControlCount} upozorenja
+                </span>
+              </div>
+              {blockingControlCount === 0 ? (
+                <span className="status-pill status-pill--success">Spremno</span>
+              ) : (
+                <span className="status-pill status-pill--warning">Provjeriti</span>
+              )}
+            </div>
+            {controlIssues.length === 0 ? (
+              <p className="empty-state">Nema otvorenih kontrola za ovaj obračun.</p>
+            ) : (
+              <div className="control-issues">
+                {controlIssues.map((issue, index) => (
+                  <small className={issue.level === "error" ? "control-issue-error" : "control-issue-warning"} key={`${issue.message}-${index}`}>
+                    {issue.level === "error" ? "Greška: " : "Upozorenje: "}
+                    {issue.message}
+                  </small>
+                ))}
+              </div>
+            )}
+          </section>
+
           {lines.length === 0 ? (
-            <p className="empty-state">
-              Obračun još nema radnike. Kliknite Pripremi radnike da napravite mjesečne stavke za korekcije.
-            </p>
+            <div className="embedded-panel payroll-manage-workers-panel">
+              <p className="empty-state">
+                Obračun još nema radnike. Kliknite Pripremi radnike ili dodajte pojedinačnog radnika.
+              </p>
+              {editable ? (
+                <form className="table-inline-form payroll-add-worker-form" action={addPayrollWorkerToCalculation}>
+                  <input name="obracun_id" type="hidden" value={selected.id} />
+                  <select name="radnik_id" required>
+                    <option value="">Izaberi radnika</option>
+                    {availableEmployeesForCalculation.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.prezime} {employee.ime}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="table-button" type="submit" disabled={availableEmployeesForCalculation.length === 0}>
+                    Dodaj radnika
+                  </button>
+                </form>
+              ) : null}
+            </div>
           ) : (
-            <div className="payroll-workspace">
+            <div className="payroll-workspace" id="obracun-radnici">
               <aside className="payroll-worker-list">
                 <h4>Radnici u obračunu</h4>
+                {editable ? (
+                  <form className="table-inline-form payroll-add-worker-form" action={addPayrollWorkerToCalculation}>
+                    <input name="obracun_id" type="hidden" value={selected.id} />
+                    <select name="radnik_id" required>
+                      <option value="">Dodaj radnika</option>
+                      {availableEmployeesForCalculation.map((employee) => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.prezime} {employee.ime}
+                        </option>
+                      ))}
+                    </select>
+                    <button className="table-button" type="submit" disabled={availableEmployeesForCalculation.length === 0}>
+                      Dodaj
+                    </button>
+                  </form>
+                ) : null}
                 {calculationWorkers.map((worker) => {
                   const employee = employeesById.get(worker.radnik_id);
                   const workerLines = lines.filter((line) => line.radnik_id === worker.radnik_id);
@@ -381,17 +650,32 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                   const isSelected = worker.radnik_id === selectedWorkerId;
 
                   return (
-                    <a
-                      className={`payroll-worker-link${isSelected ? " active" : ""}`}
-                      href={`/agencija/plate/obracun?obracun=${selected.id}&radnik=${worker.radnik_id}`}
-                      key={worker.id}
-                    >
-                      <strong>{employee ? `${employee.prezime} ${employee.ime}` : "Radnik"}</strong>
-                      <span>
-                        {workerLines.length} stavki / {worker.status === payrollStatuses.calculated ? "obračunat" : "nacrt"}
-                      </span>
-                      <small>Neto {money(workerTotal)}</small>
-                    </a>
+                    <div className="payroll-worker-item" key={worker.id}>
+                      <a
+                        className={`payroll-worker-link${isSelected ? " active" : ""}`}
+                        href={`/agencija/plate/obracun?obracun=${selected.id}&radnik=${worker.radnik_id}#obracun-radnici`}
+                      >
+                        <strong>{employee ? `${employee.prezime} ${employee.ime}` : "Radnik"}</strong>
+                        <span>
+                          {workerLines.length} stavki / {worker.status === payrollStatuses.calculated ? "obračunat" : "nacrt"}
+                        </span>
+                        <small>Neto {money(workerTotal)}</small>
+                      </a>
+                      {editable ? (
+                        <form className="payroll-worker-remove-form" action={removePayrollWorkerFromCalculation}>
+                          <input name="obracun_id" type="hidden" value={selected.id} />
+                          <input name="radnik_id" type="hidden" value={worker.radnik_id} />
+                          <button
+                            aria-label="Izbriši radnika iz obračuna"
+                            className="table-button table-button-danger"
+                            title="Izbriši iz obračuna"
+                            type="submit"
+                          >
+                            ×
+                          </button>
+                        </form>
+                      ) : null}
+                    </div>
                   );
                 })}
               </aside>
@@ -422,7 +706,7 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                         <label>
                           <span>Šifra primanja</span>
                           <select name="sifra_primanja_id" defaultValue={line.sifra_primanja_id}>
-                            {incomeTypes.map((type) => (
+                            {incomeTypesForSelectedCategory.map((type) => (
                               <option key={type.id} value={type.id}>
                                 {type.sifra} - {type.naziv}
                               </option>
@@ -465,12 +749,13 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                           />
                         </label>
                         <label>
-                          <span>Koef. minulog rada</span>
+                          <span>Koef. minulog rada (auto)</span>
                           <input
                             name="koeficijent_minuli_rad"
                             type="number"
                             step="0.0001"
-                            defaultValue={decimalInput(line.koeficijent_minuli_rad)}
+                            defaultValue={seniorityCoefficientForLine(line).toFixed(4)}
+                            readOnly
                           />
                         </label>
                         <label className="single-checkbox form-checkbox">
@@ -484,8 +769,11 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                         <table>
                           <thead>
                             <tr>
+                              <th>Osnovica</th>
+                              <th>Minuli</th>
                               <th>Bruto</th>
                               <th>Porez</th>
+                              <th>Prirez</th>
                               <th>PIO</th>
                               <th>Nezaposl.</th>
                               <th>Poslodavac</th>
@@ -494,8 +782,11 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                           </thead>
                           <tbody>
                             <tr>
+                              <td>{money(line.osnovica_cent)}</td>
+                              <td>{money(Math.max(0, line.iznos_za_obracun_cent - line.osnovica_cent))}</td>
                               <td>{money(line.bruto_cent)}</td>
                               <td>{money(line.porez_cent)}</td>
+                              <td>{money(line.prirez_cent)}</td>
                               <td>{money(line.zaposleni_pio_cent)}</td>
                               <td>{money(line.zaposleni_nezaposleni_cent)}</td>
                               <td>{money(line.doprinosi_poslodavac_cent)}</td>
@@ -517,7 +808,7 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                       <label>
                         <span>Šifra primanja</span>
                         <select name="sifra_primanja_id">
-                          {incomeTypes.map((type) => (
+                          {incomeTypesForSelectedCategory.map((type) => (
                             <option key={type.id} value={type.id}>
                               {type.sifra} - {type.naziv}
                             </option>
@@ -555,8 +846,14 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                         <input name="koeficijent_slozenosti" type="number" step="0.000001" />
                       </label>
                       <label>
-                        <span>Koef. minulog rada</span>
-                        <input name="koeficijent_minuli_rad" type="number" step="0.0001" defaultValue="0" />
+                        <span>Koef. minulog rada (auto)</span>
+                        <input
+                          name="koeficijent_minuli_rad"
+                          type="number"
+                          step="0.0001"
+                          defaultValue={selectedSeniorityCoefficient.toFixed(4)}
+                          readOnly
+                        />
                       </label>
                       <label className="single-checkbox form-checkbox">
                         <input name="koristi_minuli_rad" type="checkbox" />

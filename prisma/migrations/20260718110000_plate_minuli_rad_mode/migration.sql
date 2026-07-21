@@ -1,0 +1,20 @@
+UPDATE "plate_vrste_obracuna"
+SET
+  "seniority_mode" = 'ADD_TO_BASE_BEFORE_GROSSING',
+  "updated_at" = CURRENT_TIMESTAMP
+WHERE "sifra" IN (
+  'GROSS_WITH_SENIORITY',
+  'NET_WITH_SENIORITY',
+  'COEFFICIENT_WITH_SENIORITY'
+);
+
+UPDATE "plate_vrste_obracuna"
+SET
+  "seniority_mode" = 'INCLUDED_IN_NET',
+  "updated_at" = CURRENT_TIMESTAMP
+WHERE "sifra" IN (
+  'GROSS_WITHOUT_SENIORITY',
+  'NET_WITHOUT_SENIORITY',
+  'COEFFICIENT_WITHOUT_SENIORITY',
+  'COEFFICIENT_NET_RECALCULATION'
+);

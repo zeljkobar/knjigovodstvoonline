@@ -1422,6 +1422,8 @@ model PlateSifraPrimanja {
   skraceni_naziv                  String?
   ioppd_sifra_id                  String   @db.Uuid
   vrsta_obracuna_id               String   @db.Uuid
+  osnova_obracuna_id              String?  @db.Uuid
+  osnova_obracuna                 PlateOsnovaObracuna? @relation(fields: [osnova_obracuna_id], references: [id])
   kategorija                      String   @default("REDOVAN_RAD")
   osnovica_tip                    String   @default("NETO")
   procenat_osnovice               Decimal  @default(100) @db.Decimal(8, 2)
@@ -1448,7 +1450,90 @@ model PlateSifraPrimanja {
 
   @@unique([agencija_id, firma_id, sifra, valid_from])
   @@index([agencija_id, firma_id, aktivan])
+  @@index([osnova_obracuna_id])
   @@map("plate_sifre_primanja")
+}
+
+model PlateOsnovaObracuna {
+  id          String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sifra       String
+  naziv       String
+  opis        String?
+  kategorija  String?
+  source      String?
+  aktivan     Boolean               @default(true)
+  valid_from  DateTime              @db.Date
+  valid_to    DateTime?             @db.Date
+  created_at  DateTime              @default(now())
+  created_by  String?               @db.Uuid
+  updated_at  DateTime              @updatedAt
+  updated_by  String?               @db.Uuid
+  pravila     PlateOsnovaPravilo[]
+  sifre_primanja PlateSifraPrimanja[]
+
+  @@unique([sifra, valid_from])
+  @@index([sifra, aktivan])
+  @@map("plate_osnove_obracuna")
+}
+
+model PlateOsnovaPravilo {
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  osnova_id             String              @db.Uuid
+  osnova                PlateOsnovaObracuna @relation(fields: [osnova_id], references: [id], onDelete: Cascade)
+  valid_from            DateTime            @db.Date
+  valid_to              DateTime?           @db.Date
+  osnovica_pio_tip      String?
+  osnovica_pio_proc     Decimal             @default(100) @db.Decimal(8, 2)
+  pio_min_tip           String?
+  pio_max_tip           String?
+  pio_rok               String?
+  osnovica_rfzo_tip     String?
+  osnovica_rfzo_proc    Decimal             @default(100) @db.Decimal(8, 2)
+  rfzo_min_tip          String?
+  rfzo_max_tip          String?
+  rfzo_rok              String?
+  osnovica_zzz_tip      String?
+  osnovica_zzz_proc     Decimal             @default(100) @db.Decimal(8, 2)
+  zzz_min_tip           String?
+  zzz_max_tip           String?
+  zzz_rok               String?
+  osnovica_porez_tip    String?
+  osnovica_porez_proc   Decimal             @default(100) @db.Decimal(8, 2)
+  porez_min_tip         String?
+  porez_max_tip         String?
+  porez_rok             String?
+  napomena              String?
+  izvorni_podaci        Json?
+  aktivan               Boolean             @default(true)
+  created_at            DateTime            @default(now())
+  created_by            String?             @db.Uuid
+  updated_at            DateTime            @updatedAt
+  updated_by            String?             @db.Uuid
+  stope                 PlateOsnovaStopa[]
+
+  @@index([osnova_id, aktivan, valid_from])
+  @@map("plate_osnova_pravila")
+}
+
+model PlateOsnovaStopa {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pravilo_id    String             @db.Uuid
+  pravilo       PlateOsnovaPravilo @relation(fields: [pravilo_id], references: [id], onDelete: Cascade)
+  tip           String
+  teret         String             @default("POREZ")
+  stopa         Decimal            @db.Decimal(8, 6)
+  osnovica_tip  String?
+  aktivan       Boolean            @default(true)
+  valid_from    DateTime           @db.Date
+  valid_to      DateTime?          @db.Date
+  napomena      String?
+  created_at    DateTime           @default(now())
+  created_by    String?            @db.Uuid
+  updated_at    DateTime           @updatedAt
+  updated_by    String?            @db.Uuid
+
+  @@index([pravilo_id, tip, aktivan])
+  @@map("plate_osnova_stope")
 }
 
 model PlateRadnik {

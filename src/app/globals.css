@@ -632,6 +632,103 @@ p {
   padding: 12px 14px;
 }
 
+.status-banner {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 12px 14px;
+}
+
+.status-banner.success {
+  border-color: #b8dfc5;
+  background: #f3fbf5;
+  color: #1f7a3d;
+}
+
+.status-banner.error {
+  border-color: #f2b8b8;
+  background: #fff6f6;
+  color: #a52222;
+}
+
+.muted-text {
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+
+.settings-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.settings-card h4 {
+  margin: 0;
+}
+
+.settings-card summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  list-style-position: inside;
+}
+
+.settings-card summary strong {
+  min-width: 0;
+}
+
+.settings-card summary span {
+  color: var(--muted);
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.settings-card[open] summary {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+}
+
+.settings-card > form {
+  display: grid;
+  gap: 12px;
+}
+
+.form-span-2 {
+  grid-column: span 2;
+}
+
+.checkbox-card {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fbfdff;
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
+.checkbox-card.compact {
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
 .admin-form {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1111,6 +1208,16 @@ td small {
   font-size: 13px;
   font-weight: 700;
   padding: 7px 10px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.table-button-disabled,
+.table-button:disabled {
+  border-color: var(--border);
+  background: #eef4f9;
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 .table-button-danger {
@@ -1128,6 +1235,32 @@ td small {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.table-actions form {
+  margin: 0;
+}
+
+.panel-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.panel-title-row p {
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.muted-stack {
+  display: grid;
+  gap: 3px;
+}
+
+.muted-stack span {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .selected-row {
@@ -1306,6 +1439,483 @@ td small {
   font-weight: 400;
 }
 
+.ioppd-print-toolbar {
+  width: min(297mm, 100%);
+}
+
+.print-link-button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.ioppd-document {
+  margin: 0 auto 18px;
+  background: #ffffff;
+  box-shadow: 0 18px 55px rgba(15, 23, 42, 0.18);
+  color: #111111;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+}
+
+.ioppd-document-portrait {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 17mm 21mm;
+}
+
+.ioppd-document-landscape {
+  width: 297mm;
+  min-height: 210mm;
+  padding: 9mm 8mm;
+}
+
+.ioppd-official-header {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #111111;
+  margin-bottom: 46px;
+  padding-top: 8mm;
+  padding-bottom: 3px;
+}
+
+.ioppd-office-block {
+  color: #000000;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.ioppd-office-block p {
+  margin: 0;
+}
+
+.ioppd-office-block span {
+  display: inline-block;
+  min-width: 54px;
+  border-bottom: 1px solid #111111;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: 10px;
+  text-align: center;
+}
+
+.ioppd-official-title {
+  display: grid;
+  gap: 28px;
+  justify-items: end;
+  min-width: 185px;
+}
+
+.ioppd-official-title strong {
+  color: #000000;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.ioppd-official-title span {
+  color: #000000;
+  font-size: 12px;
+  margin-right: 18px;
+}
+
+.ioppd-main-title {
+  color: #000000;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.2;
+  margin: 0 0 34px 6px;
+}
+
+.ioppd-official-period {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  align-items: end;
+  gap: 70px;
+  margin-bottom: 28px;
+}
+
+.ioppd-numbered-label {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  align-items: center;
+  color: #000000;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.ioppd-numbered-label strong {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.ioppd-official-period .ioppd-numbered-label strong {
+  font-weight: 700;
+}
+
+.ioppd-period-boxes {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 28px;
+}
+
+.ioppd-period-boxes label {
+  display: grid;
+  justify-items: center;
+  color: #000000;
+  font-size: 11px;
+  gap: 2px;
+}
+
+.ioppd-digit-boxes {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ioppd-digit-boxes span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 22px;
+  border: 1px solid #222222;
+  border-left: 0;
+  color: #000000;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.ioppd-digit-boxes span:first-child {
+  border-left: 1px solid #222222;
+}
+
+.ioppd-pib-boxes span {
+  width: 20px;
+  height: 23px;
+}
+
+.ioppd-report-type {
+  display: grid;
+  grid-template-columns: 220px 36px;
+  align-items: center;
+  gap: 0 70px;
+  margin-bottom: 58px;
+}
+
+.ioppd-small-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 19px;
+  border: 1px solid #222222;
+  color: #000000;
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ioppd-employer-section h2 {
+  color: #000000;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin: 0 0 26px;
+}
+
+.ioppd-form-row {
+  display: grid;
+  grid-template-columns: 38px 122px 1fr;
+  align-items: center;
+  color: #000000;
+  font-size: 12px;
+  gap: 0 8px;
+  margin-bottom: 24px;
+}
+
+.ioppd-form-row label {
+  color: #000000;
+  font-size: 12px;
+}
+
+.ioppd-wide-line-row strong {
+  display: block;
+  min-height: 18px;
+  border-bottom: 1px solid #111111;
+  color: #000000;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 18px;
+  padding-left: 12px;
+}
+
+.ioppd-declaration-box {
+  border: 1px solid #111111;
+  color: #000000;
+  margin-top: 40px;
+}
+
+.ioppd-declaration-box h3 {
+  border-bottom: 1px solid #111111;
+  color: #000000;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin: 0;
+  padding: 5px;
+}
+
+.ioppd-declaration-grid {
+  display: grid;
+  grid-template-columns: 1.75fr 0.9fr 1fr;
+  min-height: 72px;
+}
+
+.ioppd-declaration-grid > div {
+  border-left: 1px solid #111111;
+  padding: 7px 7px 5px;
+}
+
+.ioppd-declaration-grid > div:first-child {
+  border-left: 0;
+}
+
+.ioppd-declaration-grid p {
+  color: #000000;
+  font-size: 11px;
+  margin: 0 0 8px;
+}
+
+.ioppd-declaration-left .ioppd-digit-boxes {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.ioppd-declaration-left .ioppd-digit-boxes span {
+  width: 15px;
+  height: 15px;
+  font-size: 10px;
+}
+
+.ioppd-date-line {
+  color: #000000;
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+.ioppd-sign-line {
+  border-bottom: 1px solid #111111;
+  height: 18px;
+}
+
+.ioppd-tax-office-box {
+  color: #000000;
+  margin-top: 62px;
+}
+
+.ioppd-tax-office-box h3 {
+  color: #000000;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin: 0 0 4px;
+}
+
+.ioppd-tax-office-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.25fr;
+  border: 1px solid #111111;
+}
+
+.ioppd-tax-office-grid > div {
+  min-height: 39px;
+  border-left: 1px solid #111111;
+  padding: 5px 7px 3px;
+}
+
+.ioppd-tax-office-grid > div:first-child {
+  border-left: 0;
+}
+
+.ioppd-tax-office-grid p {
+  color: #000000;
+  font-size: 8px;
+  margin: 0 0 10px;
+}
+
+.ioppd-tax-office-grid div {
+  color: #000000;
+  font-size: 11px;
+}
+
+.ioppd-landscape-official-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  color: #000000;
+  margin: 6mm 0 28px;
+}
+
+.ioppd-landscape-official-header h1 {
+  color: #000000;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+
+.ioppd-landscape-official-header span {
+  color: #000000;
+  font-size: 12px;
+  line-height: 1;
+  margin-right: 12mm;
+}
+
+.ioppd-lines-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.ioppd-col-rbr {
+  width: 31px;
+}
+
+.ioppd-col-pib {
+  width: 94px;
+}
+
+.ioppd-col-name {
+  width: 180px;
+}
+
+.ioppd-col-code {
+  width: 47px;
+}
+
+.ioppd-col-date {
+  width: 71px;
+}
+
+.ioppd-col-money {
+  width: 64px;
+}
+
+.ioppd-lines-table th,
+.ioppd-lines-table td,
+.ioppd-landscape-totals-row td,
+.ioppd-invalid-table th,
+.ioppd-invalid-table td {
+  border: 1px solid #111111;
+  color: #000000;
+  font-size: 9px;
+  font-weight: 400;
+  line-height: 1.05;
+  padding: 3px 4px;
+  text-transform: none;
+  vertical-align: middle;
+}
+
+.ioppd-lines-table th {
+  background: #f3f3f3;
+  text-align: center;
+}
+
+.ioppd-lines-table .ioppd-empty-head {
+  border: 0;
+  background: #ffffff;
+}
+
+.ioppd-column-numbers th {
+  background: #ffffff;
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.ioppd-lines-table tbody td {
+  font-size: 10px;
+}
+
+.ioppd-lines-table tbody td:first-child {
+  text-align: center;
+}
+
+.ioppd-lines-table tbody td:nth-child(4) {
+  text-align: center;
+}
+
+.ioppd-lines-table tbody td:nth-child(n + 7) {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ioppd-lines-table tbody td:nth-child(3) {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ioppd-landscape-totals-row {
+  display: grid;
+  grid-template-columns: 490px 1fr;
+  align-items: start;
+  margin-top: 11px;
+}
+
+.ioppd-landscape-totals-row > strong {
+  justify-self: end;
+  color: #000000;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.05;
+  max-width: 62px;
+  padding-right: 10px;
+  text-align: left;
+}
+
+.ioppd-landscape-totals-row table,
+.ioppd-invalid-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.ioppd-landscape-totals-row td {
+  font-size: 10px;
+  height: 22px;
+  text-align: right;
+}
+
+.ioppd-invalid-contribution-section {
+  display: grid;
+  grid-template-columns: 1fr 378px;
+  align-items: start;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.ioppd-invalid-contribution-section h2 {
+  justify-self: end;
+  color: #000000;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.2;
+  margin: 5px 0 0;
+}
+
+.ioppd-invalid-table th,
+.ioppd-invalid-table td {
+  font-size: 9px;
+  text-align: center;
+}
+
+.ioppd-invalid-table td:nth-child(3),
+.ioppd-invalid-table td:nth-child(5) {
+  text-align: right;
+}
+
 .status-pill {
   display: inline-flex;
   min-height: 34px;
@@ -1477,9 +2087,17 @@ td small {
   max-width: 280px;
 }
 
+.payroll-controls-panel .control-issues {
+  max-width: none;
+}
+
 .control-issues small {
   color: #b42318;
   font-weight: 700;
+}
+
+.control-issues .control-issue-warning {
+  color: #b45309;
 }
 
 @media print {
@@ -1490,6 +2108,13 @@ td small {
 
   body {
     background: #ffffff;
+  }
+
+  html,
+  body {
+    width: auto;
+    height: auto;
+    overflow: visible;
   }
 
   .admin-sidebar,
@@ -1503,6 +2128,13 @@ td small {
     min-height: auto;
     background: #ffffff;
     padding: 0;
+  }
+
+  .ioppd-print-page {
+    display: block;
+    width: auto;
+    height: auto;
+    overflow: visible;
   }
 
   .balance-print-document,
@@ -1544,6 +2176,54 @@ td small {
   }
 
   .contract-section {
+    break-inside: avoid;
+  }
+
+  @page ioppdPortrait {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  @page ioppdLandscape {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  .ioppd-document {
+    box-shadow: none;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  .ioppd-document-portrait {
+    page: ioppdPortrait;
+    width: 100%;
+    height: 277mm;
+    min-height: 0;
+    padding: 0;
+    break-after: page;
+  }
+
+  .ioppd-document-landscape {
+    page: ioppdLandscape;
+    width: 100%;
+    height: 194mm;
+    min-height: 0;
+    padding: 0;
+    break-before: page;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .ioppd-document-landscape:last-child {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .ioppd-employer-section,
+  .ioppd-declaration-box,
+  .ioppd-tax-office-box,
+  .ioppd-invalid-contribution-section {
     break-inside: avoid;
   }
 }
@@ -1678,8 +2358,9 @@ td small {
 .payroll-workspace {
   align-items: start;
   display: grid;
-  grid-template-columns: minmax(240px, 0.32fr) minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 330px minmax(0, 1fr);
+  gap: 14px;
+  scroll-margin-top: 18px;
 }
 
 .payroll-worker-list {
@@ -1689,7 +2370,9 @@ td small {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #f8fcff;
-  padding: 14px;
+  max-width: 330px;
+  overflow: hidden;
+  padding: 12px;
 }
 
 .payroll-worker-list h4,
@@ -1704,8 +2387,45 @@ td small {
   border-radius: 8px;
   background: #ffffff;
   color: var(--foreground);
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
   padding: 12px;
   text-decoration: none;
+  width: 100%;
+}
+
+.payroll-worker-item {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  position: relative;
+  width: 100%;
+}
+
+.payroll-worker-item .payroll-worker-link {
+  padding-right: 42px;
+}
+
+.payroll-worker-remove-form {
+  margin: 0;
+  position: absolute;
+  right: 8px;
+  top: 10px;
+  z-index: 1;
+}
+
+.payroll-worker-remove-form .table-button {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 16px;
+  height: 26px;
+  justify-content: center;
+  line-height: 1;
+  min-height: 26px;
+  padding: 0;
+  width: 26px;
 }
 
 .payroll-worker-link:hover,
@@ -1719,6 +2439,21 @@ td small {
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.payroll-worker-link strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.payroll-add-worker-form {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .payroll-worker-detail,
@@ -2775,7 +3510,8 @@ td small {
   align-items: center;
 }
 
-.table-inline-form input {
+.table-inline-form input,
+.table-inline-form select {
   width: 100%;
   min-height: 34px;
   border: 1px solid var(--border);
@@ -2786,6 +3522,10 @@ td small {
   font-size: 13px;
   outline: none;
   padding: 7px 9px;
+}
+
+.payroll-deactivate-form {
+  grid-template-columns: 140px minmax(120px, 1fr) auto;
 }
 
 .global-account-edit-form {

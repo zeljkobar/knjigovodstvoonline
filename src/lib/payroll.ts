@@ -10,8 +10,47 @@ export const payrollStatuses = {
 } as const;
 
 export const payrollCategories = {
-  regularWork: "REDOVAN_RAD"
+  regularWork: "REDOVAN_RAD",
+  serviceContract: "UGOVOR_O_DJELU",
+  rent: "ZAKUP",
+  otherContracts: "OSTALI_UGOVORI"
 } as const;
+
+export const payrollCategoryLabels: Record<string, string> = {
+  [payrollCategories.regularWork]: "Redovan rad",
+  [payrollCategories.serviceContract]: "Ugovor o djelu",
+  [payrollCategories.rent]: "Zakup",
+  [payrollCategories.otherContracts]: "Ostali ugovori"
+};
+
+export const payrollCategoryOptions = Object.entries(payrollCategoryLabels).map(([value, label]) => ({
+  value,
+  label
+}));
+
+export function isPayrollCategory(value: string): value is (typeof payrollCategories)[keyof typeof payrollCategories] {
+  return Object.values(payrollCategories).includes(value as never);
+}
+
+export function payrollCategoryLabel(category: string) {
+  return payrollCategoryLabels[category] ?? category;
+}
+
+export function payrollCategoryRequiresEmployment(category: string) {
+  return category === payrollCategories.regularWork;
+}
+
+export function defaultIncomeCodeForPayrollCategory(category: string) {
+  if (category === payrollCategories.serviceContract || category === payrollCategories.otherContracts) {
+    return "047";
+  }
+
+  if (category === payrollCategories.rent) {
+    return "065";
+  }
+
+  return "001";
+}
 
 export const payrollCalculationTypes = {
   grossWithoutSeniority: "GROSS_WITHOUT_SENIORITY",
@@ -20,7 +59,10 @@ export const payrollCalculationTypes = {
   netWithSeniority: "NET_WITH_SENIORITY",
   coefficientWithSeniority: "COEFFICIENT_WITH_SENIORITY",
   coefficientNetRecalculation: "COEFFICIENT_NET_RECALCULATION",
-  coefficientWithoutSeniority: "COEFFICIENT_WITHOUT_SENIORITY"
+  coefficientWithoutSeniority: "COEFFICIENT_WITHOUT_SENIORITY",
+  netOtherIncome: "NET_OTHER_INCOME",
+  grossOtherIncome: "GROSS_OTHER_INCOME",
+  gross2OtherIncome: "GROSS2_OTHER_INCOME"
 } as const;
 
 const contributionCodes = {
@@ -46,7 +88,31 @@ type TaxBracketLike = {
   stopa: { toString(): string } | string | number;
 };
 
+type BasisRateLike = {
+  tip: string;
+  teret: string;
+  stopa: { toString(): string } | string | number;
+  osnovica_tip: string | null;
+};
+
+type BasisRuleLike = {
+  id: string;
+  osnova_id: string;
+  osnovica_pio_tip: string | null;
+  osnovica_pio_proc: { toString(): string } | string | number;
+  osnovica_rfzo_tip: string | null;
+  osnovica_rfzo_proc: { toString(): string } | string | number;
+  osnovica_zzz_tip: string | null;
+  osnovica_zzz_proc: { toString(): string } | string | number;
+  osnovica_porez_tip: string | null;
+  osnovica_porez_proc: { toString(): string } | string | number;
+  napomena: string | null;
+  stope: BasisRateLike[];
+};
+
 type IncomeFlags = {
+  sifra?: string;
+  osnova_obracuna_id?: string | null;
   koristi_porez: boolean;
   koristi_zaposleni_pio: boolean;
   koristi_zaposleni_zdravstvo: boolean;
@@ -78,6 +144,9 @@ export type PayrollLineInput = {
   complexityCoefficient: number;
   usesSeniority: boolean;
   seniorityCoefficient: number;
+  seniorityYears?: number;
+  seniorityMonths?: number;
+  seniorityDays?: number;
   workingHours: number;
   workingHoursFund: number;
   municipality?: string | null;
@@ -105,6 +174,8 @@ export type PayrollLineResult = {
   totalCostCents: number;
   netForPaymentCents: number;
   surtaxRate: number;
+  seniorityCoefficient: number;
+  seniorityAmountCents: number;
   details: Record<string, unknown>;
 };
 
@@ -180,12 +251,74 @@ function roundedRateAmount(cents: number, rate: number) {
   return Math.round(cents * rate);
 }
 
+function percentNumber(value: { toString(): string } | string | number | null | undefined, fallback = 100) {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+
+  const parsed = Number(value.toString());
+
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function prorateAmount(cents: number, workingHours: number, workingHoursFund: number) {
   if (workingHoursFund <= 0) {
     return cents;
   }
 
   return Math.round((cents * workingHours) / workingHoursFund);
+}
+
+export function calculateSeniorityCoefficient(completedYears: number) {
+  const years = Math.max(0, Math.floor(completedYears));
+  const firstIntervalYears = Math.min(years, 10);
+  const secondIntervalYears = Math.min(Math.max(years - 10, 0), 10);
+  const thirdIntervalYears = Math.max(years - 20, 0);
+
+  return firstIntervalYears * 0.005 + secondIntervalYears * 0.0075 + thirdIntervalYears * 0.01;
+}
+
+export function calculateCompletedYears(
+  startDate: Date | string | null | undefined,
+  referenceDate: Date | string | null | undefined
+) {
+  if (!startDate || !referenceDate) {
+    return 0;
+  }
+
+  const start = new Date(startDate);
+  const reference = new Date(referenceDate);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(reference.getTime()) || start > reference) {
+    return 0;
+  }
+
+  let years = reference.getUTCFullYear() - start.getUTCFullYear();
+  const referenceMonth = reference.getUTCMonth();
+  const startMonth = start.getUTCMonth();
+
+  if (
+    referenceMonth < startMonth ||
+    (referenceMonth === startMonth && reference.getUTCDate() < start.getUTCDate())
+  ) {
+    years -= 1;
+  }
+
+  return Math.max(0, years);
+}
+
+export function effectiveSeniorityYears({
+  manualYears,
+  startDate,
+  referenceDate
+}: {
+  manualYears?: number | null;
+  startDate?: Date | string | null;
+  referenceDate?: Date | string | null;
+}) {
+  const manual = Math.max(0, Math.floor(manualYears ?? 0));
+
+  return manual > 0 ? manual : calculateCompletedYears(startDate, referenceDate);
 }
 
 function calculateTax(grossCents: number, brackets: TaxBracketLike[]) {
@@ -275,6 +408,197 @@ function calculateFromGross({
   };
 }
 
+function basisAmount({
+  grossCents,
+  tip,
+  percent
+}: {
+  grossCents: number;
+  tip?: string | null;
+  percent: { toString(): string } | string | number;
+}) {
+  if (!tip) {
+    return 0;
+  }
+
+  const normalized = tip.toUpperCase();
+
+  if (normalized === "BRUTO" || normalized === "PROCENAT_BRUTO" || normalized === "NETO") {
+    return Math.round((grossCents * percentNumber(percent)) / 100);
+  }
+
+  return 0;
+}
+
+function basisForRate(rate: BasisRateLike, bases: Record<string, number>) {
+  const basisType = rate.osnovica_tip?.toUpperCase();
+
+  if (basisType === "OSNOVICA_POREZ") {
+    return bases.porez;
+  }
+
+  if (basisType === "OSNOVICA_PIO") {
+    return bases.pio;
+  }
+
+  if (basisType === "OSNOVICA_RFZO") {
+    return bases.rfzo;
+  }
+
+  if (basisType === "OSNOVICA_ZZZ") {
+    return bases.zzz;
+  }
+
+  if (basisType === "BRUTO") {
+    return bases.bruto;
+  }
+
+  if (rate.tip === "POREZ") {
+    return bases.porez;
+  }
+
+  if (rate.tip === "PIO") {
+    return bases.pio;
+  }
+
+  if (rate.tip === "RFZO") {
+    return bases.rfzo;
+  }
+
+  if (rate.tip === "ZZZ") {
+    return bases.zzz;
+  }
+
+  return bases.bruto;
+}
+
+function calculateFromBasisRule({
+  grossCents,
+  rule,
+  surtaxRate
+}: {
+  grossCents: number;
+  rule: BasisRuleLike;
+  surtaxRate: number;
+}) {
+  const bases = {
+    bruto: grossCents,
+    pio: basisAmount({
+      grossCents,
+      tip: rule.osnovica_pio_tip,
+      percent: rule.osnovica_pio_proc
+    }),
+    rfzo: basisAmount({
+      grossCents,
+      tip: rule.osnovica_rfzo_tip,
+      percent: rule.osnovica_rfzo_proc
+    }),
+    zzz: basisAmount({
+      grossCents,
+      tip: rule.osnovica_zzz_tip,
+      percent: rule.osnovica_zzz_proc
+    }),
+    porez: basisAmount({
+      grossCents,
+      tip: rule.osnovica_porez_tip,
+      percent: rule.osnovica_porez_proc
+    })
+  };
+  let personalIncomeTaxCents = 0;
+  let employeePioCents = 0;
+  let employeeHealthCents = 0;
+  let employeeUnemploymentCents = 0;
+  let employerPioCents = 0;
+  let employerHealthCents = 0;
+  let employerUnemploymentCents = 0;
+  let laborFundCents = 0;
+  let unionCents = 0;
+  let chamberCents = 0;
+
+  for (const rate of rule.stope) {
+    const amount = roundedRateAmount(basisForRate(rate, bases), rateNumber(rate));
+    const type = rate.tip.toUpperCase();
+    const burden = rate.teret.toUpperCase();
+
+    if (type === "POREZ") {
+      personalIncomeTaxCents += amount;
+    } else if (type === "PIO" && burden === "ZAPOSLENI") {
+      employeePioCents += amount;
+    } else if (type === "RFZO" && burden === "ZAPOSLENI") {
+      employeeHealthCents += amount;
+    } else if (type === "ZZZ" && burden === "ZAPOSLENI") {
+      employeeUnemploymentCents += amount;
+    } else if (type === "PIO" && burden === "POSLODAVAC") {
+      employerPioCents += amount;
+    } else if (type === "RFZO" && burden === "POSLODAVAC") {
+      employerHealthCents += amount;
+    } else if (type === "ZZZ" && burden === "POSLODAVAC") {
+      employerUnemploymentCents += amount;
+    } else if (type === "FOND_RADA") {
+      laborFundCents += amount;
+    } else if (type === "SINDIKAT") {
+      unionCents += amount;
+    } else if (type === "KOMORA" || type === "PRIVREDNA_KOMORA") {
+      chamberCents += amount;
+    }
+  }
+
+  const surtaxCents = roundedRateAmount(personalIncomeTaxCents, surtaxRate);
+  const totalEmployeeContributionsCents =
+    employeePioCents + employeeHealthCents + employeeUnemploymentCents;
+  const totalEmployerContributionsCents =
+    employerPioCents + employerHealthCents + employerUnemploymentCents + laborFundCents + unionCents + chamberCents;
+  const netAmountCents =
+    grossCents - totalEmployeeContributionsCents - personalIncomeTaxCents - surtaxCents;
+
+  return {
+    netAmountCents,
+    grossAmountCents: grossCents,
+    taxableGrossCents: bases.porez || grossCents,
+    personalIncomeTaxCents,
+    surtaxCents,
+    employeePioCents,
+    employeeHealthCents,
+    employeeUnemploymentCents,
+    employerPioCents,
+    employerHealthCents,
+    employerUnemploymentCents,
+    laborFundCents,
+    unionCents,
+    chamberCents,
+    totalEmployeeContributionsCents,
+    totalEmployerContributionsCents,
+    totalCostCents: grossCents + totalEmployerContributionsCents,
+    netForPaymentCents: netAmountCents,
+    bases
+  };
+}
+
+function grossFromNetWithCalculator(
+  targetNetCents: number,
+  calculateNet: (grossCents: number) => number
+) {
+  let low = targetNetCents;
+  let high = Math.max(targetNetCents * 2, 100000);
+
+  while (calculateNet(high) < targetNetCents) {
+    high *= 2;
+  }
+
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    const calculatedNet = calculateNet(mid);
+
+    if (calculatedNet >= targetNetCents) {
+      high = mid;
+    } else {
+      low = mid + 1;
+    }
+  }
+
+  return low;
+}
+
 function grossFromNet({
   targetNetCents,
   rates,
@@ -288,43 +612,95 @@ function grossFromNet({
   incomeType: IncomeFlags;
   surtaxRate: number;
 }) {
-  let low = targetNetCents;
-  let high = Math.max(targetNetCents * 2, 100000);
-
-  while (
+  return grossFromNetWithCalculator(targetNetCents, (grossCents) =>
     calculateFromGross({
-      grossCents: high,
+      grossCents,
       rates,
       taxBrackets,
       incomeType,
       surtaxRate
-    }).netAmountCents < targetNetCents
-  ) {
-    high *= 2;
+    }).netAmountCents
+  );
+}
+
+async function activeBasisRuleForIncomeType(incomeType: IncomeFlags, calculationDate: Date) {
+  if (incomeType.sifra === "001" || (!incomeType.osnova_obracuna_id && !incomeType.sifra)) {
+    return null;
   }
 
-  while (low < high) {
-    const mid = Math.floor((low + high) / 2);
-    const calculatedNet = calculateFromGross({
-      grossCents: mid,
-      rates,
-      taxBrackets,
-      incomeType,
-      surtaxRate
-    }).netAmountCents;
-
-    if (calculatedNet >= targetNetCents) {
-      high = mid;
-    } else {
-      low = mid + 1;
+  const basis = await prisma.plateOsnovaObracuna.findFirst({
+    where: {
+      ...(incomeType.osnova_obracuna_id ? { id: incomeType.osnova_obracuna_id } : { sifra: incomeType.sifra }),
+      ...activeOn(calculationDate)
+    },
+    orderBy: {
+      valid_from: "desc"
+    },
+    select: {
+      id: true
     }
+  });
+
+  if (!basis && incomeType.osnova_obracuna_id && incomeType.sifra) {
+    const fallbackBasis = await prisma.plateOsnovaObracuna.findFirst({
+      where: {
+        sifra: incomeType.sifra,
+        ...activeOn(calculationDate)
+      },
+      orderBy: {
+        valid_from: "desc"
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (!fallbackBasis) {
+      return null;
+    }
+
+    return activeBasisRuleByBasisId(fallbackBasis.id, calculationDate);
   }
 
-  return low;
+  return basis ? activeBasisRuleByBasisId(basis.id, calculationDate) : null;
+}
+
+function activeBasisRuleByBasisId(basisId: string, calculationDate: Date) {
+  return prisma.plateOsnovaPravilo.findFirst({
+    where: {
+      osnova_id: basisId,
+      ...activeOn(calculationDate)
+    },
+    orderBy: {
+      valid_from: "desc"
+    },
+    select: {
+      id: true,
+      osnova_id: true,
+      osnovica_pio_tip: true,
+      osnovica_pio_proc: true,
+      osnovica_rfzo_tip: true,
+      osnovica_rfzo_proc: true,
+      osnovica_zzz_tip: true,
+      osnovica_zzz_proc: true,
+      osnovica_porez_tip: true,
+      osnovica_porez_proc: true,
+      napomena: true,
+      stope: {
+        where: activeOn(calculationDate),
+        select: {
+          tip: true,
+          teret: true,
+          stopa: true,
+          osnovica_tip: true
+        }
+      }
+    }
+  });
 }
 
 export async function calculatePayrollLine(input: PayrollLineInput): Promise<PayrollLineResult> {
-  const [rates, taxBrackets, surtax] = await Promise.all([
+  const [rates, taxBrackets, surtax, basisRule] = await Promise.all([
     prisma.plateDoprinosStopa.findMany({
       where: activeOn(input.calculationDate),
       orderBy: {
@@ -362,13 +738,26 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
             stopa: true
           }
         })
-      : null
+      : null,
+    activeBasisRuleForIncomeType(input.incomeType, input.calculationDate)
   ]);
   const surtaxRate = rateNumber(surtax);
+  const ruleBasedCalculation =
+    input.incomeType.sifra !== "001" && basisRule && basisRule.stope.length > 0
+      ? basisRule
+      : null;
   const workingHours = input.workingHours || input.workingHoursFund;
   const workingHoursFund = input.workingHoursFund || workingHours || 1;
   const usesSeniority =
     input.usesSeniority && input.calculationType.koristi_minuli_rad;
+  const completedSeniorityYears = Math.max(0, Math.floor(input.seniorityYears ?? 0));
+  const seniorityRuleCoefficient = calculateSeniorityCoefficient(completedSeniorityYears);
+  const seniorityCoefficient =
+    usesSeniority && seniorityRuleCoefficient > 0
+      ? seniorityRuleCoefficient
+      : usesSeniority
+        ? Math.max(0, input.seniorityCoefficient)
+        : 0;
   let baseAmountCents = 0;
 
   if (input.calculationType.koristi_koeficijent) {
@@ -382,9 +771,12 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
   }
 
   baseAmountCents = prorateAmount(baseAmountCents, workingHours, workingHoursFund);
+  let amountForCalculationCents = baseAmountCents;
+  let seniorityAmountCents = 0;
 
   if (usesSeniority && input.calculationType.seniority_mode === "ADD_TO_BASE_BEFORE_GROSSING") {
-    baseAmountCents += roundedRateAmount(baseAmountCents, input.seniorityCoefficient);
+    seniorityAmountCents = roundedRateAmount(baseAmountCents, seniorityCoefficient);
+    amountForCalculationCents += seniorityAmountCents;
   }
 
   let grossCents = 0;
@@ -394,40 +786,89 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
     input.calculationType.algoritam === "NET_TO_GROSS" ||
     input.calculationType.algoritam === "COEFFICIENT_TO_NET"
   ) {
-    grossCents = grossFromNet({
-      targetNetCents: baseAmountCents,
-      rates,
-      taxBrackets,
-      incomeType: input.incomeType,
-      surtaxRate
-    });
+    grossCents = ruleBasedCalculation
+      ? grossFromNetWithCalculator(amountForCalculationCents, (candidateGrossCents) =>
+          calculateFromBasisRule({
+            grossCents: candidateGrossCents,
+            rule: ruleBasedCalculation,
+            surtaxRate
+          }).netAmountCents
+        )
+      : grossFromNet({
+          targetNetCents: amountForCalculationCents,
+          rates,
+          taxBrackets,
+          incomeType: input.incomeType,
+          surtaxRate
+        });
   } else {
-    grossCents = baseAmountCents;
+    grossCents = amountForCalculationCents;
 
     if (usesSeniority && input.calculationType.seniority_mode !== "ADD_TO_BASE_BEFORE_GROSSING") {
-      grossCents += roundedRateAmount(grossCents, input.seniorityCoefficient);
+      seniorityAmountCents = roundedRateAmount(grossCents, seniorityCoefficient);
+      grossCents += seniorityAmountCents;
+      amountForCalculationCents = grossCents;
     }
   }
 
-  const result = calculateFromGross({
-    grossCents,
-    rates,
-    taxBrackets,
-    incomeType: input.incomeType,
-    surtaxRate
-  });
+  const result = ruleBasedCalculation
+    ? calculateFromBasisRule({
+        grossCents,
+        rule: ruleBasedCalculation,
+        surtaxRate
+      })
+    : calculateFromGross({
+        grossCents,
+        rates,
+        taxBrackets,
+        incomeType: input.incomeType,
+        surtaxRate
+      });
+  const basisRuleBases = "bases" in result ? result.bases : null;
 
   return {
     baseAmountCents,
-    amountForCalculationCents: baseAmountCents,
+    amountForCalculationCents,
     ...result,
     surtaxRate,
+    seniorityCoefficient,
+    seniorityAmountCents,
     details: {
       inputType: input.calculationType.input_type,
       algorithm: input.calculationType.algoritam,
       workingHours,
       workingHoursFund,
-      usesSeniority
+      usesSeniority,
+      seniorityCompletedYears: completedSeniorityYears,
+      seniorityMonths: Math.max(0, Math.floor(input.seniorityMonths ?? 0)),
+      seniorityDays: Math.max(0, Math.floor(input.seniorityDays ?? 0)),
+      seniorityCoefficient,
+      seniorityPercent: seniorityCoefficient * 100,
+      seniorityAmountCents,
+      seniorityRule: "CG_PROGRESSIVE_COMPLETED_YEARS",
+      basisRule: ruleBasedCalculation
+        ? {
+            ruleId: ruleBasedCalculation.id,
+            basisId: ruleBasedCalculation.osnova_id,
+            incomeCode: input.incomeType.sifra,
+            taxBaseType: ruleBasedCalculation.osnovica_porez_tip,
+            taxBasePercent: percentNumber(ruleBasedCalculation.osnovica_porez_proc),
+            pioBaseType: ruleBasedCalculation.osnovica_pio_tip,
+            pioBasePercent: percentNumber(ruleBasedCalculation.osnovica_pio_proc),
+            healthBaseType: ruleBasedCalculation.osnovica_rfzo_tip,
+            healthBasePercent: percentNumber(ruleBasedCalculation.osnovica_rfzo_proc),
+            unemploymentBaseType: ruleBasedCalculation.osnovica_zzz_tip,
+            unemploymentBasePercent: percentNumber(ruleBasedCalculation.osnovica_zzz_proc),
+            note: ruleBasedCalculation.napomena,
+            rates: ruleBasedCalculation.stope.map((rate) => ({
+              type: rate.tip,
+              burden: rate.teret,
+              rate: rateNumber(rate),
+              baseType: rate.osnovica_tip
+            })),
+            bases: basisRuleBases
+          }
+        : null
     }
   };
 }
