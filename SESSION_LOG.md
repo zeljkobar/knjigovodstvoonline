@@ -3,6 +3,97 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-07-24
+- Na detalj firme dodat je odvojeni opasni odjeljak za trajno brisanje testne
+  firme. Dugme ostaje onemogućeno dok admin agencije ne unese potpuno isti puni
+  naziv firme, a backend ponavlja istu provjeru unutar transakcije i zaključava
+  firmu kroz agencijski scope.
+- Kontrolisana transakcija briše samo ciljnu firmu i njene naloge/stavke,
+  KIF/KUF i poreske stavke, PDV periode/prijave/podešavanja, izvode i alokacije,
+  plate, radnike i M-4, poslovne godine, konta i vrste naloga, bankovne račune,
+  firmine partnere, ugovor, odgovorna lica, korisničke veze, finansijske
+  izvještaje i ostala firm-specific podešavanja. Korisnički nalozi,
+  globalni/agencijski partneri i zajednički šifarnici se ne brišu.
+- Poslije brisanja ostaje agencijski audit zapis bez FK veze na obrisanu firmu,
+  a aktivni izbor firme/godine se čisti ako je obrisana trenutno izabrana firma.
+- Izolovani test je napravio i obrisao dvije privremene firme. Potvrđeno je da
+  pogrešan naziv ostavlja firmu u bazi, tačan naziv je briše i audit zapis
+  ostaje. `npx tsc --noEmit`, lint i `git diff --check` prolaze; lint zadržava
+  tri ranija upozorenja u nepovezanim fajlovima.
+- Ispravljen je slučaj kada agencijsko pravilo knjiženja izvoda nema
+  `firma_id`, ali preko `account_id` koristi konto firme koja se briše. Purge
+  sada prije konta briše i takva pravila. Kompletan dry-run nad firmom LEJLA
+  prošao je kroz sve stvarne veze i zatim je namjerno rollbackovan, pa nijedan
+  njen podatak nije promijenjen tokom provjere.
+
+## 2026-07-23
+- Ispravljen je izbor šifre primanja na obračunu: ručni izbor više ne skriva
+  šifre koje nijesu u kategoriji cijelog obračuna. Prikazuje se 133 jedinstvenih
+  šifara (108 zvaničnih osnova i 25 podšifara), uz izbor firmine/agencijske ili
+  kategorijski najbliže varijante kada ista šifra postoji više puta. Backend
+  prihvata eksplicitno izabranu šifru bez kategorijskog ograničenja; kategorija
+  i dalje određuje početnu šifru i obuhvat radnika.
+- Prilagođen je stari obračunski šifarnik `001LP.mdb/A_SifR` našem modelu bez
+  preuzimanja zastarjelih poreskih stopa. `plate_sifre_primanja` sada podržava
+  roditeljsku šifru, obračunski koeficijent sa tipom `IZNOS` ili `STAZ`, posebni
+  procenat poreske osnovice, fond sati i izvorne oznake. Uneseno je 25 podšifara
+  za zarade, jubilarne nagrade, imovinu i kapital; koeficijenti iznosa ulaze u
+  obračun, dok koeficijenti uvećanog staža ne množe zaradu. Migracija
+  `20260723133000_plate_sifre_primanja_podsifre` je primijenjena i dev server
+  restartovan.
+- Proširen je postojeći globalni šifarnik `plate_prirez_stope` podacima iz
+  `zadaci/plate/001LP.mdb`, tabela `B_Opstine`: unesena je 21 opština sa DJP
+  šifrom, stopom prireza, šifrom plaćanja i raspoloživim žiro računima za
+  prirez, kao i zajedničkim računom/šifrom za porez. Obračun plata sada pouzdano
+  prepoznaje i složene nazive opštine iz podataka firme, a M-4 iz istog
+  šifarnika štampa naziv i DJP šifru opštine. Migracija
+  `20260723123000_plate_prirez_opstine_sifarnik` je primijenjena, Prisma klijent
+  regenerisan i dev server restartovan.
+- M-4 je nakon završnog pregleda označen kao završen u dogovorenom obimu:
+  godišnji pregled, pojedinačni obrazac, Tabela 1, Tabela 2, podaci firme,
+  kontrole i potvrđene uplate. Planer i aktivna dokumentacija su usklađeni.
+- Uklonjena kartica posebnih M-4 podešavanja. M-4 sada uzima mjesto i izvršnog
+  direktora iz podataka firme, koristi datum štampe i podrazumijevani broj
+  organizacione jedinice `0000`; naziv i DJP šifru opštine uzima iz globalnog
+  šifarnika prireza. Postojeća tabela podešavanja nije obrisana kako se ranije
+  uneseni podaci ne bi destruktivno uklonili.
+- Dodata tabela `firma_odgovorna_lica` sa agencijskim/firmskim scope-om, ulogom,
+  JMBG-om, kontaktima, audit poljima i soft delete podrškom. Nova firma i detalj
+  firme sada unose/uređuju primarnog izvršnog direktora i njegov JMBG; IRMS
+  automatski popunjava ime kada vrati ulogu direktora. Migracija
+  `20260723120000_firma_odgovorna_lica` je primijenjena i dev server restartovan.
+- Na M-4 evidenciji dodata akcija `Uplaćeno u cijelosti`: porez i doprinosi se
+  automatski preuzimaju iz važećih obračuna izabranog mjeseca, čuvaju kao
+  potvrđena uplata i odmah ulaze u Tabelu 1 i pojedinačne M-4 iznose. Datum i
+  referenca izvoda ostaju opcioni, a ručni unos je zadržan za izuzetke.
+- Implementirana godišnja M-4 evidencija na `/agencija/plate/m4`: kontrolni
+  pregled osiguranika i unos potvrđenih mjesečnih uplata odvojenih od
+  obračunatih obaveza.
+- Dodati su pojedinačni obrazac M-4, Tabela 1 i Tabela 2 na
+  `/stampa/plate/m4`. Sva tri dokumenta su renderovana iz stvarnih podataka i
+  vizuelno usklađena sa dostavljenim zvaničnim PDF uzorcima; M-4/Tabela 2 su A4
+  portret, a Tabela 1 A4 pejzaž.
+- Migracija `20260723100000_plate_m4_obrasci` dodaje M-4 kategoriju osnova,
+  lični broj i oznaku staža radnika, podešavanja obrasca i potvrđene mjesečne
+  uplate. Migracija je primijenjena, Prisma klijent regenerisan i dev server
+  restartovan.
+- TypeScript, Prisma validacija i `git diff --check` prolaze; lint nema grešaka
+  i zadržava tri ranija upozorenja.
+
+## 2026-07-21
+- Reorganizovana stranica `/agencija/plate/podesavanja`: početni ekran sada
+  prikazuje odvojene izbore `Podešavanje IOPPD šifri` i `Podešavanje
+  knjiženja`. Postojećih 108 IOPPD osnova učitava se tek nakon izbora IOPPD
+  grupe, a knjiženje za sada otvara jasno označen placeholder za narednu fazu.
+- Usklađena aktivna dokumentacija sa stvarnim kodom: ažurirani su status PDV-a,
+  parseri i alokacije izvoda, stanje plata i završnog računa, arhitektura i
+  otvoreni koraci. Istorijske specifikacije su ostavljene kao specifikacije.
+- Ispravljena je nepostojeća referenca za minuli rad i dokumentovano stvarno
+  pravilo novca: računanje u centima u aplikaciji uz `Decimal(14, 2)` zapis u
+  PostgreSQL-u.
+- Provjere: TypeScript i Prisma validacija prolaze; lint nema grešaka i ima tri
+  upozorenja. Lokalna baza nije bila dostupna za provjeru statusa migracija.
+
 ## 2026-07-20
 - Povezan obračun plata sa strukturisanim pravilima osnova iz
   `plate_osnova_pravila` i `plate_osnova_stope` za linearne šifre primanja
@@ -46,8 +137,8 @@
 - Na obračunu plata dodato ručno dodavanje aktivnog radnika koji još nije u tom
   obračunu i izbacivanje radnika iz postojećeg obračuna. Obje akcije vraćaju
   obračun u nacrt i ne brišu ostale radnike ni njihove korekcije.
-- Implementirano pravilo minulog rada iz
-  `zadaci/plate/pravilo-obracuna-minulog-rada-crna-gora.md`: obračun koristi
+- Implementirano pravilo minulog rada iz odjeljka 14 dokumenta
+  `zadaci/plate/08_Plate_i_Obracun_Zarada_FINAL.md`: obračun koristi
   samo navršene godine staža i progresivne intervale 0,50% / 0,75% / 1,00%.
   Minuli rad se dodaje na osnovnu zaradu prije bruto/neto preračuna, efektivni
   koeficijent se čuva na stavci, a rezultat prikazuje osnovicu i iznos minulog

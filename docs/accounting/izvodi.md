@@ -70,8 +70,9 @@ stavke, import sesiju, kontrole, povezivanje sa fakturama i generiše jedan nalo
 
 - Još otvoreno za pun MVP:
   - parseri za ostale banke,
-  - povezivanje sa KIF/KUF fakturama i alokacije,
-  - dodatni tipovi pravila po specifičnim formatima banaka.
+  - split alokacije kada jedna stavka izvoda zatvara više KIF/KUF računa,
+  - vraćanje proknjiženog izvoda u nacrt,
+  - dodatni tipovi pravila po specifičnim formatima banaka i dalja UX dorada.
 
 ## Kasnije
 - CSV/Excel import za dodatne banke.
@@ -80,24 +81,19 @@ stavke, import sesiju, kontrole, povezivanje sa fakturama i generiše jedan nalo
   confidence score-om.
 
 ## Statusi
-Statusi izvoda:
+Statusi izvoda koje trenutni kod aktivno koristi:
 
 ```text
-DRAFT → IMPORTED → PARSED → NEEDS_REVIEW → READY → POSTED
-DELETED
+IMPORTED → NEEDS_REVIEW → READY → POSTED
 ```
 
-Statusi stavki:
+Neproknjiženi izvod se trenutno fizički briše; `DELETED` status se ne koristi u
+akciji brisanja. Stavke odvojeno čuvaju status prepoznavanja partnera i status
+spremnosti za knjiženje:
 
 ```text
-UNMATCHED
-MATCHED_PARTNER
-MATCHED_INVOICE
-SUGGESTED_ACCOUNT
-MANUAL_ACCOUNT
-READY
-NEEDS_REVIEW
-IGNORED
+match_status:   UNMATCHED | MATCHED_PARTNER
+posting_status: NEEDS_REVIEW | READY | IGNORED
 ```
 
 ## Prepoznavanje
@@ -183,15 +179,18 @@ ima drugačiji tretman istog žiro računa ili istog opisa, na stranici pravila 
 ispravi postojeće pravilo i sačuva kao “samo aktivna firma”; tada firm-specific
 pravilo preuzima prioritet bez dupliranja zajedničkog pravila.
 
-## Predložene tabele
-- `bank_statement_imports`
-- `bank_statement_import_lines`
+## Tabele
+Implementirane su:
+
 - `bank_statements`
 - `bank_statement_lines`
 - `partner_bank_accounts`
 - `bank_statement_line_allocations`
 - `bank_posting_rules`
-- `bank_rule_applications`
+
+Specifikacija predviđa i zasebne import sesije/redove i istoriju primjene
+pravila (`bank_statement_imports`, `bank_statement_import_lines`,
+`bank_rule_applications`), ali te tabele još nisu u Prisma šemi.
 
 ## Validacije
 - Izvod mora imati firmu, poslovnu godinu, bankovni račun, broj i datum izvoda.

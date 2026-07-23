@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-07-06. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-07-24. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -30,6 +30,16 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   unos novog partnera kroz modal bez napuštanja ekrana.
 - PIB partnera je unique samo u okviru agencije (scope).
 - Polja partnera/firme: pravna forma, šifra djelatnosti, datum registracije.
+- Firma ima evidenciju odgovornih lica (`firma_odgovorna_lica`) sa ulogom,
+  JMBG-om, kontaktima, statusom i soft delete poljima. Unos i detalj firme sada
+  uređuju primarnog izvršnog direktora i njegov JMBG; IRMS pretraga popunjava
+  ime direktora kada javni registar vrati odgovarajuću ulogu.
+- Admin agencije može sa detalja trajno obrisati testnu firmu tek poslije unosa
+  potpuno istog punog naziva. Jedna backend transakcija briše samo podatke te
+  firme kroz naloge, KIF/KUF, PDV, izvode, plate/M-4, poslovne godine, konta,
+  banke, ugovore, firmine partnere, korisničke veze i podešavanja; zajednički
+  korisnici i globalni/agencijski šifarnici ostaju. Brisanje ostavlja agencijski
+  audit zapis i čisti aktivni kontekst ako je obrisana izabrana firma.
 - Komitent može biti označen kao ino (`is_foreign`), sa državom i inostranim
   poreskim brojem.
 
@@ -245,28 +255,41 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   dodatno blokira obradu ako se greške ipak pošalju.
 - Na izabranom radniku u obračunu moguće je dodati dodatnu stavku za taj mjesec
   prije obrade, npr. bonus ili korekciju, pa ponovo pokrenuti obračun.
+- Ručni izbor šifre na obračunskoj stavci prikazuje svih 133 jedinstvenih
+  aktivnih šifara: 108 zvaničnih IOPPD osnova i 25 obračunskih podšifara.
+  Kategorija obračuna određuje podrazumijevanu šifru i obuhvat radnika, ali ne
+  skriva druge šifre koje računovođa može izabrati za dodatnu stavku.
 - `src/lib/payroll.ts` računa bruto/neto iz šifarnika, ne iz hardkodiranih stopa:
   koristi važeće poreske razrede, stope doprinosa i prirez po opštini. Neto u
   bruto se rješava binarnom pretragom i podržava proporcionalni obračun po
   satima/fondu.
+- Globalni `plate_prirez_stope` je dopunjen sa 21 opštinom iz stare baze
+  `001LP.mdb` (`B_Opstine`): čuva naziv, DJP šifru, stopu prireza, šifru
+  plaćanja, raspoloživi žiro račun za prirez i zajedničke podatke za uplatu
+  poreza. Resolver opštine prepoznaje i vrijednosti firme poput
+  `Bar, Bar, Crna Gora`; prazni računi u izvornom šifarniku ostaju prazni.
 - Obračun koristi strukturisana pravila iz `plate_osnova_pravila` i
   `plate_osnova_stope` za šifre primanja vezane na osnovu obračuna sa
   linearnim stopama, npr. `047` i `065`: poreska osnovica 70% bruto, porez po
   stopi iz šifarnika i prirez po opštini, bez doprinosa ako nijesu definisani
   u pravilima. Redovna zarada `001` ostaje na posebnom razrednom obračunu poreza
   i doprinosima iz sistemskih stopa.
-- Minuli rad se računa po pravilu iz
-  `zadaci/plate/pravilo-obracuna-minulog-rada-crna-gora.md`: samo navršene
+- Minuli rad se računa po pravilu opisanom u
+  `zadaci/plate/08_Plate_i_Obracun_Zarada_FINAL.md` (odjeljak 14): samo navršene
   godine staža, progresivno 0,50% za prvih 10 godina, 0,75% za narednih 10 i
   1,00% za godine preko 20. Uvećanje ide na osnovnu zaradu prije bruto/neto
   preračuna, a efektivni koeficijent se čuva na obračunskoj stavci. Ako ručno
   polje `Minuli rad godina` nije popunjeno, obračun pokušava izračunati
   navršene godine iz datuma zaposlenja do datuma obračuna; ako je i to 0,
   kontrola blokira obračun stavke sa uključenim minulim radom.
-- Stranica `/agencija/plate/podesavanja` prikazuje početne šifarnike i pravila,
-  uključujući šifarnik osnova za obračun iz IOPPD specifikacije. Osnove su
-  modelovane posebno od šifri primanja: glavna osnova, period pravila i stope po
-  tipu/teretu.
+- Stranica `/agencija/plate/podesavanja` je organizovana kao pregled grupa
+  podešavanja. Dugme `Podešavanje IOPPD šifri` otvara postojeći šifarnik osnova
+  i pravila iz IOPPD specifikacije, dok je `Podešavanje knjiženja` pripremljeno
+  kao jasno označen placeholder za buduću šemu automatskog knjiženja plata.
+  Osnove su modelovane posebno od šifri primanja: glavna osnova, period pravila
+  i stope po tipu/teretu. Uz svaku osnovu sada se prikazuju pripadajuće
+  obračunske šifre i podšifre, koeficijent, posebni procenat poreske osnovice i
+  oznaka fonda sati.
 - Stranica `/agencija/plate/ioppd` prikazuje IOPPD po mjesecima. Jedan mjesečni
   IOPPD sabira sve obrađene obračune za aktivnu firmu/godinu u tom mjesecu
   (redovan rad, zakup, ugovor o djelu i ostali ugovori). Dugme `Pregled` otvara
@@ -274,6 +297,30 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   posebnim dijelom na horizontalnoj strani. Dugme `Download XML` preuzima
   zvaničnu IOPPD XML strukturu `Izvjestaj` / `Ukupno` /
   `PojedinacniObracun`, po istom formatu koji prihvata IRMS portal.
+- Stranica `/agencija/plate/m4` priprema godišnju M-4 evidenciju iz obrađenih
+  obračuna aktivne firme/godine. Sadrži kontrolni pregled osiguranika, M-4
+  kategoriju na osnovama obračuna i zasebnu evidenciju
+  potvrđenih mjesečnih uplata. Akcija `Uplaćeno u cijelosti` automatski prenosi
+  porez i doprinose iz važećih obračuna izabranog mjeseca, potvrđuje uplatu i
+  odmah ih uključuje u M-4; datum i broj izvoda su opcioni. Ručni unos ostaje za
+  djelimične ili drugačije uplate.
+- Print ruta `/stampa/plate/m4` generiše tri HTML/CSS dokumenta prema
+  dostavljenim zvaničnim PDF uzorcima: pojedinačni obrazac M-4 i Tabelu 2 na A4
+  portretu, te Tabelu 1 na A4 pejzažu. M-4 koristi PIB i podatke firme, JMBG ili
+  lični broj osiguranika, period rada, M-4 osnovicu i potvrđeni uplaćeni PIO.
+  Posebna kartica M-4 podešavanja je uklonjena: mjesto i izvršni direktor dolaze
+  iz firme, datum je datum štampe, organizaciona jedinica je privremeno `0000`,
+  a naziv i DJP šifra opštine dolaze iz globalnog šifarnika prireza.
+- M-4 je završen u dogovorenom obimu: godišnji pregled, pojedinačni službeni
+  obrazac, Tabela 1, Tabela 2, kontrole i potvrđene uplate. Istorija višestrukih
+  perioda, staž sa uvećanim trajanjem i zaključani snapshot smatraju se mogućim
+  budućim proširenjima, ne blokadom završenog M-4 toka.
+- Migracija `20260723100000_plate_m4_obrasci` dodaje M-4 podešavanja po
+  firmi/godini, mjesečne potvrđene uplate, lični broj/oznaku staža radnika i M-4
+  kategoriju osnove. Šifra `001` je početno označena kao `ZARADA_OSNOVICA`.
+- Migracija `20260723123000_plate_prirez_opstine_sifarnik` proširuje
+  `plate_prirez_stope` DJP šifrom i podacima za uplatu poreza/prireza te unosi
+  svih 21 opštinu iz `B_Opstine`; migracija je primijenjena.
 - Migracija `20260719120000_plate_obracun_kategorije` dodaje početne sistemske
   vrste za ostale obračune i šifre primanja `047` za ugovor o djelu/ostale
   ugovore i `065` za zakup.
@@ -291,8 +338,13 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   obračuna generiše/povezuje aktivne IOPPD šifre i šifre primanja, tako da kod
   unosa/izmjene radnika dropdown `IOPPD šifra / šifra primanja` prikazuje svih
   108 zvaničnih šifara.
+- Migracija `20260723133000_plate_sifre_primanja_podsifre` prilagođava korisne
+  obračunske parametre iz `001LP.mdb/A_SifR`: dodaje hijerarhiju i 25 podšifara,
+  koeficijente iznosa, koeficijente uvećanog staža, posebne poreske osnovice i
+  oznake fonda sati. Stare poreske grupe/stope nijesu preuzete kao važeće;
+  obračun i dalje koristi vremenski važeća pravila iz naših šifarnika.
 
-## Nije početo / samo pripremljeno
+## Djelimično implementirano / otvoreno
 - Robno knjigovodstvo: spec pročitan, samo navigacioni placeholderi.
 - Izvodi: prva MVP baza/stranica/import/preview/knjiženje i pregledne
   podstranice postoje. Implementirani su parseri za NLB XML/PDF, Erste HTM, CKB
@@ -301,10 +353,10 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   više KIF/KUF računa.
 - Plate: prva MVP osnova postoji za zaposlene, redovan obračun zarade 001,
   kategorije ugovora/zakupa, šifarnik osnova za obračun i mjesečnu IOPPD
-  štampu; detaljna pravila osnova su povezana za linearne obračune poput
-  ugovora/zakupa, a ostaju obustave, uplatnice, automatsko knjiženje plata,
-  arhiva/finalni print/export i dodatna opisna pravila koja traže ručne
-  parametre.
+  štampu; M-4, Tabela 1 i Tabela 2 završeni su u dogovorenom obimu. Detaljna
+  pravila osnova su povezana za linearne obračune poput ugovora/zakupa. Ostaju
+  obustave, uplatnice, automatsko knjiženje plata,
+  arhiva/finalni print/export i dodatna opisna pravila koja traže ručne parametre.
 - Klijentski portal, većina dashboard izvještaja.
 - Završni račun: Bilans uspjeha, Bilans stanja, Statistički aneks, trajne ručne
   korekcije po AOP/koloni, predlog zaključnog naloga za klase 5/6 i arhiva
@@ -312,14 +364,25 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
 
 ## Zadnje provjere
-- `npm run lint` prolazi (stari warning `_prev` u `src/app/admin/actions.ts` i
-  stari warning za neiskorišćene varijable u `src/app/agencija/racuni/actions.ts`).
-- `npx tsc --noEmit` prolazi.
+- `npm run lint` prolazi bez grešaka, uz tri upozorenja: `_prev` u
+  `src/app/admin/actions.ts` i dvije neiskorišćene varijable u
+  `src/app/agencija/racuni/actions.ts`.
+- `npx tsc --noEmit --incremental false` prolazi.
+- `npx prisma validate` potvrđuje da je Prisma šema validna.
+- U repozitorijumu nema automatizovanih test fajlova.
+- `npx prisma migrate deploy` primijenio je migracije
+  `20260723123000_plate_prirez_opstine_sifarnik` i
+  `20260723133000_plate_sifre_primanja_podsifre`; Prisma klijent je regenerisan
+  i dev server restartovan.
+- `npx prisma migrate deploy` primijenio je migraciju
+  `20260723100000_plate_m4_obrasci`; poslije migracije regenerisan je Prisma
+  klijent i restartovan dev server.
 - `npx prisma migrate deploy` primijenio migraciju
   `20260718110000_plate_minuli_rad_mode`.
 - `npx prisma migrate deploy` primijenio migraciju
   `20260709100000_plate_mvp`.
 - Poslije migracije restartovan je dev server da učita novi Prisma client.
+- `npx prisma migrate deploy` primijenio migraciju
   `20260707110000_finansijski_izvjestaj_arhiva`.
 - `npx prisma migrate deploy` primijenio migraciju
   `20260706110000_finansijski_izvjestaj_korekcije`.
@@ -343,6 +406,8 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   `20260628162000_pdv_podesavanja_smjer`.
 - `npx prisma migrate deploy` primijenio migraciju
   `20260628170000_pdv_podesavanja_pravila`.
-- `npm run build` prolazi (Prisma poruke za `127.0.0.1:5432` ako baza nije
-  dostupna tokom prerenderinga su očekivane).
+- Posljednja dokumentovana `npm run build` provjera je prolazila; build nije
+  ponavljan 2026-07-21 jer se prije builda mora potvrditi da dev server ne radi.
+  Prisma poruke za `127.0.0.1:5432` tokom prerenderinga su očekivane kada baza
+  nije dostupna.
 - Kod čudnog `.next` runtime errora: `rm -rf .next && npm run dev`.

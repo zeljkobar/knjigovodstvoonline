@@ -21,6 +21,10 @@ type IrmsCompany = {
   email?: string;
   phone?: string;
   webAddress?: string;
+  directors?: Array<{
+    fullName?: string;
+    role?: string;
+  }>;
 };
 
 const subjectTypes = [
@@ -65,6 +69,20 @@ function subjectTypeFromLegalForm(legalForm?: string) {
   }
 
   return "DOO";
+}
+
+function executiveDirector(directors?: IrmsCompany["directors"]) {
+  const normalizedRole = (role?: string) =>
+    String(role ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase();
+
+  return (
+    directors?.find((director) =>
+      normalizedRole(director.role).includes("IZVRSNI DIREKTOR")
+    ) ?? directors?.find((director) => normalizedRole(director.role).includes("DIREKTOR"))
+  );
 }
 
 function setFormValue(form: HTMLFormElement, name: string, value?: string) {
@@ -136,6 +154,7 @@ export function CompanyForm({ action, currentYear }: CompanyFormProps) {
       }
 
       const activity = splitActivity(result.data.activity);
+      const director = executiveDirector(result.data.directors);
 
       setFormValue(form, "naziv", result.data.name || result.data.legalName);
       setFormValue(form, "skraceni_naziv", result.data.name);
@@ -150,6 +169,7 @@ export function CompanyForm({ action, currentYear }: CompanyFormProps) {
       setFormValue(form, "email", result.data.email);
       setFormValue(form, "web_sajt", result.data.webAddress);
       setFormValue(form, "tip_subjekta", subjectTypeFromLegalForm(result.data.legalForm));
+      setFormValue(form, "izvrsni_direktor", director?.fullName);
 
       setIrmsStatus({
         type: "success",
@@ -196,6 +216,14 @@ export function CompanyForm({ action, currentYear }: CompanyFormProps) {
       <label>
         <span>Maticni broj</span>
         <input name="maticni_broj" />
+      </label>
+      <label>
+        <span>Izvršni direktor</span>
+        <input name="izvrsni_direktor" />
+      </label>
+      <label>
+        <span>JMBG izvršnog direktora</span>
+        <input inputMode="numeric" maxLength={13} name="izvrsni_direktor_jmbg" pattern="[0-9]{13}" />
       </label>
       <label>
         <span>Sifra djelatnosti</span>

@@ -16,6 +16,7 @@ import {
   payrollCategoryRequiresEmployment,
   payrollStatuses
 } from "@/lib/payroll";
+import { getM4Data } from "@/lib/payroll-m4";
 import { prisma } from "@/lib/prisma";
 import { getPlateContext } from "./_shared";
 
@@ -81,7 +82,6 @@ async function effectiveIncomeType(
     const explicitIncomeType = await prisma.plateSifraPrimanja.findFirst({
       where: {
         id: incomeTypeId,
-        kategorija: category,
         aktivan: true,
         OR: [
           {
@@ -182,7 +182,7 @@ export async function savePayrollBasisRule(formData: FormData) {
   const taxRatePercent = decimalValue(formData.get("porez_stopa"), 0);
 
   if (!basisId || !name || !validFrom) {
-    redirect("/agencija/plate/podesavanja?poruka=osnova_nevalidna");
+    redirect("/agencija/plate/podesavanja?sekcija=ioppd&poruka=osnova_nevalidna");
   }
 
   const existing = await prisma.plateOsnovaObracuna.findUnique({
@@ -206,7 +206,7 @@ export async function savePayrollBasisRule(formData: FormData) {
   });
 
   if (!existing) {
-    redirect("/agencija/plate/podesavanja?poruka=osnova_ne_postoji");
+    redirect("/agencija/plate/podesavanja?sekcija=ioppd&poruka=osnova_ne_postoji");
   }
 
   const saved = await prisma.$transaction(async (tx) => {
@@ -218,6 +218,7 @@ export async function savePayrollBasisRule(formData: FormData) {
         naziv: name,
         opis: text(formData.get("opis")) || null,
         kategorija: text(formData.get("kategorija")) || null,
+        m4_kategorija: text(formData.get("m4_kategorija")) || "NE_ULAZI",
         valid_from: validFrom,
         valid_to: validTo,
         aktivan: formData.get("aktivan") === "on",
@@ -304,7 +305,104 @@ export async function savePayrollBasisRule(formData: FormData) {
   });
 
   revalidatePath("/agencija/plate/podesavanja");
-  redirect("/agencija/plate/podesavanja?poruka=osnova_sacuvana");
+  redirect("/agencija/plate/podesavanja?sekcija=ioppd&poruka=osnova_sacuvana");
+}
+
+export async function saveM4MonthlyPayment(formData: FormData) {
+  const context = await requirePlateManageContext("/agencija/plate/m4");
+  const month = numberValue(formData.get("mjesec"));
+  const paymentMode = text(formData.get("nacin"));
+  let moneyFields = {
+    porez_cent: parseMoneyToCents(formData.get("porez")),
+    zaposleni_pio_cent: parseMoneyToCents(formData.get("zaposleni_pio")),
+    zaposleni_zdravstvo_cent: parseMoneyToCents(formData.get("zaposleni_zdravstvo")),
+    zaposleni_nezaposleni_cent: parseMoneyToCents(formData.get("zaposleni_nezaposleni")),
+    poslodavac_pio_cent: parseMoneyToCents(formData.get("poslodavac_pio")),
+    poslodavac_zdravstvo_cent: parseMoneyToCents(formData.get("poslodavac_zdravstvo")),
+    poslodavac_nezaposleni_cent: parseMoneyToCents(formData.get("poslodavac_nezaposleni")),
+    fond_rada_cent: parseMoneyToCents(formData.get("fond_rada")),
+    invalidi_cent: parseMoneyToCents(formData.get("invalidi"))
+  };
+
+  if (month < 1 || month > 12) {
+    redirect("/agencija/plate/m4?poruka=m4_uplata_nevalidna");
+  }
+
+  if (paymentMode === "u_cijelosti") {
+    const { report } = await getM4Data({
+      agencijaId: context.agencijaId,
+      firmaId: context.firma.id,
+      poslovnaGodinaId: context.godina.id,
+      godina: context.godina.godina
+    });
+    const calculatedMonth = report.months[month - 1];
+
+    if (!calculatedMonth || calculatedMonth.ukupnoObracunatoCent <= 0) {
+      redirect(`/agencija/plate/m4?poruka=m4_uplata_nema_obracuna&mjesec=${month}`);
+    }
+
+    moneyFields = {
+      porez_cent: calculatedMonth.porezCent,
+      zaposleni_pio_cent: calculatedMonth.zaposleniPioCent,
+      zaposleni_zdravstvo_cent: calculatedMonth.zaposleniZdravstvoCent,
+      zaposleni_nezaposleni_cent: calculatedMonth.zaposleniNezaposleniCent,
+      poslodavac_pio_cent: calculatedMonth.poslodavacPioCent,
+      poslodavac_zdravstvo_cent: calculatedMonth.poslodavacZdravstvoCent,
+      poslodavac_nezaposleni_cent: calculatedMonth.poslodavacNezaposleniCent,
+      fond_rada_cent: calculatedMonth.fondRadaCent,
+      invalidi_cent: calculatedMonth.invalidiCent
+    };
+  }
+
+  if (Object.values(moneyFields).some((value) => value === null || value < 0)) {
+    redirect("/agencija/plate/m4?poruka=m4_uplata_nevalidna");
+  }
+
+  const values = moneyFields as Record<keyof typeof moneyFields, number>;
+  const unique = {
+    firma_id_poslovna_godina_id_mjesec: {
+      firma_id: context.firma.id,
+      poslovna_godina_id: context.godina.id,
+      mjesec: month
+    }
+  };
+  const previous = await prisma.plateM4MjesecnaUplata.findUnique({ where: unique });
+  const sharedData = {
+    ...values,
+    datum_uplate: dateValue(formData.get("datum_uplate")),
+    referenca: text(formData.get("referenca")) || null,
+    potvrdjena: paymentMode === "u_cijelosti" || formData.get("potvrdjena") === "on",
+    updated_by: context.user.id
+  };
+  const saved = await prisma.plateM4MjesecnaUplata.upsert({
+    where: unique,
+    create: {
+      agencija_id: context.agencijaId,
+      firma_id: context.firma.id,
+      poslovna_godina_id: context.godina.id,
+      mjesec: month,
+      ...sharedData,
+      created_by: context.user.id
+    },
+    update: sharedData
+  });
+
+  await auditLog({
+    korisnikId: context.user.id,
+    agencijaId: context.agencijaId,
+    firmaId: context.firma.id,
+    modul: "plate",
+    akcija: paymentMode === "u_cijelosti" ? "confirm_m4_full_payment" : "save_m4_payment",
+    tipEntiteta: "PlateM4MjesecnaUplata",
+    entitetId: saved.id,
+    staraVrijednost: previous,
+    novaVrijednost: saved
+  });
+
+  revalidatePath("/agencija/plate/m4");
+  revalidatePath("/stampa/plate/m4");
+  const message = paymentMode === "u_cijelosti" ? "m4_uplata_puna_sacuvana" : "m4_uplata_sacuvana";
+  redirect(`/agencija/plate/m4?poruka=${message}&mjesec=${month}`);
 }
 
 export async function createPayrollEmployee(formData: FormData) {
@@ -327,6 +425,8 @@ export async function createPayrollEmployee(formData: FormData) {
       prezime,
       ime_roditelja: text(formData.get("ime_roditelja")) || null,
       jmbg: text(formData.get("jmbg")) || null,
+      licni_broj_osiguranika: text(formData.get("licni_broj_osiguranika")) || null,
+      m4_oznaka_staza: text(formData.get("m4_oznaka_staza")) || "01",
       opstina: text(formData.get("opstina")) || null,
       poreska_opstina: text(formData.get("poreska_opstina")) || null,
       tekuci_racun: text(formData.get("tekuci_racun")) || null,
@@ -403,6 +503,8 @@ export async function updatePayrollEmployee(formData: FormData) {
       prezime,
       ime_roditelja: text(formData.get("ime_roditelja")) || null,
       jmbg: text(formData.get("jmbg")) || null,
+      licni_broj_osiguranika: text(formData.get("licni_broj_osiguranika")) || null,
+      m4_oznaka_staza: text(formData.get("m4_oznaka_staza")) || "01",
       opstina: text(formData.get("opstina")) || null,
       poreska_opstina: text(formData.get("poreska_opstina")) || null,
       tekuci_racun: text(formData.get("tekuci_racun")) || null,

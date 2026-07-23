@@ -13,6 +13,7 @@ const poruke: Record<string, string> = {
   firma_obavezno: "Naziv firme je obavezan.",
   firma_greska: "Firma nije sacuvana. Provjerite podatke.",
   tip_nevalidan: "Tip subjekta nije validan.",
+  direktor_nevalidan: "JMBG izvršnog direktora mora imati 13 cifara i mora biti vezan za ime direktora.",
   agencija_nedostaje: "Korisnik nije povezan sa agencijom."
 };
 

@@ -62,8 +62,12 @@ Ova pravila su rezultat odluka u specifikaciji i ne smiju se kršiti:
    akciju (`requireAnyRole`, `permissions.ts`, `work-context.ts`).
 3. **KIF i KUF su poseban modul i osnova PDV-a**, ne dio PDV modula. Koristi se
    **KIF** (izlazne) i **KUF** (ulazne); naziv „KIR” se NE koristi.
-4. **Soft delete.** Brisanje ide preko `is_deleted` / `deleted_at` / `deleted_by`,
-   ne fizičko brisanje.
+4. **Soft delete je default.** Poslovni zapisi se brišu preko `is_deleted` /
+   `deleted_at` / `deleted_by`. Dokumentovani izuzetak su neproknjiženi nacrti
+   bez aktivne veze na nalog (trenutno nacrt naloga, KIF/KUF račun ili cijela
+   knjiga i neproknjiženi izvod), koji se fizički brišu da ne zauzimaju redni
+   broj; prije brisanja moraju proći scope, status, zaključavanje i audit
+   provjere odgovarajućeg toka.
 5. **Audit log.** Svaka bitna akcija se upisuje (ko, kada, agencija, firma, modul,
    zapis, tip, stara/nova vrijednost). Vidi `audit.ts`.
 6. **Globalni kontekst.** Agencija, firma i poslovna godina se biraju gore i svi
@@ -85,8 +89,10 @@ Ova pravila su rezultat odluka u specifikaciji i ne smiju se kršiti:
 - **Jezik baze je srpski** (`agencije`, `firme`, `komitenti`, `nalozi`,
   `stavke_naloga`, `pdv_stope`, ...). Tehnička polja: `id`, `created_at`,
   `updated_at`.
-- **Novac se čuva u centima** (cijeli broj); parsiranje preko helpera
-  (`parseMoneyToCents`), nikad float aritmetika nad valutom.
+- **Novac se računa u centima** (cijeli broj) u aplikacijskoj logici; parsiranje
+  ide preko helpera (`parseMoneyToCents`), bez float aritmetike nad valutom.
+  Prisma/PostgreSQL novčana polja trenutno čuvaju kao `Decimal(14, 2)`, pa se
+  centi pri upisu pretvaraju u decimalni string, a pri čitanju vraćaju u cente.
 - **Server actions + server komponente** su default; klijentske komponente samo
   gdje treba interaktivnost.
 - **Partneri se NE učitavaju masovno** (ima ~64k globalnih). Koristi async

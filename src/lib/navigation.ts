@@ -176,6 +176,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/plate/ugovori", label: "Ugovori" },
     { href: "/agencija/plate/obracun", label: "Obračun plata" },
     { href: "/agencija/plate/ioppd", label: "IOPPD" },
+    { href: "/agencija/plate/m4", label: "M-4" },
     { href: "/agencija/plate/obustave", label: "Obustave" },
     { href: "/agencija/plate/arhiva", label: "Arhiva obračuna" },
     { href: "/agencija/plate/podesavanja", label: "Podešavanja plata" }

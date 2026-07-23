@@ -230,6 +230,9 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
     );
   }
 
+  const activeFirmaId = context.firma.id;
+  const activeAgencijaId = context.user.agencija_id;
+
   const [calculations, incomeTypes, calculationTypes] = await Promise.all([
     prisma.plateObracun.findMany({
       where: {
@@ -346,9 +349,28 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
   });
   const selectedSeniorityCoefficient = calculateSeniorityCoefficient(selectedSeniorityYears);
   const selectedLines = selectedWorkerId ? lines.filter((line) => line.radnik_id === selectedWorkerId) : [];
-  const incomeTypesForSelectedCategory = selected
-    ? incomeTypes.filter((type) => type.kategorija === selected.kategorija)
-    : incomeTypes;
+  const incomeTypePriority = (incomeType: (typeof incomeTypes)[number]) => {
+    const categoryPriority = incomeType.kategorija === selected?.kategorija ? 100 : 0;
+    const scopePriority =
+      incomeType.firma_id === activeFirmaId
+        ? 30
+        : incomeType.agencija_id === activeAgencijaId
+          ? 20
+          : 10;
+
+    return categoryPriority + scopePriority;
+  };
+  const availableIncomeTypes = Array.from(
+    incomeTypes.reduce((byCode, incomeType) => {
+      const existing = byCode.get(incomeType.sifra);
+
+      if (!existing || incomeTypePriority(incomeType) > incomeTypePriority(existing)) {
+        byCode.set(incomeType.sifra, incomeType);
+      }
+
+      return byCode;
+    }, new Map<string, (typeof incomeTypes)[number]>()).values()
+  ).sort((left, right) => left.sifra.localeCompare(right.sifra, "sr-Latn", { numeric: true }));
   const seniorityCoefficientForLine = (line: (typeof lines)[number]) => {
     const employee = employeesById.get(line.radnik_id);
     const calculationWorker = calculationWorkersByEmployeeId.get(line.radnik_id);
@@ -706,9 +728,13 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                         <label>
                           <span>Šifra primanja</span>
                           <select name="sifra_primanja_id" defaultValue={line.sifra_primanja_id}>
-                            {incomeTypesForSelectedCategory.map((type) => (
+                            {availableIncomeTypes.map((type) => (
                               <option key={type.id} value={type.id}>
                                 {type.sifra} - {type.naziv}
+                                {type.koeficijent_tip === "IZNOS" &&
+                                Number(type.obracunski_koeficijent) !== 1
+                                  ? ` (koef. ${type.obracunski_koeficijent.toString()})`
+                                  : ""}
                               </option>
                             ))}
                           </select>
@@ -808,9 +834,13 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                       <label>
                         <span>Šifra primanja</span>
                         <select name="sifra_primanja_id">
-                          {incomeTypesForSelectedCategory.map((type) => (
+                          {availableIncomeTypes.map((type) => (
                             <option key={type.id} value={type.id}>
                               {type.sifra} - {type.naziv}
+                              {type.koeficijent_tip === "IZNOS" &&
+                              Number(type.obracunski_koeficijent) !== 1
+                                ? ` (koef. ${type.obracunski_koeficijent.toString()})`
+                                : ""}
                             </option>
                           ))}
                         </select>

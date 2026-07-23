@@ -3,9 +3,14 @@
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auditLog } from "@/lib/audit";
 import { requireRole } from "@/lib/auth";
+import {
+  CompanyPurgeError,
+  purgeCompanyData
+} from "@/lib/company-purge";
 import { sendInvitationEmail } from "@/lib/email";
 import {
   createInvitationToken,
@@ -20,6 +25,10 @@ import {
   normalBalanceForAccountCode
 } from "@/lib/account-plan";
 import { prisma } from "@/lib/prisma";
+import {
+  ACTIVE_COMPANY_COOKIE,
+  ACTIVE_YEAR_COOKIE
+} from "@/lib/work-context";
 
 const validActions = [
   "view",
@@ -43,6 +52,7 @@ const allowedSubjectTypes = [
 const allowedCompanyStatuses = ["ACTIVE", "INACTIVE", "ARCHIVED", "DEACTIVATED"];
 const allowedCurrencies = ["EUR", "USD", "GBP", "RSD"];
 const allowedAccountTypes = ["analiticko", "sinteticko"];
+const executiveDirectorRole = "IZVRSNI_DIREKTOR";
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -184,6 +194,12 @@ function nullableValue(formData: FormData, key: string) {
   return data || null;
 }
 
+function jmbgValue(formData: FormData, key: string) {
+  const data = value(formData, key);
+
+  return data ? data.replace(/\D/g, "") : null;
+}
+
 function nullableDate(formData: FormData, key: string) {
   const data = value(formData, key);
 
@@ -278,6 +294,8 @@ export async function createCompany(formData: FormData) {
   const pib = nullableValue(formData, "pib");
   const poslovnaGodina = parseBusinessYear(formData);
   const tipSubjekta = value(formData, "tip_subjekta") || "DOO";
+  const izvrsniDirektor = nullableValue(formData, "izvrsni_direktor");
+  const izvrsniDirektorJmbg = jmbgValue(formData, "izvrsni_direktor_jmbg");
 
   if (!naziv) {
     redirectNewCompany("firma_obavezno");
@@ -285,6 +303,10 @@ export async function createCompany(formData: FormData) {
 
   if (!allowedSubjectTypes.includes(tipSubjekta)) {
     redirectNewCompany("tip_nevalidan");
+  }
+
+  if ((izvrsniDirektorJmbg && izvrsniDirektorJmbg.length !== 13) || (izvrsniDirektorJmbg && !izvrsniDirektor)) {
+    redirectNewCompany("direktor_nevalidan");
   }
 
   if (pib) {
@@ -345,6 +367,21 @@ export async function createCompany(formData: FormData) {
         }
       });
 
+      if (izvrsniDirektor) {
+        await tx.firmaOdgovornoLice.create({
+          data: {
+            agencija_id: agencijaId,
+            firma_id: novaFirma.id,
+            ime_prezime: izvrsniDirektor,
+            jmbg: izvrsniDirektorJmbg,
+            uloga: executiveDirectorRole,
+            primarno: true,
+            created_by: admin.id,
+            updated_by: admin.id
+          }
+        });
+      }
+
       await tx.poslovnaGodina.create({
         data: {
           firma_id: novaFirma.id,
@@ -370,6 +407,8 @@ export async function createCompany(formData: FormData) {
     entitetId: firma.id,
     novaVrijednost: {
       ...firma,
+      izvrsni_direktor: izvrsniDirektor,
+      izvrsni_direktor_jmbg: izvrsniDirektorJmbg,
       poslovna_godina: poslovnaGodina
     }
   });
@@ -398,6 +437,8 @@ export async function updateCompany(formData: FormData) {
   const pib = nullableValue(formData, "pib");
   const tipSubjekta = value(formData, "tip_subjekta") || "DOO";
   const statusFirme = value(formData, "status_firme") || "ACTIVE";
+  const izvrsniDirektor = nullableValue(formData, "izvrsni_direktor");
+  const izvrsniDirektorJmbg = jmbgValue(formData, "izvrsni_direktor_jmbg");
 
   if (!naziv) {
     redirectCompanyDetail(firmaId, "firma_obavezno");
@@ -409,6 +450,10 @@ export async function updateCompany(formData: FormData) {
 
   if (!allowedCompanyStatuses.includes(statusFirme)) {
     redirectCompanyDetail(firmaId, "status_nevalidan");
+  }
+
+  if ((izvrsniDirektorJmbg && izvrsniDirektorJmbg.length !== 13) || (izvrsniDirektorJmbg && !izvrsniDirektor)) {
+    redirectCompanyDetail(firmaId, "direktor_nevalidan");
   }
 
   if (pib) {
@@ -431,41 +476,98 @@ export async function updateCompany(formData: FormData) {
     }
   }
 
-  const firma = await prisma.firma.update({
+  const staroOdgovornoLice = await prisma.firmaOdgovornoLice.findFirst({
     where: {
-      id: firmaId
+      agencija_id: agencijaId,
+      firma_id: firmaId,
+      uloga: executiveDirectorRole,
+      is_deleted: false
     },
-    data: {
-      naziv,
-      skraceni_naziv: nullableValue(formData, "skraceni_naziv"),
-      tip_subjekta: tipSubjekta,
-      pib,
-      maticni_broj: nullableValue(formData, "maticni_broj"),
-      pdv_broj: nullableValue(formData, "pdv_broj"),
-      sifra_djelatnosti: nullableValue(formData, "sifra_djelatnosti"),
-      opis_djelatnosti: nullableValue(formData, "opis_djelatnosti"),
-      pravna_forma: nullableValue(formData, "pravna_forma"),
-      status_registracije: nullableValue(formData, "status_registracije"),
-      status_firme: statusFirme,
-      adresa: nullableValue(formData, "adresa"),
-      opstina: nullableValue(formData, "opstina"),
-      grad: nullableValue(formData, "grad"),
-      drzava: nullableValue(formData, "drzava") ?? "Crna Gora",
-      telefon: nullableValue(formData, "telefon"),
-      email: nullableValue(formData, "email"),
-      web_sajt: nullableValue(formData, "web_sajt"),
-      napomena: nullableValue(formData, "napomena"),
-      pdv_obveznik: value(formData, "pdv_obveznik") === "on",
-      aktivan: statusFirme === "ACTIVE",
-      updated_by: admin.id
-    },
-    select: {
-      id: true,
-      naziv: true,
-      pib: true,
-      tip_subjekta: true,
-      status_firme: true
+    orderBy: [{ primarno: "desc" }, { created_at: "asc" }]
+  });
+
+  const { firma, odgovornoLice } = await prisma.$transaction(async (tx) => {
+    const sacuvanaFirma = await tx.firma.update({
+      where: {
+        id: firmaId
+      },
+      data: {
+        naziv,
+        skraceni_naziv: nullableValue(formData, "skraceni_naziv"),
+        tip_subjekta: tipSubjekta,
+        pib,
+        maticni_broj: nullableValue(formData, "maticni_broj"),
+        pdv_broj: nullableValue(formData, "pdv_broj"),
+        sifra_djelatnosti: nullableValue(formData, "sifra_djelatnosti"),
+        opis_djelatnosti: nullableValue(formData, "opis_djelatnosti"),
+        pravna_forma: nullableValue(formData, "pravna_forma"),
+        status_registracije: nullableValue(formData, "status_registracije"),
+        status_firme: statusFirme,
+        adresa: nullableValue(formData, "adresa"),
+        opstina: nullableValue(formData, "opstina"),
+        grad: nullableValue(formData, "grad"),
+        drzava: nullableValue(formData, "drzava") ?? "Crna Gora",
+        telefon: nullableValue(formData, "telefon"),
+        email: nullableValue(formData, "email"),
+        web_sajt: nullableValue(formData, "web_sajt"),
+        napomena: nullableValue(formData, "napomena"),
+        pdv_obveznik: value(formData, "pdv_obveznik") === "on",
+        aktivan: statusFirme === "ACTIVE",
+        updated_by: admin.id
+      },
+      select: {
+        id: true,
+        naziv: true,
+        pib: true,
+        tip_subjekta: true,
+        status_firme: true
+      }
+    });
+
+    let sacuvanoOdgovornoLice = staroOdgovornoLice;
+
+    if (izvrsniDirektor && staroOdgovornoLice) {
+      sacuvanoOdgovornoLice = await tx.firmaOdgovornoLice.update({
+        where: { id: staroOdgovornoLice.id },
+        data: {
+          ime_prezime: izvrsniDirektor,
+          jmbg: izvrsniDirektorJmbg,
+          primarno: true,
+          aktivan: true,
+          updated_by: admin.id
+        }
+      });
+    } else if (izvrsniDirektor) {
+      sacuvanoOdgovornoLice = await tx.firmaOdgovornoLice.create({
+        data: {
+          agencija_id: agencijaId,
+          firma_id: firmaId,
+          ime_prezime: izvrsniDirektor,
+          jmbg: izvrsniDirektorJmbg,
+          uloga: executiveDirectorRole,
+          primarno: true,
+          created_by: admin.id,
+          updated_by: admin.id
+        }
+      });
+    } else if (staroOdgovornoLice) {
+      sacuvanoOdgovornoLice = await tx.firmaOdgovornoLice.update({
+        where: { id: staroOdgovornoLice.id },
+        data: {
+          aktivan: false,
+          is_deleted: true,
+          deleted_at: new Date(),
+          deleted_by: admin.id,
+          delete_reason: "Uklonjeno iz osnovnih podataka firme.",
+          updated_by: admin.id
+        }
+      });
     }
+
+    return {
+      firma: sacuvanaFirma,
+      odgovornoLice: sacuvanoOdgovornoLice
+    };
   });
 
   await auditLog({
@@ -476,14 +578,80 @@ export async function updateCompany(formData: FormData) {
     akcija: "update",
     tipEntiteta: "Firma",
     entitetId: firmaId,
-    staraVrijednost: staraFirma,
-    novaVrijednost: firma
+    staraVrijednost: {
+      firma: staraFirma,
+      izvrsni_direktor: staroOdgovornoLice
+    },
+    novaVrijednost: {
+      firma,
+      izvrsni_direktor: odgovornoLice
+    }
   });
 
   revalidatePath("/agencija");
   revalidatePath("/agencija/firme");
   revalidatePath(`/agencija/firme/${firmaId}`);
   redirectCompanyDetail(firmaId, "firma_sacuvana");
+}
+
+export async function purgeCompany(formData: FormData) {
+  const admin = await requireRole("admin_agencije");
+  const firmaId = value(formData, "firma_id");
+  const potvrdaNaziva = value(formData, "potvrda_naziva");
+
+  if (!admin.agencija_id || !firmaId) {
+    redirectCompanies("firma_brisanje_greska");
+  }
+
+  const agencijaId = admin.agencija_id;
+
+  try {
+    await prisma.$transaction(
+      (tx) =>
+        purgeCompanyData(tx, {
+          agencijaId,
+          firmaId,
+          potvrdaNaziva,
+          korisnikId: admin.id
+        }),
+      {
+        maxWait: 10_000,
+        timeout: 120_000
+      }
+    );
+  } catch (error) {
+    if (
+      error instanceof CompanyPurgeError &&
+      error.code === "COMPANY_NAME_MISMATCH"
+    ) {
+      redirectCompanyDetail(firmaId, "firma_brisanje_naziv");
+    }
+
+    if (
+      error instanceof CompanyPurgeError &&
+      error.code === "COMPANY_NOT_FOUND"
+    ) {
+      redirectCompanies("firma_brisanje_greska");
+    }
+
+    console.error("Trajno brisanje firme nije uspjelo.", {
+      firmaId,
+      agencijaId,
+      error
+    });
+    redirectCompanyDetail(firmaId, "firma_brisanje_greska");
+  }
+
+  const cookieStore = await cookies();
+
+  if (cookieStore.get(ACTIVE_COMPANY_COOKIE)?.value === firmaId) {
+    cookieStore.delete(ACTIVE_COMPANY_COOKIE);
+    cookieStore.delete(ACTIVE_YEAR_COOKIE);
+  }
+
+  revalidatePath("/agencija");
+  revalidatePath("/agencija/firme");
+  redirectCompanies("firma_obrisana");
 }
 
 export async function createBusinessYear(formData: FormData) {

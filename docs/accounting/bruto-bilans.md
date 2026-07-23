@@ -18,7 +18,8 @@ na osnovu proknjiženih naloga.
 
 ## Izvor podataka
 Stavke proknjiženih naloga (`stavke_naloga`) agregirane po `konto_id`, uz
-početno stanje. Iznosi se čuvaju u centima i formatiraju za prikaz.
+početno stanje. Aplikacijska logika iznose preračunava u centima, dok ih baza
+čuva kao `Decimal(14, 2)`; za prikaz se ponovo formatiraju kao valuta.
 
 > U izvještaje ulaze samo nalozi sa statusom **POSTED**; `DRAFT` i `DELETED` ne
 > ulaze. **Početno stanje je poseban nalog** i prikazuje se odvojeno od prometa.

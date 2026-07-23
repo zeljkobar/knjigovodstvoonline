@@ -1,5 +1,10 @@
 ﻿# KnjigovodstvoOnline - plan novog projekta
 
+> **Istorijski početni plan.** Ovaj dokument čuva početnu strukturu i odluke
+> projekta, ali nije izvor trenutnog implementacionog statusa. Aktuelno stanje
+> je u [`CURRENT_STATE.md`](CURRENT_STATE.md), a otvoreni rad u
+> [`NEXT_STEPS.md`](NEXT_STEPS.md).
+
 Ovaj dokument je pocetna specifikacija za novi projekat `knjigovodstvoonline`.
 
 Vazna odluka: **pravimo novi sistem od nule**. Migracija starih podataka iz postojeceg racunovodstvenog programa nije prioritet i za sada je ne planiramo kao osnovni dio projekta.
@@ -1067,7 +1072,6 @@ Kasnije dodati:
 - pravila plata
 - deploy uputstvo za Linux server
 - backup/restore uputstvo
-
 
 
 

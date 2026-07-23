@@ -14,6 +14,8 @@ type FirmePageProps = {
 
 const poruke: Record<string, string> = {
   firma_kreirana: "Firma je kreirana i poslovna godina je otvorena.",
+  firma_obrisana: "Firma i svi podaci koji su joj pripadali trajno su obrisani.",
+  firma_brisanje_greska: "Firma nije pronađena ili nije mogla biti obrisana.",
   pib_postoji: "Firma sa ovim PIB-om vec postoji u agenciji."
 };
 

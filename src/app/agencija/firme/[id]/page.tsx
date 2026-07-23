@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   createBusinessYear,
+  purgeCompany,
   toggleBusinessYear,
   updateCompany
 } from "../../actions";
+import { DeleteCompanyForm } from "@/components/DeleteCompanyForm";
 import { requireAnyRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -25,6 +27,9 @@ const poruke: Record<string, string> = {
   pib_postoji: "Firma sa ovim PIB-om vec postoji u agenciji.",
   tip_nevalidan: "Tip subjekta nije validan.",
   status_nevalidan: "Status firme nije validan.",
+  direktor_nevalidan: "JMBG izvršnog direktora mora imati 13 cifara i mora biti vezan za ime direktora.",
+  firma_brisanje_naziv: "Naziv firme nije unesen potpuno isto. Firma nije obrisana.",
+  firma_brisanje_greska: "Firma nije obrisana. Provjerite povezane podatke i pokušajte ponovo.",
   godina_kreirana: "Poslovna godina je otvorena.",
   godina_postoji: "Ova poslovna godina vec postoji.",
   godina_greska: "Poslovna godina nije sacuvana.",
@@ -118,6 +123,19 @@ export default async function FirmaDetaljPage({
       pdv_obveznik: true,
       aktivan: true,
       created_at: true,
+      odgovorna_lica: {
+        where: {
+          uloga: "IZVRSNI_DIREKTOR",
+          aktivan: true,
+          is_deleted: false
+        },
+        orderBy: [{ primarno: "desc" as const }, { created_at: "asc" as const }],
+        take: 1,
+        select: {
+          ime_prezime: true,
+          jmbg: true
+        }
+      },
       poslovne_godine: {
         orderBy: {
           godina: "desc"
@@ -178,6 +196,7 @@ export default async function FirmaDetaljPage({
   }
 
   const canManage = user.rola === "admin_agencije";
+  const izvrsniDirektor = firma.odgovorna_lica[0] ?? null;
 
   return (
     <div className="admin-stack">
@@ -346,6 +365,20 @@ export default async function FirmaDetaljPage({
               <input name="maticni_broj" defaultValue={firma.maticni_broj ?? ""} />
             </label>
             <label>
+              <span>Izvršni direktor</span>
+              <input name="izvrsni_direktor" defaultValue={izvrsniDirektor?.ime_prezime ?? ""} />
+            </label>
+            <label>
+              <span>JMBG izvršnog direktora</span>
+              <input
+                inputMode="numeric"
+                maxLength={13}
+                name="izvrsni_direktor_jmbg"
+                pattern="[0-9]{13}"
+                defaultValue={izvrsniDirektor?.jmbg ?? ""}
+              />
+            </label>
+            <label>
               <span>Pravna forma</span>
               <input name="pravna_forma" defaultValue={firma.pravna_forma ?? ""} />
             </label>
@@ -429,6 +462,14 @@ export default async function FirmaDetaljPage({
             <div>
               <dt>Telefon</dt>
               <dd>{firma.telefon ?? "-"}</dd>
+            </div>
+            <div>
+              <dt>Izvršni direktor</dt>
+              <dd>{izvrsniDirektor?.ime_prezime ?? "-"}</dd>
+            </div>
+            <div>
+              <dt>JMBG izvršnog direktora</dt>
+              <dd>{izvrsniDirektor?.jmbg ?? "-"}</dd>
             </div>
           </dl>
         )}
@@ -538,6 +579,20 @@ export default async function FirmaDetaljPage({
           </div>
         )}
       </section>
+
+      {canManage ? (
+        <section className="admin-panel danger-panel">
+          <div className="panel-header">
+            <h3>Trajno brisanje firme</h3>
+            <span>Nepovratna radnja</span>
+          </div>
+          <DeleteCompanyForm
+            action={purgeCompany}
+            firmaId={firma.id}
+            nazivFirme={firma.naziv}
+          />
+        </section>
+      ) : null}
     </div>
   );
 }

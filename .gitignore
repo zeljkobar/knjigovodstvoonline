@@ -31,6 +31,9 @@ logs/
 # Local reference databases
 118OSN.MDB
 
+# Local payroll specifications, official form samples and legacy databases
+/zadaci/plate/
+
 # Local Python tools
 .venv/
 

@@ -664,6 +664,72 @@ p {
   gap: 16px;
 }
 
+.payroll-settings-menu {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.payroll-settings-option {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 14px 38px rgba(20, 85, 145, 0.08);
+  color: var(--foreground);
+  display: flex;
+  gap: 16px;
+  min-height: 96px;
+  padding: 18px 20px;
+  text-decoration: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.payroll-settings-option:hover,
+.payroll-settings-option.active {
+  border-color: var(--primary);
+  box-shadow: 0 16px 42px rgba(12, 99, 183, 0.16);
+  transform: translateY(-1px);
+}
+
+.payroll-settings-option-icon {
+  align-items: center;
+  background: var(--primary-soft);
+  border-radius: 9px;
+  color: var(--primary-strong);
+  display: inline-flex;
+  flex: 0 0 64px;
+  font-size: 13px;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 58px;
+}
+
+.payroll-settings-option.active .payroll-settings-option-icon {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.payroll-settings-option > span:last-child {
+  display: grid;
+  gap: 6px;
+}
+
+.payroll-settings-option strong {
+  font-size: 17px;
+}
+
+.payroll-settings-option small {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.payroll-settings-placeholder {
+  min-height: 140px;
+}
+
 .settings-card {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1229,6 +1295,80 @@ td small {
 .table-button-danger:hover {
   border-color: #d94747;
   background: #ffecec;
+}
+
+.danger-panel {
+  border-color: #efb1b1;
+  background: #fffafa;
+}
+
+.danger-panel .panel-header h3,
+.danger-panel .panel-header span {
+  color: #9f1d1d;
+}
+
+.company-delete-form {
+  display: grid;
+  gap: 16px;
+  max-width: 760px;
+}
+
+.company-delete-form p {
+  color: #713232;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.company-delete-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.company-delete-form label > span {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.company-delete-form input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #e69b9b;
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--foreground);
+  font: inherit;
+  outline: none;
+  padding: 9px 11px;
+}
+
+.company-delete-form input:focus {
+  border-color: #bf2d2d;
+  box-shadow: 0 0 0 3px rgba(191, 45, 45, 0.12);
+}
+
+.danger-button {
+  justify-self: start;
+  min-height: 42px;
+  border: 1px solid #a92020;
+  border-radius: 6px;
+  background: #b82727;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 9px 14px;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: #9f1d1d;
+}
+
+.danger-button:disabled {
+  border-color: #d9bcbc;
+  background: #ead8d8;
+  color: #8d6e6e;
+  cursor: not-allowed;
 }
 
 .table-actions {
@@ -2100,6 +2240,472 @@ td small {
   color: #b45309;
 }
 
+.m4-warning-list {
+  margin-top: 12px;
+  max-width: none;
+}
+
+.m4-month-tabs {
+  flex-wrap: wrap;
+}
+
+.m4-payment-heading {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+}
+
+.m4-payment-heading span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-form .m4-manual-payment-button {
+  border: 1px solid var(--border);
+  background: #f8fcff;
+  color: var(--primary-strong);
+}
+
+.admin-form .m4-manual-payment-button:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.m4-print-toolbar {
+  width: min(297mm, 100%);
+}
+
+.m4-official-document,
+.m4-table-document {
+  background: #ffffff;
+  box-shadow: 0 18px 55px rgba(15, 23, 42, 0.18);
+  box-sizing: border-box;
+  color: #000000;
+  font-family: Arial, Helvetica, sans-serif;
+  margin: 0 auto 18px;
+}
+
+.m4-page-portrait {
+  min-height: 297mm;
+  padding: 14mm 15mm;
+  width: 210mm;
+}
+
+.m4-page-landscape {
+  min-height: 210mm;
+  padding: 14mm 10mm;
+  width: 297mm;
+}
+
+.m4-official-document {
+  font-size: 8px;
+  position: relative;
+}
+
+.m4-form-code {
+  font-size: 9px;
+  font-weight: 700;
+  position: absolute;
+  right: 15mm;
+  top: 20mm;
+}
+
+.m4-official-document h1 {
+  color: #000000;
+  font-size: 16px;
+  line-height: 1;
+  margin: 2mm 0 0;
+  max-width: none;
+  text-align: center;
+}
+
+.m4-official-document h2 {
+  color: #000000;
+  font-size: 10px;
+  line-height: 1.2;
+  margin: 0 0 4mm;
+  text-align: center;
+}
+
+.m4-form-table,
+.m4-table-1,
+.m4-table-2 {
+  border-collapse: collapse;
+  color: #000000;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.m4-form-table th,
+.m4-form-table td {
+  border: 0.5px solid #000000;
+  color: #000000;
+  font-size: 7.5px;
+  line-height: 1.05;
+  padding: 2px 4px;
+  text-align: left;
+  text-transform: none;
+  vertical-align: middle;
+}
+
+.m4-form-table th {
+  font-weight: 400;
+  text-align: center;
+}
+
+.m4-form-table td:first-child {
+  text-align: center;
+  width: 8mm;
+}
+
+.m4-form-table td:nth-child(2) {
+  width: 74mm;
+}
+
+.m4-form-table small {
+  display: block;
+  font-size: 6.5px;
+}
+
+.m4-employer-table tbody tr:nth-child(4) {
+  height: 15mm;
+}
+
+.m4-employer-table th:first-child {
+  width: 8mm;
+}
+
+.m4-employer-table th:nth-child(2) {
+  width: 74mm;
+}
+
+.m4-employer-table tbody tr:first-child {
+  height: 9mm;
+}
+
+.m4-employer-table tbody tr:nth-child(2),
+.m4-employer-table tbody tr:nth-child(3) {
+  height: 7mm;
+}
+
+.m4-digit-line {
+  align-items: flex-end;
+  display: inline-flex;
+  justify-content: flex-end;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.m4-digit-line > span {
+  border-bottom: 0.5px solid #000000;
+  border-right: 0.5px solid #000000;
+  box-sizing: border-box;
+  font-family: "Courier New", monospace;
+  font-size: 7px;
+  height: 8px;
+  line-height: 8px;
+  text-align: center;
+  width: 8px;
+}
+
+.m4-digit-line sup {
+  font-size: 5px;
+  line-height: 1;
+  margin-left: 1px;
+}
+
+.m4-employer-table td:last-child,
+.m4-insured-table td:last-child,
+.m4-service-table td:last-child {
+  text-align: right;
+}
+
+.m4-answer-line {
+  border-bottom: 0.5px solid #000000;
+  display: inline-block;
+  float: left;
+  min-height: 9px;
+  text-align: left;
+  width: 65%;
+}
+
+.m4-company-answer b {
+  border-bottom: 0.5px solid #000000;
+  display: block;
+  line-height: 1.3;
+  min-height: 9px;
+  text-align: left;
+}
+
+.m4-section-title {
+  color: #000000;
+  font-size: 9px;
+  line-height: 1.05;
+  margin: 4mm 0 1.5mm;
+  text-align: center;
+}
+
+.m4-insured-table tbody tr {
+  height: 10mm;
+}
+
+.m4-service-title {
+  font-size: 8px;
+}
+
+.m4-service-table td:nth-child(2) {
+  width: 74mm;
+}
+
+.m4-service-table tbody tr:first-child {
+  height: 8mm;
+}
+
+.m4-service-table tbody tr:nth-child(2) {
+  height: 17mm;
+}
+
+.m4-service-table tbody tr:nth-child(3) {
+  height: 21mm;
+}
+
+.m4-service-table tbody tr:nth-child(4) {
+  height: 7mm;
+}
+
+.m4-service-box {
+  padding: 0 !important;
+  text-align: center !important;
+  width: 18mm;
+}
+
+.m4-service-box span,
+.m4-service-box b {
+  display: block;
+  padding: 2px;
+  text-align: center;
+}
+
+.m4-service-box span {
+  border-bottom: 0.5px solid #000000;
+  font-size: 6px;
+}
+
+.m4-two-line-row > td:last-child > span {
+  display: block;
+  margin: 3px 0;
+}
+
+.m4-increased-service-table {
+  margin-top: 19mm;
+}
+
+.m4-increased-service-table th,
+.m4-increased-service-table td {
+  font-size: 6.5px;
+  height: 6mm;
+  padding: 1px 3px;
+  text-align: center;
+}
+
+.m4-increased-number-column {
+  width: 12mm;
+}
+
+.m4-increased-duration-column {
+  width: 14mm;
+}
+
+.m4-increased-code-column {
+  width: 28mm;
+}
+
+.m4-form-footer {
+  align-items: end;
+  display: grid;
+  grid-template-columns: 63mm 1fr 85mm;
+  margin-top: 11mm;
+}
+
+.m4-form-footer table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.m4-form-footer td {
+  border: 0.5px solid #000000;
+  font-size: 7px;
+  height: 8mm;
+  padding: 2px 4px;
+}
+
+.m4-stamp {
+  text-align: center;
+}
+
+.m4-submitter {
+  text-align: center;
+}
+
+.m4-submitter p {
+  color: #000000;
+  font-size: 7px;
+  margin: 0 0 5mm;
+}
+
+.m4-submitter strong {
+  display: block;
+  font-size: 8px;
+}
+
+.m4-submitter > span {
+  border-bottom: 0.5px solid #000000;
+  display: block;
+  margin: 5mm auto 1px;
+  width: 52mm;
+}
+
+.m4-submitter small {
+  font-size: 6px;
+}
+
+.m4-table-document {
+  font-size: 8px;
+}
+
+.m4-table-company-header {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+}
+
+.m4-table-company-header div {
+  display: grid;
+  width: 95mm;
+}
+
+.m4-table-company-header strong,
+.m4-table-company-header span {
+  border-bottom: 0.5px solid #777777;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.m4-table-company-header b {
+  font-size: 7px;
+}
+
+.m4-table-document > h1 {
+  color: #000000;
+  font-size: 11px;
+  line-height: 1.2;
+  margin: 10mm 0 7mm;
+  max-width: none;
+  text-align: center;
+}
+
+.m4-table-1 th,
+.m4-table-1 td,
+.m4-table-2 th,
+.m4-table-2 td {
+  border: 0.5px solid #000000;
+  color: #000000;
+  font-size: 7px;
+  line-height: 1.1;
+  padding: 2px 3px;
+  text-align: right;
+  text-transform: none;
+  vertical-align: middle;
+}
+
+.m4-table-1 th,
+.m4-table-2 th {
+  font-weight: 400;
+  text-align: center;
+}
+
+.m4-table-1 th:first-child,
+.m4-table-1 td:first-child {
+  text-align: left;
+  width: 30mm;
+}
+
+.m4-table-1 tbody tr {
+  height: 5.8mm;
+}
+
+.m4-table-1 tbody tr:nth-last-child(-n + 2) {
+  height: 9mm;
+}
+
+.m4-column-numbers th {
+  font-size: 6px;
+  height: 4mm;
+  padding: 0;
+  text-align: center;
+}
+
+.m4-table-signature {
+  align-items: center;
+  display: grid;
+  font-size: 7px;
+  grid-template-columns: 1fr 30mm 58mm;
+  margin-top: 7mm;
+}
+
+.m4-authorized-line {
+  display: grid;
+  gap: 5mm;
+  text-align: center;
+}
+
+.m4-authorized-line b {
+  border-bottom: 0.5px solid #000000;
+}
+
+.m4-table-2-document {
+  padding-left: 14mm;
+  padding-right: 14mm;
+}
+
+.m4-table-2-document .m4-table-company-header div {
+  width: 95mm;
+}
+
+.m4-table-2-document > h1 {
+  margin-top: 8mm;
+  margin-bottom: 4mm;
+}
+
+.m4-table-2 th:first-child,
+.m4-table-2 td:first-child {
+  text-align: center;
+  width: 10mm;
+}
+
+.m4-table-2 th:nth-child(2),
+.m4-table-2 td:nth-child(2) {
+  text-align: left;
+  width: 55mm;
+}
+
+.m4-table-2 th:nth-child(3) {
+  width: 27mm;
+}
+
+.m4-table-2 th:nth-child(4) {
+  width: 38mm;
+}
+
+.m4-table-2 tbody td {
+  height: 5mm;
+}
+
+.m4-total-row td {
+  font-weight: 700;
+}
+
 @media print {
   @page {
     size: A4;
@@ -2187,6 +2793,48 @@ td small {
   @page ioppdLandscape {
     size: A4 landscape;
     margin: 8mm;
+  }
+
+  @page m4Portrait {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  @page m4Landscape {
+    size: A4 landscape;
+    margin: 0;
+  }
+
+  .m4-official-document,
+  .m4-table-document {
+    box-shadow: none;
+    margin: 0;
+  }
+
+  .m4-official-document {
+    transform: translateY(12mm);
+  }
+
+  .m4-table-document.m4-page-landscape {
+    transform: none;
+  }
+
+  .m4-table-document.m4-page-landscape > h1,
+  .m4-table-document.m4-page-landscape > table,
+  .m4-table-document.m4-page-landscape > .m4-table-signature {
+    transform: translateY(5mm);
+  }
+
+  .m4-page-portrait {
+    height: 297mm;
+    min-height: 0;
+    page: m4Portrait;
+  }
+
+  .m4-page-landscape {
+    height: 210mm;
+    min-height: 0;
+    page: m4Landscape;
   }
 
   .ioppd-document {
@@ -4108,6 +4756,7 @@ td small {
   .admin-form,
   .user-admin-grid,
   .user-company-grid,
+  .payroll-settings-menu,
   .payroll-workspace,
   .payroll-line-form {
     grid-template-columns: 1fr;

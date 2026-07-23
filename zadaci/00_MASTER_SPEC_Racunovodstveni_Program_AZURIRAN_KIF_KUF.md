@@ -1,5 +1,10 @@
 # 00_MASTER_SPEC — Računovodstveni Program
 
+> Ovaj dokument je domenska/specifikaciona referenca i opisuje ciljno ponašanje,
+> ne nužno trenutnu implementaciju svake stavke. Za stanje stvarnog koda vidi
+> [`../CURRENT_STATE.md`](../CURRENT_STATE.md), a za otvorene zadatke
+> [`../NEXT_STEPS.md`](../NEXT_STEPS.md).
+
 ## 1. Svrha dokumenta
 
 Ovaj dokument je glavna, master specifikacija za razvoj ozbiljne računovodstvene web aplikacije.

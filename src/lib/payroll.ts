@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { findMunicipalitySurtax } from "./municipalities";
 
 export const payrollStatuses = {
   draft: "DRAFT",
@@ -113,6 +114,9 @@ type BasisRuleLike = {
 type IncomeFlags = {
   sifra?: string;
   osnova_obracuna_id?: string | null;
+  osnovica_porez_proc_override?: { toString(): string } | string | number | null;
+  obracunski_koeficijent?: { toString(): string } | string | number | null;
+  koeficijent_tip?: string | null;
   koristi_porez: boolean;
   koristi_zaposleni_pio: boolean;
   koristi_zaposleni_zdravstvo: boolean;
@@ -475,11 +479,13 @@ function basisForRate(rate: BasisRateLike, bases: Record<string, number>) {
 function calculateFromBasisRule({
   grossCents,
   rule,
-  surtaxRate
+  surtaxRate,
+  taxBasePercentOverride
 }: {
   grossCents: number;
   rule: BasisRuleLike;
   surtaxRate: number;
+  taxBasePercentOverride?: { toString(): string } | string | number | null;
 }) {
   const bases = {
     bruto: grossCents,
@@ -501,7 +507,7 @@ function calculateFromBasisRule({
     porez: basisAmount({
       grossCents,
       tip: rule.osnovica_porez_tip,
-      percent: rule.osnovica_porez_proc
+      percent: taxBasePercentOverride ?? rule.osnovica_porez_proc
     })
   };
   let personalIncomeTaxCents = 0;
@@ -726,18 +732,7 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
       }
     }),
     input.municipality
-      ? prisma.platePrirezStopa.findFirst({
-          where: {
-            opstina: input.municipality.toUpperCase(),
-            ...activeOn(input.calculationDate)
-          },
-          orderBy: {
-            valid_from: "desc"
-          },
-          select: {
-            stopa: true
-          }
-        })
+      ? findMunicipalitySurtax(input.municipality, input.calculationDate)
       : null,
     activeBasisRuleForIncomeType(input.incomeType, input.calculationDate)
   ]);
@@ -759,6 +754,12 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
         ? Math.max(0, input.seniorityCoefficient)
         : 0;
   let baseAmountCents = 0;
+  const incomeCoefficient = Math.max(
+    0,
+    percentNumber(input.incomeType.obracunski_koeficijent, 1)
+  );
+  const appliesIncomeCoefficient =
+    input.incomeType.koeficijent_tip === "IZNOS" && incomeCoefficient !== 1;
 
   if (input.calculationType.koristi_koeficijent) {
     baseAmountCents = Math.round(
@@ -768,6 +769,10 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
     baseAmountCents = input.grossAmountCents;
   } else {
     baseAmountCents = input.netAmountCents;
+  }
+
+  if (appliesIncomeCoefficient) {
+    baseAmountCents = Math.round(baseAmountCents * incomeCoefficient);
   }
 
   baseAmountCents = prorateAmount(baseAmountCents, workingHours, workingHoursFund);
@@ -791,7 +796,8 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
           calculateFromBasisRule({
             grossCents: candidateGrossCents,
             rule: ruleBasedCalculation,
-            surtaxRate
+            surtaxRate,
+            taxBasePercentOverride: input.incomeType.osnovica_porez_proc_override
           }).netAmountCents
         )
       : grossFromNet({
@@ -815,7 +821,8 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
     ? calculateFromBasisRule({
         grossCents,
         rule: ruleBasedCalculation,
-        surtaxRate
+        surtaxRate,
+        taxBasePercentOverride: input.incomeType.osnovica_porez_proc_override
       })
     : calculateFromGross({
         grossCents,
@@ -846,13 +853,25 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
       seniorityPercent: seniorityCoefficient * 100,
       seniorityAmountCents,
       seniorityRule: "CG_PROGRESSIVE_COMPLETED_YEARS",
+      incomeCoefficient,
+      incomeCoefficientType: input.incomeType.koeficijent_tip ?? "NE_PRIMJENJUJE",
+      incomeCoefficientApplied: appliesIncomeCoefficient,
+      taxBasePercentOverride:
+        input.incomeType.osnovica_porez_proc_override === null ||
+        input.incomeType.osnovica_porez_proc_override === undefined
+          ? null
+          : percentNumber(input.incomeType.osnovica_porez_proc_override),
       basisRule: ruleBasedCalculation
         ? {
             ruleId: ruleBasedCalculation.id,
             basisId: ruleBasedCalculation.osnova_id,
             incomeCode: input.incomeType.sifra,
             taxBaseType: ruleBasedCalculation.osnovica_porez_tip,
-            taxBasePercent: percentNumber(ruleBasedCalculation.osnovica_porez_proc),
+            taxBasePercent:
+              input.incomeType.osnovica_porez_proc_override === null ||
+              input.incomeType.osnovica_porez_proc_override === undefined
+                ? percentNumber(ruleBasedCalculation.osnovica_porez_proc)
+                : percentNumber(input.incomeType.osnovica_porez_proc_override),
             pioBaseType: ruleBasedCalculation.osnovica_pio_tip,
             pioBasePercent: percentNumber(ruleBasedCalculation.osnovica_pio_proc),
             healthBaseType: ruleBasedCalculation.osnovica_rfzo_tip,

@@ -1,5 +1,10 @@
 # Project status - 2026-06-25
 
+> **Istorijski handoff.** Ovaj dokument opisuje stanje na dan 2026-06-25 i ne
+> ažurira se kao trenutni status. Za aktuelno stanje koristiti
+> [`../CURRENT_STATE.md`](../CURRENT_STATE.md), a za otvorene zadatke
+> [`../NEXT_STEPS.md`](../NEXT_STEPS.md).
+
 Ovaj fajl je handoff za sledecu sesiju. Detaljna pravila ostaju u `00_MASTER_SPEC_Racunovodstveni_Program_AZURIRAN_KIF_KUF.md` i po modulima u `zadaci/*.md`.
 
 ## Trenutni kontekst

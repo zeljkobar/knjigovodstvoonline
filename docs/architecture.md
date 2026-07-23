@@ -2,6 +2,7 @@
 
 > Sažetak iz [`PROJEKAT_PLAN.md`](../PROJEKAT_PLAN.md) i
 > [`zadaci/00_MASTER_SPEC_Racunovodstveni_Program_AZURIRAN_KIF_KUF.md`](../zadaci/00_MASTER_SPEC_Racunovodstveni_Program_AZURIRAN_KIF_KUF.md).
+> Implementacioni status provjeren prema kodu 2026-07-23.
 
 ## Tehnološki stek
 - **Frontend/Backend:** Next.js 15 (App Router, server komponente, server
@@ -37,10 +38,15 @@ tim izborom (`src/lib/work-context.ts`, `src/app/agencija/kontekst/`).
   `korisnik_firma`, `komitenti`, `konta`, `nalozi`, `stavke_naloga`,
   `pdv_stope`, `banke`, `izvodi`, ...).
 - Tehnička polja: `id`, `created_at`, `updated_at`.
-- Soft delete: `is_deleted`, `deleted_at`, `deleted_by`, `delete_reason`.
+- Soft delete je standard (`is_deleted`, `deleted_at`, `deleted_by`,
+  `delete_reason`). Trenutni tokovi fizički brišu samo određene neproknjižene
+  nacrte bez aktivnog naloga (nacrti naloga, KIF/KUF zapisi/knjige i izvodi),
+  nakon statusnih, scope i audit provjera, da oslobode redni broj.
 - Izolacija: svaki zapis ima `agencija_id`, gdje treba i `firma_id` /
   `poslovna_godina_id`.
-- Novac u centima (cijeli broj).
+- Aplikacijska logika računa novac u centima (cijeli broj) i koristi helper
+  funkcije za parsiranje/zaokruživanje. Prisma/PostgreSQL novčana polja su
+  `Decimal(14, 2)`; upis ide pretvaranjem centi u decimalni string.
 
 ## Struktura koda (skraćeno)
 ```text
@@ -55,8 +61,8 @@ src/
     api/                   # API rute (npr. partners/search)
     stampa/                # čiste HTML/CSS print stranice
   components/              # UI komponente (forme, editori, pretrage)
-  lib/                     # auth, prisma, work-context, permissions,
-                           # account-plan, invoice-books, journals, audit, ...
+  lib/                     # auth, prisma, work-context, permissions, audit,
+                           # PDV, izvodi, finansijski izvještaji, plate, ...
 ```
 
 ## Glavni moduli
@@ -86,16 +92,25 @@ Uvozna kalkulacija → KUF + carinski PDV + lager + nalog
 
 ## Štampa
 PDF izvještaji se prave kao čiste HTML/CSS print stranice bez menija
-(`src/app/stampa/`). `pdfjs-dist` se koristi samo za čitanje PDF-a (izvodi).
+(`src/app/stampa/`). M-4 koristi pojedinačni A4 portretni obrazac, A4 pejzažnu
+Tabelu 1 i A4 portretnu Tabelu 2 prema službenim uzorcima. `pdfjs-dist` se
+koristi samo za čitanje PDF-a (izvodi).
 
 ## Statusi dokumenata
 Tipični statusi (ne moraju svi dokumenti imati sve):
 `DRAFT`, `POSTED`, `DELETED`, `LOCKED`, `SUBMITTED`, `CANCELLED`. KIF/KUF
 dodatno imaju statuse na srpskom: otvorena, djelimično knjižena, knjižena.
 
-## Faze razvoja
-- **Faza 1 (sada):** računovodstveno jezgro — korisnici, firme, kontni plan,
-  nalozi, bruto bilans, kartice, KIF/KUF, PDV, izvodi.
-- **Faza 2:** plate, završni račun, izvještaji, dashboard.
-- **Faza 3:** robno knjigovodstvo, fiskalizacija, napredne integracije.
-
+## Trenutni status razvoja
+- **Core funkcionalno:** korisnici/agencije, firme, kontni plan, partneri,
+  nalozi, bruto bilans, analitičke kartice i KIF/KUF.
+- **Prva puna/MVP implementacija postoji:** PDV prijava i XML, izvodi sa
+  parserima više banaka, plate sa IOPPD štampom/XML-om i godišnjim M-4
+  obrascima, te završni račun sa obrascima, korekcijama, zaključnim knjiženjem
+  i arhivom.
+- **Djelimično ili otvoreno:** potpuna primjena prava na svakom backend toku,
+  testovi, zaključavanje PDV perioda, napredne alokacije izvoda, obustave i
+  knjiženje plata, XML završnog računa.
+- **Nije implementirano:** robno knjigovodstvo, puni klijentski portal,
+  dashboard podstranice i većina zbirnih izvještaja. Fiskalizacija nije dio
+  prve verzije.

@@ -38,26 +38,38 @@ KIF i KUF su zato poseban modul i osnova PDV-a, a ne dio PDV modula.
 ## Status implementacije
 - ✅ PDV stope (dinamičke) i KIF/KUF osnova sa razradom po stopama.
 - ✅ `vat_transaction_type` na KIF/KUF sa automatskim predlogom (ino → IMPORT/EXPORT).
-- ⛔ PDV prijava, PDV periodi i zaključavanje **nisu** implementirani.
+- ✅ PDV periodi po mjesecu za aktivnu firmu i poslovnu godinu.
+- ✅ Ulazna i izlazna PDV evidencija iz KUF/KIF knjiga po datumu knjige.
+- ✅ PDV prijava sa automatskim obračunom, ručnim korekcijama i arhivskim
+  pregledom.
+- ✅ Podešavanja knjiženja po firmi/godini i dinamičkim PDV stopama.
+- ✅ Knjiženje prijave u zbirni `POSTED` nalog i vraćanje prijave u nacrt ako
+  se povezani nalog soft-delete obriše.
+- ✅ XML izvoz `PR_PDV_2025` preko `/api/pdv/xml`.
+- ✅ Kontrole neproknjiženih KIF/KUF računa i poređenje evidencije sa glavnom
+  knjigom po kontima PDV šeme.
+- ⛔ Zaključavanje/otključavanje perioda i završni ručni QA XML-a na IRMS
+  portalu još nisu implementirani/potvrđeni.
 
 ## Sljedeći koraci
-Vidi [`NEXT_STEPS.md`](../../NEXT_STEPS.md): PDV prijava iz KIF/KUF, zaključavanje
-perioda, export (Excel/XML).
+Vidi [`NEXT_STEPS.md`](../../NEXT_STEPS.md): zaključavanje/otključavanje perioda,
+štampa prijave, testovi knjiženja i ručni QA XML upload-a na IRMS portalu.
 
 ---
 
-# Budući PDV modul (spec za sljedeću fazu)
+# Implementirani PDV modul i preostali ciljevi
 
 ## PDV period
-Period treba da ima: firmu, poslovnu godinu, mjesec, datum od, datum do, status,
-datum zaključavanja, korisnika koji je zaključao, datum predaje, napomenu.
+Period ima firmu, poslovnu godinu, mjesec, datum od, datum do, status, polja za
+datum/korisnika predaje i zaključavanja i napomenu.
 
-Predloženi statusi: `OPEN → READY → SUBMITTED → LOCKED` (+ `REOPENED`).
+Model podržava statuse `OPEN`, `READY`, `SUBMITTED`, `LOCKED` i `REOPENED`;
+korisnički tok zaključavanja/otključavanja ostaje da se implementira.
 
 U UI se ne bira firma/godina na PDV ekranima jer to već dolazi iz globalnog
 konteksta u gornjoj traci. Na PDV ekranima se bira samo **mjesec / PDV period**.
 
-## Predloženi meni PDV modula
+## Meni PDV modula
 - **PDV pregled** — lista mjeseci iz aktivne poslovne godine, status perioda i
   zbirni iznosi (izlazni PDV, ulazni PDV, odbitni, neodbitni, obaveza/kredit).
 - **Ulazni PDV** — dokazna evidencija svih KUF računa koji ulaze u izabrani
@@ -90,7 +102,7 @@ PDV za uplatu = izlazni PDV - odbitni ulazni PDV
 ```
 Pozitivno → obaveza za uplatu; negativno → pretplata / poreski kredit.
 
-Stranica **PDV prijava** treba da izgleda kao IRMS/poreski portal:
+Stranica **PDV prijava** prati obrazac IRMS/poreskog portala:
 - bira se samo mjesec, firma/godina dolaze iz globalnog konteksta;
 - redovi prijave imaju redni broj, opis, izlazni PDV i/ili ulazni PDV kolonu;
 - sistem automatski puni vrijednosti iz KIF/KUF evidencija;
@@ -101,8 +113,9 @@ Stranica **PDV prijava** treba da izgleda kao IRMS/poreski portal:
 - redovi 24 i 25 sabiraju izlazni/ulazni PDV, red 27 računa odbitni PDV, a
   redovi 28/29 se popunjavaju obostrano isključivo: ili PDV za uplatu ili PDV
   kredit;
-- akcije na stranici: **Osvježi iz KIF/KUF**, **Sačuvaj nacrt**,
-  **XML izvoz**, **Proknjiži**, **Zaključaj/Označi kao predato**.
+- implementirane akcije: **Osvježi iz KIF/KUF**, **Sačuvaj nacrt**,
+  **XML izvoz** i **Proknjiži**;
+- akcije **Zaključaj/Označi kao predato** ostaju za naredni korak.
 
 `XML izvoz` nije posebna osnovna stranica u MVP-u; to je akcija na PDV prijavi
 i u arhivi već napravljenih prijava. Export generiše XML format
@@ -114,7 +127,7 @@ Svaka PDV prijava se nakon pripreme izvozi u XML i knjiži u nalog. Cilj
 knjiženja je da kartice tekućih PDV konta na kraju mjeseca dođu na nulu
 prebacivanjem salda na obavezu ili potraživanje/kredit PDV-a.
 
-Podešavanja PDV-a za aktivnu firmu/godinu treba da imaju:
+Podešavanja PDV-a za aktivnu firmu/godinu imaju:
 - vrstu naloga na koju se knjiži PDV prijava;
 - šemu knjiženja po stavkama kao kod KIF/KUF: za svaku stavku bira se smjer
   **Duguje/Potražuje** i konto;
@@ -139,29 +152,27 @@ Ako se nalog PDV prijave soft-delete obriše, prijava se vraća u nacrt i veza n
 nalog se čisti. PDV prikazi ne smiju smatrati prijavu proknjiženom ako je
 povezani nalog obrisan.
 
-## Kontrole prije zaključavanja
-- KIF/KUF dokumenti bez PDV perioda.
-- Dokumenti bez PDV stope.
-- Ulazne fakture bez definisanog odbitnog/neodbitnog PDV-a.
-- Računi bez partnera.
-- Izmjene u već zaključanom periodu.
-- Status firme kao PDV obveznika.
-- Slaganje PDV-a iz KIF/KUF sa PDV kontima.
-- KIF/KUF računi koji ulaze u PDV period, ali su neproknjiženi ili rasknjiženi
-  (`posting_status != POSTED` ili bez `journal_id`).
-- Poređenje ulaznog/izlaznog PDV-a iz KIF/KUF evidencije sa POSTED glavnom
-  knjigom po kontima iz PDV šeme; PDV closing nalog (`PDV_RETURN`) se izuzima
-  iz ovog poređenja.
-- Izvoz (`KIF EXPORT`) ne smije imati izlazni PDV.
-- Uvoz (`KUF IMPORT`) mora imati carinske/JCI podatke gdje je obavezno.
+## Kontrole
+Trenutno su implementirane kontrole koje:
 
-## Zaključavanje
+- upozoravaju na KIF/KUF račune u periodu koji nisu proknjiženi ili su
+  rasknjiženi (`posting_status != POSTED` ili bez aktivnog `journal_id`);
+- porede ulazni/izlazni PDV iz KIF/KUF evidencije sa `POSTED` glavnom knjigom
+  po kontima iz PDV šeme, uz izuzimanje closing naloga `PDV_RETURN`.
+
+Prije završetka zaključavanja perioda treba potvrditi/dodati i kontrole za
+nedostajući period ili PDV stopu, odbitni/neodbitni PDV, partnera, status PDV
+obveznika, `KIF EXPORT` sa izlaznim PDV-om i obavezne carinske/JCI podatke za
+`KUF IMPORT`.
+
+## Zaključavanje (nije završeno)
 - KIF/KUF stavke iz perioda se ne smiju mijenjati bez posebnog prava.
 - Svaka izmjena ide kroz audit log.
 - Period dobija status `LOCKED` ili `SUBMITTED`.
 
-## Ručne korekcije (MVP)
-Tip korekcije, osnovica, PDV, povećava/smanjuje obavezu, razlog, korisnik, datum.
+## Ručne korekcije
+Svaki red prijave čuva sistemsku vrijednost, opcionu ručnu vrijednost i razlog
+korekcije. Zbirni redovi se ponovo računaju iz efektivnih vrijednosti obrasca.
 
 ## Ne raditi u prvoj verziji
 Automatsku predaju portalu, elektronsko potpisivanje, kompleksan XML, fiskalizaciju.

@@ -164,6 +164,22 @@ export default async function PlatePage({ searchParams }: PageProps) {
               <input name="jmbg" defaultValue={editedEmployee?.jmbg ?? ""} />
             </label>
             <label>
+              <span>Lični broj osiguranika (ako nema JMBG)</span>
+              <input
+                name="licni_broj_osiguranika"
+                defaultValue={editedEmployee?.licni_broj_osiguranika ?? ""}
+              />
+            </label>
+            <label>
+              <span>M-4 oznaka staža</span>
+              <input
+                name="m4_oznaka_staza"
+                inputMode="numeric"
+                maxLength={2}
+                defaultValue={editedEmployee?.m4_oznaka_staza ?? "01"}
+              />
+            </label>
+            <label>
               <span>Opština</span>
               <input name="opstina" placeholder="npr. BAR" defaultValue={editedEmployee?.opstina ?? ""} />
             </label>
