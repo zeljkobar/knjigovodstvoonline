@@ -4,6 +4,38 @@
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
 ## 2026-07-24
+- Plate su dobile grupu `Obrasci` sa drugim nivoom podmenija `M-4`, `OPP-ND`
+  i `IOPPD`. Postojeće M-4 i IOPPD stranice premještene su na nove ugniježđene
+  rute bez promjene funkcionalnosti, a stare rute preusmjeravaju na nove.
+- Implementiran je mjesečni OPP-ND pregled i zvanična A4 HTML/CSS štampa prema
+  dostavljenom PDF-u. Porez se razvrstava na lična primanja, samostalnu
+  djelatnost, imovinu/imovinska prava i kapital; stopa dolazi iz opštinskog
+  šifarnika firme, a prirez se računa kao porez puta decimalni koeficijent
+  stope. Obrazac puni PIB, naziv, djelatnost, adresu, telefon i izvršnog
+  direktora iz firme. Render sa stvarnim podacima vizuelno je upoređen sa
+  originalom; `tsc` i lint prolaze bez grešaka.
+- Na listu obračuna plata dodata je akcija `Proknjiži`. Obrađeni obračun sada
+  transakcijski kreira numerisan i odmah `POSTED` `PAYROLL` nalog iz kategorijske
+  D/P šeme, upisuje stavke, audit i trajnu vezu `plate_obracuni.nalog_id`.
+  Knjiženje provjerava firmu/godinu/pravo, zaključanu godinu, konta, zabranu
+  duplih zbirnih komponenti i balans naloga; isti obračun se ne može knjižiti
+  dvaput. Poslije knjiženja ekran prikazuje vezu ka nalogu, a automatski nalog
+  nije moguće vratiti u nacrt kroz opšti tok naloga.
+- Implementirano je stvarno `Podešavanje knjiženja` u modulu plata. Aktivna
+  firma i poslovna godina sada imaju odvojenu šemu za redovan rad, ugovor o
+  djelu, zakup i ostale ugovore, sa vrstom naloga, opisom i zasebnim
+  duguje/potražuje kontima za neto, porez, prirez, svaki pojedinačni doprinos i
+  ostale obaveze.
+- Početni predlog redovnog rada izveden je iz starih tabela
+  `001LP.mdb/ZAR_Kontir` i `ZAR_TipZB`, ali su konta prilagođena našem važećem
+  kontnom planu. Agregatne bruto/zbirne komponente postoje kao isključene
+  alternative da ne bi duplirale detaljne redove.
+- Migracija `20260724120000_plate_kontiranje_podesavanja` dodaje zaglavlje šeme
+  i pravila komponenti. Čuvanje provjerava scope, pravo `plate/manage` i
+  zaključanu godinu, automatski povezuje globalno konto na `firma_konta` i
+  upisuje audit log. Migracija je primijenjena, Prisma klijent regenerisan,
+  dev server restartovan; `tsc`, Prisma validacija i lint prolaze (ostaju tri
+  ranija nepovezana lint upozorenja).
 - Na detalj firme dodat je odvojeni opasni odjeljak za trajno brisanje testne
   firme. Dugme ostaje onemogućeno dok admin agencije ne unese potpuno isti puni
   naziv firme, a backend ponavlja istu provjeru unutar transakcije i zaključava

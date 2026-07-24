@@ -13,6 +13,7 @@ export type NavigationItem = {
 export type SubNavigationItem = {
   href: string;
   label: string;
+  children?: SubNavigationItem[];
 };
 
 const agencyRoles: Role[] = ["admin_agencije", "korisnik_agencije"];
@@ -175,8 +176,15 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/plate", label: "Zaposleni" },
     { href: "/agencija/plate/ugovori", label: "Ugovori" },
     { href: "/agencija/plate/obracun", label: "Obračun plata" },
-    { href: "/agencija/plate/ioppd", label: "IOPPD" },
-    { href: "/agencija/plate/m4", label: "M-4" },
+    {
+      href: "/agencija/plate/obrasci",
+      label: "Obrasci",
+      children: [
+        { href: "/agencija/plate/obrasci/m4", label: "M-4" },
+        { href: "/agencija/plate/obrasci/opp-nd", label: "OPP-ND" },
+        { href: "/agencija/plate/obrasci/ioppd", label: "IOPPD" }
+      ]
+    },
     { href: "/agencija/plate/obustave", label: "Obustave" },
     { href: "/agencija/plate/arhiva", label: "Arhiva obračuna" },
     { href: "/agencija/plate/podesavanja", label: "Podešavanja plata" }

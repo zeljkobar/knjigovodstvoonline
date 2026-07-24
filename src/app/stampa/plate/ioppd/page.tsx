@@ -152,7 +152,7 @@ export default async function IoppdPrintPage({ searchParams }: PageProps) {
   return (
     <main className="print-page ioppd-print-page">
       <div className="print-toolbar ioppd-print-toolbar">
-        <Link className="print-button print-link-button" href="/agencija/plate/ioppd">
+        <Link className="print-button print-link-button" href="/agencija/plate/obrasci/ioppd">
           Nazad
         </Link>
         <PrintButton label="Štampaj IOPPD" />

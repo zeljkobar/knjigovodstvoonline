@@ -518,6 +518,34 @@ p {
   color: #ffffff;
 }
 
+.section-subtabs {
+  display: flex;
+  gap: 8px;
+  margin-top: -8px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: rgba(248, 252, 255, 0.94);
+  padding: 10px 14px;
+}
+
+.section-subtabs a {
+  flex: 0 0 auto;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+  padding: 7px 10px;
+  text-decoration: none;
+}
+
+.section-subtabs a:hover,
+.section-subtabs a.active {
+  border-bottom-color: var(--primary);
+  color: var(--primary-strong);
+}
+
 .admin-stack {
   display: grid;
   gap: 24px;
@@ -728,6 +756,104 @@ p {
 
 .payroll-settings-placeholder {
   min-height: 140px;
+}
+
+.payroll-posting-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 18px;
+}
+
+.payroll-posting-categories a {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--primary-strong);
+  font-size: 14px;
+  font-weight: 800;
+  padding: 9px 14px;
+  text-decoration: none;
+}
+
+.payroll-posting-categories a:hover,
+.payroll-posting-categories a.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.payroll-posting-form {
+  display: grid;
+  gap: 16px;
+}
+
+.payroll-posting-header {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 14px;
+}
+
+.payroll-posting-table table {
+  min-width: 920px;
+}
+
+.payroll-posting-table th:first-child,
+.payroll-posting-table td:first-child {
+  text-align: center;
+  width: 82px;
+}
+
+.payroll-posting-table th:nth-child(2),
+.payroll-posting-table td:nth-child(2) {
+  min-width: 300px;
+  width: 31%;
+}
+
+.payroll-posting-table th:nth-child(3),
+.payroll-posting-table th:nth-child(4),
+.payroll-posting-table td:nth-child(3),
+.payroll-posting-table td:nth-child(4) {
+  min-width: 250px;
+  width: 34.5%;
+}
+
+.payroll-posting-table select {
+  width: 100%;
+}
+
+.payroll-posting-table td strong,
+.payroll-posting-table td small {
+  display: block;
+}
+
+.payroll-posting-table td small {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.payroll-posting-group th {
+  background: #eef6fd;
+  color: var(--primary-strong);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-align: left !important;
+  text-transform: uppercase;
+}
+
+.payroll-posting-aggregate {
+  background: #fffaf0;
+}
+
+.payroll-posting-note {
+  border-left: 4px solid #e3a32d;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.45;
+  margin: 0;
+  padding: 8px 12px;
 }
 
 .settings-card {
@@ -1419,6 +1545,62 @@ td small {
   color: var(--muted);
   font-size: 14px;
   margin: 0;
+}
+
+.payroll-forms-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.payroll-form-card {
+  display: grid;
+  min-height: 220px;
+  align-content: space-between;
+  gap: 22px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 14px 38px rgba(20, 85, 145, 0.08);
+  color: var(--foreground);
+  padding: 24px;
+  text-decoration: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.payroll-form-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 18px 42px rgba(20, 85, 145, 0.16);
+  transform: translateY(-2px);
+}
+
+.payroll-form-card > span {
+  display: inline-grid;
+  width: fit-content;
+  min-width: 68px;
+  min-height: 42px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  font-size: 15px;
+  font-weight: 900;
+  padding: 8px 12px;
+}
+
+.payroll-form-card h3 {
+  margin-bottom: 8px;
+}
+
+.payroll-form-card p {
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.payroll-form-card > strong {
+  color: var(--primary-strong);
+  font-size: 14px;
 }
 
 .table-link {
@@ -2706,6 +2888,260 @@ td small {
   font-weight: 700;
 }
 
+.oppnd-document {
+  position: relative;
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  background: #ffffff;
+  box-shadow: 0 18px 55px rgba(15, 23, 42, 0.18);
+  color: #000000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10px;
+  padding: 15mm 14mm 13mm;
+}
+
+.oppnd-form-code {
+  position: absolute;
+  top: 14mm;
+  right: 16mm;
+  border: 1px solid #777777;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2mm 4mm;
+}
+
+.oppnd-document h1 {
+  max-width: none;
+  color: #000000;
+  font-size: 15px;
+  line-height: 1.15;
+  margin: 27mm 0 6mm;
+  text-align: center;
+}
+
+.oppnd-company-table,
+.oppnd-tax-table {
+  width: 100%;
+  border: 1.4px solid #777777;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.oppnd-company-table th,
+.oppnd-company-table td,
+.oppnd-tax-table th,
+.oppnd-tax-table td {
+  border: 0.7px solid #777777;
+  color: #000000;
+  padding: 1.6mm 2.2mm;
+  vertical-align: middle;
+}
+
+.oppnd-company-table th {
+  width: 7mm;
+  font-size: 11px;
+}
+
+.oppnd-company-table td:nth-child(2) {
+  width: 116mm;
+}
+
+.oppnd-company-table td:nth-child(4) {
+  width: 45mm;
+}
+
+.oppnd-company-table td > span {
+  display: block;
+  margin-bottom: 1mm;
+}
+
+.oppnd-company-table td > strong {
+  display: block;
+  font-size: 11px;
+}
+
+.oppnd-period-line,
+.oppnd-address-line,
+.oppnd-authorized-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4mm;
+}
+
+.oppnd-period-line {
+  justify-content: flex-start;
+  gap: 24mm;
+}
+
+.oppnd-address-line strong,
+.oppnd-authorized-line strong {
+  margin-left: 1mm;
+}
+
+.oppnd-authorized-line + .oppnd-authorized-line {
+  margin-top: 1mm;
+}
+
+.oppnd-address-line > span,
+.oppnd-authorized-line > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.oppnd-authorized-line {
+  font-size: 10px;
+}
+
+.oppnd-company-table tr:last-child td {
+  padding-top: 2mm;
+  padding-bottom: 2mm;
+}
+
+.oppnd-tax-table {
+  margin-top: 14mm;
+}
+
+.oppnd-tax-table th {
+  font-weight: 500;
+  text-align: center;
+}
+
+.oppnd-tax-table thead th {
+  text-transform: none;
+}
+
+.oppnd-tax-table thead tr:first-child {
+  height: 11mm;
+}
+
+.oppnd-tax-table thead tr:last-child {
+  height: 5mm;
+}
+
+.oppnd-tax-table thead tr:last-child th {
+  padding: 1mm;
+}
+
+.oppnd-tax-table th:first-child {
+  width: 9mm;
+}
+
+.oppnd-tax-table th:nth-child(2) {
+  width: 83mm;
+}
+
+.oppnd-tax-table th:nth-child(3) {
+  width: 34mm;
+}
+
+.oppnd-tax-table th:nth-child(4) {
+  width: 33mm;
+}
+
+.oppnd-tax-table tbody tr {
+  height: 11mm;
+}
+
+.oppnd-tax-table tbody th {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.oppnd-tax-table tbody td {
+  font-size: 11px;
+}
+
+.oppnd-tax-table tbody td:not(:first-of-type) {
+  font-weight: 700;
+  text-align: center;
+}
+
+.oppnd-tax-table tbody td:first-of-type {
+  font-weight: 500;
+  text-align: left;
+}
+
+.oppnd-declaration {
+  margin-top: 11mm;
+}
+
+.oppnd-declaration > strong {
+  font-size: 11px;
+}
+
+.oppnd-signature-row {
+  display: grid;
+  grid-template-columns: 1.3fr 0.35fr 1fr;
+  align-items: flex-end;
+  gap: 12mm;
+  margin-top: 14mm;
+  font-size: 10px;
+}
+
+.oppnd-signature-row > span:first-child {
+  display: flex;
+  align-items: flex-end;
+  gap: 2mm;
+}
+
+.oppnd-signature-row i,
+.oppnd-tax-office i {
+  display: inline-block;
+  flex: 1 1 auto;
+  min-width: 30mm;
+  border-bottom: 0.7px solid #777777;
+}
+
+.oppnd-signature {
+  display: grid;
+  gap: 1mm;
+  text-align: center;
+}
+
+.oppnd-signature i {
+  width: 100%;
+}
+
+.oppnd-signature small {
+  font-size: 9px;
+}
+
+.oppnd-tax-office {
+  position: absolute;
+  right: 14mm;
+  bottom: 32mm;
+  left: 14mm;
+  border: 0.7px solid #777777;
+  padding: 3mm;
+}
+
+.oppnd-tax-office > strong {
+  display: block;
+  font-size: 10px;
+  margin-bottom: 3mm;
+}
+
+.oppnd-tax-office > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8mm;
+}
+
+.oppnd-tax-office > div + div {
+  margin-top: 4mm;
+}
+
+.oppnd-tax-office span {
+  display: flex;
+  flex: 1 1 0;
+  align-items: flex-end;
+  gap: 2mm;
+  white-space: nowrap;
+}
+
 @media print {
   @page {
     size: A4;
@@ -2805,6 +3241,11 @@ td small {
     margin: 0;
   }
 
+  @page oppndPortrait {
+    size: A4 portrait;
+    margin: 0;
+  }
+
   .m4-official-document,
   .m4-table-document {
     box-shadow: none;
@@ -2835,6 +3276,15 @@ td small {
     height: 210mm;
     min-height: 0;
     page: m4Landscape;
+  }
+
+  .oppnd-document {
+    width: 210mm;
+    height: 297mm;
+    min-height: 0;
+    margin: 0;
+    box-shadow: none;
+    page: oppndPortrait;
   }
 
   .ioppd-document {
@@ -4731,6 +5181,10 @@ td small {
   .admin-main {
     margin-left: 0;
     padding: 18px;
+  }
+
+  .payroll-forms-grid {
+    grid-template-columns: 1fr;
   }
 
   .context-row {

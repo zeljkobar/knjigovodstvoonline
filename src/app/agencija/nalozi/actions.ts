@@ -738,6 +738,7 @@ export async function reopenJournal(formData: FormData) {
       id: true,
       firma_id: true,
       status: true,
+      source_module: true,
       poslovna_godina: {
         select: {
           zakljucena: true
@@ -746,7 +747,11 @@ export async function reopenJournal(formData: FormData) {
     }
   });
 
-  if (!nalog || nalog.status !== journalStatuses.posted) {
+  if (
+    !nalog ||
+    nalog.status !== journalStatuses.posted ||
+    nalog.source_module === "PLATE"
+  ) {
     redirectJournals("nalog_greska");
   }
 

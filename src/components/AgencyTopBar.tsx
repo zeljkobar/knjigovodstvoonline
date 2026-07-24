@@ -41,6 +41,14 @@ export function AgencyTopBar({
   const section = getSectionFromPath(pathname);
   const subItems = getSubNavigation(section);
   const currentSection = navigation.find((item) => item.section === section);
+  const activeSubItem = subItems.find(
+    (item) =>
+      pathname === item.href ||
+      item.children?.some(
+        (child) => pathname === child.href || pathname.startsWith(`${child.href}/`)
+      )
+  );
+  const nestedItems = activeSubItem?.children ?? [];
 
   return (
     <header className="workspace-topbar">
@@ -103,7 +111,29 @@ export function AgencyTopBar({
       {subItems.length > 0 ? (
         <nav className="section-tabs" aria-label={`${currentSection?.label ?? "Sekcija"} podmeni`}>
           {subItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              pathname === item.href ||
+              Boolean(
+                item.children?.some(
+                  (child) =>
+                    pathname === child.href || pathname.startsWith(`${child.href}/`)
+                )
+              );
+
+            return (
+              <Link className={isActive ? "active" : ""} href={item.href} key={item.href}>
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
+
+      {nestedItems.length > 0 ? (
+        <nav className="section-subtabs" aria-label={`${activeSubItem?.label ?? "Podmeni"} obrasci`}>
+          {nestedItems.map((item) => {
+            const isActive =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
 
             return (
               <Link className={isActive ? "active" : ""} href={item.href} key={item.href}>

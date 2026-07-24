@@ -347,7 +347,7 @@ export default async function M4PrintPage({ searchParams }: PageProps) {
   return (
     <main className="print-page m4-print-page">
       <div className="print-toolbar m4-print-toolbar">
-        <Link className="print-button print-link-button" href="/agencija/plate/m4">Nazad</Link>
+        <Link className="print-button print-link-button" href="/agencija/plate/obrasci/m4">Nazad</Link>
         {printBlocked ? <span className="status-pill status-pill--warning">Štampa je blokirana dok se ne otklone kontrole.</span> : <PrintButton label={buttonLabel} />}
       </div>
       {type === "tabela-1" ? <Table1 naziv={firma.naziv} pib={firma.pib ?? ""} godina={godina.godina} months={data.report.months} totals={data.report.totals} place={place} date={date} authorized={authorized} /> : null}

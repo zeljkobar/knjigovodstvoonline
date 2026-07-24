@@ -284,20 +284,37 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   kontrola blokira obračun stavke sa uključenim minulim radom.
 - Stranica `/agencija/plate/podesavanja` je organizovana kao pregled grupa
   podešavanja. Dugme `Podešavanje IOPPD šifri` otvara postojeći šifarnik osnova
-  i pravila iz IOPPD specifikacije, dok je `Podešavanje knjiženja` pripremljeno
-  kao jasno označen placeholder za buduću šemu automatskog knjiženja plata.
+  i pravila iz IOPPD specifikacije. `Podešavanje knjiženja` sada čuva posebnu
+  šemu za aktivnu firmu, poslovnu godinu i kategoriju obračuna (`Redovan rad`,
+  `Ugovor o djelu`, `Zakup`, `Ostali ugovori`). Bira se vrsta naloga, opis i
+  zasebno duguje/potražuje konto za neto, porez, prirez, svaki doprinos i ostale
+  obaveze. Početni predlog za redovan rad izveden je iz `001LP.mdb/ZAR_Kontir`
+  i `ZAR_TipZB`, ali prilagođen važećem kontnom planu; alternativni zbirni
+  redovi su isključeni da ne bi duplirali detaljne komponente.
   Osnove su modelovane posebno od šifri primanja: glavna osnova, period pravila
   i stope po tipu/teretu. Uz svaku osnovu sada se prikazuju pripadajuće
   obračunske šifre i podšifre, koeficijent, posebni procenat poreske osnovice i
   oznaka fonda sati.
-- Stranica `/agencija/plate/ioppd` prikazuje IOPPD po mjesecima. Jedan mjesečni
+- Sekcija Plate sada ima grupu `/agencija/plate/obrasci` i drugi nivo podmenija
+  `M-4`, `OPP-ND` i `IOPPD`. Postojeće M-4 i IOPPD stranice premještene su na
+  `/agencija/plate/obrasci/m4` i `/agencija/plate/obrasci/ioppd`, bez promjene
+  funkcionalnosti; stare rute preusmjeravaju na nove.
+- Stranica `/agencija/plate/obrasci/ioppd` prikazuje IOPPD po mjesecima. Jedan mjesečni
   IOPPD sabira sve obrađene obračune za aktivnu firmu/godinu u tom mjesecu
   (redovan rad, zakup, ugovor o djelu i ostali ugovori). Dugme `Pregled` otvara
   HTML/CSS štampu `/stampa/plate/ioppd` sa opštim dijelom na uspravnoj strani i
   posebnim dijelom na horizontalnoj strani. Dugme `Download XML` preuzima
   zvaničnu IOPPD XML strukturu `Izvjestaj` / `Ukupno` /
   `PojedinacniObracun`, po istom formatu koji prihvata IRMS portal.
-- Stranica `/agencija/plate/m4` priprema godišnju M-4 evidenciju iz obrađenih
+- Stranica `/agencija/plate/obrasci/opp-nd` priprema mjesečne OPP-ND prijave
+  prireza iz istih obrađenih obračuna. Redovan rad ulazi u lična primanja,
+  ugovor o djelu i ostali ugovori u samostalnu djelatnost, zakup u imovinu i
+  imovinska prava, dok kapital ostaje prazan do uvođenja takve vrste obračuna.
+  Stopa je važeći koeficijent iz opštinskog šifarnika firme, a službena kolona
+  prireza računa se kao porez puta stopa. Print ruta
+  `/stampa/plate/opp-nd` prati dostavljeni zvanični A4 obrazac i puni podatke
+  firme i izvršnog direktora.
+- Stranica `/agencija/plate/obrasci/m4` priprema godišnju M-4 evidenciju iz obrađenih
   obračuna aktivne firme/godine. Sadrži kontrolni pregled osiguranika, M-4
   kategoriju na osnovama obračuna i zasebnu evidenciju
   potvrđenih mjesečnih uplata. Akcija `Uplaćeno u cijelosti` automatski prenosi
@@ -343,6 +360,17 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   koeficijente iznosa, koeficijente uvećanog staža, posebne poreske osnovice i
   oznake fonda sati. Stare poreske grupe/stope nijesu preuzete kao važeće;
   obračun i dalje koristi vremenski važeća pravila iz naših šifarnika.
+- Migracija `20260724120000_plate_kontiranje_podesavanja` dodaje
+  `plate_kontiranje_podesavanja` i `plate_kontiranje_pravila`: šeme su
+  izolovane po agenciji, firmi, poslovnoj godini i kategoriji, a izabrana
+  globalna konta se pri čuvanju povezuju kao `firma_konta`. Čuvanje provjerava
+  pravo `plate/manage`, zaključanu godinu i upisuje audit log.
+- Obrađeni obračun sada ima akciju `Proknjiži`. U jednoj transakciji se učitava
+  sačuvana kategorijska šema (ili materijalizuje početna šema), provjeravaju
+  aktivna analitička konta i zabrana duplih zbirnih/detaljnih komponenti, kreira
+  izbalansiran `POSTED` nalog izvora `PAYROLL/PLATE` i obračun povezuje sa tim
+  nalogom. Ponovno knjiženje je blokirano, a automatski nalog se ne može vratiti
+  u nacrt kroz opštu akciju naloga.
 
 ## Djelimično implementirano / otvoreno
 - Robno knjigovodstvo: spec pročitan, samo navigacioni placeholderi.
@@ -353,9 +381,10 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   više KIF/KUF računa.
 - Plate: prva MVP osnova postoji za zaposlene, redovan obračun zarade 001,
   kategorije ugovora/zakupa, šifarnik osnova za obračun i mjesečnu IOPPD
-  štampu; M-4, Tabela 1 i Tabela 2 završeni su u dogovorenom obimu. Detaljna
-  pravila osnova su povezana za linearne obračune poput ugovora/zakupa. Ostaju
-  obustave, uplatnice, automatsko knjiženje plata,
+  štampu; M-4, Tabela 1, Tabela 2 i OPP-ND završeni su u dogovorenom obimu. Detaljna
+  pravila osnova su povezana za linearne obračune poput ugovora/zakupa, a
+  podešavanja kontiranja i automatski `PAYROLL` nalog postoje po kategoriji.
+  Ostaju obustave, uplatnice, storno/namjensko vraćanje knjiženja,
   arhiva/finalni print/export i dodatna opisna pravila koja traže ručne parametre.
 - Klijentski portal, većina dashboard izvještaja.
 - Završni račun: Bilans uspjeha, Bilans stanja, Statistički aneks, trajne ručne
@@ -370,6 +399,10 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - `npx tsc --noEmit --incremental false` prolazi.
 - `npx prisma validate` potvrđuje da je Prisma šema validna.
 - U repozitorijumu nema automatizovanih test fajlova.
+- `npx prisma migrate deploy` primijenio je migracije
+  `20260724120000_plate_kontiranje_podesavanja` i
+  `20260724130000_plate_obracun_nalog_veza`;
+  Prisma klijent je regenerisan i dev server restartovan.
 - `npx prisma migrate deploy` primijenio je migracije
   `20260723123000_plate_prirez_opstine_sifarnik` i
   `20260723133000_plate_sifre_primanja_podsifre`; Prisma klijent je regenerisan

@@ -390,9 +390,10 @@ Sistem kasnije treba omogućiti kontrole:
 Zaposleni
 Ugovori
 Obračun plata
-IOPPD
-JPR
-Doprinosi
+Obrasci
+  - M-4
+  - OPP-ND
+  - IOPPD
 Obustave
 Arhiva obračuna
 Podešavanja plata
@@ -407,9 +408,7 @@ Sekcija Plate obuhvata:
 - zaposlene
 - ugovore
 - obračun plata
-- IOPPD
-- JPR
-- doprinose
+- obrasce M-4, OPP-ND i IOPPD kroz pregledan drugi nivo podmenija
 - obustave
 - arhivu obračuna
 - podešavanja plata

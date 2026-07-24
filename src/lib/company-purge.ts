@@ -146,6 +146,10 @@ export async function purgeCompanyData(
     Prisma.sql`DELETE FROM plate_m4_podesavanja WHERE firma_id = ${firmaId}::uuid`
   );
   await izvrsi(
+    "plate_kontiranje_podesavanja",
+    Prisma.sql`DELETE FROM plate_kontiranje_podesavanja WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
     "plate_obracun_stavke",
     Prisma.sql`DELETE FROM plate_obracun_stavke WHERE firma_id = ${firmaId}::uuid`
   );

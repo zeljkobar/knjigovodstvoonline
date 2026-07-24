@@ -172,6 +172,7 @@ model Firma {
   aktivnosti           AktivnostDogadjaj[]
   plateM4Podesavanja   PlateM4Podesavanje[]
   plateM4Uplate        PlateM4MjesecnaUplata[]
+  plateKontiranja      PlateKontiranjePodesavanje[]
   odgovorna_lica       FirmaOdgovornoLice[]
 
   @@unique([agencija_id, pib])
@@ -374,6 +375,7 @@ model PoslovnaGodina {
   finansijskiIzvjestajArhive FinansijskiIzvjestajArhiva[]
   plateM4Podesavanja PlateM4Podesavanje[]
   plateM4Uplate PlateM4MjesecnaUplata[]
+  plateKontiranja PlateKontiranjePodesavanje[]
 
   @@unique([firma_id, godina])
   @@map("poslovne_godine")
@@ -564,6 +566,8 @@ model FirmaKonto {
   bankStatementsBankAccount BankStatement[] @relation("BankStatementBankAccount")
   bankStatementSettings BankStatementAccountSetting[]
   bankPostingRules BankPostingRule[]
+  plateKontiranjaDuguje PlateKontiranjePravilo[] @relation("PlateKontiranjeDugujeKonto")
+  plateKontiranjaPotrazuje PlateKontiranjePravilo[] @relation("PlateKontiranjePotrazujeKonto")
 
   @@unique([firma_id, sifra])
   @@map("firma_konta")
@@ -906,6 +910,7 @@ model VrstaNaloga {
   racunVrste RacunVrsta[]
   pdvPodesavanja PdvPodesavanja[]
   bankStatementSettings BankStatementAccountSetting[]
+  plateKontiranja PlateKontiranjePodesavanje[]
 
   @@map("vrste_naloga")
 }
@@ -946,6 +951,7 @@ model Nalog {
   stavke                 StavkaNaloga[]
   pdvPrijave             PdvPrijava[]
   bankStatements          BankStatement[]
+  plateObracuni           PlateObracun[] @relation("PlateObracunNalog")
 
   @@unique([firma_id, poslovna_godina_id, vrsta_naloga_id, broj])
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
@@ -1698,6 +1704,55 @@ model PlateM4MjesecnaUplata {
   @@map("plate_m4_mjesecne_uplate")
 }
 
+model PlateKontiranjePodesavanje {
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id           String         @db.Uuid
+  firma_id              String         @db.Uuid
+  firma                 Firma          @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id    String         @db.Uuid
+  poslovna_godina       PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  kategorija            String
+  vrsta_naloga_id       String?        @db.Uuid
+  vrsta_naloga          VrstaNaloga?   @relation(fields: [vrsta_naloga_id], references: [id])
+  opis_naloga           String         @default("Obračun {kategorija} za {mjesec}/{godina}")
+  created_at            DateTime       @default(now())
+  created_by            String?        @db.Uuid
+  updated_at            DateTime       @updatedAt
+  updated_by            String?        @db.Uuid
+  pravila               PlateKontiranjePravilo[]
+
+  @@unique([firma_id, poslovna_godina_id, kategorija])
+  @@index([agencija_id, firma_id, poslovna_godina_id, kategorija])
+  @@index([vrsta_naloga_id])
+  @@map("plate_kontiranje_podesavanja")
+}
+
+model PlateKontiranjePravilo {
+  id                    String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  podesavanje_id        String                       @db.Uuid
+  podesavanje           PlateKontiranjePodesavanje  @relation(fields: [podesavanje_id], references: [id], onDelete: Cascade)
+  komponenta            String
+  naziv                 String
+  grupa                 String
+  izvorno_polje         String
+  duguje_konto_id       String?                      @db.Uuid
+  duguje_konto          FirmaKonto?                  @relation("PlateKontiranjeDugujeKonto", fields: [duguje_konto_id], references: [id])
+  potrazuje_konto_id    String?                      @db.Uuid
+  potrazuje_konto       FirmaKonto?                  @relation("PlateKontiranjePotrazujeKonto", fields: [potrazuje_konto_id], references: [id])
+  aktivan               Boolean                      @default(true)
+  redosljed             Int
+  napomena              String?
+  created_at            DateTime                     @default(now())
+  created_by            String?                      @db.Uuid
+  updated_at            DateTime                     @updatedAt
+  updated_by            String?                      @db.Uuid
+
+  @@unique([podesavanje_id, komponenta])
+  @@index([duguje_konto_id])
+  @@index([potrazuje_konto_id])
+  @@map("plate_kontiranje_pravila")
+}
+
 model PlateObracun {
   id                     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id             String    @db.Uuid
@@ -1717,6 +1772,7 @@ model PlateObracun {
   status                  String    @default("DRAFT")
   napomena                String?
   nalog_id                String?   @db.Uuid
+  nalog                   Nalog?    @relation("PlateObracunNalog", fields: [nalog_id], references: [id], onDelete: SetNull)
   calculated_at           DateTime?
   calculated_by           String?   @db.Uuid
   posted_at               DateTime?
@@ -1735,6 +1791,7 @@ model PlateObracun {
   stavke                  PlateObracunStavka[]
 
   @@unique([firma_id, poslovna_godina_id, kategorija, broj])
+  @@unique([nalog_id])
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@map("plate_obracuni")
 }

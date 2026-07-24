@@ -4,6 +4,7 @@ import {
   calculatePayrollCalculation,
   createPayrollCalculation,
   deletePayrollCalculation,
+  postPayrollCalculation,
   preparePayrollCalculation,
   removePayrollWorkerFromCalculation,
   updatePayrollCalculationLine
@@ -34,7 +35,11 @@ const messages: Record<string, string> = {
   obracun_dodat: "Obračun je dodat.",
   obracun_pripremljen: "Radnici su pripremljeni za obračun. Sada možete mijenjati stavke prije obrade.",
   obracun_obradjen: "Obračun je obrađen.",
+  obracun_proknjizen: "Obračun je proknjižen i nalog je kreiran.",
   obracun_nevalidan: "Podaci obračuna nisu ispravni.",
+  obracun_ne_postoji: "Obračun nije pronađen u izabranoj firmi i poslovnoj godini.",
+  obracun_vec_proknjizen: "Obračun je već proknjižen.",
+  obracun_nije_obradjen: "Prije knjiženja obračun mora biti obrađen.",
   obracun_obavezan: "Izaberite obračun.",
   obracun_zakljucan: "Zaključan ili proknjižen obračun nije moguće mijenjati.",
   obracun_obrisan: "Obračun je obrisan.",
@@ -49,7 +54,16 @@ const messages: Record<string, string> = {
   stavka_nevalidna: "Podaci stavke nisu ispravni.",
   kontekst: "Izaberite firmu i poslovnu godinu.",
   prava: "Nemate pravo za rad sa platama.",
-  godina_zakljucena: "Poslovna godina je zaključana."
+  godina_zakljucena: "Poslovna godina je zaključana.",
+  knjizenje_nema_iznosa: "Obračun nema iznose koji se mogu proknjižiti.",
+  knjizenje_vrsta_naloga: "Za ovu kategoriju obračuna nije podešena aktivna vrsta naloga.",
+  knjizenje_pravila: "Za ovu kategoriju obračuna nema aktivnih pravila kontiranja.",
+  knjizenje_duple_komponente:
+    "Podešavanja kontiranja istovremeno sadrže zbirne i pojedinačne komponente.",
+  knjizenje_konta:
+    "Kontiranje nije završeno jer neko aktivno pravilo nema ispravan analitički konto.",
+  knjizenje_nebalansirano: "Nalog nije kreiran jer kontiranje nije izbalansirano.",
+  knjizenje_greska: "Obračun nije proknjižen. Provjerite podešavanja kontiranja i pokušajte ponovo."
 };
 
 function moneyInput(cents: number) {
@@ -405,7 +419,8 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
   const blockingControlCount = controlIssues.filter((issue) => issue.level === "error").length;
   const warningControlCount = controlIssues.filter((issue) => issue.level === "warning").length;
   const editable = selected
-    ? ![payrollStatuses.posted, payrollStatuses.locked].includes(selected.status as never)
+    ? !selected.nalog_id &&
+      ![payrollStatuses.posted, payrollStatuses.locked].includes(selected.status as never)
     : false;
   const totals = lines.reduce(
     (sum, line) => ({
@@ -491,9 +506,16 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                 </tr>
               ) : (
                 calculations.map((calculation) => {
-                  const canEditCalculation = ![payrollStatuses.posted, payrollStatuses.locked].includes(
-                    calculation.status as never
-                  );
+                  const canEditCalculation =
+                    !calculation.nalog_id &&
+                    ![payrollStatuses.posted, payrollStatuses.locked].includes(
+                      calculation.status as never
+                    );
+                  const canPostCalculation =
+                    !calculation.nalog_id &&
+                    [payrollStatuses.calculated, payrollStatuses.reviewed].includes(
+                      calculation.status as never
+                    );
 
                   return (
                     <tr key={calculation.id}>
@@ -514,6 +536,19 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                           <a className="table-link" href={`/agencija/plate/obracun?obracun=${calculation.id}`}>
                             Otvori
                           </a>
+                          {canPostCalculation ? (
+                            <form action={postPayrollCalculation}>
+                              <input name="obracun_id" type="hidden" value={calculation.id} />
+                              <button className="table-button" type="submit">
+                                Proknjiži
+                              </button>
+                            </form>
+                          ) : null}
+                          {calculation.nalog_id ? (
+                            <a className="table-link" href={`/agencija/nalozi/${calculation.nalog_id}`}>
+                              Nalog
+                            </a>
+                          ) : null}
                           {canEditCalculation ? (
                             <form action={deletePayrollCalculation}>
                               <input name="obracun_id" type="hidden" value={calculation.id} />
@@ -545,6 +580,22 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
               </span>
             </div>
             <div className="button-row">
+              {selected.nalog_id ? (
+                <a className="secondary-button" href={`/agencija/nalozi/${selected.nalog_id}`}>
+                  Otvori nalog
+                </a>
+              ) : null}
+              {!selected.nalog_id &&
+              [payrollStatuses.calculated, payrollStatuses.reviewed].includes(
+                selected.status as never
+              ) ? (
+                <form action={postPayrollCalculation}>
+                  <input name="obracun_id" type="hidden" value={selected.id} />
+                  <button className="primary-button" type="submit">
+                    Proknjiži
+                  </button>
+                </form>
+              ) : null}
               {lines.length === 0 && editable ? (
                 <form action={preparePayrollCalculation}>
                   <input name="obracun_id" type="hidden" value={selected.id} />

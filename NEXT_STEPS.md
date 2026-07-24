@@ -43,15 +43,16 @@
   svih 108 šifara iz zvaničnog Excel dokumenta, sa ekranom za ažuriranje i
   izborom svih IOPPD šifara kod radnika.
   IOPPD pregled po mjesecima, HTML/CSS štampa sa opštim i posebnim dijelom i
-  XML download u formatu koji prihvata IRMS portal su dodati. Obračun koristi
+  XML download u formatu koji prihvata IRMS portal su dodati. Mjesečni OPP-ND
+  pregled i službena štampa prireza po opštinskoj stopi takođe su završeni, a
+  M-4, OPP-ND i IOPPD grupisani su u podmeniju `Obrasci`. Obračun koristi
   strukturisana pravila osnova za linearne osnove poput ugovora i zakupa.
   Dodati su godišnji M-4 pregled, pojedinačni službeni M-4, Tabela 1 i Tabela 2,
   uz podatke firme, M-4 klasifikaciju osnova i potvrđene mjesečne uplate;
   puna uplata se jednim klikom preuzima iz važećih obračuna izabranog mjeseca.
   Sljedeće: obustave, opisna pravila koja traže ručne parametre, ručni QA IOPPD
-  XML upload-a na portalu, uplatnice i implementacija šeme iza pripremljenog
-  dugmeta `Podešavanje knjiženja`, pa automatski nalog za knjiženje. M-4 je
-  završen u dogovorenom obimu.
+  XML upload-a na portalu, uplatnice, namjenski storno/vraćanje automatskog
+  `PAYROLL` naloga i print/export obračuna. M-4 je završen u dogovorenom obimu.
 
 ## Otvoreno po modulima
 - **Modul 1:** kompletan backend enforcement prava kroz sve rute/server actions;
@@ -74,8 +75,8 @@
   štampa prijave i testovi knjiženja PDV prijave.
 - **Modul 9 Plate:** doraditi obustave, opisna pravila osnova koja traže ručne
   parametre, ručni QA IOPPD XML upload-a na portalu, uplatnice, posebna pravila minulog rada po
-  kolektivnim/granskim ugovorima, implementirati pripremljena podešavanja i
-  knjiženje u `PAYROLL` nalog, te print/export obračuna. M-4 je završen u
+  kolektivnim/granskim ugovorima, namjenski storno/vraćanje proknjiženog
+  `PAYROLL` naloga, te print/export obračuna. M-4 je završen u
   dogovorenom obimu; dodatne napredne evidencije nijesu dio trenutnog zadatka.
 - **Modul 10 Završni račun:** Bilans uspjeha, Bilans stanja i Statistički aneks
   imaju prvu implementaciju iz POSTED naloga, podesivu šemu po firmi i trajne

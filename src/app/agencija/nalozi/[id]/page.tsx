@@ -110,6 +110,7 @@ export default async function NalogDetailPage({
       datum_knjizenja: true,
       opis: true,
       status: true,
+      source_module: true,
       created_at: true,
       proknjizen_at: true,
       firma: {
@@ -402,7 +403,8 @@ const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
                 <button type="submit">Proknjiži nalog</button>
               </form>
             ) : null}
-            {nalog.status === journalStatuses.posted ? (
+            {nalog.status === journalStatuses.posted &&
+            nalog.source_module !== "PLATE" ? (
               <form action={reopenJournal}>
                 <input name="nalog_id" type="hidden" value={nalog.id} />
                 <button className="secondary-button" type="submit">

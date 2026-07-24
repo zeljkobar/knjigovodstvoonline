@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma, type PlateObracun, type PlateRadnik } from "@prisma/client";
+import { accountOverrideTypes } from "@/lib/account-plan";
 import { auditLog } from "@/lib/audit";
+import { formatJournalCode, journalStatuses } from "@/lib/journals";
 import {
   calculatePayrollLine,
   calculateSeniorityCoefficient,
@@ -16,6 +18,12 @@ import {
   payrollCategoryRequiresEmployment,
   payrollStatuses
 } from "@/lib/payroll";
+import {
+  hasPayrollPostingAggregateConflict,
+  payrollPostingAmountCents,
+  payrollPostingComponents,
+  payrollPostingDefault
+} from "@/lib/payroll-posting";
 import { getM4Data } from "@/lib/payroll-m4";
 import { prisma } from "@/lib/prisma";
 import { getPlateContext } from "./_shared";
@@ -49,6 +57,10 @@ function dateValue(value: FormDataEntryValue | null) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function centsToDecimal(cents: number) {
+  return (cents / 100).toFixed(2);
+}
+
 async function requirePlateManageContext(returnPath: string) {
   const context = await getPlateContext("manage");
 
@@ -70,6 +82,312 @@ async function requirePlateManageContext(returnPath: string) {
     firma: context.firma,
     godina: context.godina
   };
+}
+
+async function requirePlatePostContext(returnPath: string) {
+  const context = await getPlateContext("post");
+
+  if (!context.firma || !context.godina || !context.user.agencija_id) {
+    redirect(`${returnPath}?poruka=kontekst`);
+  }
+
+  if (!context.allowed) {
+    redirect(`${returnPath}?poruka=prava`);
+  }
+
+  if (context.godina.zakljucena) {
+    redirect(`${returnPath}?poruka=godina_zakljucena`);
+  }
+
+  return {
+    user: context.user,
+    agencijaId: context.user.agencija_id,
+    firma: context.firma,
+    godina: context.godina
+  };
+}
+
+async function resolvePayrollCompanyAccountId(
+  tx: Prisma.TransactionClient,
+  firmaId: string,
+  selectedValue: string
+) {
+  const [source, id] = selectedValue.split(":");
+
+  if (!source || !id) {
+    return null;
+  }
+
+  if (source === "company") {
+    const account = await tx.firmaKonto.findFirst({
+      where: {
+        id,
+        firma_id: firmaId,
+        aktivan: true
+      },
+      select: {
+        id: true
+      }
+    });
+
+    return account?.id ?? null;
+  }
+
+  if (source !== "base") {
+    return null;
+  }
+
+  const baseAccount = await tx.konto.findFirst({
+    where: {
+      id,
+      aktivan: true
+    },
+    select: {
+      id: true,
+      sifra: true,
+      naziv: true,
+      tip_konta: true,
+      analitika_obavezna: true,
+      sinteticki_konto: true,
+      normalni_saldo: true,
+      koristi_radnu_jedinicu: true
+    }
+  });
+
+  if (!baseAccount) {
+    return null;
+  }
+
+  const existingCompanyAccount = await tx.firmaKonto.findFirst({
+    where: {
+      firma_id: firmaId,
+      OR: [
+        {
+          konto_id: baseAccount.id
+        },
+        {
+          sifra: baseAccount.sifra
+        }
+      ]
+    },
+    select: {
+      id: true,
+      aktivan: true,
+      override_type: true
+    }
+  });
+
+  if (existingCompanyAccount) {
+    if (
+      !existingCompanyAccount.aktivan ||
+      existingCompanyAccount.override_type === accountOverrideTypes.deactivated
+    ) {
+      return null;
+    }
+
+    return existingCompanyAccount.id;
+  }
+
+  const companyAccount = await tx.firmaKonto.create({
+    data: {
+      firma_id: firmaId,
+      konto_id: baseAccount.id,
+      sifra: baseAccount.sifra,
+      naziv: baseAccount.naziv,
+      tip_konta: baseAccount.tip_konta,
+      analitika_obavezna: baseAccount.analitika_obavezna,
+      sinteticki_konto: baseAccount.sinteticki_konto,
+      normalni_saldo: baseAccount.normalni_saldo,
+      koristi_radnu_jedinicu: baseAccount.koristi_radnu_jedinicu,
+      override_type: accountOverrideTypes.baseLink
+    },
+    select: {
+      id: true
+    }
+  });
+
+  return companyAccount.id;
+}
+
+async function resolvePayrollCompanyAccountByCode(
+  tx: Prisma.TransactionClient,
+  firmaId: string,
+  accountCode: string | null
+) {
+  if (!accountCode) {
+    return null;
+  }
+
+  const companyAccount = await tx.firmaKonto.findUnique({
+    where: {
+      firma_id_sifra: {
+        firma_id: firmaId,
+        sifra: accountCode
+      }
+    },
+    select: {
+      id: true,
+      aktivan: true,
+      override_type: true
+    }
+  });
+
+  if (companyAccount) {
+    if (
+      !companyAccount.aktivan ||
+      companyAccount.override_type === accountOverrideTypes.deactivated
+    ) {
+      return null;
+    }
+
+    return companyAccount.id;
+  }
+
+  const baseAccount = await tx.konto.findUnique({
+    where: {
+      sifra: accountCode
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (!baseAccount) {
+    return null;
+  }
+
+  return resolvePayrollCompanyAccountId(tx, firmaId, `base:${baseAccount.id}`);
+}
+
+async function effectivePayrollPostingSettings(
+  tx: Prisma.TransactionClient,
+  {
+    agencijaId,
+    firmaId,
+    poslovnaGodinaId,
+    category,
+    userId
+  }: {
+    agencijaId: string;
+    firmaId: string;
+    poslovnaGodinaId: string;
+    category: string;
+    userId: string;
+  }
+) {
+  await tx.$executeRaw(
+    Prisma.sql`
+      SELECT pg_advisory_xact_lock(
+        hashtext(${"plate-kontiranje"}),
+        hashtext(${`${firmaId}:${poslovnaGodinaId}:${category}`})
+      )
+    `
+  );
+
+  const include = {
+    vrsta_naloga: true,
+    pravila: {
+      include: {
+        duguje_konto: true,
+        potrazuje_konto: true
+      },
+      orderBy: {
+        redosljed: "asc" as const
+      }
+    }
+  };
+  const existing = await tx.plateKontiranjePodesavanje.findUnique({
+    where: {
+      firma_id_poslovna_godina_id_kategorija: {
+        firma_id: firmaId,
+        poslovna_godina_id: poslovnaGodinaId,
+        kategorija: category
+      }
+    },
+    include
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  const journalType = await tx.vrstaNaloga.findFirst({
+    where: {
+      sifra: "PAYROLL",
+      aktivan: true,
+      OR: [
+        {
+          sistemska: true
+        },
+        {
+          agencija_id: agencijaId
+        },
+        {
+          firma_id: firmaId
+        }
+      ]
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (!journalType) {
+    throw new Error("knjizenje_vrsta_naloga");
+  }
+
+  const settings = await tx.plateKontiranjePodesavanje.create({
+    data: {
+      agencija_id: agencijaId,
+      firma_id: firmaId,
+      poslovna_godina_id: poslovnaGodinaId,
+      kategorija: category,
+      vrsta_naloga_id: journalType.id,
+      opis_naloga: "Obračun {kategorija} za {mjesec}/{godina}",
+      created_by: userId,
+      updated_by: userId
+    },
+    select: {
+      id: true
+    }
+  });
+
+  for (const component of payrollPostingComponents) {
+    const defaults = payrollPostingDefault(category, component.code);
+    const debitAccountId = await resolvePayrollCompanyAccountByCode(
+      tx,
+      firmaId,
+      defaults.debitCode
+    );
+    const creditAccountId = await resolvePayrollCompanyAccountByCode(
+      tx,
+      firmaId,
+      defaults.creditCode
+    );
+
+    await tx.plateKontiranjePravilo.create({
+      data: {
+        podesavanje_id: settings.id,
+        komponenta: component.code,
+        naziv: component.label,
+        grupa: component.group,
+        izvorno_polje: component.sourceField,
+        duguje_konto_id: debitAccountId,
+        potrazuje_konto_id: creditAccountId,
+        aktivan: defaults.active,
+        redosljed: component.order,
+        created_by: userId,
+        updated_by: userId
+      }
+    });
+  }
+
+  return tx.plateKontiranjePodesavanje.findUniqueOrThrow({
+    where: {
+      id: settings.id
+    },
+    include
+  });
 }
 
 async function effectiveIncomeType(
@@ -308,8 +626,509 @@ export async function savePayrollBasisRule(formData: FormData) {
   redirect("/agencija/plate/podesavanja?sekcija=ioppd&poruka=osnova_sacuvana");
 }
 
+export async function savePayrollPostingSettings(formData: FormData) {
+  const returnPath = "/agencija/plate/podesavanja";
+  const context = await requirePlateManageContext(returnPath);
+  const category = text(formData.get("kategorija"));
+  const journalTypeId = text(formData.get("vrsta_naloga_id"));
+
+  if (!isPayrollCategory(category)) {
+    redirect(`${returnPath}?sekcija=knjizenje&poruka=kontiranje_nevalidno`);
+  }
+
+  const journalType = journalTypeId
+    ? await prisma.vrstaNaloga.findFirst({
+        where: {
+          id: journalTypeId,
+          aktivan: true,
+          OR: [
+            {
+              firma_id: context.firma.id
+            },
+            {
+              firma_id: null,
+              agencija_id: context.agencijaId
+            },
+            {
+              firma_id: null,
+              agencija_id: null
+            }
+          ]
+        },
+        select: {
+          id: true
+        }
+      })
+    : null;
+
+  if (journalTypeId && !journalType) {
+    redirect(
+      `${returnPath}?sekcija=knjizenje&kategorija=${category}&poruka=kontiranje_nevalidno`
+    );
+  }
+
+  const previous = await prisma.plateKontiranjePodesavanje.findUnique({
+    where: {
+      firma_id_poslovna_godina_id_kategorija: {
+        firma_id: context.firma.id,
+        poslovna_godina_id: context.godina.id,
+        kategorija: category
+      }
+    },
+    include: {
+      pravila: true
+    }
+  });
+
+  const saved = await prisma.$transaction(async (tx) => {
+    const settings = await tx.plateKontiranjePodesavanje.upsert({
+      where: {
+        firma_id_poslovna_godina_id_kategorija: {
+          firma_id: context.firma.id,
+          poslovna_godina_id: context.godina.id,
+          kategorija: category
+        }
+      },
+      update: {
+        vrsta_naloga_id: journalType?.id ?? null,
+        opis_naloga:
+          text(formData.get("opis_naloga")) ||
+          "Obračun {kategorija} za {mjesec}/{godina}",
+        updated_by: context.user.id
+      },
+      create: {
+        agencija_id: context.agencijaId,
+        firma_id: context.firma.id,
+        poslovna_godina_id: context.godina.id,
+        kategorija: category,
+        vrsta_naloga_id: journalType?.id ?? null,
+        opis_naloga:
+          text(formData.get("opis_naloga")) ||
+          "Obračun {kategorija} za {mjesec}/{godina}",
+        created_by: context.user.id,
+        updated_by: context.user.id
+      }
+    });
+
+    for (const component of payrollPostingComponents) {
+      const debitAccountId = await resolvePayrollCompanyAccountId(
+        tx,
+        context.firma.id,
+        text(formData.get(`duguje_${component.code}`))
+      );
+      const creditAccountId = await resolvePayrollCompanyAccountId(
+        tx,
+        context.firma.id,
+        text(formData.get(`potrazuje_${component.code}`))
+      );
+
+      await tx.plateKontiranjePravilo.upsert({
+        where: {
+          podesavanje_id_komponenta: {
+            podesavanje_id: settings.id,
+            komponenta: component.code
+          }
+        },
+        update: {
+          naziv: component.label,
+          grupa: component.group,
+          izvorno_polje: component.sourceField,
+          duguje_konto_id: debitAccountId,
+          potrazuje_konto_id: creditAccountId,
+          aktivan: formData.get(`aktivan_${component.code}`) === "on",
+          redosljed: component.order,
+          updated_by: context.user.id
+        },
+        create: {
+          podesavanje_id: settings.id,
+          komponenta: component.code,
+          naziv: component.label,
+          grupa: component.group,
+          izvorno_polje: component.sourceField,
+          duguje_konto_id: debitAccountId,
+          potrazuje_konto_id: creditAccountId,
+          aktivan: formData.get(`aktivan_${component.code}`) === "on",
+          redosljed: component.order,
+          created_by: context.user.id,
+          updated_by: context.user.id
+        }
+      });
+    }
+
+    return tx.plateKontiranjePodesavanje.findUnique({
+      where: {
+        id: settings.id
+      },
+      include: {
+        pravila: true
+      }
+    });
+  });
+
+  await auditLog({
+    korisnikId: context.user.id,
+    agencijaId: context.agencijaId,
+    firmaId: context.firma.id,
+    modul: "plate",
+    akcija: "save_posting_settings",
+    tipEntiteta: "PlateKontiranjePodesavanje",
+    entitetId: saved?.id,
+    staraVrijednost: previous,
+    novaVrijednost: saved
+  });
+
+  revalidatePath(returnPath);
+  redirect(
+    `${returnPath}?sekcija=knjizenje&kategorija=${category}&poruka=kontiranje_sacuvano`
+  );
+}
+
+export async function postPayrollCalculation(formData: FormData) {
+  const returnPath = "/agencija/plate/obracun";
+  const calculationId = text(formData.get("obracun_id"));
+  const context = await requirePlatePostContext(returnPath);
+
+  if (!calculationId) {
+    redirect(`${returnPath}?poruka=obracun_obavezan`);
+  }
+
+  let result: {
+    journal: {
+      id: string;
+      broj: number;
+      sifra: string | null;
+    };
+    calculation: {
+      id: string;
+      broj: number;
+      kategorija: string;
+      status: string;
+    };
+    debitTotalCents: number;
+    creditTotalCents: number;
+  };
+
+  try {
+    result = await prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<Array<{ id: string }>>(
+        Prisma.sql`
+          SELECT "id"
+          FROM "plate_obracuni"
+          WHERE "id" = ${calculationId}::uuid
+            AND "agencija_id" = ${context.agencijaId}::uuid
+            AND "firma_id" = ${context.firma.id}::uuid
+            AND "poslovna_godina_id" = ${context.godina.id}::uuid
+            AND "is_deleted" = false
+          FOR UPDATE
+        `
+      );
+
+      if (locked.length === 0) {
+        throw new Error("obracun_ne_postoji");
+      }
+
+      const calculation = await tx.plateObracun.findUnique({
+        where: {
+          id: calculationId
+        },
+        include: {
+          stavke: true,
+          nalog: {
+            select: {
+              id: true,
+              is_deleted: true
+            }
+          }
+        }
+      });
+
+      if (!calculation || !isPayrollCategory(calculation.kategorija)) {
+        throw new Error("obracun_ne_postoji");
+      }
+
+      if (
+        calculation.status === payrollStatuses.posted ||
+        calculation.status === payrollStatuses.locked ||
+        (calculation.nalog_id && calculation.nalog && !calculation.nalog.is_deleted)
+      ) {
+        throw new Error("obracun_vec_proknjizen");
+      }
+
+      if (
+        ![payrollStatuses.calculated, payrollStatuses.reviewed].includes(
+          calculation.status as never
+        )
+      ) {
+        throw new Error("obracun_nije_obradjen");
+      }
+
+      if (calculation.stavke.length === 0) {
+        throw new Error("knjizenje_nema_iznosa");
+      }
+
+      const settings = await effectivePayrollPostingSettings(tx, {
+        agencijaId: context.agencijaId,
+        firmaId: context.firma.id,
+        poslovnaGodinaId: context.godina.id,
+        category: calculation.kategorija,
+        userId: context.user.id
+      });
+      const journalType = settings.vrsta_naloga;
+      const journalTypeAllowed =
+        journalType?.aktivan &&
+        (journalType.sistemska ||
+          journalType.agencija_id === context.agencijaId ||
+          journalType.firma_id === context.firma.id);
+
+      if (!journalType || !journalTypeAllowed) {
+        throw new Error("knjizenje_vrsta_naloga");
+      }
+
+      const activeRules = settings.pravila.filter((rule) => rule.aktivan);
+
+      if (activeRules.length === 0) {
+        throw new Error("knjizenje_pravila");
+      }
+
+      const amountByComponent = new Map(
+        activeRules.map((rule) => [
+          rule.komponenta,
+          payrollPostingAmountCents(rule.komponenta, calculation.stavke)
+        ])
+      );
+      const activeComponentCodes = new Set(activeRules.map((rule) => rule.komponenta));
+
+      if (
+        hasPayrollPostingAggregateConflict(activeComponentCodes, amountByComponent)
+      ) {
+        throw new Error("knjizenje_duple_komponente");
+      }
+
+      const postingLines: Array<{
+        kontoId: string;
+        direction: "D" | "P";
+        amountCents: number;
+        description: string;
+      }> = [];
+
+      for (const rule of activeRules) {
+        const amountCents = amountByComponent.get(rule.komponenta) ?? 0;
+
+        if (amountCents <= 0) {
+          continue;
+        }
+
+        const debitAccount = rule.duguje_konto;
+        const creditAccount = rule.potrazuje_konto;
+        const accountInvalid = [debitAccount, creditAccount].some(
+          (account) =>
+            !account ||
+            account.firma_id !== context.firma.id ||
+            !account.aktivan ||
+            account.override_type === accountOverrideTypes.deactivated ||
+            account.tip_konta !== "analiticko" ||
+            account.analitika_obavezna
+        );
+
+        if (
+          accountInvalid ||
+          !debitAccount ||
+          !creditAccount ||
+          debitAccount.id === creditAccount.id
+        ) {
+          throw new Error("knjizenje_konta");
+        }
+
+        postingLines.push(
+          {
+            kontoId: debitAccount.id,
+            direction: "D",
+            amountCents,
+            description: rule.naziv
+          },
+          {
+            kontoId: creditAccount.id,
+            direction: "P",
+            amountCents,
+            description: rule.naziv
+          }
+        );
+      }
+
+      const debitTotalCents = postingLines.reduce(
+        (total, line) =>
+          total + (line.direction === "D" ? line.amountCents : 0),
+        0
+      );
+      const creditTotalCents = postingLines.reduce(
+        (total, line) =>
+          total + (line.direction === "P" ? line.amountCents : 0),
+        0
+      );
+
+      if (debitTotalCents === 0 || debitTotalCents !== creditTotalCents) {
+        throw new Error("knjizenje_nebalansirano");
+      }
+
+      await tx.$executeRaw(
+        Prisma.sql`
+          SELECT pg_advisory_xact_lock(
+            hashtext(${"plate-nalog"}),
+            hashtext(${`${context.firma.id}:${context.godina.id}:${journalType.id}`})
+          )
+        `
+      );
+
+      const lastJournal = await tx.nalog.findFirst({
+        where: {
+          firma_id: context.firma.id,
+          poslovna_godina_id: context.godina.id,
+          vrsta_naloga_id: journalType.id
+        },
+        orderBy: {
+          broj: "desc"
+        },
+        select: {
+          broj: true
+        }
+      });
+      const journalNumber = (lastJournal?.broj ?? 0) + 1;
+      const journalCode = formatJournalCode(
+        journalType.prefiks,
+        context.godina.godina,
+        journalNumber
+      );
+      const journalDescription = settings.opis_naloga
+        .replaceAll("{kategorija}", payrollCategoryLabel(calculation.kategorija))
+        .replaceAll("{mjesec}", String(calculation.mjesec).padStart(2, "0"))
+        .replaceAll("{godina}", String(calculation.godina));
+      const postedAt = new Date();
+      const journal = await tx.nalog.create({
+        data: {
+          agencija_id: context.agencijaId,
+          firma_id: context.firma.id,
+          poslovna_godina_id: context.godina.id,
+          vrsta_naloga_id: journalType.id,
+          broj: journalNumber,
+          sifra: journalCode,
+          datum: calculation.datum_obracuna,
+          datum_knjizenja: calculation.datum_obracuna,
+          opis: journalDescription,
+          status: journalStatuses.posted,
+          source_type: "PAYROLL",
+          source_module: "PLATE",
+          source_sync_status: "SYNCED",
+          izvorni_dokument_id: calculation.id,
+          kreirao_korisnik_id: context.user.id,
+          created_by: context.user.id,
+          updated_by: context.user.id,
+          proknjizen_at: postedAt,
+          proknjizen_by: context.user.id
+        },
+        select: {
+          id: true,
+          broj: true,
+          sifra: true
+        }
+      });
+
+      for (let index = 0; index < postingLines.length; index += 1) {
+        const line = postingLines[index]!;
+
+        await tx.stavkaNaloga.create({
+          data: {
+            nalog_id: journal.id,
+            konto_id: line.kontoId,
+            duguje:
+              line.direction === "D" ? centsToDecimal(line.amountCents) : "0.00",
+            potrazuje:
+              line.direction === "P" ? centsToDecimal(line.amountCents) : "0.00",
+            opis: `${line.description} — ${calculation.mjesec}/${calculation.godina}`,
+            broj_dokumenta: `OBR-${calculation.broj}/${calculation.godina}`,
+            datum_dokumenta: calculation.datum_obracuna,
+            datum_valute: calculation.datum_isplate,
+            redni_broj: index + 1,
+            created_by: context.user.id,
+            updated_by: context.user.id
+          }
+        });
+      }
+
+      const postedCalculation = await tx.plateObracun.update({
+        where: {
+          id: calculation.id
+        },
+        data: {
+          status: payrollStatuses.posted,
+          nalog_id: journal.id,
+          posted_at: postedAt,
+          posted_by: context.user.id,
+          updated_by: context.user.id
+        },
+        select: {
+          id: true,
+          broj: true,
+          kategorija: true,
+          status: true
+        }
+      });
+
+      return {
+        journal,
+        calculation: postedCalculation,
+        debitTotalCents,
+        creditTotalCents
+      };
+    });
+  } catch (error) {
+    const knownMessages = new Set([
+      "obracun_ne_postoji",
+      "obracun_vec_proknjizen",
+      "obracun_nije_obradjen",
+      "knjizenje_nema_iznosa",
+      "knjizenje_vrsta_naloga",
+      "knjizenje_pravila",
+      "knjizenje_duple_komponente",
+      "knjizenje_konta",
+      "knjizenje_nebalansirano"
+    ]);
+    const message =
+      error instanceof Error && knownMessages.has(error.message)
+        ? error.message
+        : "knjizenje_greska";
+
+    redirect(
+      `${returnPath}?obracun=${calculationId}&poruka=${message}`
+    );
+  }
+
+  await auditLog({
+    korisnikId: context.user.id,
+    agencijaId: context.agencijaId,
+    firmaId: context.firma.id,
+    modul: "plate",
+    akcija: "post_payroll",
+    tipEntiteta: "PlateObracun",
+    entitetId: result.calculation.id,
+    novaVrijednost: {
+      obracun: result.calculation,
+      nalog: result.journal,
+      dugujeCent: result.debitTotalCents,
+      potrazujeCent: result.creditTotalCents
+    }
+  });
+
+  revalidatePath(returnPath);
+  revalidatePath("/agencija/nalozi");
+  revalidatePath(`/agencija/nalozi/${result.journal.id}`);
+  revalidatePath("/agencija/izvjestaji");
+  redirect(
+    `${returnPath}?obracun=${result.calculation.id}&poruka=obracun_proknjizen`
+  );
+}
+
 export async function saveM4MonthlyPayment(formData: FormData) {
-  const context = await requirePlateManageContext("/agencija/plate/m4");
+  const context = await requirePlateManageContext("/agencija/plate/obrasci/m4");
   const month = numberValue(formData.get("mjesec"));
   const paymentMode = text(formData.get("nacin"));
   let moneyFields = {
@@ -325,7 +1144,7 @@ export async function saveM4MonthlyPayment(formData: FormData) {
   };
 
   if (month < 1 || month > 12) {
-    redirect("/agencija/plate/m4?poruka=m4_uplata_nevalidna");
+    redirect("/agencija/plate/obrasci/m4?poruka=m4_uplata_nevalidna");
   }
 
   if (paymentMode === "u_cijelosti") {
@@ -338,7 +1157,7 @@ export async function saveM4MonthlyPayment(formData: FormData) {
     const calculatedMonth = report.months[month - 1];
 
     if (!calculatedMonth || calculatedMonth.ukupnoObracunatoCent <= 0) {
-      redirect(`/agencija/plate/m4?poruka=m4_uplata_nema_obracuna&mjesec=${month}`);
+      redirect(`/agencija/plate/obrasci/m4?poruka=m4_uplata_nema_obracuna&mjesec=${month}`);
     }
 
     moneyFields = {
@@ -355,7 +1174,7 @@ export async function saveM4MonthlyPayment(formData: FormData) {
   }
 
   if (Object.values(moneyFields).some((value) => value === null || value < 0)) {
-    redirect("/agencija/plate/m4?poruka=m4_uplata_nevalidna");
+    redirect("/agencija/plate/obrasci/m4?poruka=m4_uplata_nevalidna");
   }
 
   const values = moneyFields as Record<keyof typeof moneyFields, number>;
@@ -399,10 +1218,10 @@ export async function saveM4MonthlyPayment(formData: FormData) {
     novaVrijednost: saved
   });
 
-  revalidatePath("/agencija/plate/m4");
+  revalidatePath("/agencija/plate/obrasci/m4");
   revalidatePath("/stampa/plate/m4");
   const message = paymentMode === "u_cijelosti" ? "m4_uplata_puna_sacuvana" : "m4_uplata_sacuvana";
-  redirect(`/agencija/plate/m4?poruka=${message}&mjesec=${month}`);
+  redirect(`/agencija/plate/obrasci/m4?poruka=${message}&mjesec=${month}`);
 }
 
 export async function createPayrollEmployee(formData: FormData) {

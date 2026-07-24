@@ -88,13 +88,24 @@ Izlazna faktura → KIF → PDV prijava
 Ulazna faktura  → KUF → PDV prijava
 Kalkulacija robe → KUF + lager + nalog
 Uvozna kalkulacija → KUF + carinski PDV + lager + nalog
+Obračun plate/ugovora/zakupa → kategorijska D/P šema → PAYROLL nalog
 ```
+
+Podešavanje kontiranja plata je višestruko izolovano: jedna šema pripada
+agenciji, firmi, poslovnoj godini i kategoriji obračuna. Zaglavlje bira vrstu
+naloga, a pravila povezuju svaku obračunsku komponentu sa duguje/potražuje
+kontom firme. Akcija `Proknjiži` iz obrađenog obračuna transakcijski kreira
+izbalansiran i odmah `POSTED` `PAYROLL` nalog, povezuje ga sa obračunom i blokira
+ponovno knjiženje. Automatski nalog se ne vraća u nacrt opštom akcijom; za
+eventualne korekcije predviđen je budući namjenski storno tok.
 
 ## Štampa
 PDF izvještaji se prave kao čiste HTML/CSS print stranice bez menija
 (`src/app/stampa/`). M-4 koristi pojedinačni A4 portretni obrazac, A4 pejzažnu
 Tabelu 1 i A4 portretnu Tabelu 2 prema službenim uzorcima. `pdfjs-dist` se
-koristi samo za čitanje PDF-a (izvodi).
+koristi samo za čitanje PDF-a (izvodi). OPP-ND je A4 portretna mjesečna prijava
+prireza, računata iz poreza obrađenih plata/ugovora/zakupa i važeće opštinske
+stope firme.
 
 ## Statusi dokumenata
 Tipični statusi (ne moraju svi dokumenti imati sve):
@@ -106,11 +117,11 @@ dodatno imaju statuse na srpskom: otvorena, djelimično knjižena, knjižena.
   nalozi, bruto bilans, analitičke kartice i KIF/KUF.
 - **Prva puna/MVP implementacija postoji:** PDV prijava i XML, izvodi sa
   parserima više banaka, plate sa IOPPD štampom/XML-om i godišnjim M-4
-  obrascima, te završni račun sa obrascima, korekcijama, zaključnim knjiženjem
-  i arhivom.
+  obrascima i podesivom šemom kontiranja po kategoriji, te završni račun sa
+  obrascima, korekcijama, zaključnim knjiženjem i arhivom.
 - **Djelimično ili otvoreno:** potpuna primjena prava na svakom backend toku,
   testovi, zaključavanje PDV perioda, napredne alokacije izvoda, obustave i
-  knjiženje plata, XML završnog računa.
+  storno knjiženja plata, XML završnog računa.
 - **Nije implementirano:** robno knjigovodstvo, puni klijentski portal,
   dashboard podstranice i većina zbirnih izvještaja. Fiskalizacija nije dio
   prve verzije.
