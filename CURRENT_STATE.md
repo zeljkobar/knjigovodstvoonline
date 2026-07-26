@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-07-24. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-07-25. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -56,6 +56,12 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - F10 popunjava razliku na aktivnom redu; F9 proknjižava.
 - Bruto bilans (filteri, početno stanje, subtotali, ukupno); klik na konto vodi
   na analitičku karticu. Print bruto bilansa i naloga bez menija.
+- Stranica `Nalozi / Početno stanje` automatski priprema jedan numerisan
+  `DRAFT` nalog iz krajnjih salda `POSTED` naloga prethodne poslovne godine.
+  Prenose se samo konta klasa 0–4, zbirno po kontu i partneru; klase 5 i 6 se
+  ne prenose i njihov nezatvoren saldo prikazuje upozorenje. Kreiranje je
+  blokirano za zaključanu ciljnu godinu, neizbalansirane klase 0–4, nedostajuću
+  prethodnu godinu ili već postojeći aktivni nalog početnog stanja.
 - Stranica Kupci / dobavljači prikazuje zbirno otvoreni saldo po partnerima
   za izabrani konto sa obaveznom partner analitikom iz proknjiženih naloga, sa
   linkom na analitičku karticu partnera.
@@ -72,6 +78,15 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - KUF unos: dobavljač, broj računa, datumi, konto, ukupno, razrada po stopama.
 - KIF unos/import: kupac, broj računa, ukupno, razrada po stopama.
 - MAPR QR/link unos i batch import; SEP Excel import za KIF (pravi MAPR linkove).
+  KUF forma može lokalno u pregledniku pročitati MAPR QR kod iz PDF, TIFF,
+  JPG ili PNG računa; originalni fajl se ne šalje niti čuva na serveru.
+  Čitač koristi visoku PDF rezoluciju, Chrome QR detektor i ZXing `TRY_HARDER`,
+  te skeniranje preklopljenih zona, uvećavanje i kontrastne/invertovane
+  varijante za male QR kodove i fotografije.
+- Stranica `Računi / Import` podržava višestruki izbor PDF/TIFF/JPG/PNG računa.
+  Fajlovi se lokalno obrađuju redom, uspješni MAPR linkovi se odmah dopisuju u
+  postojeće polje linkova, a svaki fajl dobija status uspjeh/duplikat/greška
+  prije pokretanja postojećeg KUF/KIF importa.
 - Cijela knjiga se knjiži odjednom u jedan nalog; naknadni računi se dopunjavaju.
 - Statusi na srpskom: otvorena, djelimično knjižena, knjižena.
 - Edit/delete za neproknjižene račune; fizičko brisanje KIF/KUF računa i cijele

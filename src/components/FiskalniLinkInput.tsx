@@ -1,7 +1,7 @@
 "use client";
 
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type Status = { type: "ok" | "warn" | "error" | ""; message: string };
 
@@ -29,8 +29,21 @@ function fiscalSearchParams(url: URL) {
 
 export function FiskalniLinkInput({ formId }: { formId: string }) {
   const [status, setStatus] = useState<Status>({ type: "", message: "" });
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  function parse(raw: string) {
+  const clearFormDataset = useCallback(() => {
+    const form = document.getElementById(formId) as HTMLFormElement | null;
+    if (form) {
+      delete form.dataset.fiskalniUrl;
+      setFormValue(form, "fiscal_iic", "");
+      setFormValue(form, "fiscal_fic", "");
+      setFormValue(form, "fiscal_seller_tin", "");
+      setFormValue(form, "fiscal_datetime", "");
+      setFormValue(form, "fiscal_source_url", "");
+    }
+  }, [formId]);
+
+  const parse = useCallback((raw: string) => {
     const trimmed = raw.trim();
     if (!trimmed) {
       setStatus({ type: "", message: "" });
@@ -111,25 +124,29 @@ export function FiskalniLinkInput({ formId }: { formId: string }) {
       type: "ok",
       message: `Link je učitan. Dobavljač se traži po PIB-u ${tin}. Za tačan PDV kliknite F8.`
     });
-  }
+  }, [clearFormDataset, formId]);
 
-  function clearFormDataset() {
-    const form = document.getElementById(formId) as HTMLFormElement | null;
-    if (form) {
-      delete form.dataset.fiskalniUrl;
-      setFormValue(form, "fiscal_iic", "");
-      setFormValue(form, "fiscal_fic", "");
-      setFormValue(form, "fiscal_seller_tin", "");
-      setFormValue(form, "fiscal_datetime", "");
-      setFormValue(form, "fiscal_source_url", "");
+  useEffect(() => {
+    function onFileLinkDecoded(event: Event) {
+      const url = String((event as CustomEvent<{ url?: string }>).detail?.url ?? "");
+      if (!url) return;
+
+      if (inputRef.current) {
+        inputRef.current.value = url;
+      }
+      parse(url);
     }
-  }
+
+    document.addEventListener("fiscal-file-link-decoded", onFileLinkDecoded);
+    return () => document.removeEventListener("fiscal-file-link-decoded", onFileLinkDecoded);
+  }, [parse]);
 
   return (
     <div className="fiskalni-link-section form-wide">
       <label>
         <span>Fiskalni link (QR kod)</span>
         <input
+          ref={inputRef}
           autoComplete="off"
           placeholder="Nalijepite ili skenirajte fiskalni link..."
           type="url"

@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  decodeInvoiceQrFile,
+  invoiceQrFileAccept
+} from "@/components/InvoiceQrUpload";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
@@ -36,6 +40,12 @@ type ImportMetadata = {
 };
 
 type SepInvoiceRow = Record<string, unknown>;
+
+type QrFileResult = {
+  fileName: string;
+  status: "success" | "duplicate" | "error";
+  message: string;
+};
 
 function extractLinks(text: string) {
   return Array.from(
@@ -222,6 +232,8 @@ export function InvoiceImportClient({
   const [results, setResults] = useState<ImportResult[]>([]);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [metadata, setMetadata] = useState<ImportMetadata[]>([]);
+  const [isReadingQrFiles, setIsReadingQrFiles] = useState(false);
+  const [qrFileResults, setQrFileResults] = useState<QrFileResult[]>([]);
 
   const filteredBooks = useMemo(
     () => books.filter((book) => book.documentType === documentType),
@@ -282,6 +294,61 @@ export function InvoiceImportClient({
         : "Fajl je učitan u listu linkova. Fajl nije sačuvan na serveru."
     );
     setStatus("idle");
+  }
+
+  async function readQrFiles(files: File[]) {
+    if (files.length === 0) return;
+
+    setIsReadingQrFiles(true);
+    setQrFileResults([]);
+    setStatus("idle");
+    setSummary(null);
+    setResults([]);
+    const knownLinks = new Set(links);
+    const nextResults: QrFileResult[] = [];
+    let successCount = 0;
+    let duplicateCount = 0;
+
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      setMessage(`Čitam QR kod ${index + 1}/${files.length}: ${file.name}`);
+
+      try {
+        const link = await decodeInvoiceQrFile(file);
+
+        if (knownLinks.has(link)) {
+          duplicateCount += 1;
+          nextResults.push({
+            fileName: file.name,
+            status: "duplicate",
+            message: "Link je već u polju."
+          });
+        } else {
+          knownLinks.add(link);
+          successCount += 1;
+          setLinksText((current) => appendText(current, link));
+          nextResults.push({
+            fileName: file.name,
+            status: "success",
+            message: "MAPR link je dodat."
+          });
+        }
+      } catch (error) {
+        nextResults.push({
+          fileName: file.name,
+          status: "error",
+          message: error instanceof Error ? error.message : "Fajl nije moguće obraditi."
+        });
+      }
+
+      setQrFileResults([...nextResults]);
+    }
+
+    const errorCount = nextResults.filter((result) => result.status === "error").length;
+    setIsReadingQrFiles(false);
+    setMessage(
+      `Obrađeno ${files.length} fajlova: dodato ${successCount}, duplikati ${duplicateCount}, greške ${errorCount}. Originalni fajlovi nijesu sačuvani.`
+    );
   }
 
   async function importLinks() {
@@ -351,6 +418,7 @@ export function InvoiceImportClient({
           <label>
             <span>Tip knjige</span>
             <select
+              disabled={isReadingQrFiles || status === "loading"}
               value={documentType}
               onChange={(event) => {
                 const nextType = event.target.value as "KUF" | "KIF";
@@ -360,6 +428,7 @@ export function InvoiceImportClient({
                 setMetadata([]);
                 setResults([]);
                 setSummary(null);
+                setQrFileResults([]);
               }}
             >
               <option value="KUF">KUF</option>
@@ -368,7 +437,11 @@ export function InvoiceImportClient({
           </label>
           <label>
             <span>Knjiga</span>
-            <select value={bookId} onChange={(event) => setBookId(event.target.value)}>
+            <select
+              disabled={isReadingQrFiles || status === "loading"}
+              value={bookId}
+              onChange={(event) => setBookId(event.target.value)}
+            >
               <option value="">Izaberite knjigu</option>
               {filteredBooks.map((book) => (
                 <option key={book.id} value={book.id}>
@@ -382,6 +455,7 @@ export function InvoiceImportClient({
             <input
               className="file-input"
               accept=".csv,.txt,.xlsx,.xls"
+              disabled={isReadingQrFiles || status === "loading"}
               type="file"
               onChange={(event) => {
                 const file = event.target.files?.[0];
@@ -393,7 +467,45 @@ export function InvoiceImportClient({
               }}
             />
           </label>
-          <button type="button" disabled={status === "loading"} onClick={() => void importLinks()}>
+          <label className="qr-import-file-field">
+            <span>Računi sa QR kodom (više fajlova)</span>
+            <input
+              className="file-input"
+              accept={invoiceQrFileAccept}
+              disabled={isReadingQrFiles || status === "loading"}
+              multiple
+              type="file"
+              onChange={(event) => {
+                const files = Array.from(event.target.files ?? []);
+                event.currentTarget.value = "";
+                if (files.length > 0) {
+                  void readQrFiles(files);
+                }
+              }}
+            />
+            <small>
+              PDF, TIFF, JPG ili PNG do 20 MB po fajlu. Fajlovi se obrađuju redom
+              samo u pregledniku.
+            </small>
+          </label>
+          {qrFileResults.length > 0 ? (
+            <div className="qr-batch-results form-wide" aria-live="polite">
+              {qrFileResults.map((result, index) => (
+                <div
+                  className={`qr-batch-result qr-batch-result--${result.status}`}
+                  key={`${result.fileName}-${index}`}
+                >
+                  <strong>{result.fileName}</strong>
+                  <span>{result.message}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <button
+            type="button"
+            disabled={status === "loading" || isReadingQrFiles}
+            onClick={() => void importLinks()}
+          >
             {status === "loading" ? "Importujem..." : "Importuj račune"}
           </button>
           <label className="form-wide">
@@ -402,6 +514,7 @@ export function InvoiceImportClient({
               rows={12}
               value={linksText}
               placeholder="Nalijepite MAPR linkove, jedan ispod drugog..."
+              disabled={isReadingQrFiles}
               onChange={(event) => setLinksText(event.target.value)}
             />
           </label>

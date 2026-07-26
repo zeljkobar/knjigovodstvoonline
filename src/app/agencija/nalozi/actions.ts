@@ -2,11 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { auditLog } from "@/lib/audit";
 import { accountOverrideTypes } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
+import { openingBalanceJournalType } from "@/lib/opening-balance";
 import { pdvReturnStatuses } from "@/lib/pdv";
 import { prisma } from "@/lib/prisma";
 
@@ -371,6 +372,7 @@ export async function createJournal(formData: FormData) {
       },
       select: {
         id: true,
+        sifra: true,
         naziv: true,
         prefiks: true
       }
@@ -378,6 +380,32 @@ export async function createJournal(formData: FormData) {
 
     if (!journalType) {
       throw new Error("vrsta_nevalidna");
+    }
+
+    if (journalType.sifra === openingBalanceJournalType) {
+      await tx.$executeRaw(
+        Prisma.sql`SELECT pg_advisory_xact_lock(
+          hashtext(${firma.id}),
+          hashtext(${poslovnaGodina.id})
+        )`
+      );
+      const existingOpeningBalance = await tx.nalog.findFirst({
+        where: {
+          firma_id: firma.id,
+          poslovna_godina_id: poslovnaGodina.id,
+          is_deleted: false,
+          vrsta_naloga: {
+            sifra: openingBalanceJournalType
+          }
+        },
+        select: {
+          id: true
+        }
+      });
+
+      if (existingOpeningBalance) {
+        throw new Error("pocetno_postoji");
+      }
     }
 
     const lastJournal = await tx.nalog.findFirst({

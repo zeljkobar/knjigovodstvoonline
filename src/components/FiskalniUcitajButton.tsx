@@ -108,6 +108,16 @@ export function FiskalniUcitajButton({ formId }: { formId: string }) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  useEffect(() => {
+    function onMaprLoadRequested() {
+      ucitajRef.current();
+    }
+
+    document.addEventListener("fiscal-mapr-load-requested", onMaprLoadRequested);
+    return () =>
+      document.removeEventListener("fiscal-mapr-load-requested", onMaprLoadRequested);
+  }, []);
+
   return (
     <div className="mapr-ucitaj-section">
       {message ? (

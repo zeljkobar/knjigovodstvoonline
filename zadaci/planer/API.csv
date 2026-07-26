@@ -44,7 +44,7 @@ API-039,POST,/api/journals/:id/reopen,Vraćanje proknjiženog naloga u nacrt.,Na
 API-040,DELETE,/api/journals/:id,Soft delete naloga.,Nalozi,Implementirano djelimicno,F-031,Ne,Soft delete naloga postoji kao server action.,,,,,,,,,,,,,,,,,
 API-041,GET,/api/journals/:id/document-links,Veze naloga sa dokumentima.,Nalozi,Nije poceto,F-032,Ne,Veze dokument-nalog jos nisu implementirane.,,,,,,,,,,,,,,,,,
 API-042,POST,/api/journals/:id/document-links,Dodavanje veze dokument-nalog.,Nalozi,Nije poceto,F-032,Ne,Veze dokument-nalog jos nisu implementirane.,,,,,,,,,,,,,,,,,
-API-043,POST,/api/companies/:id/business-years/:yearId/opening-balance/generate,Generisanje početnog stanja.,Nalozi,Nije poceto,F-035,Ne,Generisanje pocetnog stanja jos nije implementirano.,,,,,,,,,,,,,,,,,
+API-043,POST,/api/companies/:id/business-years/:yearId/opening-balance/generate,Generisanje početnog stanja.,Nalozi,Implementirano,F-035,Djelimicno,"Implementirano kao Next.js server action sa scope/permission/lock kontrolama, provjerom balansa i zaštitom od duplikata.",,,,,,,,,,,,,,,,,
 API-044,GET,/api/partners,Lista partnera.,Nalozi,Nije poceto,F-036,Ne,Poseban API/stranica partnera jos nije implementiran.,,,,,,,,,,,,,,,,,
 API-045,POST,/api/partners,Kreiranje partnera.,Nalozi,Nije poceto,F-036,Ne,Poseban API/stranica partnera jos nije implementiran.,,,,,,,,,,,,,,,,,
 API-046,GET,/api/reports/trial-balance,Bruto bilans.,Nalozi,Implementirano djelimicno,F-038,Djelimicno,"Bruto bilans je implementiran kao server-rendered izvještaj sa filterima i print rutom, ne kao zaseban JSON API.",,,,,,,,,,,,,,,,,

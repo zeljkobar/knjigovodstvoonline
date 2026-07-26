@@ -3,6 +3,43 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-07-25
+- Na formu ulaznog računa u KUF-u dodato je dugme `Učitaj račun (PDF/slika)`
+  iznad fiskalnog linka. PDF, TIFF, JPG i PNG obrađuju se isključivo lokalno u
+  pregledniku; pronađeni MAPR link puni postojeće polje i automatski pokreće
+  MAPR provjeru, dok se originalni fajl ne šalje niti čuva na serveru.
+- Dodate su klijentske QR/TIFF zavisnosti, ograničenje fajla na 20 MB i obrada
+  do osam PDF/TIFF stranica. `npx tsc --noEmit`, ESLint izmijenjenih fajlova i
+  `git diff --check` prolaze; puni lint zadržava tri ranija nepovezana
+  upozorenja. Ručni UI test ostaje za stvarne uzorke jer povezani preglednik
+  nije bio dostupan u sesiji.
+- QR čitač je zatim pojačan na osnovu stvarnog uzorka
+  `zadaci/Racun_izlaza(18).pdf`: stari PDF render visine oko 2105 px nije
+  prolazio kroz ZXing, dok render od 3000 px vraća kompletan MAPR link. Novi
+  čitač ide do 4200 px/4,5x, prvo koristi Chrome BarcodeDetector pa ZXing
+  `TRY_HARDER`, skenira preklopljene zone stranice i za PDF/slike pokušava
+  uvećane, Otsu-kontrastne i invertovane varijante.
+- `Računi / Import` sada ima poseban višestruki upload računa sa QR kodom.
+  PDF/TIFF/JPG/PNG fajlovi se obrađuju sekvencijalno i lokalno, svaki uspješan
+  MAPR link odmah se dodaje u tekstualno polje, a UI prikazuje uspjeh, duplikat
+  ili grešku po fajlu. Postojeći `/api/racuni/import` i izbor KUF/KIF knjige
+  ostaju završni korak koji stvarno kreira račune.
+- Implementiran je automatski prenos početnog stanja na stranici
+  `/agencija/nalozi/pocetno-stanje`. Iz krajnjih salda `POSTED` naloga
+  prethodne poslovne godine kreira se jedan numerisan `DRAFT` nalog nove
+  godine, zbirno po kontu i partneru.
+- Prenose se isključivo konta klasa 0–4. Klase 5 i 6 nikada ne ulaze u početno
+  stanje; eventualni nezatvoreni saldo tih klasa prikazuje se kao upozorenje.
+  Kreiranje zahtijeva da su salda klasa 0–4 izbalansirana.
+- Backend provjerava prijavu, agencijski/firmski/godišnji scope, pravo
+  `nalozi/create`, zaključavanje ciljne godine, postojanje prethodne godine i
+  zabranu drugog aktivnog početnog stanja. Ista zabrana duplikata dodata je i
+  opštem ručnom kreiranju naloga, uz transakcijski advisory lock.
+- `npx tsc --noEmit`, lint i `git diff --check` prolaze bez novih grešaka.
+  Runtime pregled stranice potvrđen je nad lokalnim podacima, a rollback
+  integracioni test je potvrdio prenos klasa 0–4, partner analitiku, isključenje
+  klasa 5/6, balans naloga i da testni podaci nijesu ostali u bazi.
+
 ## 2026-07-24
 - Plate su dobile grupu `Obrasci` sa drugim nivoom podmenija `M-4`, `OPP-ND`
   i `IOPPD`. Postojeće M-4 i IOPPD stranice premještene su na nove ugniježđene

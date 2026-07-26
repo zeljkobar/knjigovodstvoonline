@@ -17,6 +17,7 @@ type NoviNalogPageProps = {
 const poruke: Record<string, string> = {
   nalog_obavezno: "Izaberite firmu, godinu, vrstu naloga i datum.",
   godina_zakljucena: "Poslovna godina je zakljucena.",
+  pocetno_postoji: "Za izabranu firmu i godinu već postoji nalog početnog stanja.",
   stavke_obavezne: "Nalog mora imati bar jednu stavku.",
   stavke_nevalidne: "Provjerite konta i iznose na stavkama.",
   stavka_iznos: "Jedna stavka mora imati samo duguje ili samo potrazuje.",

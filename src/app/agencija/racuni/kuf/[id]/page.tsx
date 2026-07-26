@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createKufEntry, deleteKufEntry, postInvoiceBook, updateKufEntry } from "../../actions";
 import { FiskalniLinkInput } from "@/components/FiskalniLinkInput";
 import { FiskalniUcitajButton } from "@/components/FiskalniUcitajButton";
+import { InvoiceQrUpload } from "@/components/InvoiceQrUpload";
 import { KufEntryFormShortcuts } from "@/components/KufEntryFormShortcuts";
 import { KufTaxLinesForm } from "@/components/KufTaxLinesForm";
 import { PartnerSearchInput } from "@/components/PartnerSearchInput";
@@ -503,7 +504,12 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             defaultValue={editingEntry?.fiscal_source_url ?? ""}
           />
 
-          {!isLocked ? <FiskalniLinkInput formId="kuf-entry-form" /> : null}
+          {!isLocked ? (
+            <>
+              <InvoiceQrUpload />
+              <FiskalniLinkInput formId="kuf-entry-form" />
+            </>
+          ) : null}
 
           <PartnerSearchInput
             disabled={isLocked}

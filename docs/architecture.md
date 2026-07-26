@@ -2,7 +2,7 @@
 
 > Sažetak iz [`PROJEKAT_PLAN.md`](../PROJEKAT_PLAN.md) i
 > [`zadaci/00_MASTER_SPEC_Racunovodstveni_Program_AZURIRAN_KIF_KUF.md`](../zadaci/00_MASTER_SPEC_Racunovodstveni_Program_AZURIRAN_KIF_KUF.md).
-> Implementacioni status provjeren prema kodu 2026-07-23.
+> Implementacioni status provjeren prema kodu 2026-07-25.
 
 ## Tehnološki stek
 - **Frontend/Backend:** Next.js 15 (App Router, server komponente, server
@@ -89,7 +89,13 @@ Ulazna faktura  → KUF → PDV prijava
 Kalkulacija robe → KUF + lager + nalog
 Uvozna kalkulacija → KUF + carinski PDV + lager + nalog
 Obračun plate/ugovora/zakupa → kategorijska D/P šema → PAYROLL nalog
+POSTED salda prethodne godine (klase 0–4) → DRAFT nalog početnog stanja
 ```
+
+Automatsko početno stanje radi u scope-u aktivne agencije, firme i ciljne
+poslovne godine. Salda se grupišu po kontu i partneru, klase 5/6 se ne prenose,
+a transakcijska zaštita sprečava dva aktivna naloga početnog stanja za istu
+firmu i godinu.
 
 Podešavanje kontiranja plata je višestruko izolovano: jedna šema pripada
 agenciji, firmi, poslovnoj godini i kategoriji obračuna. Zaglavlje bira vrstu

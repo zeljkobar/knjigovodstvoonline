@@ -39,6 +39,17 @@ KUF razlikuje ukupni ulazni PDV, odbitni i neodbitni:
   knjiga, šeme po poljima i šemu za uvoz.
 - Unos: dobavljač, broj računa, datumi, konto knjiženja, ukupno, razrada po
   stopama.
+- Na unosu se MAPR QR kod može pročitati direktno iz PDF, TIFF, JPG ili PNG
+  računa. Obrada se radi lokalno u pregledniku; originalni fajl se ne šalje i
+  ne čuva na serveru. Izdvojeni link nastavlja kroz postojeću MAPR provjeru i
+  popunjavanje KUF forme, a korisnik potvrđuje unos. Za male QR kodove čitač
+  renderuje PDF u visokoj rezoluciji i pokušava preklopljene zone stranice,
+  uvećavanje, automatski kontrast i invertovanu sliku; isti višestruki postupak
+  primjenjuje se na JPG, PNG i TIFF.
+- Na `Računi / Import` isti čitač prihvata više PDF/TIFF/JPG/PNG fajlova
+  odjednom. Obrađuje ih redom u pregledniku, dopisuje jedinstvene MAPR linkove
+  u polje `Linkovi` i prikazuje status po fajlu; tek naknadni klik na
+  `Importuj račune` šalje linkove u postojeći KUF/KIF import.
 
 ## Tip PDV prometa (`vat_transaction_type`)
 > Implementirano u `src/lib/vat-transaction.ts`.

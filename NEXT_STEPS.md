@@ -7,6 +7,8 @@
 - QA za edit/delete neproknjiženih računa.
 - Kontrole i upozorenja za duplikate računa.
 - Kontrole zbirnih iznosa (osnovica + PDV = ukupno po stopama).
+- Ručni QA pojedinačnog i višestrukog QR čitanja na većem uzorku stvarnih
+  PDF/TIFF/JPG/PNG ulaznih računa.
 - Print kolone i prelom za knjige sa mnogo redova.
 - Test za djelimično knjiženu knjigu i dopunu postojećeg naloga.
 
@@ -64,8 +66,8 @@
   pokrivena. Šifarnik 21 opštine, DJP šifre i raspoloživi računi iz stare MDB
   baze su uneseni. Kontrolisano trajno brisanje testne firme i svih njenih
   podataka je završeno.
-- **Modul 3:** formalni unos/prenos početnog stanja; kontrole po poslovnoj
-  jedinici; testovi za validacije i prava.
+- **Modul 3:** kontrole po poslovnoj jedinici; dodatni automatizovani testovi
+  za validacije, prava i konkurentne zahtjeve pri kreiranju početnog stanja.
 - **Modul 5/7 Izvodi:** dodati parsere za ostale banke, dodatne uslove pravila
   po formatima banaka, split alokacije jedne uplate na više KIF/KUF računa i
   vraćanje proknjiženog izvoda u nacrt.

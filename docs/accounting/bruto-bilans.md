@@ -15,6 +15,10 @@ na osnovu proknjiženih naloga.
 - Klik na konto vodi na **analitičku karticu** tog konta (sa async pretragom
   partnera u filteru — vidi `PartnerFilterSelect`).
 - **Print** bruto bilansa kao čista HTML/CSS stranica bez menija.
+- Automatski prenos početnog stanja: krajnji saldo prethodne godine iz
+  `POSTED` naloga prenosi se u jedan numerisan `DRAFT` nalog nove godine,
+  zbirno po kontu i partneru. Prenose se samo klase 0–4; klase 5 i 6 se ne
+  prenose, a njihov preostali saldo prikazuje upozorenje.
 
 ## Izvor podataka
 Stavke proknjiženih naloga (`stavke_naloga`) agregirane po `konto_id`, uz
@@ -39,8 +43,10 @@ partnerom.
 - Nema POSTED naloga bez stavki.
 - Nema analitičkog konta bez partnera.
 - Zaključana poslovna godina ne dozvoljava izmjene.
+- Za istu firmu i poslovnu godinu može postojati samo jedan aktivan nalog
+  početnog stanja; kreiranje je blokirano ako klase 0–4 nijesu izbalansirane.
 
 ## Otvoreno
-- Formalni unos/prenos početnog stanja.
 - Dodatne kontrole po poslovnoj jedinici.
-- Testovi za agregaciju i početno stanje (vidi [`NEXT_STEPS.md`](../../NEXT_STEPS.md)).
+- Dodatni automatizovani testovi za prava i konkurentne zahtjeve pri kreiranju
+  početnog stanja (vidi [`NEXT_STEPS.md`](../../NEXT_STEPS.md)).
