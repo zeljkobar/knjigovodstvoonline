@@ -81,6 +81,11 @@ partner:
 - Naknadni računi dopunjavaju **samo neproknjižene** na isti nalog.
 - Statusi (srpski): **otvorena → djelimično knjižena → knjižena**.
 - Edit/delete za neproknjižene račune.
+- Kalkulacija prvo zadužuje lager i kreira svoj nalog, a zatim se iz
+  odgovarajuće mjesečne KUF knjige bira **Preuzmi kalkulacije**.
+- Preuzeti zapis je označen **Knjiženo kroz kalkulaciju**: ulazi u KUF i PDV,
+  ali se ne knjiži ponovo po pravilima KUF knjige i ne može se uređivati ili
+  brisati kao običan troškovni račun.
 
 ## Štampa
 Čista HTML/CSS print stranica knjige bez menija.

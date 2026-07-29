@@ -853,6 +853,7 @@ export async function deleteJournal(formData: FormData) {
       broj: true,
       sifra: true,
       status: true,
+      source_type: true,
       poslovna_godina: {
         select: {
           zakljucena: true
@@ -867,6 +868,10 @@ export async function deleteJournal(formData: FormData) {
 
   if (nalog.status !== journalStatuses.draft) {
     redirectJournals("nalog_greska");
+  }
+
+  if (nalog.source_type === "CALCULATION") {
+    redirectJournals("nalog_kalkulacija");
   }
 
   await auditLog({

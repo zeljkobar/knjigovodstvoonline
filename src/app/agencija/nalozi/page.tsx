@@ -24,6 +24,7 @@ type NaloziPageProps = {
 
 const poruke: Record<string, string> = {
   nalog_obrisan: "Nalog je obrisan.",
+  nalog_kalkulacija: "Nalog kalkulacije se ne briše odvojeno od robnog dokumenta.",
   nalog_greska: "Nalog nije pronađen ili akcija nije dozvoljena.",
   nalog_proknjizen: "Nalog je proknjižen."
 };

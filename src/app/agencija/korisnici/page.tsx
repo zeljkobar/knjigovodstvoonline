@@ -34,6 +34,7 @@ const poruke: Record<string, string> = {
 
 const moduli = [
   "nalozi",
+  "robno",
   "kalkulacije",
   "izlazni_racuni",
   "ulazni_racuni",

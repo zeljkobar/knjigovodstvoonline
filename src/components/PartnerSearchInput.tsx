@@ -45,6 +45,7 @@ export function PartnerSearchInput({
   const [status, setStatus] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [detectedPib, setDetectedPib] = useState("");
   const latestQueryRef = useRef("");
 
   const selectedLabel = useMemo(() => selected?.label ?? "", [selected]);
@@ -54,6 +55,7 @@ export function PartnerSearchInput({
     setQuery(initialPartner?.label ?? "");
     setResults([]);
     setStatus("");
+    setDetectedPib("");
   }, [initialPartner]);
 
   useEffect(() => {
@@ -113,7 +115,7 @@ export function PartnerSearchInput({
 
   useEffect(() => {
     async function handleFiscalSupplier(event: Event) {
-      const { tin } = (event as CustomEvent<{ tin?: string }>).detail ?? {};
+      const { tin, name } = (event as CustomEvent<{ tin?: string; name?: string }>).detail ?? {};
       const pib = normalizePib(String(tin ?? ""));
 
       if (!pib || disabled) {
@@ -121,6 +123,7 @@ export function PartnerSearchInput({
       }
 
       setIsSearching(true);
+      setDetectedPib(pib);
       setStatus(`Tražim dobavljača po PIB-u ${pib}...`);
 
       try {
@@ -135,7 +138,7 @@ export function PartnerSearchInput({
           setStatus(`Dobavljač pronađen: ${partner.label}`);
         } else {
           setSelected(null);
-          setQuery(pib);
+          setQuery(String(name ?? "").trim() || pib);
           setResults([]);
           setStatus(`Dobavljač sa PIB-om ${pib} nije pronađen. Unesite ga ručno.`);
         }
@@ -152,6 +155,7 @@ export function PartnerSearchInput({
 
   function selectPartner(partner: PartnerResult) {
     setSelected(partner);
+    setDetectedPib("");
     setQuery(partner.label);
     setResults([]);
     setStatus("");
@@ -198,6 +202,7 @@ export function PartnerSearchInput({
             onChange={(event) => {
               setQuery(event.target.value);
               setSelected(null);
+              setDetectedPib("");
             }}
             onFocus={() => {
               if (query.trim().length >= 2 && !selected) {
@@ -242,6 +247,7 @@ export function PartnerSearchInput({
       {isCreateOpen ? (
         <QuickPartnerCreateModal
           initialName={query}
+          initialPib={detectedPib}
           onClose={() => setIsCreateOpen(false)}
           onCreated={handleCreatedPartner}
         />

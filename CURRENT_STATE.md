@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-07-25. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-07-29. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -67,6 +67,80 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   linkom na analitičku karticu partnera.
 - Pretraga partnera u nalozima i analitičkim karticama je **async** (ne učitava
   svih ~64k); `pg_trgm` GIN indeks na `komitenti.naziv` + btree na `pib`/`scope`.
+
+### Modul 4 — Robno knjigovodstvo
+- Robni meni je grupisan na `Pregled`, `Šifarnici`, `Nabavku`, `Prodaju`,
+  `Promet robe`, `Zalihe` i `Podešavanja`; izlazne fakture su samo pod Robnim,
+  dok `Računi` ostaju KIF/KUF tok.
+- Implementirana je prva robna osnova i migracija
+  `20260726120000_robno_sifarnici`: `jedinice_mjere`, `grupe_artikala`,
+  `artikli`, `cijene_artikala` i `magacini`, uz podrazumijevano pravilo
+  negativnog lagera na firmi.
+- Artikli i usluge su u istoj tabeli. Usluga automatski ne prati zalihe; šifra
+  može biti ručna ili automatska, a šifra i uneseni barkod jedinstveni su unutar
+  firme. Artikal ima opcionu grupu, jedinicu mjere, PDV stopu i informativnu
+  posljednju nabavnu cijenu.
+- Ekrani `Robno / Šifarnici`, `Artikli`, `Grupe artikala`, `Cijene` i `Magacini`
+  imaju scope po agenciji/firmi, pretragu, unos, izmjenu i
+  aktivaciju/deaktivaciju. Cijene za sada kroz UI podržavaju veleprodajni i
+  maloprodajni tip, iznos sa ili bez PDV-a i period važenja. Pri kreiranju
+  artikla mogu se odmah opciono unijeti veleprodajna cijena bez PDV-a i
+  maloprodajna cijena sa PDV-om; artikal i početne cijene čuvaju se u istoj
+  transakciji.
+- Negativan lager podešava se podrazumijevano na firmi i opciono može biti
+  naslijeđen, dozvoljen ili blokiran po magacinu. Stvarno sprovođenje pravila
+  slijedi sa dokumentima koji mijenjaju zalihe.
+- Sve robne server akcije provjeravaju agenciju, firmu, dodjelu korisnika i
+  `robno` pravo (`view/create/update/manage`) te upisuju audit log.
+- Implementirana je domaća kalkulacija kroz migraciju
+  `20260729120000_domace_kalkulacije`: zaglavlje, stavke, zavisni troškovi,
+  stanje zaliha i promet zaliha. Nacrt ne utiče na lager; završavanje
+  kalkulacije atomarno kreira nacrt naloga tipa `CALCULATION` i ulazni promet
+  po artiklu/magacinu, a dokument prelazi u status `WAITING_KUF`.
+- Obračun kalkulacije podržava količinu na tri decimale, jedinične cijene na
+  četiri decimale, rabat, više PDV stopa po stavkama, obaveznu prodajnu cijenu
+  sa PDV-om, automatski izračun marže/RUC-a, veleprodaju/maloprodaju,
+  ukalkulisani PDV i firme van PDV sistema. Maloprodaja je podrazumijevani tip.
+  Zbirni novčani iznosi računaju se u centima bez float aritmetike. Polja
+  marže i RUC-a podržavaju i procente veće od 999,9999%, što je potrebno kod
+  artikala sa veoma malom nabavnom i višom prodajnom cijenom.
+- Tabela stavki je svedena na grupisane obračunske kolone, a novi artikal se
+  može kreirati direktno iz kalkulacije uz obaveznu početnu maloprodajnu cijenu
+  i automatski izbor novog artikla.
+- Zavisni troškovi (prevoz, špedicija, osiguranje, ostalo) automatski se
+  raspoređuju po neto vrijednosti robe metodom najvećeg ostatka, tako da zbir
+  raspodjele tačno odgovara unesenom iznosu. Njihove posebne dobavljačke
+  fakture i dalje se evidentiraju zasebno u KUF-u.
+- Knjiženje ažurira ponderisanu prosječnu nabavnu cijenu i posljednju nabavnu
+  cijenu artikla, čuva kartični promet, a prodajnu cijenu iz kalkulacije upisuje
+  u istoriju cijena po magacinu. Zaključana godina ili PDV period blokiraju
+  završavanje.
+- Završene kalkulacije se naknadno preuzimaju iz KUF knjige odgovarajućeg
+  mjeseca. Preuzeti KUF zapis ulazi u KUF/PDV evidenciju, nosi status
+  `Knjiženo kroz kalkulaciju`, vezan je za nalog kalkulacije i izričito je
+  isključen iz redovnog KUF knjiženja i izmjene/brisanja. Standardni KUF nalog
+  bira samo račune sa načinom knjiženja `KUF_RULES`.
+- Kalkulacija više ne bira konto robe u zaglavlju. Posebna šema pod
+  `Robno / Podešavanja` definiše D/P konta za robu, ulazni PDV, dobavljača,
+  razliku u cijeni, ukalkulisani PDV i zavisne troškove. Knjiženje koristi tu
+  firm-specific šemu i blokira nepotpun ili nebalansiran nalog.
+- Ekrani `/agencija/robno/kalkulacije` i detalj kalkulacije imaju unos
+  zaglavlja, brzi unos i tabelarnu izmjenu stavki, zavisne troškove, zbirne
+  pokazatelje, soft delete nacrta i kontrolisano knjiženje. HTML/CSS štampa je
+  A4 landscape, sa širokom tabelom, PDV rekapitulacijom, vrijednosnim pregledom
+  i potpisima.
+- Nova kalkulacija može se pripremiti direktno iz fiskalnog MAPR linka. Server
+  ponovo čita račun sa portala, prepoznaje dobavljača, popunjava zaglavlje i
+  prikazuje sve stavke prije kreiranja dokumenta. Jedini aktivni magacin bira
+  se automatski; kada ih ima više, korisnik bira magacin.
+- MAPR pregled jasno razdvaja ranije povezane, predložene i nove artikle.
+  Korisnik potvrđuje predlog ili bira postojeći artikal, a za novu šifru unosi
+  samo potrebne podatke i obaveznu prodajnu cijenu. Novi artikli, njihove
+  početne maloprodajne cijene, veze sa šiframa dobavljača i kalkulacija kreiraju
+  se atomarno tek pri potvrdi. Sljedeći račun istog dobavljača koristi sačuvane
+  veze. Neprepoznata MAPR jedinica može se jednom povezati sa internom jedinicom
+  za sve stavke koje nose istu oznaku. Neto osnovica i ulazni PDV raspoređuju se
+  po stavkama do centa tako da zbir ostaje identičan MAPR računu.
 
 ### Modul 6 — Računi, KIF i KUF
 - PDV stope dinamičke u podešavanjima.
@@ -388,7 +462,10 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   u nacrt kroz opštu akciju naloga.
 
 ## Djelimično implementirano / otvoreno
-- Robno knjigovodstvo: spec pročitan, samo navigacioni placeholderi.
+- Robno knjigovodstvo: navigacija, osnovni šifarnici, domaća kalkulacija i njena
+  šema knjiženja su implementirani. Placeholderi ostaju za lager/promet,
+  izlazne fakture, povrate,
+  prenose, popis, otpis, nivelaciju i robne izvještaje.
 - Izvodi: prva MVP baza/stranica/import/preview/knjiženje i pregledne
   podstranice postoje. Implementirani su parseri za NLB XML/PDF, Erste HTM, CKB
   PDF, Hipotekarna PDF, Lovćen PDF i Prva banka PDF; ostaju parseri za ostale
@@ -408,6 +485,17 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
 
 ## Zadnje provjere
+- `npx prisma migrate deploy` primijenio je migracije
+  `20260726120000_robno_sifarnici` i
+  `20260727100000_jedinice_mjere_periodi`; Prisma klijent je regenerisan i dev
+  server restartovan. Migracije su unijele 15 početnih jedinica mjere,
+  uključujući mjesec, godinu i kvartal. Izolovani
+  transakcijski QA potvrdio je kreiranje grupe, magacina, usluge i cijene te
+  čist rollback bez probnih podataka.
+- `npx prisma migrate deploy` primijenio je migracije
+  `20260729120000_domace_kalkulacije` i
+  `20260729143000_kalkulacija_default_maloprodaja`; Prisma klijent je
+  regenerisan i dev server restartovan.
 - `npm run lint` prolazi bez grešaka, uz tri upozorenja: `_prev` u
   `src/app/admin/actions.ts` i dvije neiskorišćene varijable u
   `src/app/agencija/racuni/actions.ts`.

@@ -349,6 +349,7 @@ export default async function NeproknjizenoPage({ searchParams }: NeproknjizenoP
           },
           select: {
             posting_status: true,
+            posting_mode: true,
             journal_id: true,
             total_gross: true,
             expense_account: {
@@ -485,7 +486,10 @@ export default async function NeproknjizenoPage({ searchParams }: NeproknjizenoP
 
   const rows: BookRow[] = [
     ...kufBooks.map((book) => {
-      const journalId = book.entries.find((entry) => entry.journal_id)?.journal_id ?? null;
+      const journalId =
+        book.entries.find(
+          (entry) => entry.posting_mode === "KUF_RULES" && entry.journal_id
+        )?.journal_id ?? null;
       const journal = journalId ? journalById.get(journalId) : null;
       const postedEntries = book.entries.filter((entry) => entry.posting_status === "POSTED").length;
       const unpostedEntries = book.entries.filter((entry) => entry.posting_status === "UNPOSTED").length;

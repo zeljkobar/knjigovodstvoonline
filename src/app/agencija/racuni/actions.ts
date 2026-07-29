@@ -1455,6 +1455,7 @@ export async function postInvoiceBook(formData: FormData) {
                 }
               },
               posting_status: true,
+              posting_mode: true,
               journal_id: true,
               dobavljac_id: true,
               tax_lines: {
@@ -1481,7 +1482,10 @@ export async function postInvoiceBook(formData: FormData) {
       }
 
       const unpostedEntries = book.entries.filter(
-        (entry) => entry.posting_status === "UNPOSTED" && !entry.journal_id
+        (entry) =>
+          entry.posting_mode === "KUF_RULES" &&
+          entry.posting_status === "UNPOSTED" &&
+          !entry.journal_id
       );
 
       if (unpostedEntries.length === 0) {
@@ -1504,7 +1508,9 @@ export async function postInvoiceBook(formData: FormData) {
       }
 
       const existingJournalId =
-        book.entries.find((entry) => entry.journal_id)?.journal_id ??
+        book.entries.find(
+          (entry) => entry.posting_mode === "KUF_RULES" && entry.journal_id
+        )?.journal_id ??
         (
           await tx.nalog.findFirst({
             where: {
@@ -2600,8 +2606,6 @@ export async function createKufEntry(formData: FormData) {
     }
   }
 
-  const vatRateIds = formData.getAll("vat_rate_id").map((item) => String(item));
-  const baseValues = formData.getAll("tax_base").map((item) => String(item));
   const vatValues = formData.getAll("input_vat_amount").map((item) => String(item));
   const nonDeductibleValues = formData
     .getAll("non_deductible_vat_amount")
@@ -2824,6 +2828,372 @@ export async function createKufEntry(formData: FormData) {
   redirectKufEntry(kufBook.id, "kuf_sacuvan");
 }
 
+export async function importCalculationsToKuf(formData: FormData) {
+  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const workContext = await readWorkContext();
+
+  if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
+    redirectKuf("kuf_kontekst");
+  }
+
+  const kufBookId = value(formData, "kuf_book_id");
+  const calculationIds = Array.from(
+    new Set(
+      formData
+        .getAll("calculation_id")
+        .map((item) => String(item).trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (!kufBookId || calculationIds.length === 0) {
+    redirectKufEntry(kufBookId, "kuf_kalkulacije_izbor");
+  }
+
+  const [firma, poslovnaGodina, kufBook] = await Promise.all([
+    prisma.firma.findFirst({
+      where: {
+        id: workContext.firmaId,
+        agencija_id: user.agencija_id,
+        is_deleted: false,
+        aktivan: true,
+        ...(user.rola === "admin_agencije"
+          ? {}
+          : {
+              korisnici: {
+                some: {
+                  korisnik_id: user.id,
+                  is_deleted: false
+                }
+              }
+            })
+      },
+      select: {
+        id: true,
+        pdv_obveznik: true
+      }
+    }),
+    prisma.poslovnaGodina.findFirst({
+      where: {
+        id: workContext.poslovnaGodinaId,
+        firma_id: workContext.firmaId
+      },
+      select: {
+        id: true,
+        godina: true,
+        zakljucena: true
+      }
+    }),
+    prisma.kufBook.findFirst({
+      where: {
+        id: kufBookId,
+        agencija_id: user.agencija_id,
+        firma_id: workContext.firmaId,
+        poslovna_godina_id: workContext.poslovnaGodinaId,
+        is_deleted: false
+      },
+      select: {
+        id: true,
+        mjesec: true,
+        status: true,
+        racun_vrsta: {
+          select: {
+            dokument_tip: true
+          }
+        }
+      }
+    })
+  ]);
+
+  if (
+    !firma ||
+    !poslovnaGodina ||
+    poslovnaGodina.zakljucena ||
+    !kufBook ||
+    kufBook.status !== "OPEN" ||
+    kufBook.racun_vrsta.dokument_tip !== invoicePostingDocumentTypes.kuf
+  ) {
+    redirectKufEntry(kufBookId, "kuf_kalkulacije_greska");
+  }
+
+  await requireInvoicePermission(
+    user,
+    firma.id,
+    invoicePostingDocumentTypes.kuf,
+    "create",
+    (message) => redirectKufEntry(kufBook.id, message)
+  );
+
+  const period = await prisma.pdvPeriod.findFirst({
+    where: {
+      firma_id: firma.id,
+      poslovna_godina_id: poslovnaGodina.id,
+      mjesec: kufBook.mjesec
+    },
+    select: {
+      status: true
+    }
+  });
+
+  if (period?.status === "LOCKED") {
+    redirectKufEntry(kufBook.id, "kuf_kalkulacije_period");
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const calculations = await tx.kalkulacija.findMany({
+      where: {
+        id: {
+          in: calculationIds
+        },
+        agencija_id: user.agencija_id!,
+        firma_id: firma.id,
+        poslovna_godina_id: poslovnaGodina.id,
+        status: "WAITING_KUF",
+        kuf_entry_id: null,
+        is_deleted: false
+      },
+      include: {
+        stavke: {
+          orderBy: {
+            redni_broj: "asc"
+          }
+        }
+      },
+      orderBy: {
+        broj: "asc"
+      }
+    });
+
+    if (calculations.length !== calculationIds.length) {
+      return { ok: false as const, reason: "kuf_kalkulacije_greska" };
+    }
+
+    const vatRates = await tx.pdvStopa.findMany({
+      where: {
+        agencija_id: user.agencija_id!,
+        aktivna: true
+      },
+      orderBy: [
+        {
+          redosljed: "asc"
+        }
+      ]
+    });
+    const lastEntry = await tx.kufEntry.findFirst({
+      where: {
+        firma_id: firma.id,
+        poslovna_godina_id: poslovnaGodina.id
+      },
+      orderBy: {
+        redni_broj: "desc"
+      },
+      select: {
+        redni_broj: true
+      }
+    });
+    let nextNumber = (lastEntry?.redni_broj ?? 0) + 1;
+    const imported: Array<{
+      calculationId: string;
+      calculationNumber: string;
+      kufEntryId: string;
+      kufNumber: string;
+    }> = [];
+
+    for (const calculation of calculations) {
+      if (
+        !calculation.nalog_id ||
+        calculation.datum_racuna_dobavljaca.getUTCFullYear() !== poslovnaGodina.godina ||
+        calculation.datum_racuna_dobavljaca.getUTCMonth() + 1 !== kufBook.mjesec
+      ) {
+        return { ok: false as const, reason: "kuf_kalkulacije_mjesec" };
+      }
+
+      const duplicate = await tx.kufEntry.findFirst({
+        where: {
+          firma_id: firma.id,
+          is_deleted: false,
+          OR: [
+            {
+              dobavljac_id: calculation.dobavljac_id,
+              supplier_invoice_number: calculation.broj_racuna_dobavljaca,
+              invoice_date: calculation.datum_racuna_dobavljaca
+            },
+            ...(calculation.fiscal_iic &&
+            calculation.fiscal_seller_tin &&
+            calculation.fiscal_datetime
+              ? [
+                  {
+                    fiscal_iic: calculation.fiscal_iic,
+                    fiscal_seller_tin: calculation.fiscal_seller_tin,
+                    fiscal_datetime: calculation.fiscal_datetime
+                  }
+                ]
+              : [])
+          ]
+        },
+        select: {
+          id: true
+        }
+      });
+
+      if (duplicate) {
+        return { ok: false as const, reason: "kuf_kalkulacije_duplikat" };
+      }
+
+      const taxGroups = new Map<
+        string,
+        {
+          rate: (typeof vatRates)[number];
+          baseCents: number;
+          vatCents: number;
+        }
+      >();
+
+      for (const line of calculation.stavke) {
+        const lineRate = Math.round(Number(line.ulazni_pdv_stopa.toString()) * 100);
+        const rate = vatRates.find(
+          (item) => Math.round(Number(item.procenat.toString()) * 100) === lineRate
+        );
+
+        if (!rate) {
+          return { ok: false as const, reason: "kuf_kalkulacije_pdv" };
+        }
+
+        const group = taxGroups.get(rate.sifra) ?? {
+          rate,
+          baseCents: 0,
+          vatCents: 0
+        };
+        group.baseCents += decimalToCents(line.neto_fakturna_vrijednost);
+        group.vatCents += decimalToCents(line.ulazni_pdv_iznos);
+        taxGroups.set(rate.sifra, group);
+      }
+
+      if (taxGroups.size === 0) {
+        return { ok: false as const, reason: "kuf_kalkulacije_greska" };
+      }
+
+      const totalBaseCents = [...taxGroups.values()].reduce(
+        (sum, group) => sum + group.baseCents,
+        0
+      );
+      const totalInputVatCents = [...taxGroups.values()].reduce(
+        (sum, group) => sum + group.vatCents,
+        0
+      );
+      const deductibleVatCents = firma.pdv_obveznik ? totalInputVatCents : 0;
+      const nonDeductibleVatCents = totalInputVatCents - deductibleVatCents;
+      const redniBroj = nextNumber;
+      const internalNumber = `KUF-${poslovnaGodina.godina}-${String(redniBroj).padStart(4, "0")}`;
+      nextNumber += 1;
+
+      const kufEntry = await tx.kufEntry.create({
+        data: {
+          kuf_book_id: kufBook.id,
+          agencija_id: user.agencija_id!,
+          firma_id: firma.id,
+          poslovna_godina_id: poslovnaGodina.id,
+          dobavljac_id: calculation.dobavljac_id,
+          redni_broj: redniBroj,
+          internal_kuf_number: internalNumber,
+          supplier_invoice_number: calculation.broj_racuna_dobavljaca,
+          vat_transaction_type: "DOMESTIC",
+          fiscal_iic: calculation.fiscal_iic,
+          fiscal_fic: calculation.fiscal_fic,
+          fiscal_seller_tin: calculation.fiscal_seller_tin,
+          fiscal_datetime: calculation.fiscal_datetime,
+          fiscal_source_url: calculation.fiscal_source_url,
+          invoice_date: calculation.datum_racuna_dobavljaca,
+          receipt_date: calculation.datum_kalkulacije,
+          due_date: calculation.datum_valute,
+          total_base: centsToDecimal(totalBaseCents),
+          total_input_vat: centsToDecimal(totalInputVatCents),
+          deductible_vat: centsToDecimal(deductibleVatCents),
+          non_deductible_vat: centsToDecimal(nonDeductibleVatCents),
+          total_gross: centsToDecimal(totalBaseCents + totalInputVatCents),
+          posting_status: "POSTED",
+          source_type: "CALCULATION",
+          source_id: calculation.id,
+          posting_mode: "SOURCE_DOCUMENT",
+          status: "RECORDED",
+          journal_id: calculation.nalog_id,
+          note: `Preuzeto iz kalkulacije ${calculation.interni_broj}`,
+          created_by: user.id,
+          updated_by: user.id,
+          tax_lines: {
+            create: [...taxGroups.values()].map((group) => {
+              const deductible = firma.pdv_obveznik ? group.vatCents : 0;
+
+              return {
+                vat_rate_id: group.rate.id,
+                vat_rate_code: group.rate.sifra,
+                vat_rate_name: group.rate.naziv,
+                vat_rate_percent: group.rate.procenat,
+                tax_base: centsToDecimal(group.baseCents),
+                input_vat_amount: centsToDecimal(group.vatCents),
+                deductible_vat_amount: centsToDecimal(deductible),
+                non_deductible_vat_amount: centsToDecimal(group.vatCents - deductible),
+                total_with_vat: centsToDecimal(group.baseCents + group.vatCents),
+                created_by: user.id
+              };
+            })
+          }
+        },
+        select: {
+          id: true,
+          internal_kuf_number: true
+        }
+      });
+
+      await tx.kalkulacija.update({
+        where: {
+          id: calculation.id
+        },
+        data: {
+          status: "POSTED",
+          kuf_book_id: kufBook.id,
+          kuf_entry_id: kufEntry.id,
+          updated_by: user.id
+        }
+      });
+      imported.push({
+        calculationId: calculation.id,
+        calculationNumber: calculation.interni_broj,
+        kufEntryId: kufEntry.id,
+        kufNumber: kufEntry.internal_kuf_number
+      });
+    }
+
+    return { ok: true as const, imported };
+  });
+
+  if (!result.ok) {
+    redirectKufEntry(kufBook.id, result.reason);
+  }
+
+  for (const imported of result.imported) {
+    await auditLog({
+      korisnikId: user.id,
+      agencijaId: user.agencija_id,
+      firmaId: firma.id,
+      modul: "agencija.racuni.kuf",
+      akcija: "import_calculation",
+      tipEntiteta: "KufEntry",
+      entitetId: imported.kufEntryId,
+      novaVrijednost: imported
+    });
+  }
+
+  revalidatePath("/agencija/racuni/kuf");
+  revalidatePath("/agencija/racuni/pregled-kuf");
+  revalidatePath(`/agencija/racuni/kuf/${kufBook.id}`);
+  revalidatePath("/agencija/robno/kalkulacije");
+  for (const imported of result.imported) {
+    revalidatePath(`/agencija/robno/kalkulacije/${imported.calculationId}`);
+  }
+  redirectKufEntry(kufBook.id, "kuf_kalkulacije_preuzete");
+}
+
 export async function updateKufEntry(formData: FormData) {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const workContext = await readWorkContext();
@@ -2947,7 +3317,8 @@ export async function updateKufEntry(formData: FormData) {
       },
       select: {
         id: true,
-        posting_status: true
+        posting_status: true,
+        posting_mode: true
       }
     })
   ]);
@@ -2960,7 +3331,8 @@ export async function updateKufEntry(formData: FormData) {
     !kufBook ||
     kufBook.status !== "OPEN" ||
     !existingEntry ||
-    existingEntry.posting_status !== "UNPOSTED"
+    existingEntry.posting_status !== "UNPOSTED" ||
+    existingEntry.posting_mode !== "KUF_RULES"
   ) {
     redirectKufEntry(kufBookId, "kuf_greska");
   }
@@ -3282,6 +3654,7 @@ export async function deleteKufEntry(formData: FormData) {
       select: {
         id: true,
         posting_status: true,
+        posting_mode: true,
         journal_id: true,
         internal_kuf_number: true
       }
@@ -3294,6 +3667,7 @@ export async function deleteKufEntry(formData: FormData) {
     !kufBook ||
     kufBook.status !== "OPEN" ||
     !entry ||
+    entry.posting_mode !== "KUF_RULES" ||
     entry.posting_status !== "UNPOSTED" ||
     entry.journal_id
   ) {

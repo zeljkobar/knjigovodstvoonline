@@ -29,7 +29,20 @@
   sa parserima za ostale banke, dodatnim pravilima knjiženja po novim bankarskim
   formatima i naprednim alokacijama kada jedna uplata zatvara više računa.
   Detalji: [`docs/accounting/izvodi.md`](docs/accounting/izvodi.md).
-- **Robno knjigovodstvo**: zalihe, lager, kalkulacije, uvozne kalkulacije.
+- **Robno knjigovodstvo.** Grupisana navigacija i osnovni šifarnici za grupe
+  artikala, artikle/usluge, cijene, jedinice mjere i magacine su implementirani.
+  Domaća kalkulacija sada ima nacrt, stavke, rabat, obaveznu prodajnu cijenu,
+  više PDV stopa, automatsku raspodjelu zavisnih troškova, HTML/CSS štampu,
+  brzo kreiranje artikla i posebnu firm-specific šemu knjiženja pod
+  `Robno / Podešavanja`. Dodato je pripremanje kalkulacije iz MAPR linka sa
+  pregledom svih stavki, povezivanjem postojećih i kreiranjem novih artikala.
+  Završavanje kalkulacije zadužuje lager i kreira njen nalog, dok se KUF zapis
+  naknadno preuzima iz mjesečne KUF knjige i ne knjiži ponovo po KUF šemi.
+  Sljedeće uraditi ručni end-to-end QA MAPR pregleda, završavanja i preuzimanja
+  u KUF na firmi sa podešenom robnom šemom, zatim ekrane lager
+  liste i kartice artikla nad već postojećim stanjem/prometom. Poslije toga
+  slijede uvozna kalkulacija, izlazne fakture, povrati, prenosi, popis, otpis i
+  nivelacija.
 - **PDV prijava — završni QA.** Prva verzija perioda, evidencija, prijave,
   podešavanja, XML `PR_PDV_2025` i knjiženja postoji. Ostaje zaključavanje
   perioda, ručni QA XML upload-a na portalu i provjera knjiženja na kontima

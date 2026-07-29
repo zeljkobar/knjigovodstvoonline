@@ -139,20 +139,57 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/nalozi/kupci-dobavljaci", label: "Kupci / dobavljači" }
   ],
   robno: [
-    { href: "/agencija/robno/artikli", label: "Artikli" },
-    { href: "/agencija/robno/grupe", label: "Grupe artikala" },
-    { href: "/agencija/robno/cijene", label: "Cijene" },
-    { href: "/agencija/robno/magacini", label: "Magacini" },
-    { href: "/agencija/robno/lager", label: "Lager lista" },
-    { href: "/agencija/robno/kartica-artikla", label: "Kartica artikla" },
-    { href: "/agencija/robno/kalkulacije", label: "Kalkulacije" },
-    { href: "/agencija/robno/uvoz", label: "Uvozne kalkulacije" },
-    { href: "/agencija/robno/povrat", label: "Povrat dobavljaču" },
-    { href: "/agencija/robno/prenos", label: "Prenos robe" },
-    { href: "/agencija/robno/popis", label: "Popis" },
-    { href: "/agencija/robno/otpis", label: "Otpis" },
-    { href: "/agencija/robno/nivelacija", label: "Nivelacija" },
-    { href: "/agencija/robno/izvjestaji", label: "Robni izvještaji" }
+    { href: "/agencija/robno", label: "Pregled" },
+    {
+      href: "/agencija/robno/sifarnici",
+      label: "Šifarnici",
+      children: [
+        { href: "/agencija/robno/artikli", label: "Artikli" },
+        { href: "/agencija/robno/grupe", label: "Grupe artikala" },
+        { href: "/agencija/robno/cijene", label: "Cijene" },
+        { href: "/agencija/robno/magacini", label: "Magacini" }
+      ]
+    },
+    {
+      href: "/agencija/robno/nabavka",
+      label: "Nabavka",
+      children: [
+        { href: "/agencija/robno/kalkulacije", label: "Kalkulacije" },
+        { href: "/agencija/robno/uvozne-kalkulacije", label: "Uvozne kalkulacije" },
+        { href: "/agencija/robno/povrat-dobavljacu", label: "Povrat dobavljaču" }
+      ]
+    },
+    {
+      href: "/agencija/robno/prodaja",
+      label: "Prodaja",
+      children: [
+        { href: "/agencija/robno/izlazne-fakture", label: "Izlazne fakture" },
+        { href: "/agencija/robno/nova-izlazna-faktura", label: "Nova izlazna faktura" },
+        { href: "/agencija/robno/razduzenja-lagera", label: "Razduženja lagera" },
+        { href: "/agencija/robno/povrat-kupca", label: "Povrat kupca" }
+      ]
+    },
+    {
+      href: "/agencija/robno/promet",
+      label: "Promet robe",
+      children: [
+        { href: "/agencija/robno/prenos", label: "Prenos robe" },
+        { href: "/agencija/robno/popis", label: "Popis" },
+        { href: "/agencija/robno/otpis", label: "Otpis" },
+        { href: "/agencija/robno/nivelacija", label: "Nivelacija" }
+      ]
+    },
+    {
+      href: "/agencija/robno/zalihe",
+      label: "Zalihe",
+      children: [
+        { href: "/agencija/robno/lager", label: "Lager lista" },
+        { href: "/agencija/robno/kartica-artikla", label: "Kartica artikla" },
+        { href: "/agencija/robno/vrijednost-zaliha", label: "Vrijednost zaliha" },
+        { href: "/agencija/robno/kontrole", label: "Kontrole" }
+      ]
+    },
+    { href: "/agencija/robno/podesavanja", label: "Podešavanja" }
   ],
   racuni: [
     { href: "/agencija/racuni/kif", label: "KIF" },

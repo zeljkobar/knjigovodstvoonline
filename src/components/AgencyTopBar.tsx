@@ -130,7 +130,7 @@ export function AgencyTopBar({
       ) : null}
 
       {nestedItems.length > 0 ? (
-        <nav className="section-subtabs" aria-label={`${activeSubItem?.label ?? "Podmeni"} obrasci`}>
+        <nav className="section-subtabs" aria-label={`${activeSubItem?.label ?? "Sekcija"} podmeni`}>
           {nestedItems.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(`${item.href}/`);

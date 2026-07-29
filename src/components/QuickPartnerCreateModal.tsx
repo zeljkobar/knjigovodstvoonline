@@ -17,6 +17,7 @@ export type QuickPartnerResult = {
 
 type QuickPartnerCreateModalProps = {
   initialName: string;
+  initialPib?: string;
   onClose: () => void;
   onCreated: (partner: QuickPartnerResult) => void;
 };
@@ -29,11 +30,12 @@ function normalizePib(value: string) {
 
 export function QuickPartnerCreateModal({
   initialName,
+  initialPib = "",
   onClose,
   onCreated
 }: QuickPartnerCreateModalProps) {
   const [name, setName] = useState(initialName.trim());
-  const [pib, setPib] = useState("");
+  const [pib, setPib] = useState(initialPib);
   const [type, setType] = useState("kupac_dobavljac");
   const [scope, setScope] = useState("AGENCY");
   const [accountNumber, setAccountNumber] = useState("");

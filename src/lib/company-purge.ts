@@ -105,6 +105,41 @@ export async function purgeCompanyData(
     `
   );
 
+  // Robni promet i stanja moraju nestati prije dokumenata i šifarnika.
+  // Kalkulacija je povezana sa KUF zapisom i nalogom, pa se briše prije njih.
+  await izvrsi(
+    "prometi_zaliha",
+    Prisma.sql`DELETE FROM prometi_zaliha WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "stanja_zaliha",
+    Prisma.sql`DELETE FROM stanja_zaliha WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "kalkulacije",
+    Prisma.sql`DELETE FROM kalkulacije WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "dobavljac_artikal_veze",
+    Prisma.sql`DELETE FROM dobavljac_artikal_veze WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "cijene_artikala",
+    Prisma.sql`DELETE FROM cijene_artikala WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "artikli",
+    Prisma.sql`DELETE FROM artikli WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "magacini",
+    Prisma.sql`DELETE FROM magacini WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "grupe_artikala",
+    Prisma.sql`DELETE FROM grupe_artikala WHERE firma_id = ${firmaId}::uuid`
+  );
+
   // KIF/KUF poreske stavke se brišu kaskadno zajedno sa računima.
   await izvrsi(
     "kif_entries",

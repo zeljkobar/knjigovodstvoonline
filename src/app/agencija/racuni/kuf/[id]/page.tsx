@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { createKufEntry, deleteKufEntry, postInvoiceBook, updateKufEntry } from "../../actions";
+import {
+  createKufEntry,
+  deleteKufEntry,
+  importCalculationsToKuf,
+  postInvoiceBook,
+  updateKufEntry
+} from "../../actions";
 import { FiskalniLinkInput } from "@/components/FiskalniLinkInput";
 import { FiskalniUcitajButton } from "@/components/FiskalniUcitajButton";
 import { InvoiceQrUpload } from "@/components/InvoiceQrUpload";
@@ -38,6 +44,13 @@ const poruke: Record<string, string> = {
   kuf_knjiga: "KUF knjiga nije otvorena za unos.",
   kuf_dupli_broj: "Račun sa istim dobavljačem, brojem i datumom već postoji u KUF-u.",
   kuf_dupli_fiskalni: "Ovaj fiskalni račun je već unesen u KUF za aktivnu firmu.",
+  kuf_kalkulacije_preuzete: "Izabrane kalkulacije su preuzete u KUF.",
+  kuf_kalkulacije_izbor: "Izaberite najmanje jednu kalkulaciju za preuzimanje.",
+  kuf_kalkulacije_mjesec: "Kalkulacija mora pripadati istom mjesecu i poslovnoj godini kao KUF knjiga.",
+  kuf_kalkulacije_pdv: "PDV stopa iz kalkulacije više nije aktivna.",
+  kuf_kalkulacije_duplikat: "Račun iz izabrane kalkulacije već postoji u KUF-u.",
+  kuf_kalkulacije_period: "PDV period ove KUF knjige je zaključan.",
+  kuf_kalkulacije_greska: "Kalkulacije nijesu preuzete. Osvježite stranicu i provjerite njihov status.",
   prava: "Nemate pravo za ovu akciju nad ulaznim računima.",
   knjizenje_kreiran: "Nalog je kreiran.",
   knjizenje_dodato: "Novi računi su dodati na postojeći nalog.",
@@ -244,6 +257,9 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             total_gross: true,
             status: true,
             posting_status: true,
+            source_type: true,
+            source_id: true,
+            posting_mode: true,
             journal_id: true,
             note: true,
             expense_account: {
@@ -353,6 +369,47 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
     );
   }
 
+  const monthStart = new Date(Date.UTC(activeYear.godina, kufBook.mjesec - 1, 1));
+  const monthEnd = new Date(Date.UTC(activeYear.godina, kufBook.mjesec, 1));
+  const pendingCalculations = await prisma.kalkulacija.findMany({
+    where: {
+      agencija_id: user.agencija_id,
+      firma_id: activeCompany.id,
+      poslovna_godina_id: activeYear.id,
+      status: "WAITING_KUF",
+      kuf_entry_id: null,
+      is_deleted: false,
+      datum_racuna_dobavljaca: {
+        gte: monthStart,
+        lt: monthEnd
+      }
+    },
+    orderBy: [
+      {
+        datum_racuna_dobavljaca: "asc"
+      },
+      {
+        broj: "asc"
+      }
+    ],
+    select: {
+      id: true,
+      interni_broj: true,
+      broj_racuna_dobavljaca: true,
+      datum_racuna_dobavljaca: true,
+      ukupno_neto_fakturno: true,
+      ukupno_ulazni_pdv: true,
+      ukupno_racun_sa_pdv: true,
+      nalog_id: true,
+      dobavljac: {
+        select: {
+          naziv: true,
+          pib: true
+        }
+      }
+    }
+  });
+
   const expenseAccounts = mergeCompanyAccountPlan(baseAccounts, companyOverrides).filter(
     (account) =>
       account.aktivan &&
@@ -373,12 +430,20 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
   );
   const isLocked = activeYear.zakljucena || kufBook.status !== "OPEN";
   const editingEntry = query?.edit
-    ? kufBook.entries.find((entry) => entry.id === query.edit)
+    ? kufBook.entries.find(
+        (entry) => entry.id === query.edit && entry.posting_mode === "KUF_RULES"
+      )
     : null;
   const formAction = editingEntry ? updateKufEntry : createKufEntry;
-  const journalId = kufBook.entries.find((entry) => entry.journal_id)?.journal_id ?? null;
+  const journalId =
+    kufBook.entries.find(
+      (entry) => entry.posting_mode === "KUF_RULES" && entry.journal_id
+    )?.journal_id ?? null;
   const unpostedCount = kufBook.entries.filter(
-    (entry) => entry.posting_status === "UNPOSTED" && !entry.journal_id
+    (entry) =>
+      entry.posting_mode === "KUF_RULES" &&
+      entry.posting_status === "UNPOSTED" &&
+      !entry.journal_id
   ).length;
   const postedCount = kufBook.entries.filter((entry) => entry.posting_status === "POSTED").length;
   const postingLabel = postingStatusLabel(kufBook.entries.length, postedCount, unpostedCount);
@@ -439,6 +504,84 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             ) : null}
           </div>
         </div>
+      </section>
+
+      <section className="admin-panel">
+        <div className="panel-header">
+          <div>
+            <h3>Preuzmi kalkulacije</h3>
+            <span>
+              {pendingCalculations.length
+                ? `${pendingCalculations.length} završenih kalkulacija čeka prenos u ovu KUF knjigu`
+                : "Nema završenih kalkulacija za ovaj mjesec"}
+            </span>
+          </div>
+        </div>
+
+        {pendingCalculations.length ? (
+          <form action={importCalculationsToKuf}>
+            <input type="hidden" name="kuf_book_id" value={kufBook.id} />
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Preuzmi</th>
+                    <th>Kalkulacija</th>
+                    <th>Dobavljač</th>
+                    <th>Račun / datum</th>
+                    <th>Osnovica</th>
+                    <th>PDV</th>
+                    <th>Ukupno</th>
+                    <th>Nalog</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingCalculations.map((calculation) => (
+                    <tr key={calculation.id}>
+                      <td>
+                        <input
+                          aria-label={`Preuzmi ${calculation.interni_broj}`}
+                          defaultChecked
+                          disabled={isLocked}
+                          name="calculation_id"
+                          type="checkbox"
+                          value={calculation.id}
+                        />
+                      </td>
+                      <td>
+                        <Link href={`/agencija/robno/kalkulacije/${calculation.id}`}>
+                          <strong>{calculation.interni_broj}</strong>
+                        </Link>
+                      </td>
+                      <td>
+                        {calculation.dobavljac.naziv}
+                        <small>{calculation.dobavljac.pib ?? ""}</small>
+                      </td>
+                      <td>
+                        {normalizeFiscalInvoiceNumber(calculation.broj_racuna_dobavljaca)}
+                        <small>{displayDate(calculation.datum_racuna_dobavljaca)}</small>
+                      </td>
+                      <td>{decimalText(calculation.ukupno_neto_fakturno)}</td>
+                      <td>{decimalText(calculation.ukupno_ulazni_pdv)}</td>
+                      <td>{decimalText(calculation.ukupno_racun_sa_pdv)}</td>
+                      <td>{calculation.nalog_id ? "Kreiran kroz kalkulaciju" : "Nedostaje"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="form-actions">
+              <button className="primary-button" disabled={isLocked} type="submit">
+                Preuzmi označene kalkulacije
+              </button>
+            </div>
+          </form>
+        ) : (
+          <p className="empty-state">
+            Završene kalkulacije se ovdje pojavljuju automatski prema mjesecu računa
+            dobavljača.
+          </p>
+        )}
       </section>
 
       <section className="metric-grid">
@@ -753,7 +896,9 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
                     <td>
                       {entry.expense_account
                         ? `${entry.expense_account.sifra} - ${entry.expense_account.naziv}`
-                        : "-"}
+                        : entry.posting_mode === "SOURCE_DOCUMENT"
+                          ? "Šema kalkulacije"
+                          : "-"}
                     </td>
                     <td>
                       {displayDate(entry.invoice_date)}
@@ -783,11 +928,24 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
                             : "status-pill"
                         }
                       >
-                        {entry.posting_status === "POSTED" ? "Knjiženo" : "Otvorena"}
+                        {entry.posting_mode === "SOURCE_DOCUMENT"
+                          ? "Knjiženo kroz kalkulaciju"
+                          : entry.posting_status === "POSTED"
+                            ? "Knjiženo"
+                            : "Otvorena"}
                       </span>
+                      {entry.source_type === "CALCULATION" && entry.source_id ? (
+                        <small>
+                          <Link href={`/agencija/robno/kalkulacije/${entry.source_id}`}>
+                            Otvori kalkulaciju
+                          </Link>
+                        </small>
+                      ) : null}
                     </td>
                     <td>
-                      {entry.posting_status === "UNPOSTED" && !isLocked ? (
+                      {entry.posting_mode === "KUF_RULES" &&
+                      entry.posting_status === "UNPOSTED" &&
+                      !isLocked ? (
                         <div className="table-actions">
                           <Link className="table-button" href={`/agencija/racuni/kuf/${kufBook.id}?edit=${entry.id}#kuf-entry-form`}>
                             Izmijeni

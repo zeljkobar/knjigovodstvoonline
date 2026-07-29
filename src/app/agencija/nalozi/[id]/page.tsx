@@ -33,6 +33,7 @@ const poruke: Record<string, string> = {
   nalog_nije_balansiran: "Nalog nije izbalansiran i ne moze biti proknjizen.",
   godina_zakljucena: "Poslovna godina je zakljucena.",
   nalog_greska: "Akcija nije dozvoljena.",
+  nalog_kalkulacija: "Nalog kalkulacije se ne briše odvojeno od robnog dokumenta.",
   stavke_obavezne: "Nalog mora imati bar jednu stavku.",
   stavke_nevalidne: "Provjerite konta i iznose na stavkama.",
   stavka_iznos: "Jedna stavka mora imati samo duguje ili samo potrazuje.",

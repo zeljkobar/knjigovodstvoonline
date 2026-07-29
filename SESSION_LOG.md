@@ -3,6 +3,113 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-07-29
+- Tok kalkulacije i KUF-a je razdvojen migracijom
+  `20260730130000_kalkulacije_preuzimanje_u_kuf`. Završavanje kalkulacije više
+  ne traži izbor KUF knjige: kreira DRAFT nalog kalkulacije, zadužuje lager i
+  postavlja status `WAITING_KUF`.
+- KUF knjiga sada prikazuje završene kalkulacije svog mjeseca i može grupno
+  preuzeti označene. Kreirani KUF zapisi ulaze u PDV evidenciju, prikazuju
+  `Knjiženo kroz kalkulaciju`, vode na izvorni dokument i ne mogu se mijenjati,
+  brisati niti ponovo knjižiti kroz redovnu KUF šemu. Postojeća četiri KUF
+  zapisa iz kalkulacija su backfillom označena kao izvorni zapisi.
+- Standardno KUF knjiženje sada traži isključivo zapise sa
+  `posting_mode = KUF_RULES`, pa nalog kalkulacije više ne može biti pogrešno
+  izabran kao zajednički nalog KUF knjige.
+- Migracija `20260730113000_kalkulacija_siri_procenti` proširila je preciznost
+  marže i RUC-a sa `DECIMAL(7,4)` na `DECIMAL(15,4)`. Time je uklonjen
+  PostgreSQL overflow pri legitimnoj marži većoj od 999,9999%; MAPR tok sada
+  takvu baznu grešku prevodi i u razumljivu poruku umjesto Next.js error ekrana.
+- Nova kalkulacija sada prihvata fiskalni MAPR link iznad dobavljača. Server
+  učitava račun i stavke, prepoznaje dobavljača, popunjava broj i datum računa,
+  automatski bira jedini aktivni magacin i prikazuje pregled prije kreiranja.
+- Stavke pregleda imaju status ranije povezane, predložene, nove ili neriješene.
+  Korisnik može potvrditi predlog, izabrati postojeći artikal ili pripremiti
+  novu šifru, grupu, jedinicu i PDV stopu. Prodajna cijena sa PDV-om obavezna je
+  za svaku stavku. Pregled je preko pune širine forme, ima završnu akciju na
+  vrhu i dnu, a neprepoznata MAPR jedinica povezuje se grupno za sve njene
+  stavke.
+- Dodate su migracije `20260730100000_mapr_kalkulacija_stavke` i
+  `20260730103000_mapr_kalkulacija_izvorni_iznosi`. Veze dobavljačevih stavki
+  sa artiklima pamte se po firmi i dobavljaču, a novi artikli, početne cijene,
+  veze i kalkulacija kreiraju se u jednoj transakciji tek na konačnu potvrdu.
+  Fiskalni identifikatori prenose se u KUF tek pri postojećem toku knjiženja.
+- Server ponovo učitava MAPR račun pri kreiranju i ne vjeruje iznosima iz
+  preglednika. Provjerava duplikat po IIC-u, scope, dobavljača, magacin, PDV
+  stopu, artikle i šifre. Neto i PDV iznosi raspoređuju se do centa prema
+  autoritativnim zbirima računa; stvarni primjer sa 28 stavki potvrđen je na
+  1.507,84 neto + 316,65 PDV = 1.824,49.
+- Kalkulacija više nema izbor `Konto robe za KUF`; dodata je stranica
+  `Robno / Podešavanja` sa firm-specific D/P šemom za robu, ulazni PDV,
+  dobavljača, razliku u cijeni, ukalkulisani PDV i zavisne troškove.
+- Maloprodaja je postavljena kao podrazumijevani tip novog dokumenta kroz
+  migraciju `20260729143000_kalkulacija_default_maloprodaja`. Prodajna cijena
+  sa PDV-om sada je obavezna, dok se marža i RUC izvode iz nje.
+- Tabela stavki je preuređena u devet grupisanih obračunskih kolona, a iz
+  brzog unosa se može otvoriti modal, kreirati novi robni artikal sa početnom
+  maloprodajnom cijenom i odmah ga izabrati u kalkulaciji.
+- Pregledana su dva referentna ekrana i tri štampana primjera kalkulacije iz
+  `zadaci/robno`. Forma je organizovana kao kompaktno zaglavlje, brzi unos
+  stavke i široka obračunska tabela; štampa kombinuje landscape tabelu sa PDV
+  rekapitulacijom i potpisima.
+- Dodata je migracija `20260729120000_domace_kalkulacije` za domaće
+  kalkulacije, stavke, zavisne troškove, stanja zaliha i promete zaliha.
+- Implementirani su precizan obračun količine/cijene, rabat, ulazni PDV,
+  zavisni troškovi po vrijednosti, nabavna cijena, prodajna cijena,
+  RUC i maloprodajne/veleprodajne vrijednosti. Firme van PDV sistema uključuju
+  ulazni PDV u nabavnu vrijednost.
+- Proknjižavanje u jednoj transakciji kreira KUF zapis, DRAFT nalog
+  `CALCULATION`, ulaz na lager, novo ponderisano prosječno stanje, kartični
+  promet i cijenu artikla po magacinu. Zaključana godina/PDV period, pogrešan
+  mjesec KUF knjige, nepotpuna šema ili nebalansiran nalog blokiraju operaciju.
+- Dodati su lista, detalj, izmjena stavki, zavisni troškovi, soft delete nacrta
+  i A4 landscape HTML/CSS štampa kalkulacije.
+- Migracija je uspješno primijenjena i Prisma klijent regenerisan. TypeScript
+  je čist, lint nema novih grešaka (ostaju tri ranija upozorenja), rute se
+  kompajliraju, a izolovani test obračuna potvrđuje iznose i raspodjelu do
+  centa. Vizuelni browser QA nije izvršen jer preglednik nije bio dostupan;
+  lokalni PostgreSQL je prestao da odgovara prije završnog end-to-end testa
+  knjiženja.
+
+## 2026-07-27
+- Sistemski šifarnik jedinica mjere proširen je jedinicama `MJE — Mjesec`,
+  `GOD — Godina` i `KVT — Kvartal` kroz migraciju
+  `20260727100000_jedinice_mjere_periodi`.
+- Forma novog artikla sada prima opcionu veleprodajnu cijenu bez PDV-a i
+  maloprodajnu cijenu sa PDV-om. Na osnovu izabrane PDV stope automatski se
+  računa drugi iznos, a artikal i početne cijene čuvaju se u jednoj transakciji
+  i zasebno evidentiraju u audit logu.
+
+## 2026-07-26
+- Implementirana je prva funkcionalna cjelina robnog knjigovodstva:
+  šifarnici grupa artikala, artikala/usluga, cijena i magacina, sa pregledom,
+  pretragom, unosom, izmjenom i aktivacijom/deaktivacijom.
+- Dodata je ručna migracija `20260726120000_robno_sifarnici` za tabele
+  `jedinice_mjere`, `grupe_artikala`, `artikli`, `cijene_artikala` i `magacini`,
+  kao i pravilo negativnog lagera na firmi. Uneseno je 12 početnih jedinica
+  mjere; Prisma klijent je regenerisan i dev server restartovan.
+- Artikli podržavaju automatsku ili ručnu šifru, barkod jedinstven po firmi,
+  opcionu grupu, jedinicu mjere, PDV stopu, robu/uslugu i informativnu nabavnu
+  cijenu. Cijene za početni UI imaju veleprodajni/maloprodajni tip, računanje
+  iz unosa sa ili bez PDV-a i istoriju važenja.
+- Robne akcije provjeravaju kontekst agencije/firme, dodjelu firme i modul
+  `robno` po akciji, te upisuju audit. Matrica prava je proširena modulom
+  `robno`.
+- `npx tsc --noEmit --incremental false`, Prisma validacija i lint prolaze bez
+  grešaka; ostaju tri ranija nepovezana lint upozorenja. Sve nove robne rute se
+  kompajliraju na razvojnom serveru i bez prijave ispravno preusmjeravaju na
+  login. Izolovani transakcijski QA je potvrdio grupu, magacin, uslugu, cijenu
+  i čist rollback bez trajnih probnih podataka.
+- Robni meni je sa 14 ravnopravnih stavki organizovan u cjeline `Pregled`,
+  `Šifarnici`, `Nabavka`, `Prodaja`, `Promet robe` i `Zalihe`, sa drugim nivoom
+  podmenija za konkretne ekrane.
+- `Prodaja` je za sada smještena isključivo u robni modul i sadrži izlazne
+  fakture, novu izlaznu fakturu, razduženja lagera i povrat kupca. Postojeći
+  meni `Računi` nije mijenjan.
+- Dodata je zajednička robna catch-all placeholder stranica za sve pripremljene
+  rute, tako da se svaka stavka menija može otvoriti prije implementacije
+  modela baze i poslovne logike.
+
 ## 2026-07-25
 - Na formu ulaznog računa u KUF-u dodato je dugme `Učitaj račun (PDF/slika)`
   iznad fiskalnog linka. PDF, TIFF, JPG i PNG obrađuju se isključivo lokalno u
