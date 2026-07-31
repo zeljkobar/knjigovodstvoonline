@@ -47,7 +47,10 @@ type ImportResult = {
   message: string;
   invoiceNumber?: string;
   partner?: string;
+  partnerTin?: string;
+  accountCode?: string;
   total?: number;
+  requiresAccount?: boolean;
 };
 
 type ImportMetadata = {
@@ -56,6 +59,12 @@ type ImportMetadata = {
   buyerTin?: string;
   invoiceNumber?: string;
   total?: number;
+};
+
+type FiscalLinkIdentity = {
+  iic: string;
+  tin: string;
+  dateTimeCreated: Date;
 };
 
 function normalizePib(value: string) {
@@ -111,6 +120,29 @@ function parseFiscalDate(value: string) {
   const date = new Date(normalized);
 
   return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function fiscalLinkIdentity(qrUrl: string): FiscalLinkIdentity | null {
+  const params = fiscalSearchParams(qrUrl);
+  const iic = params?.get("iic")?.trim() ?? "";
+  const tin = normalizePib(params?.get("tin") ?? "");
+  const createdAt = params?.get("crtd")?.trim() ?? "";
+  const normalizedCreatedAt = createdAt.replace(/ (\d{2}:\d{2})$/, "+$1");
+  const dateTimeCreated = new Date(normalizedCreatedAt);
+
+  if (!iic || !tin || !createdAt || Number.isNaN(dateTimeCreated.getTime())) {
+    return null;
+  }
+
+  return {
+    iic,
+    tin,
+    dateTimeCreated
+  };
+}
+
+function fiscalIdentityKey(identity: FiscalLinkIdentity) {
+  return `${identity.iic}|${identity.tin}|${identity.dateTimeCreated.toISOString()}`;
 }
 
 function dateOnly(date: Date) {
@@ -277,7 +309,8 @@ async function saveKufInvoice(
   poslovnaGodinaId: string,
   poslovnaGodina: number,
   kufBookId: string,
-  invoice: MaprInvoice
+  invoice: MaprInvoice,
+  accountCodeOverride?: string
 ): Promise<ImportResult> {
   const fiscalDateTime = parseFiscalDate(invoice.identifiers.dateTimeCreated);
   const invoiceDate = dateOnly(fiscalDateTime);
@@ -364,33 +397,58 @@ async function saveKufInvoice(
       }
     });
 
-    if (!companyPartner.default_kuf_konto_sifra) {
+    const selectedAccountCode =
+      accountCodeOverride?.trim() || companyPartner.default_kuf_konto_sifra;
+
+    if (!selectedAccountCode) {
       return {
         link: invoice.identifiers.qrUrl,
         status: "error",
         message:
-          "Dobavljač nema zapamćen konto knjiženja. Unesite jedan račun ručno za ovog dobavljača ili podesite default konto.",
+          "Dobavljač nema zapamćen konto knjiženja. Izaberite konto za sve njegove račune.",
         invoiceNumber: invoice.invoiceNumber,
         partner: partner.naziv,
-        total: invoice.total
+        partnerTin: sellerTin,
+        total: invoice.total,
+        requiresAccount: true
       };
     }
 
     const expenseAccount = await resolveCompanyAccount(
       tx,
       firmaId,
-      companyPartner.default_kuf_konto_sifra
+      selectedAccountCode
     );
 
     if (!expenseAccount) {
       return {
         link: invoice.identifiers.qrUrl,
         status: "error",
-        message: `Konto ${companyPartner.default_kuf_konto_sifra} nije aktivno analitičko konto.`,
+        message: `Konto ${selectedAccountCode} nije aktivno analitičko konto. Izaberite drugo konto.`,
         invoiceNumber: invoice.invoiceNumber,
         partner: partner.naziv,
-        total: invoice.total
+        partnerTin: sellerTin,
+        accountCode: selectedAccountCode,
+        total: invoice.total,
+        requiresAccount: true
       };
+    }
+
+    if (
+      accountCodeOverride &&
+      companyPartner.default_kuf_konto_sifra !== selectedAccountCode
+    ) {
+      await tx.firmaKomitent.update({
+        where: {
+          firma_id_komitent_id: {
+            firma_id: firmaId,
+            komitent_id: partner.id
+          }
+        },
+        data: {
+          default_kuf_konto_sifra: selectedAccountCode
+        }
+      });
     }
 
     const vatRates = await tx.pdvStopa.findMany({
@@ -520,6 +578,8 @@ async function saveKufInvoice(
       message: `Uvezeno kao ${entry.internal_kuf_number}.`,
       invoiceNumber: invoice.invoiceNumber,
       partner: partner.naziv,
+      partnerTin: sellerTin,
+      accountCode: selectedAccountCode,
       total: invoice.total
     };
   });
@@ -894,6 +954,7 @@ export async function POST(req: NextRequest) {
     bookId?: string;
     links?: string[];
     metadata?: ImportMetadata[];
+    supplierAccountCodes?: Record<string, string>;
   } | null;
   const documentType = String(body?.documentType ?? "").toUpperCase();
   const bookId = String(body?.bookId ?? "");
@@ -904,6 +965,14 @@ export async function POST(req: NextRequest) {
     (body?.metadata ?? [])
       .filter((item) => item?.link)
       .map((item) => [String(item.link).trim(), item])
+  );
+  const supplierAccountCodes = new Map(
+    Object.entries(body?.supplierAccountCodes ?? {})
+      .map(([tin, accountCode]) => [
+        normalizePib(String(tin)),
+        String(accountCode ?? "").trim()
+      ] as const)
+      .filter(([tin, accountCode]) => tin && accountCode)
   );
 
   if (
@@ -984,10 +1053,99 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Knjiga nije otvorena za import." }, { status: 400 });
   }
 
+  const resultByLink = new Map<string, ImportResult>();
+  let linksForMapr = links;
+
+  if (documentType === invoicePostingDocumentTypes.kuf) {
+    const identitiesByLink = new Map(
+      links
+        .map((link) => {
+          const identity = fiscalLinkIdentity(link);
+
+          return identity ? ([link, identity] as const) : null;
+        })
+        .filter(
+          (entry): entry is readonly [string, FiscalLinkIdentity] =>
+            Boolean(entry)
+        )
+    );
+    const identities = Array.from(identitiesByLink.values());
+
+    if (identities.length > 0) {
+      const existingEntries = await prisma.kufEntry.findMany({
+        where: {
+          firma_id: firma.id,
+          is_deleted: false,
+          OR: identities.map((identity) => ({
+            fiscal_iic: identity.iic,
+            fiscal_seller_tin: identity.tin,
+            fiscal_datetime: identity.dateTimeCreated
+          }))
+        },
+        select: {
+          internal_kuf_number: true,
+          supplier_invoice_number: true,
+          fiscal_iic: true,
+          fiscal_seller_tin: true,
+          fiscal_datetime: true,
+          total_gross: true,
+          dobavljac: {
+            select: {
+              naziv: true
+            }
+          },
+          expense_account: {
+            select: {
+              sifra: true
+            }
+          }
+        }
+      });
+      const existingByIdentity = new Map(
+        existingEntries
+          .filter(
+            (entry) =>
+              entry.fiscal_iic &&
+              entry.fiscal_seller_tin &&
+              entry.fiscal_datetime
+          )
+          .map((entry) => [
+            fiscalIdentityKey({
+              iic: entry.fiscal_iic ?? "",
+              tin: entry.fiscal_seller_tin ?? "",
+              dateTimeCreated: entry.fiscal_datetime ?? new Date(0)
+            }),
+            entry
+          ])
+      );
+
+      for (const [link, identity] of identitiesByLink) {
+        const existing = existingByIdentity.get(fiscalIdentityKey(identity));
+
+        if (!existing) {
+          continue;
+        }
+
+        resultByLink.set(link, {
+          link,
+          status: "duplicate",
+          message: `Račun je već unesen kao ${existing.internal_kuf_number}. MAPR provjera je preskočena.`,
+          invoiceNumber: existing.supplier_invoice_number,
+          partner: existing.dobavljac.naziv,
+          partnerTin: identity.tin,
+          accountCode: existing.expense_account?.sifra,
+          total: Number(existing.total_gross.toString())
+        });
+      }
+
+      linksForMapr = links.filter((link) => !resultByLink.has(link));
+    }
+  }
+
   const verified: Array<{ link: string; invoice: MaprInvoice | null; error?: string }> = [];
 
-  for (let index = 0; index < links.length; index += batchSize) {
-    const batch = links.slice(index, index + batchSize);
+  for (let index = 0; index < linksForMapr.length; index += batchSize) {
+    const batch = linksForMapr.slice(index, index + batchSize);
     const results = await Promise.all(
       batch.map(async (link) => {
         const invoice = await verifyMaprInvoice(link);
@@ -1002,11 +1160,9 @@ export async function POST(req: NextRequest) {
     verified.push(...results);
   }
 
-  const importResults: ImportResult[] = [];
-
   for (const item of verified) {
     if (!item.invoice) {
-      importResults.push({
+      resultByLink.set(item.link, {
         link: item.link,
         status: "error",
         message: item.error ?? "Račun nije učitan iz MAPR-a."
@@ -1015,7 +1171,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (documentType === invoicePostingDocumentTypes.kuf) {
-      importResults.push(
+      resultByLink.set(
+        item.link,
         await saveKufInvoice(
           user.id,
           user.agencija_id,
@@ -1023,13 +1180,17 @@ export async function POST(req: NextRequest) {
           godina.id,
           godina.godina,
           selectedBook.id,
-          item.invoice
+          item.invoice,
+          supplierAccountCodes.get(
+            normalizePib(item.invoice.seller.tin || item.invoice.identifiers.tin)
+          )
         )
       );
       continue;
     }
 
-    importResults.push(
+    resultByLink.set(
+      item.link,
       await saveKifInvoice(
         user.id,
         user.agencija_id,
@@ -1043,6 +1204,9 @@ export async function POST(req: NextRequest) {
       )
     );
   }
+  const importResults = links
+    .map((link) => resultByLink.get(link))
+    .filter((result): result is ImportResult => Boolean(result));
 
   return NextResponse.json({
     results: importResults,

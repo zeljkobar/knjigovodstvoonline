@@ -3,7 +3,57 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-07-30
+- KIF sada ima poseban tok `Unesi pazar` za dnevni ili mjesečni zbirni promet.
+  Unos čuva period, broj izvještaja, kasu/poslovnu jedinicu, ukupan pazar,
+  osnovice i izlazni PDV po aktivnim stopama te naplatu kroz gotovinu, kartice,
+  virman i ostalo.
+- Tabovi `Izlazna faktura` i `Unesi pazar` imaju jasno vidljiv aktivni status.
+  Pazar koristi isti kaskadni obračun kao KIF faktura: ukupan bruto iznos prvo
+  se raspoređuje na najveću stopu, a ručno ograničena osnovica prenosi ostatak
+  na sljedeću stopu sve do 0%; izlazni PDV se računa i prikazuje read-only.
+- Backend provjerava aktivnu firmu/godinu/knjigu i prava, zaključanu godinu,
+  mjesec KIF knjige, kontrolne zbirove, nenegativne iznose i potpuno pokriće
+  pazara načinima naplate. Preklapanje dnevnog i mjesečnog pazara za istu kasu
+  je blokirano; prazan identifikator kase predstavlja sve kase.
+- Pazar se vodi na tehničkom kupcu `KRAJNJI POTROŠAČI – PAZAR`, prikazuje se u
+  KIF pregledu, štampi, Excel izvozu i izlaznom PDV-u, a ne ulazi među otvorene
+  kupčeve fakture jer je odmah označen kao naplaćen.
+- U `Računi / Podešavanja` dodata su dugujuća konta za gotovinu, kartice,
+  virman i ostalo. Pri knjiženju KIF-a pazar koristi ta konta naplate, dok
+  prihod i izlazni PDV koristi aktivnu KIF šemu; nedostajuće konto daje jasnu
+  poruku sa spornim KIF zapisom i načinom naplate.
+- Migracija `20260730170000_kif_pazar` je primijenjena, Prisma klijent
+  regenerisan i dev server restartovan. TypeScript i Prisma validacija su
+  čisti; lint nema novih grešaka.
+
 ## 2026-07-29
+- Automatsko knjiženje KUF-a sada kontroliše svaki račun zasebno. Centna
+  razlika (`±0,01 EUR`) automatski se dodaje ili oduzima na najvećoj stavci
+  troška tog računa; veća razlika blokira knjiženje i prikazuje interni KUF
+  broj, dobavljača, broj dobavljačevog računa, iznos i stranu razlike.
+- Read-only simulacija nad stvarnim `KUF-2026-0004` potvrdila je 133 računa,
+  šest dozvoljenih centnih korekcija, nijedan sporni račun i konačni balans od
+  nula centi. Tok provjere nije proknjižio knjigu niti mijenjao podatke.
+- Veliki KUF/KIF import sada iz preglednika obrađuje grupe od pet linkova i
+  nakon svake grupe prikazuje stvarni progres, brojeve uspješnih/duplih/grešaka
+  i inkrementalne rezultate.
+- KUF prije MAPR poziva parsira IIC, PIB i datum iz fiskalnog linka i traži isti
+  račun u lokalnoj bazi. Pronađeni duplikat vraća postojeći KUF broj i konto,
+  a MAPR poziv se potpuno preskače.
+- Dodato je izdvojeno izvještavanje neuspjelih računa: naziv izvornog dokumenta
+  za lokalni QR upload, PIB/IIC/datum/iznos iz linka, dobavljač, broj računa,
+  razlog i akcija za otvaranje MAPR-a. Greške se mogu ponoviti u grupama, dok
+  se kompletan spisak izvozi u CSV; fajlovi bez pročitanog QR-a takođe ulaze u
+  izvještaj po nazivu.
+- KUF MAPR import sada prepoznaje dobavljače bez zapamćenog konta knjiženja i
+  grupiše njihove neuspjele račune po PIB-u. Jedan izbor konta primjenjuje se
+  na sve račune tog dobavljača, omogućava grupni ponovni import i trajno se
+  pamti kao podrazumijevano KUF konto na vezi firme i dobavljača.
+- Rezultat importa prikazuje posebno razrješenje konta po dobavljaču, broj
+  pogođenih računa, pojedinačno dugme za grupu i akciju `Uvezi sve spremne`.
+  Korisnik je prethodno potvrdio uspješno lokalno čitanje QR kodova iz svih 65
+  izabranih fajlova; TypeScript je čist, a lint nema novih upozorenja.
 - Tok kalkulacije i KUF-a je razdvojen migracijom
   `20260730130000_kalkulacije_preuzimanje_u_kuf`. Završavanje kalkulacije više
   ne traži izbor KUF knjige: kreira DRAFT nalog kalkulacije, zadužuje lager i

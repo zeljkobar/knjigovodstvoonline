@@ -9,6 +9,7 @@ import {
   workbookResponse
 } from "@/lib/invoice-book-export";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
+import { kifEntryKinds } from "@/lib/kif-pazar";
 import { hasPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -24,6 +25,16 @@ function exportFileName(prefix: string, dateFrom: Date | null, dateTo: Date | nu
   const period = [excelDate(dateFrom), excelDate(dateTo)].filter(Boolean).join("_");
 
   return `${prefix}${period ? `_${period}` : ""}.xlsx`;
+}
+
+function periodText(from: Date | null, to: Date | null) {
+  if (!from || !to) {
+    return "";
+  }
+
+  const fromText = excelDate(from);
+  const toText = excelDate(to);
+  return fromText === toText ? fromText : `${fromText} - ${toText}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -105,10 +116,15 @@ export async function GET(request: NextRequest) {
             redni_broj: "asc"
           },
           select: {
+            entry_kind: true,
             customer_invoice_number: true,
             due_date: true,
             internal_kif_number: true,
             invoice_date: true,
+            pazar_period_from: true,
+            pazar_period_to: true,
+            pazar_report_number: true,
+            pazar_cash_register: true,
             is_export: true,
             note: true,
             posting_status: true,
@@ -156,7 +172,13 @@ export async function GET(request: NextRequest) {
       "Datum KIF-a": excelDate(book.kif_date),
       "Redni broj računa": entry.redni_broj,
       "Interni KIF broj": entry.internal_kif_number,
-      "Broj računa": normalizeFiscalInvoiceNumber(entry.customer_invoice_number),
+      "Vrsta zapisa": entry.entry_kind === kifEntryKinds.pazar ? "Pazar" : "Izlazna faktura",
+      "Broj računa / izvještaja":
+        entry.entry_kind === kifEntryKinds.pazar
+          ? entry.pazar_report_number ?? entry.customer_invoice_number
+          : normalizeFiscalInvoiceNumber(entry.customer_invoice_number),
+      "Period pazara": periodText(entry.pazar_period_from, entry.pazar_period_to),
+      "Kasa / poslovna jedinica": entry.pazar_cash_register ?? "",
       "Datum računa": excelDate(entry.invoice_date),
       "Datum dospijeća": excelDate(entry.due_date),
       "Kupac": entry.kupac.naziv,
@@ -183,6 +205,10 @@ export async function GET(request: NextRequest) {
     { wch: 14 },
     { wch: 16 },
     { wch: 18 },
+    { wch: 18 },
+    { wch: 24 },
+    { wch: 24 },
+    { wch: 24 },
     { wch: 20 },
     { wch: 14 },
     { wch: 14 },

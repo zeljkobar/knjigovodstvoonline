@@ -7,10 +7,16 @@
 - QA za edit/delete neproknjiženih računa.
 - Kontrole i upozorenja za duplikate računa.
 - Kontrole zbirnih iznosa (osnovica + PDV = ukupno po stopama).
-- Ručni QA pojedinačnog i višestrukog QR čitanja na većem uzorku stvarnih
-  PDF/TIFF/JPG/PNG ulaznih računa.
+- Ručni QA grupnog ponovnog KUF importa kada novi dobavljač nema zapamćeno
+  konto knjiženja, uključujući više računa istog PIB-a; istim testom provjeriti
+  progres velikog importa, lokalno preskakanje duplikata, ponavljanje MAPR
+  grešaka i CSV izvještaj.
 - Print kolone i prelom za knjige sa mnogo redova.
 - Test za djelimično knjiženu knjigu i dopunu postojećeg naloga.
+- Ručni QA poruke za sporni KUF račun sa razlikom većom od jednog centa.
+- Ručni end-to-end QA dnevnog i mjesečnog pazara: poreska razrada, načini
+  naplate, zabrana preklapanja po kasi, izmjena/brisanje nacrta, knjiženje po
+  podešenim kontima i ulazak u izlazni PDV.
 
 ## Prioritet 2 — Testovi
 - Automatsko knjiženje KIF/KUF po šemi.

@@ -209,6 +209,7 @@ export async function loadPdvBooks({
           },
           select: {
             id: true,
+            entry_kind: true,
             customer_invoice_number: true,
             invoice_date: true,
             internal_kif_number: true,

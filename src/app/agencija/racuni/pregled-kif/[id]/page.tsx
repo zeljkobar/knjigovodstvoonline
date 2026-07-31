@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAnyRole } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
+import { kifEntryKinds } from "@/lib/kif-pazar";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -36,6 +37,19 @@ function decimalText(value: { toString(): string } | number) {
 
 function displayDate(date: Date) {
   return date.toLocaleDateString("sr-Latn-ME");
+}
+
+function pazarPeriodLabel(entry: {
+  pazar_period_from: Date | null;
+  pazar_period_to: Date | null;
+}) {
+  if (!entry.pazar_period_from || !entry.pazar_period_to) {
+    return "-";
+  }
+
+  const from = displayDate(entry.pazar_period_from);
+  const to = displayDate(entry.pazar_period_to);
+  return from === to ? from : `${from} – ${to}`;
 }
 
 function bookPostingLabel(entries: Array<{ posting_status: string }>) {
@@ -157,9 +171,14 @@ export default async function PregledKifDetailPage({ params }: PregledKifDetailP
         },
         select: {
           id: true,
+          entry_kind: true,
           internal_kif_number: true,
           customer_invoice_number: true,
           invoice_date: true,
+          pazar_period_from: true,
+          pazar_period_to: true,
+          pazar_report_number: true,
+          pazar_cash_register: true,
           total_base: true,
           total_output_vat: true,
           total_gross: true,
@@ -298,7 +317,17 @@ export default async function PregledKifDetailPage({ params }: PregledKifDetailP
                       {entry.kupac.naziv}
                       <small>{entry.kupac.pib ?? ""}</small>
                     </td>
-                    <td>{normalizeFiscalInvoiceNumber(entry.customer_invoice_number)}</td>
+                    <td>
+                      {entry.entry_kind === kifEntryKinds.pazar
+                        ? `Pazar${entry.pazar_report_number ? ` · ${entry.pazar_report_number}` : ""}`
+                        : normalizeFiscalInvoiceNumber(entry.customer_invoice_number)}
+                      {entry.entry_kind === kifEntryKinds.pazar ? (
+                        <small>
+                          {pazarPeriodLabel(entry)}
+                          {entry.pazar_cash_register ? ` · ${entry.pazar_cash_register}` : ""}
+                        </small>
+                      ) : null}
+                    </td>
                     <td>
                       {entry.revenue_account
                         ? `${entry.revenue_account.sifra} - ${entry.revenue_account.naziv}`

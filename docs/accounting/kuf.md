@@ -50,6 +50,18 @@ KUF razlikuje ukupni ulazni PDV, odbitni i neodbitni:
   odjednom. Obrađuje ih redom u pregledniku, dopisuje jedinstvene MAPR linkove
   u polje `Linkovi` i prikazuje status po fajlu; tek naknadni klik na
   `Importuj račune` šalje linkove u postojeći KUF/KIF import.
+- Import šalje serveru grupe od pet linkova i nakon svake grupe osvježava
+  progres i rezultate. Za KUF se fiskalni IIC, PIB prodavca i datum prvo čitaju
+  iz samog linka; ako isti fiskalni račun već postoji u firmi, označava se kao
+  duplikat bez poziva MAPR servisu.
+- Greške se izdvajaju u poseban izvještaj sa izvornim fajlom kada je poznat,
+  identifikatorima iz linka, razlogom i punim MAPR linkom. Neuspjeli MAPR pozivi
+  mogu se grupno ponoviti, a izvještaj se može preuzeti kao CSV. Dokument iz
+  kojeg QR uopšte nije pročitan ostaje evidentiran po nazivu fajla.
+- Kada MAPR import pronađe dobavljača bez podrazumijevanog KUF konta, ne traži
+  ručni unos svakog računa. Neuspjeli računi se grupišu po PIB-u dobavljača,
+  konto se bira jednom za cijelu grupu, a ponovni import ga primjenjuje na sve
+  račune i pamti kao `default_kuf_konto_sifra` za firmu i dobavljača.
 
 ## Tip PDV prometa (`vat_transaction_type`)
 > Implementirano u `src/lib/vat-transaction.ts`.
@@ -79,6 +91,11 @@ partner:
 ## Knjiženje
 - Cijela knjiga se knjiži **odjednom u jedan nalog** po šemi.
 - Naknadni računi dopunjavaju **samo neproknjižene** na isti nalog.
+- Balans se kontroliše po svakom KUF računu, ne samo zbirno za knjigu. Ako
+  osnovice i PDV zbog zaokruživanja odstupaju od ukupnog iznosa za tačno
+  `0,01 EUR`, razlika se koriguje na najvećoj stavci troška tog računa. Razlika
+  veća od jednog centa nije dozvoljena: cijelo knjiženje se zaustavlja, a
+  poruka navodi interni KUF broj, dobavljača, broj računa i iznos razlike.
 - Statusi (srpski): **otvorena → djelimično knjižena → knjižena**.
 - Edit/delete za neproknjižene račune.
 - Kalkulacija prvo zadužuje lager i kreira svoj nalog, a zatim se iz

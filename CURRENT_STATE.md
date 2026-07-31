@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-07-29. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-07-30. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -145,6 +145,16 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 ### Modul 6 — Računi, KIF i KUF
 - PDV stope dinamičke u podešavanjima.
 - KIF/KUF knjige po mjesecu, datumu i vrsti knjige; vrste su dinamičke.
+- KIF podržava zbirni dnevni ili mjesečni pazar. Unose se period, ukupan pazar,
+  poreske osnovice i izlazni PDV po aktivnim stopama te naplata kroz gotovinu,
+  kartice, virman i ostalo. Dnevni i mjesečni pazari iste kase ne mogu se
+  vremenski preklapati. Novi ukupan pazar se prvo automatski raspoređuje na
+  najveću aktivnu PDV stopu; ručna osnovica prebacuje preostali bruto iznos na
+  naredne stope opadajućim redom.
+- Pazar koristi tehničkog kupca `KRAJNJI POTROŠAČI – PAZAR`, ulazi u
+  KIF/PDV evidenciju, štampu i Excel izvoz. Prihod i izlazni PDV koriste
+  aktivnu KIF šemu, a dugujuća konta po načinima naplate podešavaju se zasebno
+  u `Računi / Podešavanja`.
 - Šema kontiranja je odvojena po vrsti knjige (npr. KUF virmani, kartica,
   gotovina i KIF): za svako polje D/P, izvor konta i konto.
 - Podešavanja KIF/KUF mogu se uvesti iz druge firme iste agencije na aktivnu
@@ -161,7 +171,24 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   Fajlovi se lokalno obrađuju redom, uspješni MAPR linkovi se odmah dopisuju u
   postojeće polje linkova, a svaki fajl dobija status uspjeh/duplikat/greška
   prije pokretanja postojećeg KUF/KIF importa.
+- Veliki import se iz preglednika šalje serveru u grupama po pet linkova i
+  poslije svake grupe osvježava progres, zbir uspješnih, duplikata i grešaka te
+  inkrementalno prikazuje rezultate. KUF prije MAPR poziva čita IIC, PIB i
+  datum iz linka i preskače spoljašnji poziv ako isti fiskalni račun već postoji
+  u aktivnoj firmi.
+- Neuspjeli importi imaju izdvojen izvještaj sa izvornim nazivom dokumenta kada
+  je link pročitan iz PDF/TIFF/JPG/PNG fajla, fiskalnim identifikatorima,
+  razlogom i MAPR linkom. Greške se mogu grupno ponoviti, a cijeli izvještaj
+  preuzeti kao CSV; nepročitani QR dokumenti prikazuju se po nazivu fajla.
+- Ako KUF MAPR import pronađe dobavljača bez zapamćenog konta knjiženja,
+  rezultati se grupišu po PIB-u dobavljača. Korisnik jednom bira konto za sve
+  njegove neuspjele račune, može ih zajedno ponovo uvesti, a izabrano konto se
+  pamti na vezi firme i dobavljača za naredne importe.
 - Cijela knjiga se knjiži odjednom u jedan nalog; naknadni računi se dopunjavaju.
+- Pri automatskom knjiženju KUF-a balans se kontroliše po svakom računu.
+  Razlika od tačno jednog centa zbog zaokruživanja koriguje se na najvećoj
+  stavci troška tog računa. Veća razlika zaustavlja cijelo knjiženje i u poruci
+  navodi interni KUF broj, dobavljača, broj računa i iznos razlike.
 - Statusi na srpskom: otvorena, djelimično knjižena, knjižena.
 - Edit/delete za neproknjižene račune; fizičko brisanje KIF/KUF računa i cijele
   knjige dozvoljeno je samo kad nema povezan nalog i sve stavke su neproknjižene,
@@ -485,6 +512,10 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
 
 ## Zadnje provjere
+- `npx prisma migrate deploy` primijenio je migraciju
+  `20260730170000_kif_pazar`; Prisma klijent je regenerisan i razvojni server
+  restartovan. `npx tsc --noEmit`, `npx prisma validate` i lint prolaze bez
+  novih grešaka.
 - `npx prisma migrate deploy` primijenio je migracije
   `20260726120000_robno_sifarnici` i
   `20260727100000_jedinice_mjere_periodi`; Prisma klijent je regenerisan i dev
@@ -496,9 +527,8 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   `20260729120000_domace_kalkulacije` i
   `20260729143000_kalkulacija_default_maloprodaja`; Prisma klijent je
   regenerisan i dev server restartovan.
-- `npm run lint` prolazi bez grešaka, uz tri upozorenja: `_prev` u
-  `src/app/admin/actions.ts` i dvije neiskorišćene varijable u
-  `src/app/agencija/racuni/actions.ts`.
+- `npm run lint` prolazi bez grešaka, uz jedno postojeće upozorenje za `_prev`
+  u `src/app/admin/actions.ts`.
 - `npx tsc --noEmit --incremental false` prolazi.
 - `npx prisma validate` potvrđuje da je Prisma šema validna.
 - U repozitorijumu nema automatizovanih test fajlova.

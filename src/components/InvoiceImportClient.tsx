@@ -15,13 +15,21 @@ type BookOption = {
   href: string;
 };
 
+type AccountOption = {
+  code: string;
+  label: string;
+};
+
 type ImportResult = {
   link: string;
   status: "success" | "error" | "duplicate";
   message: string;
   invoiceNumber?: string;
   partner?: string;
+  partnerTin?: string;
+  accountCode?: string;
   total?: number;
+  requiresAccount?: boolean;
 };
 
 type ImportSummary = {
@@ -29,6 +37,11 @@ type ImportSummary = {
   success: number;
   duplicate: number;
   error: number;
+};
+
+type ImportProgress = ImportSummary & {
+  processed: number;
+  label: string;
 };
 
 type ImportMetadata = {
@@ -46,6 +59,8 @@ type QrFileResult = {
   status: "success" | "duplicate" | "error";
   message: string;
 };
+
+const importBatchSize = 5;
 
 function extractLinks(text: string) {
   return Array.from(
@@ -217,10 +232,73 @@ function money(value?: number) {
   });
 }
 
+function summarizeResults(results: ImportResult[]): ImportSummary {
+  return {
+    total: results.length,
+    success: results.filter((result) => result.status === "success").length,
+    duplicate: results.filter((result) => result.status === "duplicate").length,
+    error: results.filter((result) => result.status === "error").length
+  };
+}
+
+function accountLabel(accountCode: string | undefined, accountOptions: AccountOption[]) {
+  if (!accountCode) {
+    return "-";
+  }
+
+  return (
+    accountOptions.find((account) => account.code === accountCode)?.label ??
+    accountCode
+  );
+}
+
+function mergeImportResults(current: ImportResult[], nextResults: ImportResult[]) {
+  const nextByLink = new Map(nextResults.map((result) => [result.link, result]));
+  const currentLinks = new Set(current.map((result) => result.link));
+
+  return [
+    ...current.map((result) => nextByLink.get(result.link) ?? result),
+    ...nextResults.filter((result) => !currentLinks.has(result.link))
+  ];
+}
+
+function maprLinkDetails(link: string) {
+  try {
+    const url = new URL(link);
+    const hashQueryIndex = url.hash.indexOf("?");
+    const query =
+      url.search.slice(1) ||
+      (hashQueryIndex >= 0 ? url.hash.slice(hashQueryIndex + 1) : "");
+    const params = new URLSearchParams(query);
+
+    return {
+      iic: params.get("iic") ?? "",
+      tin: normalizePib(params.get("tin")),
+      createdAt: params.get("crtd") ?? "",
+      total: params.get("prc") ?? ""
+    };
+  } catch {
+    return {
+      iic: "",
+      tin: "",
+      createdAt: "",
+      total: ""
+    };
+  }
+}
+
+function csvCell(value: unknown) {
+  const text = String(value ?? "");
+
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
 export function InvoiceImportClient({
+  accountOptions,
   activeCompanyPib,
   books
 }: {
+  accountOptions: AccountOption[];
   activeCompanyPib: string;
   books: BookOption[];
 }) {
@@ -234,6 +312,9 @@ export function InvoiceImportClient({
   const [metadata, setMetadata] = useState<ImportMetadata[]>([]);
   const [isReadingQrFiles, setIsReadingQrFiles] = useState(false);
   const [qrFileResults, setQrFileResults] = useState<QrFileResult[]>([]);
+  const [supplierAccountCodes, setSupplierAccountCodes] = useState<Record<string, string>>({});
+  const [linkSources, setLinkSources] = useState<Record<string, string[]>>({});
+  const [progress, setProgress] = useState<ImportProgress | null>(null);
 
   const filteredBooks = useMemo(
     () => books.filter((book) => book.documentType === documentType),
@@ -241,6 +322,69 @@ export function InvoiceImportClient({
   );
   const selectedBook = filteredBooks.find((book) => book.id === bookId);
   const links = useMemo(() => extractLinks(linksText), [linksText]);
+  const suppliersRequiringAccount = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        tin: string;
+        partner: string;
+        links: string[];
+      }
+    >();
+
+    for (const result of results) {
+      if (!result.requiresAccount || !result.partnerTin) {
+        continue;
+      }
+
+      const existing = grouped.get(result.partnerTin);
+
+      if (existing) {
+        existing.links.push(result.link);
+      } else {
+        grouped.set(result.partnerTin, {
+          tin: result.partnerTin,
+          partner: result.partner ?? "Dobavljač",
+          links: [result.link]
+        });
+      }
+    }
+
+    return Array.from(grouped.values());
+  }, [results]);
+  const readySupplierCount = suppliersRequiringAccount.filter(
+    (supplier) => supplierAccountCodes[supplier.tin]
+  ).length;
+  const failedResults = useMemo(
+    () => results.filter((result) => result.status === "error"),
+    [results]
+  );
+  const retryableFailedResults = failedResults.filter(
+    (result) => !result.requiresAccount
+  );
+  const failedQrFiles = qrFileResults.filter(
+    (result) => result.status === "error"
+  );
+  const progressPercent =
+    progress && progress.total > 0
+      ? Math.round((progress.processed / progress.total) * 100)
+      : 0;
+
+  function rememberLinkSources(sourceLinks: string[], fileName: string) {
+    if (sourceLinks.length === 0) {
+      return;
+    }
+
+    setLinkSources((current) => {
+      const next = { ...current };
+
+      for (const link of sourceLinks) {
+        next[link] = Array.from(new Set([...(next[link] ?? []), fileName]));
+      }
+
+      return next;
+    });
+  }
 
   async function readFile(file: File, companyPib: string) {
     const extension = file.name.split(".").pop()?.toLowerCase();
@@ -286,6 +430,7 @@ export function InvoiceImportClient({
       text = await file.text();
     }
 
+    rememberLinkSources(extractLinks(text), file.name);
     setLinksText((current) => appendText(current, text));
     setMetadata((current) => [...current, ...nextMetadata]);
     setMessage(
@@ -304,6 +449,7 @@ export function InvoiceImportClient({
     setStatus("idle");
     setSummary(null);
     setResults([]);
+    setProgress(null);
     const knownLinks = new Set(links);
     const nextResults: QrFileResult[] = [];
     let successCount = 0;
@@ -315,6 +461,7 @@ export function InvoiceImportClient({
 
       try {
         const link = await decodeInvoiceQrFile(file);
+        rememberLinkSources([link], file.name);
 
         if (knownLinks.has(link)) {
           duplicateCount += 1;
@@ -351,9 +498,110 @@ export function InvoiceImportClient({
     );
   }
 
+  async function importInBatches(
+    requestLinks: string[],
+    options: {
+      label: string;
+      replaceResults: boolean;
+      documentType?: "KUF" | "KIF";
+      supplierAccountCodes?: Record<string, string>;
+    }
+  ) {
+    let operationResults: ImportResult[] = [];
+    let displayedResults = options.replaceResults ? [] : [...results];
+    const operationType = options.documentType ?? documentType;
+
+    setProgress({
+      processed: 0,
+      total: requestLinks.length,
+      success: 0,
+      duplicate: 0,
+      error: 0,
+      label: options.label
+    });
+
+    for (let index = 0; index < requestLinks.length; index += importBatchSize) {
+      const batch = requestLinks.slice(index, index + importBatchSize);
+      const processedBeforeBatch = operationResults.length;
+      setMessage(
+        `${options.label}: ${processedBeforeBatch}/${requestLinks.length} obrađeno...`
+      );
+      let batchResults: ImportResult[];
+
+      try {
+        const response = await fetch("/api/racuni/import", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            documentType: operationType,
+            bookId,
+            links: batch,
+            metadata: metadata.filter((item) => batch.includes(item.link)),
+            supplierAccountCodes: options.supplierAccountCodes
+          })
+        });
+        const data = (await response.json()) as {
+          message?: string;
+          results?: ImportResult[];
+        };
+
+        if (!response.ok) {
+          batchResults = batch.map((link) => ({
+            link,
+            status: "error",
+            message: data.message ?? "Import ove grupe nije izvršen."
+          }));
+        } else {
+          const returnedByLink = new Map(
+            (data.results ?? []).map((result) => [result.link, result])
+          );
+          batchResults = batch.map(
+            (link) =>
+              returnedByLink.get(link) ?? {
+                link,
+                status: "error",
+                message: "Server nije vratio rezultat za ovaj link."
+              }
+          );
+        }
+      } catch {
+        batchResults = batch.map((link) => ({
+          link,
+          status: "error",
+          message: "Greška pri komunikaciji sa serverom."
+        }));
+      }
+
+      operationResults = [...operationResults, ...batchResults];
+      displayedResults = options.replaceResults
+        ? [...operationResults]
+        : mergeImportResults(displayedResults, batchResults);
+      const operationSummary = summarizeResults(operationResults);
+
+      setResults(displayedResults);
+      setSummary(summarizeResults(displayedResults));
+      setProgress({
+        processed: operationResults.length,
+        total: requestLinks.length,
+        success: operationSummary.success,
+        duplicate: operationSummary.duplicate,
+        error: operationSummary.error,
+        label: options.label
+      });
+    }
+
+    return {
+      operationResults,
+      displayedResults
+    };
+  }
+
   async function importLinks() {
     setResults([]);
     setSummary(null);
+    setSupplierAccountCodes({});
 
     if (!bookId || links.length === 0) {
       setStatus("error");
@@ -362,41 +610,138 @@ export function InvoiceImportClient({
     }
 
     setStatus("loading");
-    setMessage(`Učitavam ${links.length} linkova preko MAPR-a...`);
+    const { displayedResults } = await importInBatches(links, {
+      label: "Import računa",
+      replaceResults: true
+    });
+    setStatus("done");
+    const suppliersWithoutAccount = new Set(
+      displayedResults
+        .filter((result) => result.requiresAccount && result.partnerTin)
+        .map((result) => result.partnerTin)
+    ).size;
+    const finalSummary = summarizeResults(displayedResults);
+    setMessage(
+      suppliersWithoutAccount > 0
+        ? `Import je završen. Izaberite konto za ${suppliersWithoutAccount} dobavljača i ponovite njihove račune.`
+        : finalSummary.error > 0
+          ? `Import je završen sa ${finalSummary.error} grešaka. Pogledajte izvještaj neuspjelih računa ispod.`
+          : `Import je završen: ${finalSummary.success} uspješno, ${finalSummary.duplicate} duplikata.`
+    );
+  }
 
-    try {
-      const response = await fetch("/api/racuni/import", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          documentType,
-          bookId,
-          links,
-          metadata
-        })
-      });
-      const data = (await response.json()) as {
-        message?: string;
-        results?: ImportResult[];
-        summary?: ImportSummary;
-      };
+  async function retrySupplierImports(targetTins?: string[]) {
+    const requestedTins = targetTins ? new Set(targetTins) : null;
+    const selectedSuppliers = suppliersRequiringAccount.filter(
+      (supplier) =>
+        (!requestedTins || requestedTins.has(supplier.tin)) &&
+        Boolean(supplierAccountCodes[supplier.tin])
+    );
+    const retryLinks = selectedSuppliers.flatMap((supplier) => supplier.links);
 
-      if (!response.ok) {
-        setStatus("error");
-        setMessage(data.message ?? "Import nije izvršen.");
-        return;
-      }
-
-      setResults(data.results ?? []);
-      setSummary(data.summary ?? null);
-      setStatus("done");
-      setMessage("Import je završen.");
-    } catch {
+    if (!bookId || retryLinks.length === 0) {
       setStatus("error");
-      setMessage("Greška pri komunikaciji sa serverom.");
+      setMessage("Izaberite konto za dobavljača prije ponovnog uvoza.");
+      return;
     }
+
+    const selectedCodes = Object.fromEntries(
+      selectedSuppliers.map((supplier) => [
+        supplier.tin,
+        supplierAccountCodes[supplier.tin]
+      ])
+    );
+
+    setStatus("loading");
+    const { operationResults } = await importInBatches(retryLinks, {
+      label: "Ponovni import dobavljača",
+      replaceResults: false,
+      documentType: "KUF",
+      supplierAccountCodes: selectedCodes
+    });
+    setStatus("done");
+    setMessage(
+      `Ponovni import je završen: ${operationResults.filter(
+        (result) => result.status === "success"
+      ).length} uspješno.`
+    );
+  }
+
+  async function retryFailedImports() {
+    const retryLinks = retryableFailedResults.map((result) => result.link);
+
+    if (retryLinks.length === 0) {
+      setStatus("error");
+      setMessage("Nema grešaka koje se mogu automatski ponoviti.");
+      return;
+    }
+
+    setStatus("loading");
+    const { operationResults } = await importInBatches(retryLinks, {
+      label: "Ponovni pokušaj grešaka",
+      replaceResults: false
+    });
+    setStatus("done");
+    const retrySummary = summarizeResults(operationResults);
+    setMessage(
+      `Ponovni pokušaj je završen: ${retrySummary.success} uspješno, ${retrySummary.duplicate} duplikata, ${retrySummary.error} grešaka.`
+    );
+  }
+
+  function downloadFailureReport() {
+    const rows = [
+      [
+        "Izvorni fajl",
+        "PIB",
+        "IIC",
+        "Datum",
+        "Dobavljač",
+        "Broj računa",
+        "Ukupno",
+        "Razlog",
+        "MAPR link"
+      ],
+      ...failedResults.map((result) => {
+        const details = maprLinkDetails(result.link);
+
+        return [
+          (linkSources[result.link] ?? []).join(" | ") || "Nalijepljeni link",
+          result.partnerTin || details.tin,
+          details.iic,
+          details.createdAt,
+          result.partner ?? "",
+          result.invoiceNumber ?? "",
+          result.total ?? details.total,
+          result.message,
+          result.link
+        ];
+      }),
+      ...failedQrFiles.map((result) => [
+        result.fileName,
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        result.message,
+        ""
+      ])
+    ];
+    const csv = `\uFEFF${rows
+      .map((row) => row.map((value) => csvCell(value)).join(";"))
+      .join("\r\n")}`;
+    const url = URL.createObjectURL(
+      new Blob([csv], { type: "text/csv;charset=utf-8" })
+    );
+    const anchor = document.createElement("a");
+
+    anchor.href = url;
+    anchor.download = `neuspjeli-import-${new Date()
+      .toISOString()
+      .slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -429,6 +774,9 @@ export function InvoiceImportClient({
                 setResults([]);
                 setSummary(null);
                 setQrFileResults([]);
+                setSupplierAccountCodes({});
+                setLinkSources({});
+                setProgress(null);
               }}
             >
               <option value="KUF">KUF</option>
@@ -514,7 +862,7 @@ export function InvoiceImportClient({
               rows={12}
               value={linksText}
               placeholder="Nalijepite MAPR linkove, jedan ispod drugog..."
-              disabled={isReadingQrFiles}
+              disabled={isReadingQrFiles || status === "loading"}
               onChange={(event) => setLinksText(event.target.value)}
             />
           </label>
@@ -531,6 +879,35 @@ export function InvoiceImportClient({
           ) : null}
         </div>
 
+        {progress ? (
+          <div
+            className="invoice-import-progress"
+            role="progressbar"
+            aria-label={progress.label}
+            aria-valuemin={0}
+            aria-valuemax={progress.total}
+            aria-valuenow={progress.processed}
+          >
+            <div className="invoice-import-progress-header">
+              <strong>{progress.label}</strong>
+              <span>
+                {progress.processed}/{progress.total} · {progressPercent}%
+              </span>
+            </div>
+            <div className="invoice-import-progress-track">
+              <div
+                className="invoice-import-progress-value"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <div className="invoice-import-progress-counts">
+              <span>Uspješno {progress.success}</span>
+              <span>Duplikati {progress.duplicate}</span>
+              <span>Greške {progress.error}</span>
+            </div>
+          </div>
+        ) : null}
+
         {message ? (
           <p className={`admin-message ${status === "error" ? "import-result--error" : ""}`}>
             {message}
@@ -543,6 +920,174 @@ export function InvoiceImportClient({
           <h3>Rezultat importa</h3>
           <span>{results.length} redova</span>
         </div>
+        {failedResults.length > 0 || failedQrFiles.length > 0 ? (
+          <div className="import-failure-report">
+            <div className="import-failure-report-header">
+              <div>
+                <h4>Računi koji nijesu uvezeni</h4>
+                <p>
+                  Ovdje su svi neuspjeli MAPR linkovi i dokumenti iz kojih QR
+                  kod nije pročitan.
+                </p>
+              </div>
+              <div className="import-failure-report-actions">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  disabled={status === "loading"}
+                  onClick={downloadFailureReport}
+                >
+                  Preuzmi CSV izvještaj
+                </button>
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={
+                    status === "loading" ||
+                    retryableFailedResults.length === 0
+                  }
+                  onClick={() => void retryFailedImports()}
+                >
+                  Ponovi {retryableFailedResults.length} grešaka
+                </button>
+              </div>
+            </div>
+            <div className="table-wrap">
+              <table className="import-failure-table">
+                <thead>
+                  <tr>
+                    <th>Izvor / fajl</th>
+                    <th>PIB / IIC</th>
+                    <th>Dobavljač / račun</th>
+                    <th>Razlog</th>
+                    <th>Link</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {failedResults.map((result) => {
+                    const details = maprLinkDetails(result.link);
+                    const sourceNames = linkSources[result.link] ?? [];
+
+                    return (
+                      <tr key={`failed-${result.link}`}>
+                        <td>
+                          {sourceNames.length > 0
+                            ? sourceNames.join(", ")
+                            : "Nalijepljeni MAPR link"}
+                        </td>
+                        <td>
+                          <strong>{result.partnerTin || details.tin || "-"}</strong>
+                          <small>{details.iic || "-"}</small>
+                          {details.createdAt ? (
+                            <small>{details.createdAt}</small>
+                          ) : null}
+                          {details.total ? (
+                            <small>Iznos iz linka: {details.total}</small>
+                          ) : null}
+                        </td>
+                        <td>
+                          <strong>{result.partner ?? "-"}</strong>
+                          <small>
+                            {normalizeFiscalInvoiceNumber(result.invoiceNumber) ||
+                              "-"}
+                          </small>
+                        </td>
+                        <td>{result.message}</td>
+                        <td>
+                          <a
+                            className="secondary-button"
+                            href={result.link}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Otvori MAPR
+                          </a>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {failedQrFiles.map((result, index) => (
+                    <tr key={`failed-file-${result.fileName}-${index}`}>
+                      <td>{result.fileName}</td>
+                      <td>-</td>
+                      <td>-</td>
+                      <td>{result.message}</td>
+                      <td>Ponovo izaberite fajl</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+        {documentType === "KUF" && suppliersRequiringAccount.length > 0 ? (
+          <div className="supplier-account-resolution">
+            <div className="supplier-account-resolution-header">
+              <div>
+                <h4>Dobavljači bez konta knjiženja</h4>
+                <p>
+                  Konto se bira jednom po PIB-u i primjenjuje na sve prikazane
+                  račune tog dobavljača.
+                </p>
+              </div>
+              {suppliersRequiringAccount.length > 1 ? (
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={status === "loading" || readySupplierCount === 0}
+                  onClick={() => void retrySupplierImports()}
+                >
+                  Uvezi sve spremne
+                </button>
+              ) : null}
+            </div>
+            <div className="supplier-account-resolution-list">
+              {suppliersRequiringAccount.map((supplier) => (
+                <div className="supplier-account-resolution-row" key={supplier.tin}>
+                  <div>
+                    <strong>{supplier.partner}</strong>
+                    <span>
+                      PIB {supplier.tin} · {supplier.links.length}{" "}
+                      {supplier.links.length === 1 ? "račun" : "računa"}
+                    </span>
+                  </div>
+                  <label>
+                    <span>Konto troška</span>
+                    <select
+                      disabled={status === "loading"}
+                      value={supplierAccountCodes[supplier.tin] ?? ""}
+                      onChange={(event) =>
+                        setSupplierAccountCodes((current) => ({
+                          ...current,
+                          [supplier.tin]: event.target.value
+                        }))
+                      }
+                    >
+                      <option value="">Izaberite konto</option>
+                      {accountOptions.map((account) => (
+                        <option key={account.code} value={account.code}>
+                          {account.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    className="primary-button"
+                    type="button"
+                    disabled={
+                      status === "loading" ||
+                      !supplierAccountCodes[supplier.tin]
+                    }
+                    onClick={() => void retrySupplierImports([supplier.tin])}
+                  >
+                    Uvezi {supplier.links.length}{" "}
+                    {supplier.links.length === 1 ? "račun" : "računa"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="table-wrap">
           <table>
             <thead>
@@ -551,13 +1096,16 @@ export function InvoiceImportClient({
                 <th>{documentType === "KIF" ? "Kupac" : "Dobavljač"}</th>
                 <th>Račun</th>
                 <th>Ukupno</th>
+                {documentType === "KUF" ? <th>Konto</th> : null}
                 <th>Poruka</th>
               </tr>
             </thead>
             <tbody>
               {results.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>Rezultat će se prikazati nakon importa.</td>
+                  <td colSpan={documentType === "KUF" ? 6 : 5}>
+                    Rezultat će se prikazati nakon importa.
+                  </td>
                 </tr>
               ) : (
                 results.map((result, index) => (
@@ -568,6 +1116,17 @@ export function InvoiceImportClient({
                     <td>{result.partner ?? "-"}</td>
                     <td>{normalizeFiscalInvoiceNumber(result.invoiceNumber) || "-"}</td>
                     <td>{money(result.total)}</td>
+                    {documentType === "KUF" ? (
+                      <td>
+                        {accountLabel(
+                          result.accountCode ||
+                            (result.partnerTin
+                              ? supplierAccountCodes[result.partnerTin]
+                              : undefined),
+                          accountOptions
+                        )}
+                      </td>
+                    ) : null}
                     <td>{result.message}</td>
                   </tr>
                 ))

@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
+import { kifEntryKinds } from "@/lib/kif-pazar";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -33,6 +34,18 @@ function parseDateFilter(value?: string) {
 
 function dateText(value: Date | null | undefined) {
   return value ? value.toLocaleDateString("sr-Latn-ME") : "-";
+}
+
+function documentText(entry: {
+  entry_kind: string;
+  customer_invoice_number: string;
+  pazar_report_number: string | null;
+}) {
+  if (entry.entry_kind === kifEntryKinds.pazar) {
+    return `Pazar${entry.pazar_report_number ? ` · ${entry.pazar_report_number}` : ""}`;
+  }
+
+  return normalizeFiscalInvoiceNumber(entry.customer_invoice_number);
 }
 
 function money(value: number) {
@@ -142,8 +155,10 @@ export default async function KifPrintPage({ searchParams }: KifPrintPageProps) 
           },
           select: {
             id: true,
+            entry_kind: true,
             customer_invoice_number: true,
             invoice_date: true,
+            pazar_report_number: true,
             total_base: true,
             total_output_vat: true,
             total_gross: true,
@@ -301,7 +316,7 @@ export default async function KifPrintPage({ searchParams }: KifPrintPageProps) 
                   <tr key={row.id}>
                     <td>{index + 1}</td>
                     <td>{dateText(row.bookDate)}</td>
-                    <td>{normalizeFiscalInvoiceNumber(row.customer_invoice_number)}</td>
+                    <td>{documentText(row)}</td>
                     <td>{dateText(row.invoice_date)}</td>
                     <td>{row.kupac.naziv}</td>
                     <td>{row.kupac.pdv_broj ?? row.kupac.pib ?? ""}</td>

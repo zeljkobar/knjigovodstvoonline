@@ -61,11 +61,36 @@ KIF dokument čuva konačni tip prometa. Dozvoljene vrijednosti za KIF:
   SEP fajla se prave MAPR linkovi i puni KIF).
 - Normalizacija fiskalnog broja: `pt385eg871/1/2026/dl426pc243` → `1/2026`.
 
+## Pazar
+
+KIF može sadržati i zbirni pazar za firme koje promet evidentiraju preko
+fiskalne kase, bez pojedinačnih izlaznih faktura za svaki promet.
+
+- Pazar je poseban KIF zapis (`entry_kind = PAZAR`), a ne izlazna faktura.
+- Period je dnevni ili mjesečni i mora pripadati mjesecu otvorene KIF knjige.
+- Čuvaju se broj izvještaja, opciona kasa/poslovna jedinica, ukupan iznos,
+  osnovice i izlazni PDV po aktivnim stopama.
+- Ukupan pazar se automatski raspoređuje na najveću aktivnu stopu. Kada
+  korisnik ručno unese osnovicu te stope, preostali bruto iznos prelazi na
+  narednu stopu opadajućim redom sve do 0%, a izlazni PDV se računa automatski.
+- Načini naplate su gotovina, kartice, virman i ostalo. Njihov zbir mora biti
+  tačno jednak ukupnom pazaru.
+- Dnevni i mjesečni zapisi iste kase ne smiju se vremenski preklapati. Ako kasa
+  nije navedena, zapis predstavlja sve kase i blokira svako preklapanje.
+- Pazar koristi tehničkog kupca `KRAJNJI POTROŠAČI – PAZAR`, označen je kao
+  naplaćen i zato ne ulazi među otvorene kupčeve fakture.
+- Poreske stavke pazara ulaze u KIF, izlazni PDV, PDV prijavu, štampu i Excel
+  izvoz na isti način kao poreske stavke izlazne fakture.
+
 ## Knjiženje
 - Cijela knjiga se knjiži **odjednom u jedan nalog** po šemi.
 - Naknadno dodati računi dopunjavaju **samo neproknjižene** račune na isti nalog.
 - Statusi (srpski): **otvorena → djelimično knjižena → knjižena**.
 - Edit/delete moguć za neproknjižene račune.
+- Kod pazara prihod i izlazni PDV koriste šemu aktivne KIF knjige, dok se
+  dugujuća konta za gotovinu, kartice, virman i ostalo podešavaju po firmi u
+  `Računi / Podešavanja`. Knjiženje je blokirano ako korišćeni način naplate
+  nema podešeno aktivno analitičko konto.
 
 ## Štampa
 Čista HTML/CSS print stranica knjige bez menija.

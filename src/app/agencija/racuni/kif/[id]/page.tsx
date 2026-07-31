@@ -1,5 +1,13 @@
 import Link from "next/link";
-import { createKifEntry, deleteKifEntry, postInvoiceBook, updateKifEntry } from "../../actions";
+import {
+  createKifEntry,
+  createKifPazar,
+  deleteKifEntry,
+  postInvoiceBook,
+  updateKifEntry,
+  updateKifPazar
+} from "../../actions";
+import { KifPazarForm } from "@/components/KifPazarForm";
 import { KifTaxLinesForm } from "@/components/KifTaxLinesForm";
 import { PartnerSearchInput } from "@/components/PartnerSearchInput";
 import { VatTransactionFields } from "@/components/VatTransactionFields";
@@ -11,6 +19,11 @@ import {
 } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
+import {
+  kifEntryKinds,
+  pazarPaymentLabel,
+  pazarPeriodTypes
+} from "@/lib/kif-pazar";
 import { prisma } from "@/lib/prisma";
 import { vatTransactionLabels } from "@/lib/vat-transaction";
 import { readWorkContext } from "@/lib/work-context";
@@ -21,7 +34,10 @@ type KifBookPageProps = {
   }>;
   searchParams?: Promise<{
     edit?: string;
+    pazar_edit?: string;
+    unos?: string;
     poruka?: string;
+    detalj?: string;
   }>;
 };
 
@@ -39,6 +55,16 @@ const poruke: Record<string, string> = {
   kif_knjiga: "KIF knjiga nije otvorena za unos.",
   kif_dupli_broj: "Račun sa istim kupcem, brojem i datumom već postoji u KIF-u.",
   kif_export_pdv: "Izvoz ne smije imati obračunat izlazni PDV.",
+  kif_pazar_sacuvan: "Pazar je dodat u KIF.",
+  kif_pazar_izmijenjen: "Pazar je izmijenjen.",
+  kif_pazar_obavezno: "Izaberite period i unesite ukupan pazar.",
+  kif_pazar_mjesec: "Period pazara mora pripadati mjesecu i godini ove KIF knjige.",
+  kif_pazar_iznosi: "Unesite poreske osnovice i izlazni PDV pazara.",
+  kif_pazar_ukupno: "Ukupan pazar se ne slaže sa zbirom osnovica i PDV-a.",
+  kif_pazar_naplata: "Zbir gotovine, kartica, virmana i ostalog mora biti jednak ukupnom pazaru.",
+  kif_pazar_preklapanje:
+    "Pazar za ovu kasu i period preklapa se sa već unesenim dnevnim ili mjesečnim pazarom.",
+  kif_pazar_greska: "Pazar nije sačuvan. Provjerite podatke.",
   prava: "Nemate pravo za ovu akciju nad izlaznim računima.",
   knjizenje_kreiran: "Nalog je kreiran.",
   knjizenje_dodato: "Novi računi su dodati na postojeći nalog.",
@@ -47,6 +73,10 @@ const poruke: Record<string, string> = {
   knjizenje_konto: "Neko konto iz šeme nije aktivno analitičko konto.",
   knjizenje_nalog_zakljucan: "Postojeći nalog je već proknjižen i ne može se dopuniti.",
   knjizenje_nema: "Nema neproknjiženih računa za ovu knjigu.",
+  knjizenje_razlika_racuna: "KIF nije proknjižen jer jedan zapis ima nedozvoljenu razliku.",
+  knjizenje_pazar_sema:
+    "KIF nije proknjižen jer nije podešeno konto za jedan od korišćenih načina naplate pazara.",
+  knjizenje_nije_balansiran: "Šema knjiženja ne daje izbalansiran nalog.",
   kif_greska: "Račun nije dodat u KIF. Provjerite podatke."
 };
 
@@ -132,7 +162,9 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const { id } = await params;
   const query = await searchParams;
-  const message = query?.poruka ? poruke[query.poruka] : null;
+  const baseMessage = query?.poruka ? poruke[query.poruka] : null;
+  const message =
+    baseMessage && query?.detalj ? `${baseMessage} ${query.detalj}` : baseMessage;
   const workContext = await readWorkContext();
 
   if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
@@ -231,6 +263,12 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             id: true,
             internal_kif_number: true,
             customer_invoice_number: true,
+            entry_kind: true,
+            pazar_period_type: true,
+            pazar_period_from: true,
+            pazar_period_to: true,
+            pazar_report_number: true,
+            pazar_cash_register: true,
             invoice_date: true,
             due_date: true,
             vat_transaction_type: true,
@@ -268,6 +306,15 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                 vat_rate_percent: true,
                 tax_base: true,
                 output_vat_amount: true
+              }
+            },
+            pazar_payments: {
+              orderBy: {
+                payment_method: "asc"
+              },
+              select: {
+                payment_method: true,
+                amount: true
               }
             }
           }
@@ -370,8 +417,17 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
   );
   const defaultRevenueAccount = revenueAccountRequired ? "" : fixedRevenueAccounts[0] ?? "";
   const editingEntry = query?.edit
-    ? kifBook.entries.find((entry) => entry.id === query.edit)
+    ? kifBook.entries.find(
+        (entry) => entry.id === query.edit && entry.entry_kind === kifEntryKinds.invoice
+      )
     : null;
+  const editingPazar = query?.pazar_edit
+    ? kifBook.entries.find(
+        (entry) =>
+          entry.id === query.pazar_edit && entry.entry_kind === kifEntryKinds.pazar
+      )
+    : null;
+  const showPazarForm = query?.unos === "pazar" || Boolean(editingPazar);
   const formAction = editingEntry ? updateKifEntry : createKifEntry;
   const editingBuyer = editingEntry
     ? {
@@ -408,6 +464,12 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
       gross: 0
     }
   );
+  const defaultMonth = `${activeYear.godina}-${String(kifBook.mjesec).padStart(2, "0")}`;
+  const now = new Date();
+  const defaultDailyDate =
+    now.getFullYear() === activeYear.godina && now.getMonth() + 1 === kifBook.mjesec
+      ? inputDate(now)
+      : `${defaultMonth}-01`;
 
   return (
     <div className="admin-stack">
@@ -459,7 +521,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
 
       <section className="metric-grid">
         <div className="metric">
-          <span>Računa</span>
+          <span>Zapisa</span>
           <strong>{kifBook.entries.length}</strong>
           <small>{postingLabel}</small>
         </div>
@@ -477,8 +539,38 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
 
       <section className="admin-form-section">
         <div className="panel-header">
-          <h3>{editingEntry ? "Izmjena izlaznog računa" : "Unos izlaznog računa"}</h3>
-          <span>{formHint}</span>
+          <div>
+            <h3>
+              {showPazarForm
+                ? editingPazar
+                  ? "Izmjena pazara"
+                  : "Unos pazara"
+                : editingEntry
+                  ? "Izmjena izlaznog računa"
+                  : "Unos izlaznog računa"}
+            </h3>
+            <span>
+              {showPazarForm
+                ? "Dnevni ili mjesečni zbirni promet ulazi u KIF i PDV evidenciju."
+                : formHint}
+            </span>
+          </div>
+          <div className="button-row kif-entry-tabs">
+            <Link
+              aria-current={showPazarForm ? undefined : "page"}
+              className={`kif-entry-tab${showPazarForm ? "" : " kif-entry-tab--active"}`}
+              href={`/agencija/racuni/kif/${kifBook.id}#kif-entry-form`}
+            >
+              Izlazna faktura
+            </Link>
+            <Link
+              aria-current={showPazarForm ? "page" : undefined}
+              className={`kif-entry-tab${showPazarForm ? " kif-entry-tab--active" : ""}`}
+              href={`/agencija/racuni/kif/${kifBook.id}?unos=pazar#kif-pazar-form`}
+            >
+              Unesi pazar
+            </Link>
+          </div>
         </div>
 
         {vatRates.length === 0 ? (
@@ -487,6 +579,67 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
           </p>
         ) : null}
 
+        {showPazarForm ? (
+          <div id="kif-pazar-form">
+            <KifPazarForm
+              action={editingPazar ? updateKifPazar : createKifPazar}
+              bookId={kifBook.id}
+              defaultDailyDate={defaultDailyDate}
+              defaultMonth={defaultMonth}
+              defaultRevenueAccount={defaultRevenueAccount}
+              disabled={isLocked}
+              initial={
+                editingPazar &&
+                editingPazar.pazar_period_type &&
+                editingPazar.pazar_period_from &&
+                editingPazar.pazar_period_to
+                  ? {
+                      id: editingPazar.id,
+                      periodType: editingPazar.pazar_period_type,
+                      periodFrom: inputDate(editingPazar.pazar_period_from),
+                      periodTo: inputDate(editingPazar.pazar_period_to),
+                      reportNumber: editingPazar.pazar_report_number ?? "",
+                      cashRegister: editingPazar.pazar_cash_register ?? "",
+                      total: decimalInput(editingPazar.total_gross),
+                      revenueAccountCode:
+                        editingPazar.revenue_account?.sifra ?? defaultRevenueAccount,
+                      note: editingPazar.note ?? "",
+                      taxLines: editingPazar.tax_lines
+                        .filter((line) => line.vat_rate_id)
+                        .map((line) => ({
+                          vatRateId: line.vat_rate_id!,
+                          taxBase: decimalInput(line.tax_base)
+                        })),
+                      payments: editingPazar.pazar_payments.map((payment) => ({
+                        method: payment.payment_method,
+                        amount: decimalInput(payment.amount)
+                      }))
+                    }
+                  : null
+              }
+              rates={vatRates.map((rate) => ({
+                id: rate.id,
+                naziv: rate.naziv,
+                procenat: rate.procenat.toString()
+              }))}
+              revenueAccountRequired={revenueAccountRequired}
+              revenueAccounts={revenueAccounts.map((account) => ({
+                sifra: account.sifra,
+                naziv: account.naziv
+              }))}
+            />
+            {editingPazar ? (
+              <div className="form-actions">
+                <Link
+                  className="secondary-button"
+                  href={`/agencija/racuni/kif/${kifBook.id}`}
+                >
+                  Odustani
+                </Link>
+              </div>
+            ) : null}
+          </div>
+        ) : (
         <form
           key={editingEntry?.id ?? "new-kif-entry"}
           id="kif-entry-form"
@@ -619,11 +772,12 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             ) : null}
           </div>
         </form>
+        )}
       </section>
 
       <section className="admin-panel">
         <div className="panel-header">
-          <h3>Računi u KIF knjizi</h3>
+          <h3>Zapisi u KIF knjizi</h3>
           <span>{kifBook.entries.length} redova</span>
         </div>
         <div className="table-wrap">
@@ -656,14 +810,40 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                       <strong>{entry.internal_kif_number}</strong>
                     </td>
                     <td>
-                      {entry.kupac.naziv}
-                      <small>{entry.kupac.pib ?? "-"}</small>
+                      {entry.entry_kind === kifEntryKinds.pazar
+                        ? "Krajnji potrošači – pazar"
+                        : entry.kupac.naziv}
+                      <small>
+                        {entry.entry_kind === kifEntryKinds.pazar
+                          ? entry.pazar_cash_register ?? "Sve kase"
+                          : entry.kupac.pib ?? "-"}
+                      </small>
                     </td>
-                    <td>{normalizeFiscalInvoiceNumber(entry.customer_invoice_number)}</td>
                     <td>
-                      {vatTransactionLabels[
-                        entry.vat_transaction_type as keyof typeof vatTransactionLabels
-                      ] ?? entry.vat_transaction_type}
+                      {entry.entry_kind === kifEntryKinds.pazar
+                        ? entry.pazar_report_number ?? entry.customer_invoice_number
+                        : normalizeFiscalInvoiceNumber(entry.customer_invoice_number)}
+                      {entry.entry_kind === kifEntryKinds.pazar &&
+                      entry.pazar_period_from &&
+                      entry.pazar_period_to ? (
+                        <small>
+                          {entry.pazar_period_type === pazarPeriodTypes.monthly
+                            ? "Mjesečni"
+                            : "Dnevni"}{" "}
+                          · {displayDate(entry.pazar_period_from)}
+                          {entry.pazar_period_from.getTime() !==
+                          entry.pazar_period_to.getTime()
+                            ? ` – ${displayDate(entry.pazar_period_to)}`
+                            : ""}
+                        </small>
+                      ) : null}
+                    </td>
+                    <td>
+                      {entry.entry_kind === kifEntryKinds.pazar
+                        ? "Pazar"
+                        : vatTransactionLabels[
+                            entry.vat_transaction_type as keyof typeof vatTransactionLabels
+                          ] ?? entry.vat_transaction_type}
                     </td>
                     <td>
                       {entry.revenue_account
@@ -681,6 +861,14 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                           {decimalText(line.output_vat_amount)}
                         </small>
                       ))}
+                      {entry.entry_kind === kifEntryKinds.pazar
+                        ? entry.pazar_payments.map((payment) => (
+                            <small key={payment.payment_method}>
+                              {pazarPaymentLabel(payment.payment_method)}:{" "}
+                              {decimalText(payment.amount)}
+                            </small>
+                          ))
+                        : null}
                     </td>
                     <td>
                       <span
@@ -696,7 +884,14 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                     <td>
                       {entry.posting_status === "UNPOSTED" && !isLocked ? (
                         <div className="table-actions">
-                          <Link className="table-button" href={`/agencija/racuni/kif/${kifBook.id}?edit=${entry.id}#kif-entry-form`}>
+                          <Link
+                            className="table-button"
+                            href={
+                              entry.entry_kind === kifEntryKinds.pazar
+                                ? `/agencija/racuni/kif/${kifBook.id}?pazar_edit=${entry.id}#kif-pazar-form`
+                                : `/agencija/racuni/kif/${kifBook.id}?edit=${entry.id}#kif-entry-form`
+                            }
+                          >
                             Izmijeni
                           </Link>
                           <form action={deleteKifEntry}>

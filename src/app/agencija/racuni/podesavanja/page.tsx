@@ -3,7 +3,8 @@ import {
   createInvoiceBookType,
   importInvoiceSettingsFromCompany,
   saveImportPostingScheme,
-  saveInvoicePostingRules
+  saveInvoicePostingRules,
+  savePazarPostingScheme
 } from "../actions";
 import { InvoicePostingRuleRow } from "@/components/InvoicePostingRuleRow";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { ensureDefaultInvoiceBookTypes } from "@/lib/invoice-books";
+import { pazarPostingSchemeFields, pazarPostingSubtype } from "@/lib/kif-pazar";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -46,7 +48,9 @@ const poruke: Record<string, string> = {
   uvoz_podesavanja_firma: "Izaberite firmu iz koje se uvoze podešavanja.",
   uvoz_sema_konto: "Šema za uvoz nije sačuvana: izabrano konto ne postoji u kontnom planu firme.",
   uvoz_sema_komitent: "Šema za uvoz nije sačuvana: izabrani partner nije komitent ove firme.",
-  uvoz_sema_greska: "Šema za uvoz nije sačuvana. Provjerite podatke."
+  uvoz_sema_greska: "Šema za uvoz nije sačuvana. Provjerite podatke.",
+  pazar_sema_sacuvana: "Konta naplate pazara su sačuvana.",
+  pazar_sema_konto: "Konta pazara moraju biti aktivna analitička konta firme."
 };
 
 function percentText(value: { toString(): string }) {
@@ -286,6 +290,23 @@ export default async function RacuniPodesavanjaPage({
         }
       })
     : [];
+  const pazarSchemeRows = activeCompany
+    ? await prisma.firmaPodrazumijevanoKonto.findMany({
+        where: {
+          firma_id: activeCompany.id,
+          dokument_tip: invoicePostingDocumentTypes.kif,
+          podvrsta: pazarPostingSubtype,
+          pdv_stopa_sifra: invoicePostingDefaultScope.vatRate,
+          namjena: {
+            in: pazarPostingSchemeFields.map(([purpose]) => purpose)
+          }
+        },
+        select: {
+          namjena: true,
+          sifra_konta: true
+        }
+      })
+    : [];
   const importKomitenti = activeCompany
     ? await prisma.firmaKomitent.findMany({
         where: {
@@ -317,6 +338,9 @@ export default async function RacuniPodesavanjaPage({
   );
   const importKomitentByPurpose = new Map(
     importSchemeRows.map((row) => [row.namjena, row.komitent_id])
+  );
+  const pazarSchemeByPurpose = new Map(
+    pazarSchemeRows.map((row) => [row.namjena, row.sifra_konta])
   );
   const selectedType =
     invoiceTypes.find((type) => type.id === params?.vrsta) ?? invoiceTypes[0] ?? null;
@@ -379,9 +403,60 @@ export default async function RacuniPodesavanjaPage({
           <section className="admin-panel">
             <div className="panel-header">
               <div>
+                <h3>Konta naplate pazara (KIF)</h3>
+                <span>
+                  Za svaki korišćeni način naplate bira se dugovno konto. Prihodi i izlazni
+                  PDV koriste šemu aktivne KIF knjige.
+                </span>
+              </div>
+            </div>
+
+            <form action={savePazarPostingScheme}>
+              <div className="table-wrap">
+                <table className="import-scheme-table">
+                  <thead>
+                    <tr>
+                      <th>Način naplate</th>
+                      <th>D/P</th>
+                      <th>Konto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pazarPostingSchemeFields.map(([purpose, label]) => (
+                      <tr key={purpose}>
+                        <td>{label}</td>
+                        <td>Duguje</td>
+                        <td>
+                          <select
+                            name={`pazar_konto_${purpose}`}
+                            defaultValue={pazarSchemeByPurpose.get(purpose) ?? ""}
+                          >
+                            <option value="">— bez konta —</option>
+                            {accountOptions.map((account) => (
+                              <option key={account.sifra} value={account.sifra}>
+                                {account.sifra} · {account.naziv}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="form-actions">
+                <button type="submit">Sačuvaj konta pazara</button>
+              </div>
+            </form>
+          </section>
+
+          <section className="admin-panel">
+            <div className="panel-header">
+              <div>
                 <h3>Uvezi podešavanja iz druge firme</h3>
                 <span>
-                  Kopira vrste knjiga, šeme kontiranja po poljima i šemu za uvoz na aktivnu firmu.
+                  Kopira vrste knjiga, šeme kontiranja po poljima, konta pazara i šemu za
+                  uvoz na aktivnu firmu.
                 </span>
               </div>
             </div>

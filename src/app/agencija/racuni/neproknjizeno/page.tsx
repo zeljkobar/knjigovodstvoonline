@@ -14,6 +14,7 @@ type NeproknjizenoPageProps = {
   searchParams?: Promise<{
     poruka?: string;
     nalog?: string;
+    detalj?: string;
   }>;
 };
 
@@ -27,6 +28,7 @@ const poruke: Record<string, string> = {
   knjizenje_konto: "Neko konto iz šeme nije aktivno analitičko konto.",
   knjizenje_nalog_zakljucan: "Postojeći nalog je već proknjižen i ne može se dopuniti.",
   knjizenje_nema: "Nema neproknjiženih računa za izabranu knjigu.",
+  knjizenje_razlika_racuna: "KUF nije proknjižen jer jedan račun ima nedozvoljenu razliku.",
   knjizenje_nije_balansiran: "Šema knjiženja ne daje izbalansiran nalog.",
   prava: "Nemate pravo za knjiženje ove knjige.",
   knjizenje_greska: "Knjiženje nije izvršeno. Provjerite podatke."
@@ -83,6 +85,10 @@ type PostingField = ReturnType<typeof invoicePostingFields>[number];
 
 function amountCents(value: { toString(): string }) {
   return Math.round(Number(value.toString()) * 100);
+}
+
+function differenceText(differenceCents: number) {
+  return (Math.abs(differenceCents) / 100).toFixed(2).replace(".", ",");
 }
 
 function rowStatus(total: number, posted: number, unposted: number) {
@@ -170,7 +176,13 @@ function validateBookForPosting({
   }>;
   entries: Array<{
     posting_status: string;
+    posting_mode?: string;
+    entry_kind?: string;
     journal_id: string | null;
+    is_import?: boolean;
+    internal_kuf_number?: string;
+    supplier_invoice_number?: string;
+    dobavljac?: { naziv: string };
     total_gross: { toString(): string };
     expense_account?: { sifra: string } | null;
     revenue_account?: { sifra: string } | null;
@@ -187,7 +199,11 @@ function validateBookForPosting({
 }) {
   const issues: string[] = [];
   const unpostedEntries = entries.filter(
-    (entry) => entry.posting_status === "UNPOSTED" && !entry.journal_id
+    (entry) =>
+      entry.posting_status === "UNPOSTED" &&
+      !entry.journal_id &&
+      (documentType !== invoicePostingDocumentTypes.kuf ||
+        entry.posting_mode === "KUF_RULES")
   );
 
   if (!journalTypeId) {
@@ -203,6 +219,21 @@ function validateBookForPosting({
   let credit = 0;
 
   for (const entry of unpostedEntries) {
+    if (documentType === invoicePostingDocumentTypes.kuf && entry.is_import) {
+      continue;
+    }
+
+    if (
+      documentType === invoicePostingDocumentTypes.kif &&
+      entry.entry_kind === "PAZAR"
+    ) {
+      continue;
+    }
+
+    let entryDebit = 0;
+    let entryCredit = 0;
+    let hasExpenseLine = false;
+
     for (const field of fields) {
       const amount = amountForEntryField(documentType, field, entry);
       if (amount === 0) {
@@ -226,13 +257,45 @@ function validateBookForPosting({
 
       if (side === "D") {
         debit += amount;
+        entryDebit += amount;
       } else {
         credit += amount;
+        entryCredit += amount;
+      }
+
+      if (accountSource === invoicePostingAccountSources.inputExpense) {
+        hasExpenseLine = true;
+      }
+    }
+
+    if (documentType === invoicePostingDocumentTypes.kuf) {
+      const differenceCents = entryDebit - entryCredit;
+
+      if (Math.abs(differenceCents) === 1 && hasExpenseLine) {
+        if (differenceCents > 0) {
+          credit += differenceCents;
+        } else {
+          debit -= differenceCents;
+        }
+      } else if (differenceCents !== 0) {
+        const invoiceDescription = [
+          entry.internal_kuf_number,
+          entry.dobavljac?.naziv,
+          entry.supplier_invoice_number
+            ? `račun ${entry.supplier_invoice_number}`
+            : null
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        issues.push(
+          `${invoiceDescription || "KUF račun"} ima razliku ` +
+            `${differenceText(differenceCents)} EUR.`
+        );
       }
     }
   }
 
-  if (unpostedEntries.length > 0 && debit !== credit) {
+  if (unpostedEntries.length > 0 && debit !== credit && issues.length === 0) {
     issues.push("Šema ne balansira dugovno i potražno.");
   }
 
@@ -243,8 +306,12 @@ export default async function NeproknjizenoPage({ searchParams }: NeproknjizenoP
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const params = await searchParams;
   const baseMessage = params?.poruka ? poruke[params.poruka] : null;
-  const message =
+  const messageWithJournal =
     baseMessage && params?.nalog ? `${baseMessage} Broj naloga: ${params.nalog}.` : baseMessage;
+  const message =
+    messageWithJournal && params?.detalj
+      ? `${messageWithJournal} ${params.detalj}`
+      : messageWithJournal;
   const workContext = await readWorkContext();
 
   if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
@@ -351,6 +418,14 @@ export default async function NeproknjizenoPage({ searchParams }: NeproknjizenoP
             posting_status: true,
             posting_mode: true,
             journal_id: true,
+            is_import: true,
+            internal_kuf_number: true,
+            supplier_invoice_number: true,
+            dobavljac: {
+              select: {
+                naziv: true
+              }
+            },
             total_gross: true,
             expense_account: {
               select: {
@@ -420,6 +495,7 @@ export default async function NeproknjizenoPage({ searchParams }: NeproknjizenoP
           select: {
             posting_status: true,
             journal_id: true,
+            entry_kind: true,
             total_gross: true,
             revenue_account: {
               select: {

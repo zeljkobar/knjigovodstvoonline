@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PdvMonthForm } from "../_components";
+import { kifEntryKinds } from "@/lib/kif-pazar";
 import { money, vatTransactionLabel } from "@/lib/pdv";
 import { loadPdvBooks, normalizePdvMonth, requirePdvContext } from "@/lib/pdv-service";
 
@@ -34,7 +35,7 @@ export default async function IzlazniPdvPage({ searchParams }: PageProps) {
       <header className="admin-header">
         <div>
           <h2>Izlazni PDV</h2>
-          <p>KIF računi koji ulaze u obračun po datumu KIF knjige.</p>
+          <p>KIF računi i pazari koji ulaze u obračun po datumu KIF knjige.</p>
         </div>
       </header>
 
@@ -65,12 +66,20 @@ export default async function IzlazniPdvPage({ searchParams }: PageProps) {
                 <tr key={row.id}>
                   <td>{row.bookNumber}</td>
                   <td>{row.bookDate.toLocaleDateString("sr-Latn-ME")}</td>
-                  <td>{row.customer_invoice_number}</td>
+                  <td>
+                    {row.entry_kind === kifEntryKinds.pazar
+                      ? `Pazar · ${row.customer_invoice_number}`
+                      : row.customer_invoice_number}
+                  </td>
                   <td>
                     {row.kupac.naziv}
                     <small>{row.kupac.pib ?? ""}</small>
                   </td>
-                  <td>{vatTransactionLabel(row.vat_transaction_type)}</td>
+                  <td>
+                    {row.entry_kind === kifEntryKinds.pazar
+                      ? "Pazar"
+                      : vatTransactionLabel(row.vat_transaction_type)}
+                  </td>
                   <td className="numeric">{money(Number(row.total_base.toString()))}</td>
                   <td className="numeric">{money(Number(row.total_output_vat.toString()))}</td>
                   <td className="numeric">{money(Number(row.total_gross.toString()))}</td>

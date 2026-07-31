@@ -1132,6 +1132,57 @@ p {
   gap: 10px;
 }
 
+.kif-pazar-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.kif-pazar-form .form-wide {
+  grid-column: 1 / -1;
+}
+
+.pazar-payments {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 14px;
+  padding-top: 18px;
+}
+
+.pazar-payment-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.panel-header .kif-entry-tab {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fcff;
+  color: var(--primary-strong);
+  display: inline-flex;
+  font-size: 15px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 150px;
+  padding: 10px 18px;
+  text-decoration: none;
+}
+
+.panel-header .kif-entry-tab:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+.panel-header .kif-entry-tab--active,
+.panel-header .kif-entry-tab--active:hover {
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-soft);
+  color: #ffffff;
+}
+
 .pdv-return-form {
   display: grid;
   gap: 14px;
@@ -1212,6 +1263,20 @@ p {
   background: #f8fcff;
   color: var(--primary-strong);
   padding: 8px 12px;
+}
+
+@media (max-width: 900px) {
+  .kif-pazar-form,
+  .pazar-payment-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .kif-pazar-form,
+  .pazar-payment-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .company-form-actions {
@@ -5862,6 +5927,188 @@ td small {
   background: #fef2f2;
   color: #991b1b;
   border: 1px solid #fecaca;
+}
+
+.supplier-account-resolution {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #f2d59b;
+  border-radius: 8px;
+  background: #fffbeb;
+  margin: 16px 0;
+  padding: 16px;
+}
+
+.invoice-import-progress {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fbff;
+  margin-top: 14px;
+  padding: 14px 16px;
+}
+
+.invoice-import-progress-header,
+.invoice-import-progress-counts {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.invoice-import-progress-header span,
+.invoice-import-progress-counts span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.invoice-import-progress-track {
+  height: 14px;
+  overflow: hidden;
+  border: 1px solid #a9cbed;
+  border-radius: 999px;
+  background: #e7f1fb;
+}
+
+.invoice-import-progress-value {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), #38a3ff);
+  transition: width 180ms ease;
+}
+
+.import-failure-report {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff7f7;
+  margin: 16px 0;
+  padding: 16px;
+}
+
+.import-failure-report-header {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.import-failure-report-header h4,
+.import-failure-report-header p {
+  margin: 0;
+}
+
+.import-failure-report-header p {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.import-failure-report-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.import-failure-table td {
+  vertical-align: middle;
+}
+
+.import-failure-table td small {
+  display: block;
+  max-width: 260px;
+  overflow-wrap: anywhere;
+}
+
+.import-failure-table .secondary-button {
+  min-height: 38px;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+
+.supplier-account-resolution-header {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.supplier-account-resolution-header h4,
+.supplier-account-resolution-header p {
+  margin: 0;
+}
+
+.supplier-account-resolution-header p {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.supplier-account-resolution-list {
+  display: grid;
+  gap: 10px;
+}
+
+.supplier-account-resolution-row {
+  align-items: end;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(280px, 1.4fr) auto;
+  border: 1px solid #f2d59b;
+  border-radius: 7px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.supplier-account-resolution-row > div,
+.supplier-account-resolution-row label {
+  display: grid;
+  gap: 6px;
+}
+
+.supplier-account-resolution-row > div span,
+.supplier-account-resolution-row label span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.supplier-account-resolution-row select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fbfdff;
+  color: var(--foreground);
+  font: inherit;
+  padding: 10px 12px;
+}
+
+@media (max-width: 900px) {
+  .import-failure-report-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .import-failure-report-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .supplier-account-resolution-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .supplier-account-resolution-row {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
 }
 
 .fiskalni-link-section {

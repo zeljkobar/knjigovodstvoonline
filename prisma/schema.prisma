@@ -1198,6 +1198,12 @@ model KifEntry {
   redni_broj                Int
   internal_kif_number       String
   customer_invoice_number   String
+  entry_kind                String                        @default("INVOICE")
+  pazar_period_type         String?
+  pazar_period_from         DateTime?                     @db.Date
+  pazar_period_to           DateTime?                     @db.Date
+  pazar_report_number       String?
+  pazar_cash_register       String?
   vat_transaction_type      String                        @default("DOMESTIC")
   is_export                 Boolean                       @default(false)
   export_declaration_number String?
@@ -1225,12 +1231,14 @@ model KifEntry {
   updated_at                DateTime                      @updatedAt
   updated_by                String?                       @db.Uuid
   tax_lines                 KifEntryTaxLine[]
+  pazar_payments            KifPazarPayment[]
   bankStatementAllocations  BankStatementLineAllocation[]
 
   @@unique([firma_id, poslovna_godina_id, redni_broj])
   @@index([kif_book_id])
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@index([firma_id, kupac_id, customer_invoice_number, invoice_date])
+  @@index([firma_id, entry_kind, pazar_period_from, pazar_period_to])
   @@index([firma_id, poslovna_godina_id, vat_transaction_type])
   @@map("kif_entries")
 }
@@ -1285,6 +1293,22 @@ model KifEntryTaxLine {
   @@index([kif_entry_id])
   @@index([vat_rate_id])
   @@map("kif_entry_tax_lines")
+}
+
+model KifPazarPayment {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kif_entry_id   String   @db.Uuid
+  kif_entry      KifEntry @relation(fields: [kif_entry_id], references: [id], onDelete: Cascade)
+  payment_method String
+  amount         Decimal  @default(0) @db.Decimal(14, 2)
+  created_at     DateTime @default(now())
+  created_by     String?  @db.Uuid
+  updated_at     DateTime @updatedAt
+  updated_by     String?  @db.Uuid
+
+  @@unique([kif_entry_id, payment_method])
+  @@index([kif_entry_id])
+  @@map("kif_pazar_payments")
 }
 
 model VrstaNaloga {

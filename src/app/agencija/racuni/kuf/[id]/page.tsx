@@ -28,6 +28,7 @@ type KufBookPageProps = {
   searchParams?: Promise<{
     edit?: string;
     poruka?: string;
+    detalj?: string;
   }>;
 };
 
@@ -59,6 +60,8 @@ const poruke: Record<string, string> = {
   knjizenje_konto: "Neko konto iz šeme nije aktivno analitičko konto.",
   knjizenje_nalog_zakljucan: "Postojeći nalog je već proknjižen i ne može se dopuniti.",
   knjizenje_nema: "Nema neproknjiženih računa za ovu knjigu.",
+  knjizenje_razlika_racuna: "KUF nije proknjižen jer jedan račun ima nedozvoljenu razliku.",
+  knjizenje_nije_balansiran: "Šema knjiženja ne daje izbalansiran nalog.",
   kuf_greska: "Račun nije sačuvan. Provjerite podatke."
 };
 
@@ -144,7 +147,9 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const { id } = await params;
   const query = await searchParams;
-  const message = query?.poruka ? poruke[query.poruka] : null;
+  const baseMessage = query?.poruka ? poruke[query.poruka] : null;
+  const message =
+    baseMessage && query?.detalj ? `${baseMessage} ${query.detalj}` : baseMessage;
   const workContext = await readWorkContext();
 
   if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {

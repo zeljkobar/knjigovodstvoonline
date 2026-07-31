@@ -1,4 +1,5 @@
 import { InvoiceImportClient } from "@/components/InvoiceImportClient";
+import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
@@ -88,7 +89,7 @@ export default async function RacuniImportPage() {
     );
   }
 
-  const [kufBooks, kifBooks] = await Promise.all([
+  const [kufBooks, kifBooks, baseAccounts, companyOverrides] = await Promise.all([
     prisma.kufBook.findMany({
       where: {
         agencija_id: user.agencija_id,
@@ -152,6 +153,49 @@ export default async function RacuniImportPage() {
           }
         }
       }
+    }),
+    prisma.konto.findMany({
+      where: {
+        aktivan: true,
+        tip_konta: "analiticko"
+      },
+      orderBy: {
+        sifra: "asc"
+      },
+      select: {
+        id: true,
+        sifra: true,
+        naziv: true,
+        klasa: true,
+        tip_konta: true,
+        analitika_obavezna: true,
+        sinteticki_konto: true,
+        normalni_saldo: true,
+        koristi_radnu_jedinicu: true,
+        aktivan: true
+      }
+    }),
+    prisma.firmaKonto.findMany({
+      where: {
+        firma_id: activeCompany.id
+      },
+      orderBy: {
+        sifra: "asc"
+      },
+      select: {
+        id: true,
+        konto_id: true,
+        sifra: true,
+        naziv: true,
+        tip_konta: true,
+        analitika_obavezna: true,
+        sinteticki_konto: true,
+        normalni_saldo: true,
+        koristi_radnu_jedinicu: true,
+        override_type: true,
+        napomena: true,
+        aktivan: true
+      }
     })
   ]);
 
@@ -181,6 +225,12 @@ export default async function RacuniImportPage() {
       )
     }))
   ];
+  const accountOptions = mergeCompanyAccountPlan(baseAccounts, companyOverrides)
+    .filter((account) => account.aktivan && account.tip_konta === "analiticko")
+    .map((account) => ({
+      code: account.sifra,
+      label: `${account.sifra} - ${account.naziv}`
+    }));
 
   return (
     <div className="admin-stack">
@@ -193,7 +243,11 @@ export default async function RacuniImportPage() {
         </div>
       </header>
 
-      <InvoiceImportClient activeCompanyPib={activeCompany.pib ?? ""} books={books} />
+      <InvoiceImportClient
+        accountOptions={accountOptions}
+        activeCompanyPib={activeCompany.pib ?? ""}
+        books={books}
+      />
     </div>
   );
 }
