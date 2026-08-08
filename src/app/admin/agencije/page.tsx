@@ -25,6 +25,7 @@ export default async function AgencijePage({ searchParams }: AgencijePageProps) 
 
   const [agencije, ukupno] = await Promise.all([
     prisma.agencija.findMany({
+      where: { is_fiscal_direct_container: false },
       orderBy: {
         naziv: "asc"
       },
@@ -46,7 +47,7 @@ export default async function AgencijePage({ searchParams }: AgencijePageProps) 
         }
       }
     }),
-    prisma.agencija.count()
+    prisma.agencija.count({ where: { is_fiscal_direct_container: false } })
   ]);
 
   return (

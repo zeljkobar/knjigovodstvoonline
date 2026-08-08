@@ -27,6 +27,9 @@ export default async function AdminLayout({
           <Link href="/admin"><span>▦</span>Pregled</Link>
           <Link href="/admin/agencije"><span>▣</span>Agencije</Link>
           <Link href="/admin/agencijski-korisnici"><span>◉</span>Admini agencija</Link>
+          <Link href="/admin/fiskalizacija"><span>▤</span>Fiskalna platforma</Link>
+          <Link href="/admin/fiskalizacija/korisnici"><span>◎</span>Fiskalni klijenti</Link>
+          <Link href="/admin/fiskalizacija/aplikacije"><span>◇</span>API aplikacije</Link>
           <Link href="/admin/globalni-partneri"><span>◇</span>Globalni partneri</Link>
         </nav>
 

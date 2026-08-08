@@ -4,10 +4,11 @@ import { prisma } from "@/lib/prisma";
 export default async function AdminPage() {
   const [brojAgencija, brojFirmi, brojKorisnika, zadnjeAgencije] =
     await Promise.all([
-      prisma.agencija.count(),
+      prisma.agencija.count({ where: { is_fiscal_direct_container: false } }),
       prisma.firma.count(),
       prisma.korisnik.count(),
       prisma.agencija.findMany({
+        where: { is_fiscal_direct_container: false },
         orderBy: {
           created_at: "desc"
         },

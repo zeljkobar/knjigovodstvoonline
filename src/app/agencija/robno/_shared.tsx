@@ -37,6 +37,16 @@ export async function getInventoryContext(action: PermissionAction = "view") {
       select: {
         id: true,
         naziv: true,
+        skraceni_naziv: true,
+        pib: true,
+        pdv_broj: true,
+        adresa: true,
+        grad: true,
+        drzava: true,
+        telefon: true,
+        email: true,
+        web_sajt: true,
+        pdv_obveznik: true,
         dozvoli_negativan_lager: true
       }
     }),

@@ -2209,6 +2209,7 @@ export async function postInvoiceBook(formData: FormData) {
               }
             },
             posting_status: true,
+            posting_mode: true,
             journal_id: true,
             kupac_id: true,
             kupac: {
@@ -2245,7 +2246,7 @@ export async function postInvoiceBook(formData: FormData) {
     }
 
     const unpostedEntries = book.entries.filter(
-      (entry) => entry.posting_status === "UNPOSTED" && !entry.journal_id
+      (entry) => entry.posting_mode === "KIF_RULES" && entry.posting_status === "UNPOSTED" && !entry.journal_id
     );
 
     if (unpostedEntries.length === 0) {
@@ -5167,6 +5168,154 @@ export async function updateKifPazar(formData: FormData) {
   redirectKifEntry(kifBook.id, "kif_pazar_izmijenjen");
 }
 
+export async function importFiscalInvoicesToKif(formData: FormData) {
+  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const workContext = await readWorkContext();
+
+  if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
+    redirectKif("kif_kontekst");
+  }
+
+  const kifBookId = value(formData, "kif_book_id");
+  const invoiceIds = Array.from(
+    new Set(
+      formData
+        .getAll("fiscal_invoice_id")
+        .map((item) => String(item).trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (!kifBookId || invoiceIds.length === 0) {
+    redirectKifEntry(kifBookId, "kif_fiskalni_izbor");
+  }
+
+  const [firma, poslovnaGodina, kifBook] = await Promise.all([
+    prisma.firma.findFirst({
+      where: {
+        id: workContext.firmaId,
+        agencija_id: user.agencija_id,
+        is_deleted: false,
+        aktivan: true,
+        ...(user.rola === "admin_agencije"
+          ? {}
+          : { korisnici: { some: { korisnik_id: user.id, is_deleted: false } } })
+      },
+      select: { id: true }
+    }),
+    prisma.poslovnaGodina.findFirst({
+      where: { id: workContext.poslovnaGodinaId, firma_id: workContext.firmaId },
+      select: { id: true, godina: true, zakljucena: true }
+    }),
+    prisma.kifBook.findFirst({
+      where: {
+        id: kifBookId,
+        agencija_id: user.agencija_id,
+        firma_id: workContext.firmaId,
+        poslovna_godina_id: workContext.poslovnaGodinaId,
+        is_deleted: false
+      },
+      select: { id: true, mjesec: true, status: true, racun_vrsta: { select: { dokument_tip: true } } }
+    })
+  ]);
+
+  if (!firma || !poslovnaGodina || poslovnaGodina.zakljucena || !kifBook ||
+      kifBook.status !== "OPEN" || kifBook.racun_vrsta.dokument_tip !== invoicePostingDocumentTypes.kif) {
+    redirectKifEntry(kifBookId, "kif_fiskalni_greska");
+  }
+
+  await requireInvoicePermission(user, firma.id, invoicePostingDocumentTypes.kif, "create",
+    (message) => redirectKifEntry(kifBook.id, message));
+
+  const period = await prisma.pdvPeriod.findFirst({
+    where: { firma_id: firma.id, poslovna_godina_id: poslovnaGodina.id, mjesec: kifBook.mjesec },
+    select: { status: true }
+  });
+  if (period?.status === "LOCKED") redirectKifEntry(kifBook.id, "kif_fiskalni_period");
+
+  const result = await prisma.$transaction(async (tx) => {
+    const invoices = await tx.fiskalniIzlazniRacun.findMany({
+      where: {
+        id: { in: invoiceIds },
+        agencija_id: user.agencija_id!,
+        firma_id: firma.id,
+        poslovna_godina_id: poslovnaGodina.id,
+        status: "WAITING_KIF",
+        kif_status: "WAITING_KIF",
+        kif_entry_id: null,
+        nalog_id: { not: null },
+        OR: [
+          { fiskalizacija_rezim: "SUMMA", fiscal_status: "Fiscalized" },
+          { fiskalizacija_rezim: "EXTERNAL_OR_NONE", fiscal_status: "NOT_REQUIRED" }
+        ],
+        is_deleted: false
+      },
+      include: { poreske_stavke: true },
+      orderBy: [{ datum_racuna: "asc" }, { broj_racuna: "asc" }]
+    });
+    if (invoices.length !== invoiceIds.length) return { ok: false as const, reason: "kif_fiskalni_greska" };
+
+    const rates = await tx.pdvStopa.findMany({ where: { agencija_id: user.agencija_id!, aktivna: true } });
+    const lastEntry = await tx.kifEntry.findFirst({
+      where: { firma_id: firma.id, poslovna_godina_id: poslovnaGodina.id },
+      orderBy: { redni_broj: "desc" }, select: { redni_broj: true }
+    });
+    let nextNumber = (lastEntry?.redni_broj ?? 0) + 1;
+    const imported: Array<{ invoiceId: string; invoiceNumber: string; kifEntryId: string }> = [];
+
+    for (const invoice of invoices) {
+      if (invoice.datum_racuna.getUTCFullYear() !== poslovnaGodina.godina ||
+          invoice.datum_racuna.getUTCMonth() + 1 !== kifBook.mjesec || invoice.poreske_stavke.length === 0) {
+        return { ok: false as const, reason: "kif_fiskalni_mjesec" };
+      }
+      const duplicate = await tx.kifEntry.findFirst({
+        where: { firma_id: firma.id, kupac_id: invoice.kupac_id,
+          customer_invoice_number: invoice.broj_racuna, invoice_date: invoice.datum_racuna, is_deleted: false },
+        select: { id: true }
+      });
+      if (duplicate) return { ok: false as const, reason: "kif_fiskalni_duplikat" };
+
+      const taxLines = [];
+      for (const tax of invoice.poreske_stavke) {
+        const rate = rates.find((item) =>
+          Math.round(Number(item.procenat.toString()) * 100) === Math.round(Number(tax.vat_rate_percent.toString()) * 100));
+        if (!rate) return { ok: false as const, reason: "kif_fiskalni_pdv" };
+        taxLines.push({ vat_rate_id: rate.id, vat_rate_code: rate.sifra, vat_rate_name: rate.naziv,
+          vat_rate_percent: rate.procenat, tax_base: tax.tax_base,
+          output_vat_amount: tax.output_vat_amount, total_with_vat: tax.total_with_vat, created_by: user.id });
+      }
+
+      const redniBroj = nextNumber++;
+      const entry = await tx.kifEntry.create({ data: {
+        kif_book_id: kifBook.id, agencija_id: user.agencija_id!, firma_id: firma.id,
+        poslovna_godina_id: poslovnaGodina.id, kupac_id: invoice.kupac_id, redni_broj: redniBroj,
+        internal_kif_number: `KIF-${poslovnaGodina.godina}-${String(redniBroj).padStart(4, "0")}`,
+        customer_invoice_number: invoice.broj_racuna, invoice_date: invoice.datum_racuna,
+        due_date: invoice.datum_valute, vat_transaction_type: invoice.vat_transaction_type,
+        is_export: invoice.vat_transaction_type === "EXPORT", currency: invoice.valuta,
+        exchange_rate: invoice.kurs, total_base: invoice.ukupno_osnovica,
+        total_output_vat: invoice.ukupno_izlazni_pdv, total_gross: invoice.ukupno_sa_pdv,
+        posting_status: "POSTED", posting_mode: "SOURCE_DOCUMENT",
+        source_type: "OUTGOING_INVOICE", source_id: invoice.id, journal_id: invoice.nalog_id,
+        note: `Preuzeto iz fiskalnog računa ${invoice.broj_racuna}`,
+        created_by: user.id, updated_by: user.id, tax_lines: { createMany: { data: taxLines } }
+      }, select: { id: true } });
+      await tx.fiskalniIzlazniRacun.update({ where: { id: invoice.id },
+        data: { status: "POSTED", kif_status: "IMPORTED", kif_entry_id: entry.id, updated_by: user.id } });
+      imported.push({ invoiceId: invoice.id, invoiceNumber: invoice.broj_racuna, kifEntryId: entry.id });
+    }
+    return { ok: true as const, imported };
+  });
+
+  if (!result.ok) redirectKifEntry(kifBook.id, result.reason);
+  for (const item of result.imported) await auditLog({ korisnikId: user.id, agencijaId: user.agencija_id,
+    firmaId: firma.id, modul: "agencija.racuni.kif", akcija: "import_fiscal_invoice",
+    tipEntiteta: "FiskalniIzlazniRacun", entitetId: item.invoiceId, novaVrijednost: item });
+  revalidatePath(`/agencija/racuni/kif/${kifBook.id}`);
+  revalidatePath("/agencija/racuni/pregled-kif");
+  redirectKifEntry(kifBook.id, "kif_fiskalni_preuzeti");
+}
+
 export async function createKifEntry(formData: FormData) {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const workContext = await readWorkContext();
@@ -5596,7 +5745,8 @@ export async function updateKifEntry(formData: FormData) {
       select: {
         id: true,
         posting_status: true,
-        journal_id: true
+        journal_id: true,
+        fiskalni_izlazni_racun: { select: { id: true } }
       }
     })
   ]);
@@ -5608,7 +5758,8 @@ export async function updateKifEntry(formData: FormData) {
     !buyer ||
     !existingEntry ||
     existingEntry.posting_status !== "UNPOSTED" ||
-    existingEntry.journal_id
+    existingEntry.journal_id ||
+    existingEntry.fiskalni_izlazni_racun
   ) {
     redirectKifEntry(kifBookId, "kif_greska");
   }
@@ -5893,7 +6044,8 @@ export async function deleteKifEntry(formData: FormData) {
         id: true,
         posting_status: true,
         journal_id: true,
-        internal_kif_number: true
+        internal_kif_number: true,
+        fiskalni_izlazni_racun: { select: { id: true } }
       }
     })
   ]);
@@ -5905,7 +6057,8 @@ export async function deleteKifEntry(formData: FormData) {
     kifBook.status !== "OPEN" ||
     !entry ||
     entry.posting_status !== "UNPOSTED" ||
-    entry.journal_id
+    entry.journal_id ||
+    entry.fiskalni_izlazni_racun
   ) {
     redirectKifEntry(kifBookId, "kif_greska");
   }

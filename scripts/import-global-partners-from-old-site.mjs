@@ -41,6 +41,23 @@ function loadMysql() {
   }
 }
 
+const projectEnv = {
+  ...loadEnvFile(resolve(process.cwd(), ".env")),
+  ...loadEnvFile(resolve(process.cwd(), ".env.local"))
+};
+
+function sourceSetting(name) {
+  return process.env[name] || projectEnv[name] || "";
+}
+
+function requireSourceSetting(name) {
+  const value = sourceSetting(name);
+  if (!value) {
+    throw new Error(`Nedostaje ${name}. Unesite pristup produkcijskoj MySQL bazi u .env.local.`);
+  }
+  return value;
+}
+
 function normalizeText(value) {
   return String(value ?? "").trim();
 }
@@ -125,14 +142,13 @@ function mapRow(row) {
 
 async function createMysqlPool() {
   const mysql = loadMysql();
-  const env = loadEnvFile(resolve(OLD_SITE_DIR, ".env"));
 
   return mysql.createPool({
-    host: process.env.OLD_MYSQL_HOST || env.DB_HOST || "localhost",
-    port: Number(process.env.OLD_MYSQL_PORT || env.DB_PORT || 3306),
-    user: process.env.OLD_MYSQL_USER || env.DB_USER || "root",
-    password: process.env.OLD_MYSQL_PASSWORD || env.DB_PASSWORD || "",
-    database: process.env.OLD_MYSQL_DATABASE || env.DB_NAME || "summasum_",
+    host: requireSourceSetting("OLD_MYSQL_HOST"),
+    port: Number(sourceSetting("OLD_MYSQL_PORT") || 3306),
+    user: requireSourceSetting("OLD_MYSQL_USER"),
+    password: requireSourceSetting("OLD_MYSQL_PASSWORD"),
+    database: requireSourceSetting("OLD_MYSQL_DATABASE"),
     waitForConnections: true,
     connectionLimit: 4,
     charset: "utf8mb4"

@@ -1,12 +1,78 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-07-30. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-08-03. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Fiskalna integracija — spremna pozadina, portal nije implementiran
+
+Summa Fiscal API je 02.08.2026. postavljen na produkcijski server i dostupan je
+isključivo preko HTTPS-a na `https://fiscal.summasummarum.me`. Javni
+`GET /health` vraća `Healthy`; početna ruta `/` očekivano vraća `404` jer domen
+trenutno objavljuje backend API, a ne korisnički web interfejs. API, Worker i
+backup rade u Dockeru, PostgreSQL 16 je na host serveru, podaci i šifrovani
+sertifikat su trajni i van Docker image-a, a backup/restore je provjeren.
+
+Platformska administracija sada ima prvu funkcionalnu fazu pod
+`/admin/fiskalizacija`: pregled svih lokalnih firmi, povezivanje sa Fiscal API
+firmom, unos poslovnih jedinica, ENU uređaja i operatera, bezbjedno neposredno
+prosljeđivanje PFX/P12 sertifikata u Fiscal API vault, aktivaciju sertifikata,
+readiness provjeru, kontrolisanu potvrdu testnog računa, produkcionu aktivaciju,
+povratak u test, registraciju produkcionog ENU-a, fiskalni audit, upozorenja o
+isteku sertifikata i globalnu suspenziju/reaktivaciju firme. Kritične operacije
+zahtijevaju tačan kontrolni tekst vezan za PIB, račun ili internu ENU oznaku.
+Lokalna veza i
+poslovni status čuvaju se u `fiscal_company_links`; sertifikat i lozinka se ne
+čuvaju u ovom projektu. Korisnički tok izdavanja fiskalizovanih faktura još nije
+implementiran.
+
+Detalj fiskalne firme sada ima kompletnu formu produkcionog profila: kod
+proizvođača, naziv/verziju i produkcione kodove softvera i održavaoca,
+sertifikacionu potvrdu, produkcionu poslovnu jedinicu i operatera. Čuvanje
+profila ne mijenja aktivno testno okruženje. Za kontrolni test postoji namjensko
+dugme koje kreira bezgotovinsku testnu uslugu bruto vrijednosti 1,00 EUR preko
+prvog aktivnog testnog objekta/ENU-a/operatera, fiskalizuje je sa stabilnim
+idempotency ključem i automatski potvrđuje test samo nakon statusa `Fiscalized`
+i dobijenog JIKR-a. Dugme se ne prikazuje kao spremno kada readiness nije prošao
+ili test više nije potreban.
+
+Lokalni razvojni sajt je povezan sa lokalnim Fiscal API-jem na
+`127.0.0.1:5127` preko posebnog API klijenta čiji je jednokratni ključ smješten
+isključivo u Git-ignorisanom `.env.local`. Lokalna firma PIB `02825767` povezana
+je sa postojećim fiskalnim profilom; autentifikacija, čitanje firme i readiness
+provjera su potvrđeni bez slanja fiskalnog računa ili PU operacije.
+Serverski klijent ovog centralnog admin panela ima `platform:admin` i konkretne
+invoice dozvole, pa može pokrenuti testnu fiskalizaciju za svaku sadašnju i
+buduću fiskalnu firmu bez pojedinačnog dopisivanja njenog ID-a na API klijenta.
+Obični API klijenti ostaju ograničeni na eksplicitno dodijeljene firme.
+
+Platformski admin ima zaseban ekran `/admin/fiskalizacija/korisnici` za unos
+novog fiskalnog klijenta, gdje fiskalni klijent znači firma. Admin bira agenciju
+koja vodi firmu, unosi osnovne podatke i PIB, a sistem kreira firmu, tekuću
+poslovnu godinu i lokalni fiskalni profil u statusu `NOT_CONFIGURED`. Opcionalno
+se u istom toku otvara pristup vlasniku firme sa pravima samo nad tom firmom i
+šalje sedmodnevna e-mail pozivnica.
+Fiskalni klijent može biti klijent postojeće knjigovodstvene agencije ili
+direktan klijent bez agencije. Direktni klijenti se u pozadini drže u jednom
+označenom sistemskom tenant kontejneru radi izolacije podataka; taj kontejner je
+skriven iz administrativnih lista i izbora stvarnih knjigovodstvenih agencija.
+Dokumentacioni ugovor za integraciju nalazi se u `zadaci/fiskalizacija/`.
+Implementacija mora koristiti serverski Fiscal API klijent; sistemski API ključ
+ne smije dospjeti u browser. Postojeća prijava, prava i scope po agenciji/firmi
+moraju se provjeravati na backendu. Nijedan produkcioni račun ne smije biti
+poslat bez pregleda nacrta i jasne potvrde ovlašćenog korisnika.
+
+Administracija fiskalne platforme pokriva izmjenu i status poslovnih jedinica,
+ENU uređaja i operatera, detalje i deaktivaciju sertifikata, kontrolisanu izmjenu
+fiskalnog identiteta, centralni pregled readiness problema i isteka sertifikata,
+audit sa filterima/paginacijom te upravljanje odvojenim API aplikacijama.
+Jednokratni API ključ prikazuje se samo poslije eksplicitnog kreiranja ili
+rotacije i ne čuva se u URL-u ni bazi sajta; aktivni klijent ovog sajta zaštićen
+je od samodeaktivacije i samostalne rotacije.
 
 ## Završeno / core funkcionalno
 
@@ -141,6 +207,32 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   veze. Neprepoznata MAPR jedinica može se jednom povezati sa internom jedinicom
   za sve stavke koje nose istu oznaku. Neto osnovica i ulazni PDV raspoređuju se
   po stavkama do centa tako da zbir ostaje identičan MAPR računu.
+- Izlazne fakture imaju prvu bezbjednu fazu: pregled, otvaranje nacrta i
+  tabelarni editor stavki pod `Robno / Prodaja`. Editor podržava robu i usluge,
+  automatski povlači važeću cijenu iz šifarnika po prioritetu kupac, magacin,
+  akcijska, maloprodajna i veleprodajna cijena, uzima PDV sa artikla, računa
+  rabat/osnovicu/PDV/ukupno i prelazi Enterom kroz polja te automatski dodaje
+  novi red. Sa same fakture može se otvoriti brzo dodavanje novog artikla ili
+  usluge; zapis se čuva u šifarniku i odmah bira u praznom redu fakture. Nacrt
+  ne utiče na lager, nalog, KIF niti Fiscal API.
+- Faktura za firmu koja ne koristi Summa fiskalizaciju može se kontrolisano
+  završiti: provjeravaju se godina, PDV period, konta, magacin i negativni lager,
+  roba se razdužuje po prosječnoj nabavnoj cijeni i kreira se jedan nalog
+  fakture. KIF zatim preuzima dokument kao `SOURCE_DOCUMENT` i ne knjiži ga
+  ponovo. Za Summa režim dugme `Fiskalizuj` čita aktivno okruženje firme iz
+  Fiscal API-ja, bira aktivnu poslovnu jedinicu, ENU i operatera, šalje račun u
+  Test ili Production i trajno čuva zvanični broj, IKOF, JIKR i QR URL. Nakon
+  uspjeha zaključava sadržaj računa i završava knjiženje; ako konta još nisu
+  podešena, fiskalizovan račun ostaje bezbjedno zaključan uz posebno dugme
+  `Završi knjiženje`. Uspješna fiskalizacija odmah čuva PDV rekapitulaciju i
+  uklanja oznaku nacrta sa štampe; konačna fiskalna štampa ne zavisi od kasnijeg
+  računovodstvenog knjiženja i ulaska u KIF.
+- Izlazna faktura ima odvojenu A4 portrait HTML/CSS štampu bez menija, sa
+  izdavaocem, kupcem, datumima, stavkama, rekapitulacijom PDV-a, podacima za
+  plaćanje, ukupnim iznosom i jasnim `NACRT` vodenim žigom. Nove fakture čuvaju
+  snapshot izdavaoca i kupca. Kada Fiscal API vrati i lokalni račun sačuva
+  `qr_code_data`, IKOF i JIKR, štampa generiše QR tačno iz tog zvaničnog URL-a;
+  nefiskalizovan račun nikada ne dobija izmišljeni QR.
 
 ### Modul 6 — Računi, KIF i KUF
 - PDV stope dinamičke u podešavanjima.
@@ -201,6 +293,13 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - `vat_transaction_type` na KIF/KUF (DOMESTIC/IMPORT/EXPORT/EXEMPT/NON_TAXABLE)
   sa automatskim predlogom: ino dobavljač → IMPORT, ino kupac → EXPORT; konačna
   vrijednost se čuva na dokumentu (`src/lib/vat-transaction.ts`).
+- KIF knjiga za izabrani mjesec sada prikazuje fiskalizovane izlazne račune koji
+  čekaju računovodstveni unos, analogno preuzimanju završenih kalkulacija u KUF.
+  Knjigovođa bira jedan ili više računa i preuzima ih sa kupcem, datumima,
+  iznosima i PDV razradom. Backend provjerava tenant scope, prava, otvorenu
+  godinu/knjigu/PDV period, aktivne PDV stope i duplikate, a trajna veza izvora
+  i KIF zapisa sprečava ponovni unos. Lokalna tabela fiskalnih izlaznih računa je
+  pripremljena kao izvor koji će puniti budući ekran izdavanja faktura.
 
 ### Modul 7 — Izvodi
 - Dodata prva MVP implementacija izvoda kao import/preview/knjiženje sloj iznad

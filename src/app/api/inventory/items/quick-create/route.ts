@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     saleGrossPrice?: string;
     unitId?: string;
     vatRateId?: string;
+    service?: boolean;
   } | null;
   const naziv = clean(body?.name);
   const manualCode = normalizeInventoryCode(clean(body?.code));
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
   const unitId = clean(body?.unitId);
   const vatRateId = clean(body?.vatRateId);
   const saleGrossCents = parseInventoryMoneyToCents(clean(body?.saleGrossPrice));
+  const service = body?.service === true;
 
   if (!naziv || !unitId || !vatRateId || saleGrossCents === null || saleGrossCents <= 0) {
     return NextResponse.json(
@@ -147,8 +149,8 @@ export async function POST(request: Request) {
           sifra,
           naziv,
           barkod,
-          usluga: false,
-          prati_zalihe: true,
+          usluga: service,
+          prati_zalihe: !service,
           created_by: user.id,
           updated_by: user.id
         }
@@ -188,7 +190,8 @@ export async function POST(request: Request) {
         naziv: item.naziv,
         unitCode: unit.oznaka,
         vatPercent: vatRate.procenat.toString(),
-        saleGrossPrice: inventoryCentsToDecimal(price.grossCents)
+        saleGrossPrice: inventoryCentsToDecimal(price.grossCents),
+        service
       }
     });
   } catch (error) {

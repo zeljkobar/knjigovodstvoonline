@@ -34,7 +34,8 @@ export default async function AgencijskiKorisniciPage({
   const [agencije, korisnici, ukupno] = await Promise.all([
     prisma.agencija.findMany({
       where: {
-        aktivan: true
+        aktivan: true,
+        is_fiscal_direct_container: false
       },
       orderBy: {
         naziv: "asc"
@@ -46,7 +47,8 @@ export default async function AgencijskiKorisniciPage({
     }),
     prisma.korisnik.findMany({
       where: {
-        rola: "admin_agencije"
+        rola: "admin_agencije",
+        agencija: { is_fiscal_direct_container: false }
       },
       orderBy: {
         created_at: "desc"
@@ -76,7 +78,7 @@ export default async function AgencijskiKorisniciPage({
         }
       }
     }),
-    prisma.korisnik.count({ where: { rola: "admin_agencije" } })
+    prisma.korisnik.count({ where: { rola: "admin_agencije", agencija: { is_fiscal_direct_container: false } } })
   ]);
 
   return (

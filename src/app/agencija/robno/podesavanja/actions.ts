@@ -9,6 +9,7 @@ import {
   calculationPostingScope
 } from "@/lib/inventory-calculation";
 import { inventoryModule } from "@/lib/inventory";
+import { outgoingInvoicePostingFields, outgoingInvoicePostingScope } from "@/lib/outgoing-invoice";
 import { prisma } from "@/lib/prisma";
 import { getInventoryContext } from "../_shared";
 
@@ -129,4 +130,22 @@ export async function saveCalculationPostingSettings(formData: FormData) {
   revalidatePath(returnPath);
   revalidatePath("/agencija/robno/kalkulacije");
   redirect(`${returnPath}?poruka=sacuvano`);
+}
+
+export async function saveOutgoingInvoicePostingSettings(formData: FormData) {
+  const returnPath = "/agencija/robno/podesavanja";
+  const context = await getInventoryContext("manage");
+  const firmaId = text(formData.get("firma_id"));
+  if (!context.allowed || !context.firma || !context.user.agencija_id || context.firma.id !== firmaId) redirect(`${returnPath}?poruka=prava`);
+  const entries = outgoingInvoicePostingFields.map((field) => ({ ...field, accountCode: text(formData.get(`konto_${field.purpose}`)), direction: text(formData.get(`smjer_${field.purpose}`)) }));
+  const codes = [...new Set(entries.map((entry) => entry.accountCode).filter(Boolean))];
+  const [base, company] = await Promise.all([
+    prisma.konto.findMany({ where: { sifra: { in: codes }, tip_konta: "analiticko", aktivan: true }, select: { sifra: true } }),
+    prisma.firmaKonto.findMany({ where: { firma_id: firmaId, sifra: { in: codes }, tip_konta: "analiticko", aktivan: true, override_type: { not: accountOverrideTypes.deactivated } }, select: { sifra: true } })
+  ]);
+  const valid = new Set([...base, ...company].map((item) => item.sifra));
+  if (entries.some((entry) => !entry.accountCode || !valid.has(entry.accountCode) || !["D", "P"].includes(entry.direction))) redirect(`${returnPath}?poruka=neispravna_konta`);
+  await prisma.$transaction(async (tx) => { for (const entry of entries) { const key = { firma_id: firmaId, namjena: entry.purpose, dokument_tip: outgoingInvoicePostingScope.documentType, podvrsta: outgoingInvoicePostingScope.subtype, pdv_stopa_sifra: outgoingInvoicePostingScope.vatRate }; await tx.firmaPodrazumijevanoKonto.upsert({ where: { firma_id_namjena_dokument_tip_podvrsta_pdv_stopa_sifra: key }, create: { ...key, sifra_konta: entry.accountCode, smjer: entry.direction, napomena: entry.description, created_by: context.user.id, updated_by: context.user.id }, update: { sifra_konta: entry.accountCode, smjer: entry.direction, napomena: entry.description, updated_by: context.user.id } }); } });
+  await auditLog({ korisnikId: context.user.id, agencijaId: context.user.agencija_id, firmaId, modul: inventoryModule, akcija: "save_outgoing_invoice_posting_settings", tipEntiteta: "FirmaPodrazumijevanoKonto", entitetId: firmaId, novaVrijednost: entries.map((entry) => ({ namjena: entry.purpose, konto: entry.accountCode, smjer: entry.direction })) });
+  revalidatePath(returnPath); redirect(`${returnPath}?poruka=faktura_sacuvano`);
 }

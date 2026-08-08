@@ -47,8 +47,15 @@
   Sljedeće uraditi ručni end-to-end QA MAPR pregleda, završavanja i preuzimanja
   u KUF na firmi sa podešenom robnom šemom, zatim ekrane lager
   liste i kartice artikla nad već postojećim stanjem/prometom. Poslije toga
-  slijede uvozna kalkulacija, izlazne fakture, povrati, prenosi, popis, otpis i
-  nivelacija.
+  Izlazne fakture sada imaju pregled, otvaranje nacrta, brzi tabelarni unos,
+  šemu knjiženja i kontrolisano završavanje za firme koje koriste drugi ili
+  nijedan fiskalni sistem. Završavanje provjerava lager, razdužuje robu po
+  prosječnoj cijeni, kreira jedan nalog i postavlja `Čeka KIF`; KIF preuzima
+  zapis kao `SOURCE_DOCUMENT` bez ponovnog knjiženja. Summa faktura je povezana
+  sa Fiscal API-jem: isto dugme automatski koristi Test ili Production i čuva
+  zvanični broj, IKOF, JIKR i QR URL. Sljedeće je ručni end-to-end QA prvo u
+  Test okruženju, zatim kontrolisana produkcijska provjera, a poslije toga
+  slijede uvozna kalkulacija, povrati, prenosi, popis, otpis i nivelacija.
 - **PDV prijava — završni QA.** Prva verzija perioda, evidencija, prijave,
   podešavanja, XML `PR_PDV_2025` i knjiženja postoji. Ostaje zaključavanje
   perioda, ručni QA XML upload-a na portalu i provjera knjiženja na kontima
@@ -105,8 +112,38 @@
   5/6 u nacrt naloga tipa Završni račun postoji, kao i arhiva snimljenih
   obrazaca. Ostaje XML/export.
 
+## Fiskalizacija — naredni kontrolisani koraci
+
+- Platformska osnova je implementirana: lokalna veza firme, centralni serverski
+  `FiscalAdminApiClient`, poslovne jedinice, ENU, operateri, sertifikati,
+  readiness i globalna suspenzija/reaktivacija.
+- Produkcioni activation workflow, registracija produkcionog ENU-a, fiskalni
+  audit i upozorenja o isteku sertifikata sada su dostupni platformskom adminu.
+- Kompletan unos produkcionog profila i automatski kontrolni testni račun od
+  1,00 EUR sa potvrdom nakon JIKR-a dostupni su na detalju fiskalne firme.
+- Administracija jedinica, ENU-a, operatera, sertifikata, fiskalnog identiteta,
+  centralnih upozorenja, audit filtera i API aplikacija je završena. Za
+  produkcijski deployment ostaje prenos generisanog jednokratnog ključa u
+  serverski secret manager konkretne aplikacije.
+- Mapirati postojeće korisnike i prava te buduće izlazne fakture na tenant-aware
+  ugovor Summa Fiscal API-ja; agencijski korisnici ne smiju uređivati fiskalnu
+  konfiguraciju.
+- Platformski unos fiskalnog klijenta sada kreira firmu pod izabranom agencijom,
+  tekuću poslovnu godinu i lokalni fiskalni profil; pristup vlasnika firme i
+  pozivnica su opcioni. Podržan je i direktni klijent bez knjigovodstvene
+  agencije, kroz skriveni sistemski tenant. Sljedeće omogućiti naknadno otvaranje/izmjenu pristupa
+  klijenta sa detalja firme i povezati prava sa izlaznim fakturama.
+- Lokalna osnova fiskalnog izlaznog računa sada čuva Fiscal API ID, fiskalni
+  status, IKOF/IIC, JIKR, QR podatak, PDV razradu i vezu sa KIF zapisom. Pri
+  izradi ekrana fakture dopuniti stabilni idempotency ključ, correlation ID i
+  kompletan audit životnog ciklusa prije produkcionog slanja.
+- Napraviti pregled nacrta, eksplicitnu potvrdu i zaštitu od duplog slanja prije
+  omogućavanja bilo kog produkcionog poziva.
+- Prvo koristiti mock/test integraciju. Live test ili produkcijsko slanje ne
+  pokretati iz standardnog builda i ne izvršavati bez posebne potvrde korisnika.
+
 ## Nije implementirano
-- Klijentski portal, dashboard izvještaji.
+- Klijentski portal, fiskalno web fakturisanje i dashboard izvještaji.
 
 ## Invarijante koje treba čuvati (provjera prije/poslije rada)
 - POSTED nalozi ulaze u bruto bilans; DRAFT/DELETED ne ulaze u izvještaje.

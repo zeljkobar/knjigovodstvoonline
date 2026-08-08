@@ -3,6 +3,7 @@ import {
   createKifEntry,
   createKifPazar,
   deleteKifEntry,
+  importFiscalInvoicesToKif,
   postInvoiceBook,
   updateKifEntry,
   updateKifPazar
@@ -54,6 +55,13 @@ const poruke: Record<string, string> = {
   kif_konto: "Konto prihoda mora biti aktivno analitičko konto.",
   kif_knjiga: "KIF knjiga nije otvorena za unos.",
   kif_dupli_broj: "Račun sa istim kupcem, brojem i datumom već postoji u KIF-u.",
+  kif_fiskalni_preuzeti: "Izabrani fiskalizovani računi su preuzeti u KIF.",
+  kif_fiskalni_izbor: "Izaberite najmanje jedan fiskalizovani račun za preuzimanje.",
+  kif_fiskalni_mjesec: "Fiskalizovani račun mora pripadati mjesecu ove KIF knjige.",
+  kif_fiskalni_pdv: "PDV stopa fiskalizovanog računa nije aktivna u knjigovodstvu.",
+  kif_fiskalni_duplikat: "Izabrani fiskalizovani račun već postoji u KIF-u.",
+  kif_fiskalni_period: "PDV period ove KIF knjige je zaključan.",
+  kif_fiskalni_greska: "Računi nijesu preuzeti. Osvježite stranicu i provjerite njihov fiskalni status.",
   kif_export_pdv: "Izvoz ne smije imati obračunat izlazni PDV.",
   kif_pazar_sacuvan: "Pazar je dodat u KIF.",
   kif_pazar_izmijenjen: "Pazar je izmijenjen.",
@@ -280,8 +288,12 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             total_gross: true,
             status: true,
             posting_status: true,
+            posting_mode: true,
             journal_id: true,
             note: true,
+            fiskalni_izlazni_racun: {
+              select: { id: true, jikr: true }
+            },
             revenue_account: {
               select: {
                 sifra: true,
@@ -387,6 +399,32 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
     );
   }
 
+  const monthStart = new Date(Date.UTC(activeYear.godina, kifBook.mjesec - 1, 1));
+  const monthEnd = new Date(Date.UTC(activeYear.godina, kifBook.mjesec, 1));
+  const pendingFiscalInvoices = await prisma.fiskalniIzlazniRacun.findMany({
+    where: {
+      agencija_id: user.agencija_id,
+      firma_id: activeCompany.id,
+      poslovna_godina_id: activeYear.id,
+      status: "WAITING_KIF",
+      kif_status: "WAITING_KIF",
+      kif_entry_id: null,
+      nalog_id: { not: null },
+      OR: [
+        { fiskalizacija_rezim: "SUMMA", fiscal_status: "Fiscalized" },
+        { fiskalizacija_rezim: "EXTERNAL_OR_NONE", fiscal_status: "NOT_REQUIRED" }
+      ],
+      is_deleted: false,
+      datum_racuna: { gte: monthStart, lt: monthEnd }
+    },
+    orderBy: [{ datum_racuna: "asc" }, { broj_racuna: "asc" }],
+    select: {
+      id: true, broj_racuna: true, datum_racuna: true, ukupno_osnovica: true,
+      ukupno_izlazni_pdv: true, ukupno_sa_pdv: true, jikr: true, created_by: true,
+      kupac: { select: { naziv: true, pib: true } }
+    }
+  });
+
   const isLocked = activeYear.zakljucena || kifBook.status !== "OPEN";
   const revenueAccounts = mergeCompanyAccountPlan(baseAccounts, companyOverrides)
     .filter(
@@ -418,7 +456,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
   const defaultRevenueAccount = revenueAccountRequired ? "" : fixedRevenueAccounts[0] ?? "";
   const editingEntry = query?.edit
     ? kifBook.entries.find(
-        (entry) => entry.id === query.edit && entry.entry_kind === kifEntryKinds.invoice
+        (entry) => entry.id === query.edit && entry.entry_kind === kifEntryKinds.invoice && !entry.fiskalni_izlazni_racun
       )
     : null;
   const editingPazar = query?.pazar_edit
@@ -446,9 +484,11 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
     : revenueAccountRequired
       ? "Konto prihoda je obavezno po šemi"
       : "Konto prihoda je preuzet iz šeme ako je podešen";
-  const journalId = kifBook.entries.find((entry) => entry.journal_id)?.journal_id ?? null;
+  const journalId = kifBook.entries.find(
+    (entry) => entry.posting_mode === "KIF_RULES" && entry.journal_id
+  )?.journal_id ?? null;
   const unpostedCount = kifBook.entries.filter(
-    (entry) => entry.posting_status === "UNPOSTED" && !entry.journal_id
+    (entry) => entry.posting_mode === "KIF_RULES" && entry.posting_status === "UNPOSTED" && !entry.journal_id
   ).length;
   const postedCount = kifBook.entries.filter((entry) => entry.posting_status === "POSTED").length;
   const postingLabel = postingStatusLabel(kifBook.entries.length, postedCount, unpostedCount);
@@ -517,6 +557,40 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             ) : null}
           </div>
         </div>
+      </section>
+
+      <section className="admin-panel">
+        <div className="panel-header">
+          <div>
+            <h3>Preuzmi fiskalizovane račune</h3>
+            <span>{pendingFiscalInvoices.length
+              ? `${pendingFiscalInvoices.length} fiskalizovanih računa čeka prenos u ovu KIF knjigu`
+              : "Nema fiskalizovanih računa koji čekaju KIF za ovaj mjesec"}</span>
+          </div>
+        </div>
+        {pendingFiscalInvoices.length ? (
+          <form action={importFiscalInvoicesToKif}>
+            <input type="hidden" name="kif_book_id" value={kifBook.id} />
+            <div className="table-wrap"><table>
+              <thead><tr><th>Preuzmi</th><th>Račun / datum</th><th>Kupac</th><th>Osnovica</th><th>PDV</th><th>Ukupno</th><th>Fiskalizacija</th></tr></thead>
+              <tbody>{pendingFiscalInvoices.map((invoice) => (
+                <tr key={invoice.id}>
+                  <td><input aria-label={`Preuzmi ${invoice.broj_racuna}`} defaultChecked disabled={isLocked}
+                    name="fiscal_invoice_id" type="checkbox" value={invoice.id} /></td>
+                  <td><strong>{invoice.broj_racuna}</strong><small>{displayDate(invoice.datum_racuna)}</small></td>
+                  <td>{invoice.kupac.naziv}<small>{invoice.kupac.pib ?? ""}</small></td>
+                  <td>{decimalText(invoice.ukupno_osnovica)}</td>
+                  <td>{decimalText(invoice.ukupno_izlazni_pdv)}</td>
+                  <td>{decimalText(invoice.ukupno_sa_pdv)}</td>
+                  <td><span className="status-pill status-pill--success">Fiskalizovan</span><small>{invoice.jikr ? `JIKR: ${invoice.jikr}` : "JIKR sačuvan u izvoru"}</small></td>
+                </tr>
+              ))}</tbody>
+            </table></div>
+            <div className="form-actions"><button className="primary-button" disabled={isLocked} type="submit">Preuzmi označene u KIF</button></div>
+          </form>
+        ) : (
+          <p className="empty-state">Ovdje će se automatski pojaviti izlazni računi čim ih vlasnik firme ili njegova agencija uspješno fiskalizuju.</p>
+        )}
       </section>
 
       <section className="metric-grid">
@@ -882,7 +956,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                       </span>
                     </td>
                     <td>
-                      {entry.posting_status === "UNPOSTED" && !isLocked ? (
+                      {entry.posting_status === "UNPOSTED" && !isLocked && !entry.fiskalni_izlazni_racun ? (
                         <div className="table-actions">
                           <Link
                             className="table-button"
@@ -903,7 +977,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                           </form>
                         </div>
                       ) : (
-                        "-"
+                        entry.fiskalni_izlazni_racun ? "Preuzeto iz fiskalizacije" : "-"
                       )}
                     </td>
                   </tr>

@@ -9,6 +9,7 @@ export type QuickItemResult = {
   unitCode: string;
   vatPercent: string;
   saleGrossPrice: string;
+  service?: boolean;
 };
 
 type Option = {
@@ -38,6 +39,7 @@ export function QuickItemCreateModal({
   const [unitId, setUnitId] = useState(units[0]?.id ?? "");
   const [vatRateId, setVatRateId] = useState(vatRates[0]?.id ?? "");
   const [saleGrossPrice, setSaleGrossPrice] = useState("");
+  const [service, setService] = useState(false);
   const [status, setStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -59,6 +61,7 @@ export function QuickItemCreateModal({
           groupId,
           name,
           saleGrossPrice,
+          service,
           unitId,
           vatRateId
         })
@@ -84,8 +87,8 @@ export function QuickItemCreateModal({
       <div className="quick-partner-panel">
         <div className="panel-header">
           <div>
-            <h3>Novi artikal</h3>
-            <p>Artikal će odmah biti izabran u kalkulaciji.</p>
+            <h3>Novi artikal / usluga</h3>
+            <p>Novi zapis će odmah biti dostupan i izabran u dokumentu.</p>
           </div>
           <button type="button" onClick={onClose}>Zatvori</button>
         </div>
@@ -133,12 +136,16 @@ export function QuickItemCreateModal({
               onChange={(event) => setSaleGrossPrice(event.target.value)}
             />
           </label>
+          <label className="checkbox-card">
+            <input checked={service} type="checkbox" onChange={(event) => setService(event.target.checked)} />
+            <span>Usluga — ne prati zalihe i ne zahtijeva magacin</span>
+          </label>
         </div>
         {status ? <p className="partner-search-status">{status}</p> : null}
         <div className="company-form-actions">
           <button disabled={isSaving} type="button" onClick={onClose}>Odustani</button>
           <button disabled={isSaving} type="button" onClick={() => void submit()}>
-            {isSaving ? "Čuvam..." : "Sačuvaj artikal"}
+            {isSaving ? "Čuvam..." : service ? "Sačuvaj uslugu" : "Sačuvaj artikal"}
           </button>
         </div>
       </div>

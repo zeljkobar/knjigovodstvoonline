@@ -1,0 +1,2 @@
+Modul,Status,Implementirano,Otvoreno,Napomena
+M-004 Robno,Djelimično implementirano,"Summa izlazna faktura povezana je sa Fiscal API-jem. Jedno dugme automatski koristi Test ili Production, stabilan idempotency ključ i čuva zvanični broj, IKOF, JIKR i QR URL. Poslije fiskalizacije sadržaj je zaključan, a knjiženje se može dovršiti odvojeno.","Ručni end-to-end QA u Test okruženju i kontrolisana produkcijska provjera.","Fiskalni račun se ne šalje iz razvojne provjere; korisnik eksplicitno pokreće slanje dugmetom Fiskalizuj."

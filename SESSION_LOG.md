@@ -3,6 +3,71 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-08-03
+- Ekran API aplikacija vizuelno je preuređen u vođeni tok od tri koraka:
+  osnovni podaci, grupisane dozvole i dodjela firmi. Generisanje ključa je jasno
+  odvojeno, a postojeće aplikacije se prikazuju kao pregledne kartice sa statusom,
+  opsegom firmi, rokom, posljednjim korišćenjem i dozvolama.
+- Završena je administracija fiskalne platforme: izmjena i status pojedinačnih
+  poslovnih jedinica, ENU uređaja i operatera; detalji, aktivacija i deaktivacija
+  sertifikata; kontrolisana izmjena fiskalnog identiteta; globalni readiness i
+  pregled isteka sertifikata; audit filteri i paginacija; te zaseban ekran API
+  aplikacija sa granularnim pravima, dodjelom firmi, rotacijom i deaktivacijom.
+  Jednokratni ključ se ne stavlja u URL niti čuva u bazi sajta, a trenutni API
+  klijent sajta zaštićen je od samodeaktivacije/rotacije.
+- Ispravljena je autorizacija u Summa Fiscal API-ju za centralni platformski
+  klijent: kombinacija `platform:admin` i konkretne invoice dozvole sada važi za
+  sve postojeće i buduće firme. Obični klijenti ostaju tenant-ograničeni, a
+  integraciona provjera pokriva oba slučaja.
+- Detalj fiskalne firme dopunjen je kompletnim produkcionim profilom i jednim
+  kontrolisanim dugmetom koje pravi testnu uslugu od 1,00 EUR, fiskalizuje je i
+  tek nakon uspješnog JIKR-a automatski potvrđuje kontrolni test. Tok nije
+  izvršavan tokom implementacije.
+
+## 2026-08-02
+- Ekran `Fiskalni korisnici` ispravljen je u `Fiskalni klijenti`: novi klijent
+  je firma dodijeljena agenciji, a ne samo nalog fizičke osobe. Unos kreira
+  firmu, tekuću poslovnu godinu i lokalni fiskalni profil. Pristup vlasnika
+  firme je opcioni dio istog toka i ograničen je na njegovu firmu.
+- Dodat je izbor direktnog fiskalnog klijenta bez agencije. Direktne firme su
+  bezbjedno izolovane u označenom sistemskom tenant kontejneru koji se ne
+  prikazuje među stvarnim knjigovodstvenim agencijama.
+- Lokalni `knjigovodstvoonline` backend povezan je sa lokalnim Summa Fiscal
+  API-jem na `127.0.0.1:5127`. Kreiran je poseban serverski API klijent, a
+  jednokratni ključ je odmah sačuvan samo u Git-ignorisanom `.env.local`;
+  prethodni neiskorišćeni pokušaj klijenta je deaktiviran.
+- Lokalna firma PIB `02825767` auditovano je povezana sa postojećom fiskalnom
+  firmom. Potvrđeni su API autentifikacija, čitanje firme i readiness=true.
+  Next.js i Fiscal API razvojni servisi rade; nije izvršena fiskalizacija niti
+  druga PU operacija.
+- Druga faza platformskog fiskalnog admina dodaje pregled activation statusa,
+  potvrdu stvarno fiskalizovanog testnog računa, produkcionu aktivaciju, povratak
+  u test i registraciju produkcionog ENU-a. Sve kritične akcije provjeravaju
+  doslovni kontrolni tekst vezan za PIB, invoice ID ili internu ENU oznaku.
+- Dodat je pregled posljednjih fiskalnih audit zapisa i trajnih upozorenja
+  sertifikata, sa kontrolisanim označavanjem alerta kao obrađenog. Neuspjeh
+  jednog pomoćnog API pregleda više ne blokira prikaz ostalih resursa firme.
+- Dodata prva faza centralnog platformskog admin modula fiskalizacije. Admin
+  može povezati lokalnu firmu sa Summa Fiscal API-jem, dodati poslovnu jedinicu,
+  ENU i operatera, neposredno proslijediti PFX/P12 i lozinku šifrovanom API
+  vaultu, aktivirati sertifikat, provjeriti readiness i globalno
+  suspendovati/reaktivirati firmu za sve aplikacije.
+- Migracija `20260802190000_fiscal_company_links` dodaje tenant vezu, onboarding
+  status, lokalni readiness snapshot i auditovana polja suspenzije. Migracija je
+  primijenjena; Prisma validacija, TypeScript i lint prolaze bez novih grešaka.
+- API tajne ostaju u serverskim environment varijablama; browser ih ne dobija,
+  a PFX/P12 i lozinka se ne čuvaju u bazi ili filesystemu sajta. Nijedan račun
+  niti druga live PU operacija nije poslata.
+- Sinhronizovan dokumentacioni ugovor Summa Fiscal API-ja u
+  `zadaci/fiskalizacija/` nakon produkcijskog deploymenta.
+- Evidentirano je da API radi preko HTTPS-a na `fiscal.summasummarum.me`, sa
+  host PostgreSQL 16 bazom, Docker API/Worker/backup servisima, trajnim
+  podacima, automatskim restartom i provjerenim restore postupkom.
+- Početna ruta API domena očekivano nema web stranicu; budući klijentski portal
+  ostaje zadatak ovog projekta. Integracija mora biti serverska, tenant-aware i
+  mora zahtijevati pregled i eksplicitnu potvrdu prije produkcijske
+  fiskalizacije. Tokom dokumentacione sinhronizacije nije poslat nijedan račun.
+
 ## 2026-07-30
 - KIF sada ima poseban tok `Unesi pazar` za dnevni ili mjesečni zbirni promet.
   Unos čuva period, broj izvještaja, kasu/poslovnu jedinicu, ukupan pazar,
@@ -657,3 +722,54 @@
 - Handoff stanje zabilježeno (vidi raniji `zadaci/project_status.md`): Moduli
   1, 2, 3 i 6 core funkcionalni; robno, izvodi, plate, PDV prijava i klijentski
   portal nisu implementirani.
+## 2026-08-04
+- Dodat je kontrolisani tok `fiskalizovani izlazni račun → KIF`: mjesečna KIF
+  knjiga prikazuje račune u statusu `Fiscalized/WAITING_KIF`, omogućava grupni
+  izbor i preuzima kupca, broj, datume, ukupne iznose i PDV razradu.
+- Migracija `20260804100000_fiskalni_racuni_kif_queue` uvodi lokalni izvor
+  `fiskalni_izlazni_racuni` i poreske stavke, uz jedinstven Fiscal API ID i
+  vezu jedan-na-jedan sa KIF zapisom. Import provjerava scope, prava, zaključanu
+  godinu/PDV period, mjesec, aktivne stope i duplikate te upisuje audit.
+- Migracija je primijenjena, Prisma klijent regenerisan, `tsc --noEmit` je čist,
+  lint nema novih grešaka i razvojni server je restartovan na portu 3000.
+## 2026-08-07
+- Implementirana prva faza izlaznih faktura: migracija
+  `20260807100000_izlazne_fakture_mvp`, zaglavlje i snapshot stavke fakture,
+  pregled faktura, otvaranje nacrta i detalj sa brzim tabelarnim unosom.
+- Editor povlači važeću cijenu iz šifarnika po prioritetu kupac/magacin/
+  akcijska/maloprodajna/veleprodajna, PDV sa artikla, računa rabat i zbir te
+  Enterom prelazi u sljedeće polje i dodaje novi red. Server ponavlja sve
+  obračune i provjerava tenant, firmu, godinu, prava, artikal i PDV stopu.
+- Na fakturi je dodato brzo kreiranje artikla ili usluge bez napuštanja
+  dokumenta. Novi zapis ulazi u šifarnik i automatski se bira u stavci; usluga
+  je označena da ne prati lager i ne zahtijeva magacin.
+- Nacrt namjerno ne mijenja lager, KIF, nalog niti Fiscal API. Dodato je
+  završavanje za firme van Summa fiskalizacije: provjera lagera i PDV perioda,
+  razduženje po prosječnoj cijeni, nalog fakture i status `WAITING_KIF`.
+- Migracija `20260807120000_kif_source_document_posting` dodaje KIF izvor i
+  režim knjiženja. Preuzeta faktura dobija `SOURCE_DOCUMENT` i vezu na već
+  kreirani nalog, pa je KIF više ne knjiži po svojoj šemi.
+- Migracija je primijenjena; Prisma klijent je generisan, TypeScript je čist,
+  lint nema novih grešaka, a razvojni server je pokrenut na portu 3000.
+## 2026-08-08
+- Fiskalna štampa je odvojena od računovodstvenog završavanja: uspješna
+  fiskalizacija odmah čuva PDV rekapitulaciju, a fiskalizovan dokument više ne
+  dobija vodeni žig `NACRT`. Štampa ima i fallback obračun rekapitulacije iz
+  stavki za ranije fiskalizovane račune bez sačuvanih poreskih redova.
+- Izlazna Summa faktura povezana je sa Fiscal API-jem. Dugme `Fiskalizuj`
+  automatski čita okruženje firme, aktivnu poslovnu jedinicu, ENU i operatera,
+  koristi stabilan idempotency ključ i šalje u Test ili Production. Čuvaju se
+  zvanični broj, IKOF, JIKR i QR URL.
+- Nakon uspješnog API odgovora račun se zaključava. Ako knjigovodstvena šema
+  još nije podešena, ostaje zasebno dugme `Završi knjiženje`. Kupac bez PIB-a
+  šalje se kao neidentifikovan kupac prema Fiscal API ugovoru.
+- Dodata A4 portrait HTML/CSS štampa izlazne fakture na
+  `/stampa/robno/izlazne-fakture/[id]` i dugme `Štampa` na detalju fakture.
+  Dokument prikazuje izdavaoca, kupca, datume, stavke, PDV rekapitulaciju,
+  podatke za plaćanje, ukupno i fiskalni status; nacrt ima vodeni žig.
+- Migracija `20260808100000_invoice_print_snapshots` dodaje snapshot izdavaoca
+  i kupca te zvanični fiskalni broj. QR slika se generiše sa M korekcijom samo
+  iz `qr_code_data` koji vrati Fiscal API, uz čitljive IKOF i JIKR vrijednosti.
+- Instaliran je `qrcode` za lokalno generisanje QR slike. Migracija je
+  primijenjena, Prisma klijent generisan, `tsc --noEmit` je čist, a lint nema
+  novih grešaka (ostaje ranije upozorenje u admin akcijama).
