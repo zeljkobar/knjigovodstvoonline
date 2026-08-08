@@ -77,6 +77,8 @@ model Agencija {
   aktivnosti     AktivnostDogadjaj[]
   odgovornaLica  FirmaOdgovornoLice[]
   fiscalCompanyLinks FiscalCompanyLink[]
+  posRegisters       PosRegister[]
+  posPodesavanja     PosPodesavanje[]
 
   @@map("agencije")
 }
@@ -196,6 +198,8 @@ model Firma {
   stanjaZaliha                  StanjeZaliha[]
   prometiZaliha                 PrometZaliha[]
   fiscalCompanyLink             FiscalCompanyLink?
+  posRegisters                  PosRegister[]
+  posPodesavanje                PosPodesavanje?
 
   @@unique([agencija_id, pib])
   @@map("firme")
@@ -790,6 +794,7 @@ model Magacin {
   stanjaZaliha            StanjeZaliha[]
   prometiZaliha           PrometZaliha[]
   izlazneFakture          FiskalniIzlazniRacun[]
+  posRegisters            PosRegister[]
 
   @@unique([firma_id, sifra])
   @@index([agencija_id, firma_id, aktivan, is_deleted])
@@ -1306,6 +1311,11 @@ model FiskalniIzlazniRacun {
   datum_valute             DateTime?                   @db.Date
   mjesto_izdavanja         String?
   vrsta_racuna             String                      @default("NORMAL")
+  document_type            String                      @default("INVOICE")
+  sales_channel            String                      @default("OFFICE")
+  issued_at                DateTime?
+  pos_register_id          String?                     @db.Uuid
+  pos_register             PosRegister?                @relation(fields: [pos_register_id], references: [id])
   status                   String                      @default("DRAFT")
   nacin_placanja           String                      @default("BANK_TRANSFER")
   fiskalizacija_rezim      String                      @default("EXTERNAL_OR_NONE")
@@ -1344,13 +1354,112 @@ model FiskalniIzlazniRacun {
   posted_by                String?                     @db.Uuid
   stavke                   StavkaIzlazneFakture[]
   poreske_stavke           FiskalniIzlazniRacunPorez[]
+  placanja                 SalesDocumentPayment[]
+  fiskalni_pokusaji        FiscalizationAttempt[]
 
   @@unique([firma_id, poslovna_godina_id, broj])
   @@unique([firma_id, poslovna_godina_id, interni_broj])
   @@unique([firma_id, broj_racuna, datum_racuna])
   @@index([agencija_id, firma_id, poslovna_godina_id, kif_status])
   @@index([firma_id, datum_racuna, fiscal_status])
+  @@index([firma_id, sales_channel, issued_at])
+  @@index([pos_register_id, issued_at])
   @@map("fiskalni_izlazni_racuni")
+}
+
+model PosRegister {
+  id                        String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id               String                    @db.Uuid
+  agencija                  Agencija                  @relation(fields: [agencija_id], references: [id])
+  firma_id                  String                    @db.Uuid
+  firma                     Firma                     @relation(fields: [firma_id], references: [id])
+  magacin_id                String?                   @db.Uuid
+  magacin                   Magacin?                  @relation(fields: [magacin_id], references: [id])
+  naziv                     String
+  sifra                     String
+  fiscal_business_unit_id   String                    @db.Uuid
+  fiscal_business_unit_name String?
+  fiscal_device_id          String                    @db.Uuid
+  fiscal_device_code        String?
+  fiscal_operator_id        String?                   @db.Uuid
+  cash_deposit_amount       Decimal?                  @db.Decimal(14, 2)
+  cash_deposit_environment  String?
+  cash_deposit_fcdc         String?
+  cash_deposit_registered_at DateTime?
+  cash_deposit_correlation_id String?
+  podrazumijevano_placanje  String                    @default("CASH")
+  aktivan                   Boolean                   @default(true)
+  is_deleted                Boolean                   @default(false)
+  deleted_at                DateTime?
+  deleted_by                String?                   @db.Uuid
+  created_at                DateTime                  @default(now())
+  created_by                String?                   @db.Uuid
+  updated_at                DateTime                  @updatedAt
+  updated_by                String?                   @db.Uuid
+  racuni                    FiskalniIzlazniRacun[]
+
+  @@unique([firma_id, sifra])
+  @@index([agencija_id, firma_id, aktivan])
+  @@map("pos_registers")
+}
+
+model PosPodesavanje {
+  id                          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id                 String   @db.Uuid
+  agencija                    Agencija @relation(fields: [agencija_id], references: [id])
+  firma_id                    String   @unique @db.Uuid
+  firma                       Firma    @relation(fields: [firma_id], references: [id])
+  aktivan                     Boolean  @default(false)
+  racunovodstvena_integracija Boolean  @default(false)
+  kif_rezim                   String   @default("DAILY")
+  knjizenje_rezim             String   @default("DAILY")
+  zahtijeva_smjenu            Boolean  @default(false)
+  automatska_stampa           Boolean  @default(false)
+  created_at                  DateTime @default(now())
+  created_by                  String?  @db.Uuid
+  updated_at                  DateTime @updatedAt
+  updated_by                  String?  @db.Uuid
+
+  @@index([agencija_id, aktivan])
+  @@map("pos_podesavanja")
+}
+
+model SalesDocumentPayment {
+  id                         String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fiskalni_izlazni_racun_id String                @db.Uuid
+  fiskalni_izlazni_racun    FiskalniIzlazniRacun @relation(fields: [fiskalni_izlazni_racun_id], references: [id], onDelete: Cascade)
+  redni_broj                 Int                   @default(1)
+  payment_method             String
+  amount                     Decimal               @db.Decimal(14, 2)
+  reference                  String?
+  created_at                 DateTime              @default(now())
+  created_by                 String?               @db.Uuid
+
+  @@unique([fiskalni_izlazni_racun_id, redni_broj])
+  @@index([payment_method, created_at])
+  @@map("sales_document_payments")
+}
+
+model FiscalizationAttempt {
+  id                         String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fiskalni_izlazni_racun_id String                @db.Uuid
+  fiskalni_izlazni_racun    FiskalniIzlazniRacun @relation(fields: [fiskalni_izlazni_racun_id], references: [id], onDelete: Cascade)
+  attempt_number             Int
+  idempotency_key            String                @unique
+  status                     String
+  correlation_id             String?
+  fiscal_api_invoice_id      String?               @db.Uuid
+  error_code                 String?
+  error_message              String?
+  started_at                 DateTime              @default(now())
+  finished_at                DateTime?
+  duration_ms                Int?
+  created_by                 String?               @db.Uuid
+
+  @@unique([fiskalni_izlazni_racun_id, attempt_number])
+  @@index([fiskalni_izlazni_racun_id, started_at])
+  @@index([status, started_at])
+  @@map("fiscalization_attempts")
 }
 
 model StavkaIzlazneFakture {

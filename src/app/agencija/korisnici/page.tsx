@@ -33,6 +33,7 @@ const poruke: Record<string, string> = {
 };
 
 const moduli = [
+  "pos",
   "nalozi",
   "robno",
   "kalkulacije",

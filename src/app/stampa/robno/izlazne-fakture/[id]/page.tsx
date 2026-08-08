@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import QRCode from "qrcode";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
@@ -69,7 +70,10 @@ export default async function OutgoingInvoicePrintPage({ params }: { params: Pro
   }, new Map<string, { id: string; vat_rate_percent: number; tax_base: number; output_vat_amount: number; total_with_vat: number }>()).values()];
 
   return <main className="print-page invoice-print-page">
-    <div className="print-toolbar"><PrintButton label="Štampaj fakturu" /></div>
+    <div className="print-toolbar">
+      <Link className="print-button print-back-button" href={invoice.sales_channel === "POS" ? "/agencija/pos/racuni" : `/agencija/robno/izlazne-fakture/${invoice.id}`}>Nazad</Link>
+      <PrintButton label="Štampaj fakturu" />
+    </div>
     <article className="invoice-print-document">
       {invoice.status === "DRAFT" && !fiscalized ? <div className="invoice-print-watermark">NACRT</div> : null}
       <header className="invoice-print-header">

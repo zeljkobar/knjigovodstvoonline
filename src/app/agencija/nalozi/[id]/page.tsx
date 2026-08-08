@@ -384,8 +384,12 @@ const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
               datalistId="konto-options"
               initialLines={initialLines}
             />
+            <p className="admin-hint">
+              F8 prvo čuva stavke, F9 zatim knjiži sačuvani nacrt. F10 u aktivnom redu
+              automatski unosi iznos potreban za balans naloga.
+            </p>
             <div className="journal-actions">
-              <button type="submit">Sačuvaj stavke</button>
+              <button type="submit">Sačuvaj stavke (F8)</button>
             </div>
           </JournalEntryForm>
         </section>
@@ -401,7 +405,7 @@ const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
             {nalog.status === journalStatuses.draft ? (
               <form action={postJournal} data-journal-post-form="true">
                 <input name="nalog_id" type="hidden" value={nalog.id} />
-                <button type="submit">Proknjiži nalog</button>
+                <button type="submit">Proknjiži nalog (F9)</button>
               </form>
             ) : null}
             {nalog.status === journalStatuses.posted &&

@@ -267,6 +267,30 @@ function sumKifBase(books: KifBookForPdv[], rate: number) {
   );
 }
 
+function sumKifGross(books: KifBookForPdv[], rate: number) {
+  return books.reduce(
+    (total, book) =>
+      total +
+      book.entries.reduce((entryTotal, entry) => {
+        if (entry.vat_transaction_type !== vatTransactionTypes.domestic) {
+          return entryTotal;
+        }
+
+        return (
+          entryTotal +
+          entry.tax_lines
+            .filter((line) => decimalNumber(line.vat_rate_percent) === rate)
+            .reduce(
+              (lineTotal, line) =>
+                lineTotal + decimalNumber(line.tax_base) + decimalNumber(line.output_vat_amount),
+              0
+            )
+        );
+      }, 0),
+    0
+  );
+}
+
 function sumKifVat(books: KifBookForPdv[], rate: number) {
   return books.reduce(
     (total, book) =>
@@ -331,9 +355,9 @@ export function buildPdvReturnRows(kifBooks: KifBookForPdv[], kufBooks: KufBookF
 
   const rows: PdvReturnRow[] = [
     { sifra: "9", opis: "Bez transakcija tokom poreskog perioda", kolona: "CHECK", redosljed: 9, value: hasTransactions ? 0 : 1 },
-    { sifra: "10", opis: "Oporezivi promet (isporuke) po stopi od 21%", kolona: "OUTPUT", redosljed: 10, value: sumKifBase(kifBooks, 21) },
-    { sifra: "11", opis: "Oporezivi promet (isporuke) po stopi od 15%", kolona: "OUTPUT", redosljed: 11, value: sumKifBase(kifBooks, 15) },
-    { sifra: "12", opis: "Oporezivi promet (isporuke) po stopi od 7%", kolona: "OUTPUT", redosljed: 12, value: sumKifBase(kifBooks, 7) },
+    { sifra: "10", opis: "Oporezivi promet (isporuke) po stopi od 21%", kolona: "OUTPUT", redosljed: 10, value: sumKifGross(kifBooks, 21) },
+    { sifra: "11", opis: "Oporezivi promet (isporuke) po stopi od 15%", kolona: "OUTPUT", redosljed: 11, value: sumKifGross(kifBooks, 15) },
+    { sifra: "12", opis: "Oporezivi promet (isporuke) po stopi od 7%", kolona: "OUTPUT", redosljed: 12, value: sumKifGross(kifBooks, 7) },
     { sifra: "13", opis: "Oporezivi promet (isporuke) po stopi od 0%", kolona: "OUTPUT", redosljed: 13, value: sumKifBase(kifBooks, 0) },
     { sifra: "14", opis: "Oslobođeni promet - isporuke", kolona: "OUTPUT", redosljed: 14, value: sumKifSpecialBase(kifBooks) },
     { sifra: "15", opis: "Promet za koji je primalac izvršio prenos poreske obaveze", kolona: "OUTPUT", redosljed: 15, value: 0 },

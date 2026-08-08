@@ -73,7 +73,7 @@ export async function saveOutgoingInvoiceDraft(formData: FormData) {
   const clean = submitted.filter((line) => line.itemId);
   if (!clean.length) detail(id, "stavke");
 
-  const invoice = await prisma.fiskalniIzlazniRacun.findFirst({ where: { id, agencija_id: ctx.user.agencija_id!, firma_id: firmaId, poslovna_godina_id: ctx.year.id, status: outgoingInvoiceStatuses.draft, is_deleted: false }, select: { id: true } });
+  const invoice = await prisma.fiskalniIzlazniRacun.findFirst({ where: { id, agencija_id: ctx.user.agencija_id!, firma_id: firmaId, poslovna_godina_id: ctx.year.id, sales_channel: { not: "POS" }, status: outgoingInvoiceStatuses.draft, is_deleted: false }, select: { id: true } });
   if (!invoice) detail(id, "nije_nacrt");
   const items = await prisma.artikal.findMany({ where: { id: { in: clean.map((line) => line.itemId!) }, firma_id: firmaId, agencija_id: ctx.user.agencija_id!, aktivan: true, is_deleted: false }, include: { jedinica_mjere: true, pdv_stopa: true } });
   if (items.length !== new Set(clean.map((line) => line.itemId)).size) detail(id, "artikal");
@@ -113,13 +113,13 @@ export async function updateOutgoingInvoiceHeader(formData: FormData) {
   const id = text(formData.get("faktura_id")); const firmaId = text(formData.get("firma_id")); const ctx = await context("update", firmaId);
   const warehouseId = text(formData.get("magacin_id")) || null; const payment = text(formData.get("nacin_placanja")); const note = text(formData.get("napomena")) || null;
   if (warehouseId) { const warehouse = await prisma.magacin.findFirst({ where: { id: warehouseId, agencija_id: ctx.user.agencija_id!, firma_id: firmaId, aktivan: true, is_deleted: false } }); if (!warehouse) detail(id, "magacin"); }
-  const result = await prisma.fiskalniIzlazniRacun.updateMany({ where: { id, agencija_id: ctx.user.agencija_id!, firma_id: firmaId, poslovna_godina_id: ctx.year.id, status: outgoingInvoiceStatuses.draft, is_deleted: false }, data: { magacin_id: warehouseId, nacin_placanja: payment || "BANK_TRANSFER", napomena: note, updated_by: ctx.user.id } });
+  const result = await prisma.fiskalniIzlazniRacun.updateMany({ where: { id, agencija_id: ctx.user.agencija_id!, firma_id: firmaId, poslovna_godina_id: ctx.year.id, sales_channel: { not: "POS" }, status: outgoingInvoiceStatuses.draft, is_deleted: false }, data: { magacin_id: warehouseId, nacin_placanja: payment || "BANK_TRANSFER", napomena: note, updated_by: ctx.user.id } });
   if (!result.count) detail(id, "nije_nacrt"); revalidatePath(`/agencija/robno/izlazne-fakture/${id}`); detail(id, "zaglavlje");
 }
 
 async function preflightOutgoingInvoice(id: string, firmaId: string, ctx: Awaited<ReturnType<typeof context>>, includePosting = true) {
   const invoice = await prisma.fiskalniIzlazniRacun.findFirst({
-    where: { id, agencija_id: ctx.user.agencija_id!, firma_id: firmaId, poslovna_godina_id: ctx.year.id, status: outgoingInvoiceStatuses.draft, is_deleted: false },
+    where: { id, agencija_id: ctx.user.agencija_id!, firma_id: firmaId, poslovna_godina_id: ctx.year.id, sales_channel: { not: "POS" }, status: outgoingInvoiceStatuses.draft, is_deleted: false },
     include: { stavke: true, kupac: true, magacin: true, firma: { select: { pib: true, fiscalCompanyLink: true } } }
   });
   if (!invoice) return { ok: false as const, reason: "nije_nacrt" };
@@ -179,7 +179,7 @@ export async function fiscalizeOutgoingInvoice(formData: FormData) {
   const staleAttemptBefore = new Date(Date.now() - 2 * 60 * 1000);
   let idempotencyKey = invoice.idempotency_key ?? `website:${firmaId}:${invoice.id}`;
   const claimed = await prisma.fiskalniIzlazniRacun.updateMany({
-    where: { id, firma_id: firmaId, status: outgoingInvoiceStatuses.draft, OR: [{ fiscal_status: { not: "FiscalizationPending" } }, { fiscal_status: "FiscalizationPending", last_fiscal_attempt_at: { lt: staleAttemptBefore } }] },
+    where: { id, firma_id: firmaId, sales_channel: { not: "POS" }, status: outgoingInvoiceStatuses.draft, OR: [{ fiscal_status: { not: "FiscalizationPending" } }, { fiscal_status: "FiscalizationPending", last_fiscal_attempt_at: { lt: staleAttemptBefore } }] },
     data: { fiscal_status: "FiscalizationPending", idempotency_key: idempotencyKey, datum_valute: paymentDeadlineDate, last_fiscal_attempt_at: new Date(), updated_by: ctx.user.id }
   });
   if (!claimed.count) detail(id, "fiskalizacija_u_toku");
@@ -244,7 +244,7 @@ export async function fiscalizeOutgoingInvoice(formData: FormData) {
 export async function finalizeOutgoingInvoice(formData: FormData) {
   const id = text(formData.get("faktura_id")); const firmaId = text(formData.get("firma_id")); const ctx = await context("update", firmaId);
   const result = await prisma.$transaction(async (tx) => {
-    const invoice = await tx.fiskalniIzlazniRacun.findFirst({ where: { id, agencija_id: ctx.user.agencija_id!, firma_id: firmaId, poslovna_godina_id: ctx.year.id, status: outgoingInvoiceStatuses.draft, is_deleted: false }, include: { stavke: true, magacin: true } });
+    const invoice = await tx.fiskalniIzlazniRacun.findFirst({ where: { id, agencija_id: ctx.user.agencija_id!, firma_id: firmaId, poslovna_godina_id: ctx.year.id, sales_channel: { not: "POS" }, status: outgoingInvoiceStatuses.draft, is_deleted: false }, include: { stavke: true, magacin: true } });
     if (!invoice) return { ok: false as const, reason: "nije_nacrt" };
     if (invoice.fiskalizacija_rezim === outgoingInvoiceFiscalModes.summa && invoice.fiscal_status !== "Fiscalized") return { ok: false as const, reason: "fiskalizacija_obavezna" };
     if (!invoice.stavke.length) return { ok: false as const, reason: "stavke" };

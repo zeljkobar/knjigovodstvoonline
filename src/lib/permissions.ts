@@ -68,7 +68,7 @@ export async function hasPermission(
     return Boolean(firma);
   }
 
-  if (user.rola === "klijent" && akcija !== "view") {
+  if (user.rola === "klijent" && modul !== "pos" && akcija !== "view") {
     return false;
   }
 

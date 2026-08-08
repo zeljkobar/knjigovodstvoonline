@@ -2024,6 +2024,9 @@ td small {
 }
 
 .print-button {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
   min-height: 34px;
   border: 1px solid var(--primary);
   border-radius: 6px;
@@ -2034,6 +2037,12 @@ td small {
   font-size: 13px;
   font-weight: 700;
   padding: 7px 12px;
+  text-decoration: none;
+}
+
+.print-back-button {
+  background: #ffffff;
+  color: var(--primary);
 }
 
 .contract-document {
@@ -6858,6 +6867,86 @@ td small {
 }
 .outgoing-invoice-lines select {
   min-width: 280px;
+}
+
+/* POS: mobile-first prodajni ekran */
+.pos-page {
+  gap: 16px;
+}
+
+.pos-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(340px, 0.55fr);
+  gap: 16px;
+  min-height: 620px;
+}
+
+.pos-catalog,
+.pos-cart {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 14px 38px rgba(20, 85, 145, 0.08);
+}
+
+.pos-catalog { padding: 16px; }
+.pos-toolbar { display: grid; grid-template-columns: 190px 1fr; gap: 10px; }
+.pos-toolbar label { display: grid; gap: 4px; }
+.pos-toolbar label span { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.pos-toolbar input,
+.pos-toolbar select { min-height: 52px; width: 100%; border: 1px solid var(--border); border-radius: 10px; background: #fbfdff; color: var(--foreground); font: inherit; padding: 10px 13px; }
+.pos-toolbar input { font-size: 16px; }
+.pos-groups { display: flex; gap: 8px; overflow-x: auto; padding: 14px 0; scrollbar-width: thin; }
+.pos-groups button,
+.pos-payments button { flex: 0 0 auto; min-height: 42px; border: 1px solid var(--border); border-radius: 999px; background: #f8fcff; color: var(--primary-strong); cursor: pointer; font: inherit; font-size: 14px; font-weight: 800; padding: 8px 14px; }
+.pos-groups button.active,
+.pos-payments button.active { border-color: var(--primary); background: var(--primary); color: #fff; }
+.pos-item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 10px; }
+.pos-item { display: grid; align-content: space-between; min-height: 150px; border: 1px solid var(--border); border-radius: 12px; background: linear-gradient(155deg, #fff, #f0f7ff); color: var(--foreground); cursor: pointer; font: inherit; padding: 13px; text-align: left; touch-action: manipulation; }
+.pos-item:active { border-color: var(--primary); background: var(--primary-soft); transform: scale(.98); }
+.pos-item > span { color: var(--primary); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.pos-item > strong { font-size: 16px; line-height: 1.2; }
+.pos-item > small { color: var(--muted); font-size: 12px; }
+.pos-item > b { color: var(--primary-strong); font-size: 20px; }
+.pos-cart { position: sticky; top: 16px; display: flex; flex-direction: column; max-height: calc(100vh - 48px); overflow: hidden; padding: 16px; }
+.pos-cart-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+.pos-cart-header > div { display: grid; gap: 3px; }
+.pos-cart-header span { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.pos-cart-lines { flex: 1; min-height: 180px; overflow-y: auto; padding: 8px 0; }
+.pos-cart-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; border-bottom: 1px solid #e8f0f8; padding: 11px 0; }
+.pos-cart-line > div:first-child { display: grid; gap: 4px; }
+.pos-cart-line small { color: var(--muted); }
+.pos-cart-line > b { grid-column: 2; text-align: right; }
+.pos-quantity { display: flex; align-items: center; gap: 8px; }
+.pos-quantity button { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 9px; background: #f5faff; color: var(--primary-strong); font-size: 22px; font-weight: 800; }
+.pos-quantity span { min-width: 22px; text-align: center; font-weight: 800; }
+.pos-empty { padding: 36px 12px; text-align: center; }
+.pos-total { display: flex; align-items: end; justify-content: space-between; border-top: 2px solid var(--primary-soft); padding: 14px 0; }
+.pos-total span { color: var(--muted); font-weight: 800; }
+.pos-total strong { font-size: 30px; }
+.pos-payments { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 12px; }
+.pos-pay-button { width: 100%; min-height: 62px; border: 0; border-radius: 12px; background: linear-gradient(135deg, #0b5cad, #0878df); color: #fff; cursor: pointer; font: inherit; font-size: 19px; font-weight: 900; padding: 13px; }
+.pos-pay-button:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .55; }
+.pos-mobile-cart,
+.pos-mobile-close { display: none; }
+
+@media (max-width: 760px) {
+  .pos-page-header .header-actions { display: none; }
+  .pos-shell { display: block; min-height: auto; padding-bottom: 84px; }
+  .pos-catalog { border-radius: 10px; padding: 10px; }
+  .pos-toolbar { grid-template-columns: 1fr; }
+  .pos-toolbar label { display: none; }
+  .pos-item-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .pos-item { min-height: 128px; padding: 11px; }
+  .pos-item > strong { font-size: 15px; }
+  .pos-item > b { font-size: 18px; }
+  .pos-cart-column { position: fixed; inset: 0; z-index: 80; display: none; background: rgba(4, 18, 38, .58); padding: 10px; }
+  .pos-cart-column.open { display: flex; align-items: flex-end; }
+  .pos-cart { position: static; width: 100%; max-height: 88vh; border-radius: 18px 18px 10px 10px; }
+  .pos-mobile-close { display: inline-flex; border: 0; background: transparent; color: var(--primary); font-weight: 800; }
+  .pos-mobile-cart { position: fixed; z-index: 60; right: 12px; bottom: 12px; left: 12px; display: flex; align-items: center; justify-content: space-between; min-height: 62px; border: 0; border-radius: 14px; background: linear-gradient(135deg, #073f7a, #0b6dcc); box-shadow: 0 16px 36px rgba(2, 42, 90, .35); color: #fff; font: inherit; padding: 12px 18px; }
+  .pos-mobile-cart span { font-size: 14px; font-weight: 700; }
+  .pos-mobile-cart strong { font-size: 21px; }
 }
 
 .outgoing-invoice-lines input {

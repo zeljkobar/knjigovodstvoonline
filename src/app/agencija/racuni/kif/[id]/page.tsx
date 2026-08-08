@@ -15,6 +15,7 @@ import { VatTransactionFields } from "@/components/VatTransactionFields";
 import { VatTransactionTypeSelect } from "@/components/VatTransactionTypeSelect";
 import {
   invoicePostingAccountSources,
+  invoicePostingDocumentTypes,
   invoicePostingFields,
   mergeCompanyAccountPlan
 } from "@/lib/account-plan";
@@ -424,6 +425,16 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
       kupac: { select: { naziv: true, pib: true } }
     }
   });
+  const kifJournal = await prisma.nalog.findFirst({
+    where: {
+      firma_id: activeCompany.id,
+      poslovna_godina_id: activeYear.id,
+      source_type: invoicePostingDocumentTypes.kif,
+      izvorni_dokument_id: kifBook.id,
+      is_deleted: false
+    },
+    select: { id: true }
+  });
 
   const isLocked = activeYear.zakljucena || kifBook.status !== "OPEN";
   const revenueAccounts = mergeCompanyAccountPlan(baseAccounts, companyOverrides)
@@ -484,9 +495,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
     : revenueAccountRequired
       ? "Konto prihoda je obavezno po šemi"
       : "Konto prihoda je preuzet iz šeme ako je podešen";
-  const journalId = kifBook.entries.find(
-    (entry) => entry.posting_mode === "KIF_RULES" && entry.journal_id
-  )?.journal_id ?? null;
+  const journalId = kifJournal?.id ?? null;
   const unpostedCount = kifBook.entries.filter(
     (entry) => entry.posting_mode === "KIF_RULES" && entry.posting_status === "UNPOSTED" && !entry.journal_id
   ).length;

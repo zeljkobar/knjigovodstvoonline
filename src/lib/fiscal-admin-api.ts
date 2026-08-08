@@ -96,6 +96,15 @@ export type FiscalInvoiceSubmission = {
   faultCode?: string | null;
   faultMessage?: string | null;
 };
+export type FiscalCashDepositSubmission = {
+  exchangeId: string;
+  httpStatusCode: number;
+  isSuccess: boolean;
+  cashAmount: number;
+  fcdc?: string | null;
+  faultCode?: string | null;
+  faultMessage?: string | null;
+};
 export type FiscalAuditPage = { items: Array<{ id?: string; action: string; actor?: string | null; correlationId?: string | null; occurredAt?: string; dataJson?: string; [key: string]: unknown }>; page: number; pageSize: number; totalCount: number };
 export type FiscalCertificateAlert = { id: string; thresholdDays?: number; daysRemaining?: number; isAcknowledged?: boolean; createdAt?: string; certificateId?: string; certificateValidTo?: string; companyName?: string; companyTin?: string; [key: string]: unknown };
 export type FiscalCertificateExpiration = { certificateId: string; companyId: string; companyTin: string; companyName: string; fileName: string; thumbprint: string; validTo: string; daysRemaining: number; isExpired: boolean };
@@ -296,6 +305,16 @@ export const fiscalAdminApi = {
     return fiscalRequest<FiscalInvoiceSubmission>(`/api/v1/fiscal/invoices/${invoiceId}/fiscalize`, actor, {
       method: "POST",
       body: JSON.stringify({ confirmation })
+    }, 60_000);
+  },
+  registerInitialTestCashDeposit(cashAmount: number, changeDateTime: string, actor: FiscalActor) {
+    return fiscalRequest<FiscalCashDepositSubmission>("/api/v1/fiscal/test/cash-deposit/send", actor, {
+      method: "POST",
+      body: JSON.stringify({
+        confirmation: "REGISTER_INITIAL_CASH_DEPOSIT",
+        cashAmount,
+        changeDateTime
+      })
     }, 60_000);
   },
   listAudit(companyId: string, actor: FiscalActor, filters: { page?: number; pageSize?: number; action?: string; actor?: string; from?: string; to?: string } = {}) {

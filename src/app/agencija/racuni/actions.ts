@@ -2268,8 +2268,10 @@ export async function postInvoiceBook(formData: FormData) {
       return { ok: false as const, reason: "knjizenje_vrsta_naloga" };
     }
 
+    // Pojedinačno knjižene fiskalne fakture imaju sopstvene naloge i njihovi
+    // KIF redovi nose journal_id. Ti nalozi nisu nalog KIF knjige i ne smiju se
+    // dopunjavati ručno unesenim računima ili zbirnim pazarom.
     const existingJournalId =
-      book.entries.find((entry) => entry.journal_id)?.journal_id ??
       (
         await tx.nalog.findFirst({
           where: {
@@ -2283,8 +2285,7 @@ export async function postInvoiceBook(formData: FormData) {
             id: true
           }
         })
-      )?.id ??
-      null;
+      )?.id ?? null;
 
     const existingJournal = existingJournalId
       ? await tx.nalog.findFirst({

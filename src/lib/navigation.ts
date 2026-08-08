@@ -17,6 +17,7 @@ export type SubNavigationItem = {
 };
 
 const agencyRoles: Role[] = ["admin_agencije", "korisnik_agencije"];
+const posRoles: Role[] = ["admin_agencije", "korisnik_agencije", "klijent"];
 const adminOnly: Role[] = ["admin_agencije"];
 
 export const agencyNavigation: NavigationItem[] = [
@@ -44,7 +45,7 @@ export const agencyNavigation: NavigationItem[] = [
   {
     href: "/agencija/racuni",
     icon: "▥",
-    label: "Računi",
+    label: "KIF/KUF",
     roles: agencyRoles,
     section: "racuni"
   },
@@ -61,6 +62,13 @@ export const agencyNavigation: NavigationItem[] = [
     label: "Izvodi",
     roles: agencyRoles,
     section: "izvodi"
+  },
+  {
+    href: "/agencija/pos",
+    icon: "▦",
+    label: "POS / Kasa",
+    roles: posRoles,
+    section: "pos"
   },
   {
     href: "/agencija/robno",
@@ -107,6 +115,11 @@ export const agencyNavigation: NavigationItem[] = [
 ];
 
 export const subNavigation: Record<string, SubNavigationItem[]> = {
+  pos: [
+    { href: "/agencija/pos", label: "Prodaja" },
+    { href: "/agencija/pos/racuni", label: "Fiskalni računi" },
+    { href: "/agencija/pos/podesavanja", label: "Podešavanja" }
+  ],
   dashboard: [
     { href: "/agencija", label: "Pregled" },
     { href: "/agencija/rokovi", label: "Rokovi" },

@@ -11,7 +11,7 @@ export default async function AgencijaLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije", "klijent"]);
   const navigation = getAgencyNavigation(user.rola);
   const workContext = await readWorkContext();
   const [agencija, firme] = user.agencija_id

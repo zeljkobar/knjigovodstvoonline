@@ -3,6 +3,7 @@
 **Projekat:** SUMMA poslovni / računovodstveni sistem
 **Modul:** POS / Kasa
 **Status dokumenta:** Implementaciona specifikacija
+**Posljednje usklađivanje sa postojećim projektom:** 08.08.2026.
 **Namjena:** Dokument je namijenjen Codex-u kao glavni tehnički i funkcionalni vodič za razvoj POS modula.
 **Osnovna odluka:** POS je **poseban modul i poseban korisnički interfejs**, ali **nije poseban sistem**. Mora maksimalno koristiti postojeću infrastrukturu, bazu, korisnike, firme, artikle, kupce, dokumente i postojeći Fiscal API.
 
@@ -117,6 +118,43 @@ FiscalizationRecord
 ```
 
 Ako postojeći model nije dovoljan, proširiti ga pažljivo i uz migracije.
+
+### Obavezujuće mapiranje na postojeći SUMMA projekat
+
+Generički nazivi iz ove specifikacije predstavljaju domenske pojmove, a ne
+zahtjev za kreiranje novih paralelnih tabela. U trenutnoj implementaciji važi:
+
+```text
+SalesDocument       -> FiskalniIzlazniRacun
+SalesDocumentLine   -> StavkaIzlazneFakture
+TaxBreakdown        -> FiskalniIzlazniRacunPorez
+Company             -> Firma
+Customer            -> Komitent + FirmaKomitent
+Article             -> Artikal
+TaxRate              -> PdvStopa
+ArticlePrice         -> CijenaArtikla
+Warehouse            -> Magacin
+Stock                -> StanjeZaliha + PrometZaliha
+KIF document         -> KifEntry + KifEntryTaxLine + KifPazarPayment
+```
+
+Zato se **ne kreiraju** nove generičke tabele `SalesDocument`,
+`SalesDocumentLine`, `Customer`, `Article` ili `TaxRate`. Postojeći
+`FiskalniIzlazniRacun` je zajednički prodajni dokument koji treba minimalno
+proširiti da razlikuje kancelarijsku fakturu od POS računa.
+
+Najmanje dopune zajedničkog dokumenta koje treba razmotriti su:
+
+- vrsta prodajnog dokumenta (`INVOICE`, `POS_RECEIPT`, a kasnije korektivni tipovi),
+- kanal izdavanja (`OFFICE`, `POS`),
+- tačno vrijeme izdavanja, ne samo datum,
+- opciona veza sa POS kasom i smjenom,
+- odvojen status računovodstvene obrade kada je potreban.
+
+Postojeća polja za idempotency, fiskalni status, Fiscal API ID, IKOF/JIKR, QR,
+correlation ID i fiskalnu grešku ponovo se koriste. Istorija više fiskalnih
+pokušaja je poseban novi zapis, a ne zamjena postojećeg konačnog stanja na
+dokumentu.
 
 ---
 
@@ -238,6 +276,32 @@ Svaki POS dokument mora imati nedvosmislenu vezu najmanje sa:
 - korisnikom koji ga je izdao,
 - vremenom izdavanja.
 
+## 6.1. Direktni POS klijent bez knjigovodstvene agencije
+
+POS mora podržati i firmu koja želi samo SUMMA POS i fiskalizaciju, dok njen
+knjigovođa koristi drugi program i nema nalog u SUMMA računovodstvu.
+
+Takva firma se otvara kao postojeći **direktni fiskalni klijent**. U pozadini
+ostaje smještena u označenom, skrivenom sistemskom tenant kontejneru radi
+obavezne izolacije podataka. Taj tehnički tenant se ne prikazuje kao stvarna
+knjigovodstvena agencija niti se korisniku predstavlja u interfejsu.
+
+Direktni POS klijent dobija samo aktivirane module i ekrane koji su mu potrebni:
+
+- POS / Kasa,
+- artikle, grupe, cijene i po potrebi magacine,
+- pregled svojih računa i dnevnog prometa,
+- svoje korisnike i ograničena POS podešavanja,
+- štampu i fiskalni status.
+
+Ne dobija KIF, KUF, PDV, naloge, glavnu knjigu ni ostale računovodstvene ekrane.
+Ako kasnije pređe na SUMMA knjigovodstvo, aktiviraju se dodatni moduli nad istom
+firmom i istim podacima; ne pravi se nova firma i ne migriraju se POS računi.
+
+Za direktnog klijenta računovodstvena integracija može biti isključena. Sistem
+i dalje čuva kompletne fiskalne i prodajne podatke, ali ne smije automatski
+kreirati KIF ili naloge ako ta opcija nije aktivirana za firmu.
+
 ---
 
 # 7. KORISNIČKE ULOGE I DOZVOLE
@@ -288,6 +352,23 @@ Može pregledati podatke firme prema postojećim pravima.
 
 POS mora koristiti postojeći permission sistem gdje god je moguće.
 
+Postojeće pravilo da je uloga `klijent` u osnovi read-only ne smije se globalno
+olabaviti. POS dobija zasebne dozvole po firmi i, gdje treba, po kasi, na primjer:
+
+```text
+pos:view
+pos:sell
+pos:discount
+pos:price_override
+pos:refund
+pos:reprint
+pos:reports
+pos:manage
+```
+
+Backend provjerava firmu, aktivni modul, dodjelu korisnika i konkretnu POS
+akciju. Samo skrivanje dugmeta na frontendu nije kontrola pristupa.
+
 ---
 
 # 8. POS RADNA STANICA / KASA
@@ -322,7 +403,8 @@ Umjesto toga čuvati referencu.
 
 # 9. POS SESIJA / SMJENA
 
-Napraviti model `PosShift`.
+Model `PosShift` je planiran, ali nije obavezan za prvi POS MVP. Ne uvoditi ga
+prije osnovnog toka prodaje ako bi nepotrebno usporio pilot.
 
 Predložena polja:
 
@@ -623,10 +705,10 @@ Zbir plaćanja mora odgovarati ukupnom iznosu dokumenta, osim ako postojeći pos
 
 # 19. MODEL PRODAJNOG DOKUMENTA
 
-Preporučeni princip:
+Obavezujući princip za ovaj projekat:
 
 ```text
-SalesDocument
+FiskalniIzlazniRacun
 ```
 
 sa tipom:
@@ -640,7 +722,8 @@ CORRECTIVE
 ...
 ```
 
-Tačne vrijednosti uskladiti sa postojećim modelom.
+Tačne vrijednosti moraju biti kompatibilne sa postojećim modelom i klasičnim
+izlaznim fakturama. Ne uvoditi paralelni `SalesDocument` model.
 
 Predložena polja:
 
@@ -666,25 +749,29 @@ CreatedAt
 UpdatedAt
 ```
 
-Stavke u:
+Stavke ostaju u:
 
 ```text
-SalesDocumentLine
+StavkaIzlazneFakture
 ```
 
-Plaćanja u:
+Višestruka plaćanja zahtijevaju novu relaciju prema postojećem
+`FiskalniIzlazniRacun`, na primjer:
 
 ```text
 SalesDocumentPayment
 ```
 
-Fiscal podaci u:
+Konačni fiskalni podaci ostaju na `FiskalniIzlazniRacun`. Dodatno se uvodi
+istorija pokušaja, na primjer:
 
 ```text
-FiscalizationRecord
+FiscalizationAttempt
 ```
 
-ili postojećem fiskalnom modelu.
+Svaki pokušaj čuva najmanje dokument, redni broj pokušaja, idempotency ključ,
+vrijeme početka/završetka, status, correlation ID, bezbjedan sažetak greške i
+referencu rezultata. Ne čuvati tajne niti nezaštićen kompletan payload.
 
 ---
 
@@ -2222,10 +2309,12 @@ Dodati samo ono što ne postoji:
 
 ```text
 PosRegister
-PosShift
+PosPodesavanje
+SalesDocumentPayment
+FiscalizationAttempt
 ```
 
-i eventualne POS konfiguracije.
+`PosShift` ostaviti za drugu fazu, osim ako ga konkretni pilot zahtijeva.
 
 ## Korak 4 — POS API
 
@@ -2472,7 +2561,6 @@ Codex ih ne treba ponovo otvarati bez tehničkog razloga:
 
 Ove stavke se mogu definisati naknadno:
 
-- da li je smjena obavezna od prve verzije,
 - 58 mm ili 80 mm default printer,
 - da li odmah raditi parcijalni povrat,
 - da li odmah raditi kombinovano plaćanje,
@@ -2566,16 +2654,141 @@ Već zaključeno:
 4. Fiskalni POS računi se u glavnu knjigu knjiže **zbirno**.
 5. Klasične fakture se i dalje knjiže **pojedinačno, kao i do sada**.
 6. POS računovodstveni batch podržava `DAILY` i `MONTHLY`, uz preporuku da podrazumijevano prati KIF režim.
+7. Jedna firma i jedan objekat mogu imati više POS kasa; prvi pilot može početi sa jednom.
+8. POS kasa čuva referencu ka postojećoj poslovnoj jedinici/ENU-u iz Fiscal API-ja, bez dupliranja fiskalne konfiguracije.
+9. Direktni POS-only klijent može raditi bez KIF-a i glavne knjige.
+10. Zaključani period blokira batch obradu, ali ne mijenja niti tiho prebacuje izvorni fiskalni račun.
 
 Prije punog produkcionog puštanja još definitivno odlučiti:
 
-1. Da li svaka firma može imati više kasa po objektu.
-2. Ko ima pravo na popust.
-3. Ko ima pravo na promjenu cijene.
-4. Ko može raditi korekciju/povrat.
-5. Kako se veže POS kasa za ENU/fiskalnu konfiguraciju postojećeg API-ja.
-6. Koji printeri su cilj za prvi pilot.
-7. Da li prvi pilot traži rad bez interneta.
-8. Kako se ponaša zaključan KIF/knjigovodstveni period kada se naknadno pojavi korektivni POS dokument.
+1. Ko ima pravo na popust.
+2. Ko ima pravo na promjenu cijene.
+3. Ko može raditi korekciju/povrat.
+4. Koji printeri su cilj za prvi pilot.
+5. Da li prvi pilot traži rad bez interneta.
+6. Tačan dozvoljeni korektivni tok kada se dokument pojavi poslije zaključavanja perioda.
 
 Ove odluke ne treba da zaustave izradu osnovnog modula, ali ih treba zaključiti prije šireg puštanja sistema.
+
+---
+
+# 81. OBAVEZUJUĆI IMPLEMENTACIONI UGOVOR ZA POSTOJEĆI PROJEKAT
+
+Ovo poglavlje je rezultat pregleda stvarne baze i postojeće implementacije od
+08.08.2026. Ima prednost nad ranijim generičkim primjerima modela u ovom
+dokumentu.
+
+## 81.1. Šta se obavezno ponovo koristi
+
+- `Firma`, `PoslovnaGodina`, `KorisnikFirma` i postojeći work-context za scope.
+- `Komitent` i `FirmaKomitent` za kupce; masovna lista globalnih partnera se ne
+  učitava, već se koristi postojeća async pretraga.
+- `Artikal`, `GrupaArtikla`, `JedinicaMjere`, `PdvStopa`, `CijenaArtikla` i
+  `Magacin` za šifrarnike.
+- `FiskalniIzlazniRacun`, `StavkaIzlazneFakture` i
+  `FiskalniIzlazniRacunPorez` kao jedini zajednički prodajni dokument.
+- `calculateOutgoingInvoiceLine()` ili iz njega izdvojen zajednički precizni
+  kalkulator. Novac se u aplikacijskoj logici računa u centima, bez float
+  aritmetike.
+- postojeći serverski Fiscal API klijent; sistemski ključ nikada ne ide u
+  browser.
+- `StanjeZaliha` i `PrometZaliha` ako je za firmu/artikal aktivno praćenje
+  zaliha.
+- postojeći KIF `PAZAR` model: `KifEntry`, `KifEntryTaxLine` i
+  `KifPazarPayment`.
+- postojeći audit mehanizam i HTML/CSS print pristup sa QR podacima dobijenim iz
+  Fiscal API-ja.
+
+## 81.2. Minimalni novi modeli
+
+Prva implementacija smije uvesti samo modele za funkcije koje sada ne postoje:
+
+1. `PosRegister` — lokalna POS kasa, vezana za firmu, poslovnu jedinicu i
+   postojeću Fiscal API ENU referencu; opciono za magacin, operatora i lokalna
+   podešavanja.
+2. `SalesDocumentPayment` — jedna ili više stavki plaćanja vezanih za
+   `FiskalniIzlazniRacun`.
+3. `PosPodesavanje` — aktivnost POS-a, uključivanje računovodstvene integracije,
+   `DAILY`/`MONTHLY` KIF režim, režim zbirnog knjiženja, obaveznost smjene i
+   podrazumijevana štampa.
+4. `FiscalizationAttempt` — istorija svakog pokušaja fiskalizacije.
+5. `PosKifBatch` i provjerljiva membership veza ka uključenim računima.
+6. `PosAccountingBatch` i provjerljiva membership veza ka uključenim računima.
+
+`PosShift` se dodaje u drugoj fazi ili ranije samo ako je obavezan za konkretnog
+pilota. `PosQuickItem` je opciona kasnija tabela samo za redosljed, boju ili
+favorite artikle; ne smije duplicirati podatke artikla i cijene.
+
+## 81.3. Servisi koje treba izdvojiti prije POS ekrana
+
+Postojeća logika izlaznih faktura je djelimično vezana za server actions. Treba
+izdvojiti samo zajedničke djelove potrebne za oba kanala:
+
+- centralni resolver važeće cijene artikla,
+- centralni kalkulator stavke i poreske rekapitulacije,
+- servis fiskalizacije prodajnog dokumenta,
+- servis prometa zaliha,
+- servis atomarne numeracije prodajnih dokumenata,
+- POS KIF agregator,
+- POS accounting batch servis.
+
+Ne raditi veliki rewrite postojećih faktura. Klasična faktura mora zadržati
+sadašnji pojedinačni KIF i knjižni tok.
+
+## 81.4. Numeracija i konkurentnost
+
+Postojeći obrazac `posljednji broj + 1` nije dovoljan kada više kasa izdaje
+račune istovremeno. Numeracija POS/prodajnih dokumenata mora koristiti atomarnu
+sekvencu, zaključavanje reda ili PostgreSQL advisory lock, uz postojeće unique
+constraints. Dva paralelna zahtjeva ne smiju dobiti isti broj niti kreirati dva
+dokumenta za jednu naplatu.
+
+## 81.5. Razdvajanje fiskalizacije, lagera i knjigovodstva
+
+POS naplata i fiskalizacija ne smiju čekati kreiranje pojedinačnog naloga.
+
+```text
+POS naplata
+  -> trajno sačuvan dokument, stavke i plaćanja
+  -> fiskalizacija sa idempotency zaštitom
+  -> promet zaliha, ako se zalihe prate
+  -> kasniji zbirni KIF batch, ako je integracija uključena
+  -> kasniji zbirni računovodstveni batch, ako je integracija uključena
+```
+
+Direktni POS-only klijent završava tok poslije fiskalizacije, štampe i eventualnog
+lagera. Za njega se KIF i nalog ne kreiraju dok se računovodstvena integracija
+eksplicitno ne uključi.
+
+## 81.6. Fiscal API okruženje i načini plaćanja
+
+POS koristi okruženje aktivnog fiskalnog profila firme. Test profil šalje testne,
+a produkcioni profil produkcione račune; POS UI ne bira okruženje po računu.
+
+Kasa se može aktivirati tek kada firma, poslovna jedinica, ENU, operator,
+sertifikat i dozvoljeni načini plaćanja prođu readiness provjeru. Ako je profil
+ograničen, na primjer samo na bezgotovinsko plaćanje, POS ne smije ponuditi
+gotovinu ili karticu kao da će ih API prihvatiti.
+
+## 81.7. Zaključani periodi i naknadna obrada
+
+Zaključana poslovna godina, KIF knjiga ili računovodstveni period ne smiju
+onemogućiti zakonski potrebnu fiskalnu prodaju u tekućem otvorenom periodu.
+Međutim, batch se ne smije upisati u zaključan period. Takav batch ostaje jasno
+označen za intervenciju i prenosi se samo kroz dozvoljeni korektivni tok, bez
+tihog pomjeranja datuma ili mijenjanja izvornih fiskalnih računa.
+
+## 81.8. Prvi pilot
+
+Za prvi pilot preporučeni obim je:
+
+- jedna firma, jedan objekat i jedna kasa, uz model koji podržava više kasa,
+- smjena nije obavezna,
+- gotovina, kartica i virman samo ako ih aktivni Fiscal API profil dozvoljava,
+- jedno plaćanje po računu; model podržava više, a kombinovano plaćanje može
+  uslijediti odmah poslije stabilnog osnovnog toka,
+- online rad bez offline queue-a,
+- browser print; POS Agent i automatska termalna štampa u narednoj fazi,
+- prodaja, fiskalizacija, retry, reprint, lista računa i dnevni promet,
+- zbirni KIF/knjiženje samo za firme kojima je računovodstvena integracija
+  uključena.

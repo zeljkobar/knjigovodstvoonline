@@ -1,12 +1,79 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-08-03. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-08-08. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## POS / Kasa — prva funkcionalna faza
+
+Dodana je mobile-first POS osnova pod `/agencija/pos`. Telefon je primarni UX:
+artikli su u dodirnom gridu, kategorije se pomjeraju horizontalno, korpa se
+otvara kao donji panel, a dugme sa brojem stavki i ukupnim iznosom ostaje
+fiksirano pri dnu. Desktop koristi isti tok sa stalnom korpom desno.
+
+POS ponovo koristi `FiskalniIzlazniRacun`, njegove stavke, artikle, cijene, PDV
+stope i postojeći serverski Fiscal API klijent. Migracija
+`20260808160000_pos_mvp_foundation` dodaje prodajni kanal, tip dokumenta, vrijeme
+izdavanja, POS kase, podešavanje firme, plaćanja i istoriju fiskalnih pokušaja.
+Numeracija se dodjeljuje pod PostgreSQL advisory lockom, a svaki račun dobija
+jedinstven idempotency ključ.
+
+Podešavanja `/agencija/pos/podesavanja` povezuju `KASA-1` sa aktivnim objektom,
+ENU-om i operaterom iz Test ili Production Fiscal API okruženja. Server ponovo
+čita artikle/cijene i prije API poziva trajno čuva račun, plaćanje i pokušaj.
+Uspjeh čuva zvanični broj, IKOF, JIKR, QR i poresku rekapitulaciju; greška
+ostavlja račun i pokušaj sa kompletnim statusom.
+
+POS podešavanja sada u Test okruženju prijavljuju početni gotovinski depozit
+za konkretnu kasu preko postojećeg Fiscal API toka. Dozvoljen je i iznos 0,00
+EUR za praznu kasu. Lokalno se čuvaju iznos, okruženje, vrijeme, FCDC i
+correlation ID, uz backend provjeru prava/scope-a i audit. Testna ruta se ne
+koristi za produkciju.
+
+Pregled `/agencija/pos/racuni` prikazuje vrijeme, kasu, plaćanje, iznos i
+fiskalni status uz postojeću štampu. Modul `pos` dodat je matrici prava.
+Klijentska uloga ostaje read-only u drugim modulima, ali može dobiti eksplicitna
+POS prava i tada iz klijentskog ulaza prelazi u POS-only navigaciju.
+
+POS korpa uvijek nudi pretragu i brzo kreiranje kupca. Kupac je opcioni kod
+gotovine i kartice, a obavezan kod virmana; izabrani kupac, PIB i adresa ulaze
+u račun, Fiscal API i snapshot za štampu. Virmanski POS račun dobija rok
+plaćanja sedam dana. Pregled fiskalnih računa ima kontrolisani retry samo za
+`FiscalizationFailed`: koristi isti lokalni dokument i poslovni broj, dok svaki
+novi pokušaj dobija novi Fiscal API nacrt, vrijeme izdavanja, idempotency ključ,
+audit i zapis pokušaja.
+
+POS roba koja prati zalihe sada se pri naplati atomarno razdužuje iz magacina
+kase po postojećoj prosječnoj nabavnoj cijeni. Promet tipa `POS_SALE` čuva
+artikle, količine, prodajnu i nabavnu vrijednost te stanje poslije prodaje, pa
+je osnova za izvještaje prodaje po artiklima sačuvana i kada je minus dozvoljen.
+Usluge se ne razdužuju. Pravilo negativnog lagera nasljeđuje firmu ili se u POS
+podešavanjima posebno dozvoljava/blokira za magacin kase. Ako je minus blokiran,
+nedovoljna količina zaustavlja naplatu prije kreiranja i fiskalizacije računa.
+Jedinstvena veza prometa sa stavkom računa sprječava duplo razduženje pri retry-u.
+
+POS virman se nakon uspješne fiskalizacije pojedinačno priprema za postojeći KIF
+i dobija `DRAFT` nalog po istoj šemi kao obična izlazna faktura. Ako su godina,
+PDV period, vrsta naloga ili konta prepreka, fiskalizacija ostaje važeća, račun
+dobija status `ACCOUNTING_PENDING` i može se bez dupliranja nastaviti akcijom
+„Završi knjiženje“. Gotovina i kartica ne ulaze pojedinačno u KIF, već ostaju
+`WAITING_PAZAR` za budući dnevni ili mjesečni zbirni pazar. Migracija
+`20260808210000_pos_payment_accounting_flow` uskladila je i ranije POS račune.
+Integracija se eksplicitno uključuje u POS podešavanjima; pri uključivanju se i
+raniji nevezani POS računi bez KIF zapisa razvrstavaju po načinu plaćanja.
+POS dokumenti su odvojeni od kancelarijskog ekrana izlaznih faktura i njegovih
+serverskih akcija: gotovina/kartica se ne mogu pojedinačno završavati, a POS
+virman se nastavlja isključivo iz pregleda fiskalnih računa.
+KIF knjiženje razlikuje naloge pojedinačno knjiženih fiskalnih faktura od naloga
+same mjesečne KIF knjige. Ručni KIF redovi i zbirni pazar ulaze u KIF nalog, dok
+se već knjiženi fiskalni redovi ne knjiže ponovo niti određuju taj nalog.
+
+Još nisu završeni zbirni KIF i računovodstveni batch za gotovinu/kartice, dnevni promet,
+povrati/korekcije, smjene i termalni POS Agent.
 
 ## Fiskalna integracija — spremna pozadina, portal nije implementiran
 

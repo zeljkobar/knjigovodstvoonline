@@ -3,6 +3,13 @@
 > Lista otvorenih zadataka. Kad se nešto završi, prebaci u
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
+## Prioritet 0 — POS druga faza
+- Dodati produkcijsku Fiscal API rutu za prijavu početnog gotovinskog depozita; POS ekran trenutno bezbjedno podržava Test.
+- Ručni mobile QA: artikli, korpa, plaćanje, Test fiskalizacija i štampa.
+- Zbirni `PosKifBatch`/`PAZAR` DAILY ili MONTHLY za gotovinu i kartice samo kad je integracija aktivna; POS virmani su završeni kao pojedinačni KIF tok.
+- Zbirni računovodstveni batch gotovine/kartica odvojen od fiskalizacije.
+- Dnevni promet, povrati/korekcije i reprint audit; zatim smjene i POS Agent.
+
 ## Prioritet 1 — Stabilizacija KIF/KUF
 - QA za edit/delete neproknjiženih računa.
 - Kontrole i upozorenja za duplikate računa.

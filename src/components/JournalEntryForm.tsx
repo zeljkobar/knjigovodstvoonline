@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useRef,
   useState,
   type ComponentProps,
@@ -76,6 +77,33 @@ export function JournalEntryForm({
   const [localError, setLocalError] = useState<string | null>(null);
   const errorRef = useRef<HTMLParagraphElement | null>(null);
   const requiredAnalyticsSet = new Set(requiredAnalyticsAccounts);
+
+  useEffect(() => {
+    function handlePageShortcut(event: globalThis.KeyboardEvent) {
+      if (
+        event.defaultPrevented ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.shiftKey ||
+        event.metaKey ||
+        event.key !== "F9"
+      ) {
+        return;
+      }
+
+      const postForm = document.querySelector<HTMLFormElement>(
+        'form[data-journal-post-form="true"]'
+      );
+
+      if (postForm) {
+        event.preventDefault();
+        postForm.requestSubmit();
+      }
+    }
+
+    document.addEventListener("keydown", handlePageShortcut);
+    return () => document.removeEventListener("keydown", handlePageShortcut);
+  }, []);
 
   function focusLineField(
     row: HTMLTableRowElement | null,

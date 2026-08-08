@@ -3,6 +3,26 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-08-08
+- Ispravljen automatski obračun PDV prijave: pozicije 10, 11 i 12 sada iz KIF
+  poreskih redova sabiraju bruto promet (`osnovica + izlazni PDV`), dok pozicije
+  16, 17 i 18 i dalje prikazuju pripadajući izlazni PDV. Ručni preračun forme
+  već koristi isto bruto pravilo.
+- POS računovodstveni tok razdvojen je po načinu plaćanja. Virman nakon
+  fiskalizacije dobija pojedinačni `DRAFT` nalog po šemi izlazne fakture i čeka
+  preuzimanje u KIF, dok gotovina i kartica dobijaju `WAITING_PAZAR` za budući
+  zbirni dnevni/mjesečni pazar. Greška računovodstvene pripreme ne mijenja
+  uspješan fiskalni status; obrada se nastavlja posebnim dugmetom uz audit,
+  provjeru scope-a, zaključane godine/PDV perioda, konta i balansa.
+- POS podešavanja sada imaju jasnu kontrolu za uključivanje KIF/glavne knjige.
+  Uključivanje razvrstava i ranije račune koji su bili označeni „Bez integracije“.
+- POS prodaja sada u istoj transakciji sa lokalnim računom razdužuje robu koja
+  prati zalihe iz magacina kase, čuva `POS_SALE` promet i nabavnu vrijednost po
+  prosječnoj cijeni. Usluge su isključene iz lagera. Negativan lager se može
+  naslijediti sa firme ili dozvoliti/blokirati po magacinu iz POS podešavanja;
+  blokirani minus zaustavlja naplatu prije fiskalizacije. Jedinstveni promet po
+  stavci računa štiti retry od dvostrukog razduženja.
+
 ## 2026-08-03
 - Ekran API aplikacija vizuelno je preuređen u vođeni tok od tri koraka:
   osnovni podaci, grupisane dozvole i dodjela firmi. Generisanje ključa je jasno
@@ -752,6 +772,25 @@
 - Migracija je primijenjena; Prisma klijent je generisan, TypeScript je čist,
   lint nema novih grešaka, a razvojni server je pokrenut na portu 3000.
 ## 2026-08-08
+- Ispravljeno je knjiženje mješovite KIF knjige: nalog pojedinačno knjižene
+  fiskalne fakture više se ne smatra nalogom cijele KIF knjige. Ručni redovi i
+  pazar sada kreiraju/dopunjavaju zaseban KIF nalog, bez duplog knjiženja
+  automatskih faktura.
+- Ispravljeno je razdvajanje POS-a i kancelarijskih izlaznih faktura. POS
+  dokumenti više se ne prikazuju niti otvaraju kroz `/agencija/robno/izlazne-fakture`,
+  a backend blokira njihovo pojedinačno završavanje kroz taj tok. Gotovina i
+  kartica ostaju za zbirni pazar, dok se virman nastavlja iz POS pregleda.
+- POS podešavanja sada prijavljuju početni gotovinski depozit po kasi u Test
+  okruženju. Čuvaju se iznos, FCDC, okruženje, vrijeme i correlation ID, uz
+  audit. Migracija `20260808190000_pos_initial_cash_deposit` je primijenjena,
+  Prisma klijent regenerisan, TypeScript je čist i server je restartovan.
+- Implementirana prva POS/Kasa faza. Migracija
+  `20260808160000_pos_mvp_foundation` dodaje POS kanal postojećem izlaznom
+  računu te kase, podešavanja, plaćanja i istoriju fiskalnih pokušaja.
+- Dodani su mobile-first `/agencija/pos`, povezivanje KASA-1 sa Fiscal API
+  objektom/ENU-om/operatorom, gotovina/kartica/virman, idempotency, pregled i
+  štampa. Direktni klijent sa eksplicitnim POS pravom dobija POS-only ulaz.
+- TypeScript i lint nemaju novih grešaka; ostaje raniji admin warning.
 - Fiskalna štampa je odvojena od računovodstvenog završavanja: uspješna
   fiskalizacija odmah čuva PDV rekapitulaciju, a fiskalizovan dokument više ne
   dobija vodeni žig `NACRT`. Štampa ima i fallback obračun rekapitulacije iz

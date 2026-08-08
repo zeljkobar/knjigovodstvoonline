@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
+import { hasPermission } from "@/lib/permissions";
 
 function normalizeSearch(value: unknown) {
   return String(value ?? "").trim();
@@ -47,7 +48,7 @@ function parsePartnerSearchQuery(query: string) {
 export async function GET(request: Request) {
   const user = await getCurrentUser();
 
-  if (!user || !["admin_agencije", "korisnik_agencije"].includes(user.rola)) {
+  if (!user || !["admin_agencije", "korisnik_agencije", "klijent"].includes(user.rola)) {
     return NextResponse.json({ message: "Niste prijavljeni." }, { status: 401 });
   }
 
@@ -55,6 +56,9 @@ export async function GET(request: Request) {
 
   if (!user.agencija_id || !workContext.firmaId) {
     return NextResponse.json({ results: [] });
+  }
+  if (user.rola === "klijent" && !(await hasPermission(user, { firmaId: workContext.firmaId, modul: "pos", akcija: "create" }))) {
+    return NextResponse.json({ message: "Nemate pravo POS prodaje." }, { status: 403 });
   }
 
   const url = new URL(request.url);
