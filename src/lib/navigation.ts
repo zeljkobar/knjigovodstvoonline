@@ -118,6 +118,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
   pos: [
     { href: "/agencija/pos", label: "Prodaja" },
     { href: "/agencija/pos/racuni", label: "Fiskalni računi" },
+    { href: "/agencija/pos/izvjestaji", label: "Izvještaji" },
     { href: "/agencija/pos/podesavanja", label: "Podešavanja" }
   ],
   dashboard: [

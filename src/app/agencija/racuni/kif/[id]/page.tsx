@@ -288,6 +288,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             total_output_vat: true,
             total_gross: true,
             status: true,
+            source_type: true,
             posting_status: true,
             posting_mode: true,
             journal_id: true,
@@ -965,7 +966,10 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                       </span>
                     </td>
                     <td>
-                      {entry.posting_status === "UNPOSTED" && !isLocked && !entry.fiskalni_izlazni_racun ? (
+                      {entry.posting_status === "UNPOSTED" &&
+                      !isLocked &&
+                      !entry.fiskalni_izlazni_racun &&
+                      entry.source_type !== "POS_KIF_BATCH" ? (
                         <div className="table-actions">
                           <Link
                             className="table-button"
@@ -986,7 +990,11 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                           </form>
                         </div>
                       ) : (
-                        entry.fiskalni_izlazni_racun ? "Preuzeto iz fiskalizacije" : "-"
+                        entry.fiskalni_izlazni_racun
+                          ? "Preuzeto iz fiskalizacije"
+                          : entry.source_type === "POS_KIF_BATCH"
+                            ? "Zbirna POS obrada"
+                            : "-"
                       )}
                     </td>
                   </tr>

@@ -6,9 +6,7 @@
 ## Prioritet 0 — POS druga faza
 - Dodati produkcijsku Fiscal API rutu za prijavu početnog gotovinskog depozita; POS ekran trenutno bezbjedno podržava Test.
 - Ručni mobile QA: artikli, korpa, plaćanje, Test fiskalizacija i štampa.
-- Zbirni `PosKifBatch`/`PAZAR` DAILY ili MONTHLY za gotovinu i kartice samo kad je integracija aktivna; POS virmani su završeni kao pojedinačni KIF tok.
-- Zbirni računovodstveni batch gotovine/kartica odvojen od fiskalizacije.
-- Dnevni promet, povrati/korekcije i reprint audit; zatim smjene i POS Agent.
+- Ručni QA dnevnog/periodičnog POS izvještaja i termalne browser štampe na stvarnom 58/80 mm printeru; zatim reprint audit, smjene i POS Agent. Djelimični POS povrat ostaje nakon što ga podrži Fiscal API.
 
 ## Prioritet 1 — Stabilizacija KIF/KUF
 - QA za edit/delete neproknjiženih računa.

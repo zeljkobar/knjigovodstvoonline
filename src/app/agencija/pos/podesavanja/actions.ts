@@ -62,16 +62,18 @@ export async function configureDefaultPosRegister() {
 export async function updatePosAccountingIntegration(formData: FormData) {
   const ctx = await requirePosContext("manage");
   const enabled = formData.get("accounting_integration") === "on";
+  const kifMode = String(formData.get("kif_mode") ?? "DAILY") === "MONTHLY" ? "MONTHLY" : "DAILY";
+  const accountingMode = kifMode;
   const settings = await prisma.posPodesavanje.findFirst({
     where: { firma_id: ctx.firma.id, agencija_id: ctx.user.agencija_id! },
-    select: { id: true, racunovodstvena_integracija: true }
+    select: { id: true, racunovodstvena_integracija: true, kif_rezim: true, knjizenje_rezim: true }
   });
   if (!settings) redirect("/agencija/pos/podesavanja?poruka=fiskalizacija");
 
   await prisma.$transaction(async (tx) => {
     await tx.posPodesavanje.update({
       where: { id: settings.id },
-      data: { racunovodstvena_integracija: enabled, updated_by: ctx.user.id }
+      data: { racunovodstvena_integracija: enabled, kif_rezim: kifMode, knjizenje_rezim: accountingMode, updated_by: ctx.user.id }
     });
     if (enabled) {
       await tx.fiskalniIzlazniRacun.updateMany({
@@ -109,8 +111,8 @@ export async function updatePosAccountingIntegration(formData: FormData) {
     akcija: "update_pos_accounting_integration",
     tipEntiteta: "PosPodesavanje",
     entitetId: settings.id,
-    staraVrijednost: { enabled: settings.racunovodstvena_integracija },
-    novaVrijednost: { enabled }
+    staraVrijednost: { enabled: settings.racunovodstvena_integracija, kifMode: settings.kif_rezim, accountingMode: settings.knjizenje_rezim },
+    novaVrijednost: { enabled, kifMode, accountingMode }
   });
   revalidatePath("/agencija/pos");
   revalidatePath("/agencija/pos/racuni");

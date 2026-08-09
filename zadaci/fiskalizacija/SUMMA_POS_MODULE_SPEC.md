@@ -1,5 +1,7 @@
 # SUMMA POS MODUL — DETALJNA SPECIFIKACIJA ZA IMPLEMENTACIJU
 
+<!-- markdownlint-disable MD001 MD013 MD025 -->
+
 **Projekat:** SUMMA poslovni / računovodstveni sistem
 **Modul:** POS / Kasa
 **Status dokumenta:** Implementaciona specifikacija
@@ -444,11 +446,13 @@ RequireShift = true/false
 Smjena nije prvenstveno uslov za fiskalizaciju, već operativni mehanizam za presjek prometa i predaju pazara između radnika.
 
 Ako je `RequireShift = false`:
+
 - POS može raditi bez formalno otvorene smjene.
 - Korisnik i dalje mora biti evidentiran na svakom računu.
 - Administrator može naknadno koristiti izvještaje po korisniku, kasi i periodu.
 
 Ako je `RequireShift = true`:
+
 - korisnik mora otvoriti smjenu prije naplate,
 - zatvaranje smjene pravi presjek prometa do tog trenutka,
 - zatvorena smjena služi kao osnov za predaju pazara narednom radniku.
@@ -1139,6 +1143,11 @@ Podržati:
 
 - cijeli povrat,
 - djelimični povrat u kasnijoj fazi,
+
+**Stanje implementacije 09.08.2026:** puni storno je implementiran preko
+Fiscal API `/storno` toka, sa vezom na original, obaveznom potvrdom, povratom
+zalihe, korektivnim KIF/PDV iznosima i auditom. Djelimični povrat se ne simulira
+dok ga Fiscal API zvanično ne podrži.
 - audit.
 
 ---
@@ -1302,6 +1311,7 @@ Ukupan promet      1.531,00 €
 U KIF ide **jedan zbirni zapis za dan**, uz poresku specifikaciju po stopama i ostalim relevantnim kategorijama.
 
 Važno:
+
 - dnevni KIF zbir obuhvata sve relevantne POS račune tog dana,
 - može obuhvatiti više kasa,
 - može obuhvatiti više smjena,
@@ -1374,6 +1384,7 @@ Da li je zbir potrebno regenerisati?
 Ne mijenjati istorijski zbir tiho.
 
 Ako se nakon generisanja dnevnog/mjesečnog zbira desi fiskalno ispravna korekcija, sistem mora:
+
 - evidentirati korektivni dokument,
 - uključiti ga u odgovarajući naredni ili regenerisani zbir prema pravilima računovodstvenog modula,
 - zadržati audit trag.
@@ -2181,57 +2192,75 @@ Minimalno:
 MVP se smatra završenim kada:
 
 ### AC-01
+
 Korisnik može otvoriti POS za firmu kojoj ima pristup.
 
 ### AC-02
+
 Može odabrati aktivnu kasu.
 
 ### AC-03
+
 Može pronaći artikal nazivom, šifrom ili barkodom.
 
 ### AC-04
+
 Može dodati više stavki.
 
 ### AC-05
+
 Može mijenjati količine.
 
 ### AC-06
+
 Sistem tačno izračunava ukupan iznos koristeći centralnu sales kalkulaciju.
 
 ### AC-07
+
 Može izabrati način plaćanja.
 
 ### AC-08
+
 Klik na Naplati kreira samo jedan poslovni dokument.
 
 ### AC-09
+
 Fiscal API se poziva samo jednom po uspješnom idempotentnom pokušaju.
 
 ### AC-10
+
 Ako Fiscal API uspije, status dokumenta je `FISCALIZED`.
 
 ### AC-11
+
 Ako Fiscal API ne uspije, dokument ostaje sačuvan i jasno označen.
 
 ### AC-12
+
 Korisnik može ponoviti dozvoljeni pokušaj bez kreiranja novog računa.
 
 ### AC-13
+
 Može odštampati račun.
 
 ### AC-14
+
 Reprint ne izaziva novu fiskalizaciju.
 
 ### AC-15
+
 Administrator može pregledati račune po periodu.
 
 ### AC-16
+
 Administrator može vidjeti promet po načinu plaćanja.
 
 ### AC-17
+
 Tenant isolation radi.
 
 ### AC-18
+
 Audit zapisuje kritične POS akcije.
 
 ---
@@ -2649,7 +2678,7 @@ Ako postoji konflikt između ove specifikacije i već implementiranih, stabilnih
 Već zaključeno:
 
 1. POS smjene su **opcione** i služe za presjek/predaju pazara.
-2. POS računi ulaze u KIF **zbirno**.
+2. POS računi plaćeni gotovinom ili karticom ulaze u KIF **zbirno**, dok POS virmani ulaze **pojedinačno**.
 3. KIF agregacija je podesiva po firmi: **DAILY** ili **MONTHLY**.
 4. Fiskalni POS računi se u glavnu knjigu knjiže **zbirno**.
 5. Klasične fakture se i dalje knjiže **pojedinačno, kao i do sada**.

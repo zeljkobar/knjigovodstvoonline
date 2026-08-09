@@ -72,8 +72,25 @@ KIF knjiženje razlikuje naloge pojedinačno knjiženih fiskalnih faktura od nal
 same mjesečne KIF knjige. Ručni KIF redovi i zbirni pazar ulaze u KIF nalog, dok
 se već knjiženi fiskalni redovi ne knjiže ponovo niti određuju taj nalog.
 
-Još nisu završeni zbirni KIF i računovodstveni batch za gotovinu/kartice, dnevni promet,
-povrati/korekcije, smjene i termalni POS Agent.
+Zbirna POS obrada gotovine i kartica završena je na `/agencija/pos/obrada`.
+Podešava se dnevni ili mjesečni period, a obrada obuhvata samo uspješno
+fiskalizovane račune koji još nisu u batchu. Jedna obrada kreira zbirni `PAZAR`
+u odgovarajućem otvorenom KIF-u, trajno pamti pripadajuće račune i prati status
+računovodstvenog batcha do KIF naloga i njegovog knjiženja. Preklapanje perioda,
+dupli obuhvat, zaključana godina, zatvoren/nepostojeći KIF i nepodudaranje načina
+naplate sa bruto iznosom blokiraju obradu. Automatski POS KIF zapis nije moguće
+ručno mijenjati ili brisati. POS virmani ostaju pojedinačni KIF tok.
+
+Potpuni POS storno je završen: kreira povezani negativni fiskalni dokument,
+čuva original, vraća robu na lager i koriguje KIF/PDV. Virman koristi obrnuto
+pojedinačno knjiženje, a gotovina i kartica naredni inkrementalni zbirni pazar
+istog perioda. Djelimični povrat se ne simulira jer ga Fiscal API još ne
+podržava. POS sada ima izvještaj prometa po periodu i kasi sa neto prikazom
+prodaje i storna, načinima plaćanja, PDV rekapitulacijom i prodajom po artiklima,
+kao i zasebnu štampu izvještaja. Fiskalni POS račun ima browser štampu za
+58/80 mm termalni papir, uz QR, IKOF/JIKR, kupca, plaćanja i vezu originala sa
+stornom; postojeća A4 faktura ostaje dostupna. Smjene, reprint audit i lokalni
+POS Agent još nijesu završeni.
 
 ## Fiskalna integracija — spremna pozadina, portal nije implementiran
 

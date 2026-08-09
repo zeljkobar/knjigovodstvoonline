@@ -699,22 +699,23 @@ export async function postJournal(formData: FormData) {
     redirectJournalDetail(nalog.id, "nalog_nije_balansiran");
   }
 
-  const postedJournal = await prisma.nalog.update({
-    where: {
-      id: nalog.id
-    },
-    data: {
-      status: journalStatuses.posted,
-      datum_knjizenja: new Date(),
-      proknjizen_at: new Date(),
-      proknjizen_by: user.id,
-      updated_by: user.id
-    },
-    select: {
-      id: true,
-      firma_id: true,
-      status: true
-    }
+  const postedJournal = await prisma.$transaction(async (tx) => {
+    const posted = await tx.nalog.update({
+      where: { id: nalog.id },
+      data: {
+        status: journalStatuses.posted,
+        datum_knjizenja: new Date(),
+        proknjizen_at: new Date(),
+        proknjizen_by: user.id,
+        updated_by: user.id
+      },
+      select: { id: true, firma_id: true, status: true }
+    });
+    await tx.posAccountingBatch.updateMany({
+      where: { journal_id: nalog.id },
+      data: { status: "POSTED" }
+    });
+    return posted;
   });
 
   await auditLog({

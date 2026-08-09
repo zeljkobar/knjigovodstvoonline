@@ -6930,7 +6930,71 @@ td small {
 .pos-mobile-cart,
 .pos-mobile-close { display: none; }
 
+.pos-report-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+
+.pos-receipt-page { min-height: 100vh; padding: 24px; background: #dfe3e8; color: #111; }
+.pos-receipt-toolbar { max-width: 90mm; margin: 0 auto 14px; }
+.pos-receipt-toolbar .active { background: #163f78; color: #fff; }
+.pos-receipt { margin: 0 auto; padding: 4mm; background: #fff; box-shadow: 0 10px 34px rgba(0,0,0,.18); font-family: "Courier New", monospace; font-size: 10pt; line-height: 1.25; }
+.pos-receipt--58 { width: 58mm; }
+.pos-receipt--80 { width: 80mm; }
+.pos-receipt header, .pos-receipt-title, .pos-receipt-fiscal, .pos-receipt footer { text-align: center; }
+.pos-receipt h1 { margin: 0 0 1mm; font-size: 14pt; }
+.pos-receipt p { margin: .7mm 0; }
+.pos-receipt-rule { margin: 2.5mm 0; border-top: 1px dashed #111; }
+.pos-receipt-title { display: grid; gap: 1mm; }
+.pos-receipt-title strong { font-size: 11pt; }
+.pos-receipt dl { margin: 2.5mm 0; }
+.pos-receipt dl div, .pos-receipt-totals p, .pos-receipt-payments p { display: flex; justify-content: space-between; gap: 2mm; }
+.pos-receipt dt { font-weight: 700; }
+.pos-receipt dd { margin: 0; text-align: right; }
+.pos-receipt-buyer { display: grid; gap: .7mm; padding: 2mm 0; }
+.pos-receipt-lines > div { padding: 1.5mm 0; border-bottom: 1px dotted #777; }
+.pos-receipt-lines p { display: flex; justify-content: space-between; gap: 2mm; }
+.pos-receipt-lines small { overflow-wrap: anywhere; }
+.pos-receipt-totals .grand { margin-top: 2mm; padding-top: 2mm; border-top: 2px solid #111; font-size: 13pt; }
+.pos-receipt-tax { margin-top: 3mm; }
+.pos-receipt-tax p { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1mm; text-align: right; font-size: 8pt; }
+.pos-receipt-reference { margin: 3mm 0 !important; padding: 2mm; border: 1px solid #111; overflow-wrap: anywhere; }
+.pos-receipt-fiscal { margin-top: 3mm; }
+.pos-receipt-fiscal img { width: 38mm; height: 38mm; image-rendering: crisp-edges; }
+.pos-receipt-fiscal p { overflow-wrap: anywhere; font-size: 7.5pt; }
+.pos-receipt footer { margin-top: 3mm; padding-top: 2mm; border-top: 1px dashed #111; font-weight: 700; }
+
+.pos-report-print { color: #111; }
+.pos-report-print > article { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 15mm; background: #fff; box-shadow: 0 10px 34px rgba(0,0,0,.16); }
+.pos-report-print header { padding-bottom: 6mm; border-bottom: 3px solid #3159a6; }
+.pos-report-print header p { margin: 0; color: #3159a6; font-weight: 800; letter-spacing: .12em; }
+.pos-report-print header h1 { margin: 2mm 0; }
+.pos-report-print-summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3mm; margin: 7mm 0; }
+.pos-report-print-summary div { display: grid; gap: 2mm; padding: 3mm; border: 1px solid #d4dcea; }
+.pos-report-print h2 { margin: 7mm 0 2mm; color: #3159a6; font-size: 12pt; }
+.pos-report-print table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+.pos-report-print th, .pos-report-print td { padding: 2mm; border: 1px solid #d4dcea; text-align: right; }
+.pos-report-print th:first-child, .pos-report-print td:first-child { text-align: left; }
+.pos-report-print th { background: #eef3fb; }
+.pos-report-format-toolbar { max-width: 210mm; margin-right: auto; margin-left: auto; }
+.pos-report-format-toolbar .active { background: #163f78; color: #fff; }
+.pos-periodic-page { min-height: 100vh; padding: 24px; background: #dfe3e8; }
+.pos-periodic-report { margin: 0 auto; padding: 4mm; background: #fff; color: #111; box-shadow: 0 10px 34px rgba(0,0,0,.18); font-family: "Courier New", monospace; font-size: 9pt; line-height: 1.25; }
+.pos-periodic-report--58 { width: 58mm; }
+.pos-periodic-report--80 { width: 80mm; font-size: 10pt; }
+.pos-periodic-report header, .pos-periodic-report footer { text-align: center; }
+.pos-periodic-report header h1 { margin: 0 0 2mm; font-size: 11pt; font-weight: 700; }
+.pos-periodic-report header p { margin: .7mm 0; }
+.pos-periodic-separator { margin: 2.5mm 0; border-top: 1px dashed #111; }
+.pos-periodic-report dl { margin: 0; }
+.pos-periodic-report dl div, .pos-periodic-report section > p, .pos-periodic-total > p, .pos-periodic-tax > p { display: flex; justify-content: space-between; gap: 2mm; margin: .8mm 0; }
+.pos-periodic-report dt { min-width: 0; }
+.pos-periodic-report dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.pos-periodic-report h2 { margin: 2.5mm 0 1.5mm; font-size: 9pt; text-align: center; font-weight: 700; }
+.pos-periodic-report h3 { margin: 2mm 0 1mm; font-size: 9pt; text-align: center; font-weight: 400; }
+.pos-periodic-tax, .pos-periodic-block, .pos-periodic-total { padding: 1.5mm 0 2mm; border-bottom: 1px dashed #111; }
+.pos-periodic-total h2, .pos-periodic-total p:last-child { font-weight: 700; }
+.pos-periodic-report footer { margin-top: 4mm; padding-top: 2mm; border-top: 1px dashed #111; font-size: 7.5pt; }
+
 @media (max-width: 760px) {
+  .pos-report-grid { grid-template-columns: 1fr; }
   .pos-page-header .header-actions { display: none; }
   .pos-shell { display: block; min-height: auto; padding-bottom: 84px; }
   .pos-catalog { border-radius: 10px; padding: 10px; }
@@ -6947,6 +7011,15 @@ td small {
   .pos-mobile-cart { position: fixed; z-index: 60; right: 12px; bottom: 12px; left: 12px; display: flex; align-items: center; justify-content: space-between; min-height: 62px; border: 0; border-radius: 14px; background: linear-gradient(135deg, #073f7a, #0b6dcc); box-shadow: 0 16px 36px rgba(2, 42, 90, .35); color: #fff; font: inherit; padding: 12px 18px; }
   .pos-mobile-cart span { font-size: 14px; font-weight: 700; }
   .pos-mobile-cart strong { font-size: 21px; }
+}
+
+@media print {
+  .pos-receipt-page { padding: 0; background: #fff; }
+  .pos-receipt-toolbar { display: none; }
+  .pos-receipt { width: 100%; margin: 0; padding: 2mm; box-shadow: none; }
+  .pos-report-print > article { width: auto; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+  .pos-periodic-page { padding: 0; background: #fff; }
+  .pos-periodic-report { width: 100%; margin: 0; padding: 2mm; box-shadow: none; }
 }
 
 .outgoing-invoice-lines input {

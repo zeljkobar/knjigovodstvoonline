@@ -42,8 +42,10 @@ export async function finalizePosTransferAccounting(input: {
       tx.vrstaNaloga.findFirst({ where: { sifra: standardJournalTypes[2][0], aktivan: true, OR: [{ sistemska: true }, { agencija_id: input.agencijaId }, { firma_id: input.firmaId }] }, select: { id: true, prefiks: true } })
     ]);
     if (!journalType) return { ok: false as const, reason: "vrsta_naloga" };
-    const cogs = invoice.stavke.filter((line) => !line.artikal.usluga && line.artikal.prati_zalihe).reduce((sum, line) => sum + (line.nabavna_vrijednost ? decimalToScaled(line.nabavna_vrijednost, 2) : BigInt(0)), BigInt(0));
-    const amounts = new Map<string, bigint>([["INVOICE_CUSTOMER", decimalToScaled(invoice.ukupno_sa_pdv, 2)], ["INVOICE_REVENUE", decimalToScaled(invoice.ukupno_osnovica, 2)], ["INVOICE_OUTPUT_VAT", decimalToScaled(invoice.ukupno_izlazni_pdv, 2)], ["INVOICE_COGS", cogs], ["INVOICE_INVENTORY", cogs]]);
+    const correction = invoice.document_type === "POS_RETURN";
+    const absolute = (value: bigint) => value < BigInt(0) ? -value : value;
+    const cogs = absolute(invoice.stavke.filter((line) => !line.artikal.usluga && line.artikal.prati_zalihe).reduce((sum, line) => sum + (line.nabavna_vrijednost ? decimalToScaled(line.nabavna_vrijednost, 2) : BigInt(0)), BigInt(0)));
+    const amounts = new Map<string, bigint>([["INVOICE_CUSTOMER", absolute(decimalToScaled(invoice.ukupno_sa_pdv, 2))], ["INVOICE_REVENUE", absolute(decimalToScaled(invoice.ukupno_osnovica, 2))], ["INVOICE_OUTPUT_VAT", absolute(decimalToScaled(invoice.ukupno_izlazni_pdv, 2))], ["INVOICE_COGS", cogs], ["INVOICE_INVENTORY", cogs]]);
     const settingMap = new Map(settings.map((setting) => [setting.namjena, setting]));
     const journalLines: Array<{ amount: bigint; direction: "D" | "P"; code: string }> = [];
     for (const field of outgoingInvoicePostingFields) {
@@ -51,7 +53,8 @@ export async function finalizePosTransferAccounting(input: {
       if (!amount) continue;
       const setting = settingMap.get(field.purpose);
       if (!setting?.sifra_konta) return { ok: false as const, reason: "podesavanja" };
-      journalLines.push({ amount, direction: setting.smjer === "P" ? "P" : "D", code: setting.sifra_konta });
+      const configuredDirection = setting.smjer === "P" ? "P" : "D";
+      journalLines.push({ amount, direction: correction ? (configuredDirection === "D" ? "P" : "D") : configuredDirection, code: setting.sifra_konta });
     }
     const debit = journalLines.filter((line) => line.direction === "D").reduce((sum, line) => sum + line.amount, BigInt(0));
     const credit = journalLines.filter((line) => line.direction === "P").reduce((sum, line) => sum + line.amount, BigInt(0));
@@ -65,10 +68,11 @@ export async function finalizePosTransferAccounting(input: {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`journal-number:${input.firmaId}:${input.poslovnaGodinaId}:${journalType.id}`}))`;
     const last = await tx.nalog.findFirst({ where: { firma_id: input.firmaId, poslovna_godina_id: input.poslovnaGodinaId, vrsta_naloga_id: journalType.id }, orderBy: { broj: "desc" }, select: { broj: true } });
     const number = (last?.broj ?? 0) + 1;
-    const journal = await tx.nalog.create({ data: { agencija_id: input.agencijaId, firma_id: input.firmaId, poslovna_godina_id: input.poslovnaGodinaId, vrsta_naloga_id: journalType.id, broj: number, sifra: formatJournalCode(journalType.prefiks, input.year, number), datum: invoice.datum_racuna, opis: `POS virman ${invoice.interni_broj}`, status: journalStatuses.draft, source_type: "OUTGOING_INVOICE", source_module: "agencija.pos", izvorni_dokument_id: invoice.id, kreirao_korisnik_id: input.userId, created_by: input.userId, updated_by: input.userId } });
+    const description = correction ? `POS storno virman ${invoice.interni_broj}` : `POS virman ${invoice.interni_broj}`;
+    const journal = await tx.nalog.create({ data: { agencija_id: input.agencijaId, firma_id: input.firmaId, poslovna_godina_id: input.poslovnaGodinaId, vrsta_naloga_id: journalType.id, broj: number, sifra: formatJournalCode(journalType.prefiks, input.year, number), datum: invoice.datum_racuna, opis: description, status: journalStatuses.draft, source_type: "OUTGOING_INVOICE", source_module: "agencija.pos", izvorni_dokument_id: invoice.id, kreirao_korisnik_id: input.userId, created_by: input.userId, updated_by: input.userId } });
     let order = 1;
     for (const line of resolvedLines) {
-      await tx.stavkaNaloga.create({ data: { nalog_id: journal.id, konto_id: line.account.id, komitent_id: line.account.analitika_obavezna ? invoice.kupac_id : null, duguje: line.direction === "D" ? scaledToDecimal(line.amount, 2) : "0.00", potrazuje: line.direction === "P" ? scaledToDecimal(line.amount, 2) : "0.00", opis: `POS virman ${invoice.interni_broj}`, broj_dokumenta: invoice.broj_racuna, datum_dokumenta: invoice.datum_racuna, datum_valute: invoice.datum_valute, redni_broj: order++, created_by: input.userId, updated_by: input.userId } });
+      await tx.stavkaNaloga.create({ data: { nalog_id: journal.id, konto_id: line.account.id, komitent_id: line.account.analitika_obavezna ? invoice.kupac_id : null, duguje: line.direction === "D" ? scaledToDecimal(line.amount, 2) : "0.00", potrazuje: line.direction === "P" ? scaledToDecimal(line.amount, 2) : "0.00", opis: description, broj_dokumenta: invoice.broj_racuna, datum_dokumenta: invoice.datum_racuna, datum_valute: invoice.datum_valute, redni_broj: order++, created_by: input.userId, updated_by: input.userId } });
     }
     await tx.fiskalniIzlazniRacun.update({ where: { id: invoice.id }, data: { status: "WAITING_KIF", kif_status: "WAITING_KIF", nalog_id: journal.id, posted_at: new Date(), posted_by: input.userId, updated_by: input.userId } });
     return { ok: true as const, journalId: journal.id, alreadyCompleted: false };

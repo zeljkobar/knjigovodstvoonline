@@ -3,6 +3,15 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-08-09
+- Implementirana je zbirna dnevna ili mjesečna POS obrada gotovine i kartica.
+  Obrada idempotentno kreira jedan zbirni `PAZAR` u otvorenom KIF-u, vezuje svaki
+  obuhvaćeni fiskalni račun za batch i prati računovodstveni status kroz nacrt i
+  knjiženje zajedničkog KIF naloga. POS virmani ostaju pojedinačni KIF dokumenti.
+- Dodate su kontrole scope-a, prava, zaključane godine, perioda, preklapanja,
+  duplikata i zbira načina naplate, audit zapisi i zaštita automatskog POS KIF
+  zapisa od ručne izmjene ili brisanja.
+
 ## 2026-08-08
 - Ispravljen automatski obračun PDV prijave: pozicije 10, 11 i 12 sada iz KIF
   poreskih redova sabiraju bruto promet (`osnovica + izlazni PDV`), dok pozicije
@@ -812,3 +821,19 @@
 - Instaliran je `qrcode` za lokalno generisanje QR slike. Migracija je
   primijenjena, Prisma klijent generisan, `tsc --noEmit` je čist, a lint nema
   novih grešaka (ostaje ranije upozorenje u admin akcijama).
+## 09.08.2026. — Potpuni POS storno
+
+- Implementiran je puni fiskalni storno sa vezom original–korekcija, razlogom,
+  kritičnom potvrdom, retry tokom i audit zapisima.
+- Korektivni dokument vraća robu na lager; virman obrće pojedinačno knjiženje,
+  a gotovina/kartica ulaze u naknadni inkrementalni POS pazar istog perioda.
+- Primijenjene su migracije `20260809200000_pos_full_storno` i
+  `20260809203000_pos_incremental_batches`; TypeScript i ESLint su čisti osim
+  ranijeg nepovezanog admin upozorenja.
+
+## 2026-08-09 — POS izvještaji i termalna štampa
+
+- Dodat POS izvještaj po periodu i kasi: neto promet, storna, plaćanja, PDV, kase, artikli i dokumenti.
+- Storno dokumenti ulaze kao negativne vrijednosti, dok se prodaje i storna broje odvojeno.
+- Dodata štampa izvještaja i fiskalnog POS računa za 58/80 mm papir sa QR-om, IKOF/JIKR-om i vezama korektivnih dokumenata.
+- A4 faktura je zadržana kao odvojena opcija; TypeScript provjera je čista.

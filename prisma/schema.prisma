@@ -34,51 +34,53 @@ enum KomitentScope {
 }
 
 model Agencija {
-  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  naziv          String
-  pib            String?              @unique
-  adresa         String?
-  grad           String?
-  telefon        String?
-  email          String?
-  aktivan        Boolean              @default(true)
-  is_fiscal_direct_container Boolean  @default(false)
-  is_deleted     Boolean              @default(false)
-  deleted_at     DateTime?
-  deleted_by     String?              @db.Uuid
-  delete_reason  String?
-  created_at     DateTime             @default(now())
-  created_by     String?              @db.Uuid
-  updated_at     DateTime             @updatedAt
-  updated_by     String?              @db.Uuid
-  firme          Firma[]
-  kufBooks       KufBook[]
-  kufEntries     KufEntry[]
-  kifBooks       KifBook[]
-  kifEntries     KifEntry[]
-  fiskalniIzlazniRacuni FiskalniIzlazniRacun[]
-  pdvPeriodi     PdvPeriod[]
-  pdvPrijave     PdvPrijava[]
-  pdvPodesavanja PdvPodesavanja[]
-  korisnici      Korisnik[]
-  agencijaKonta  AgencijaKonto[]
-  pdvStope       PdvStopa[]
-  grupeArtikala  GrupaArtikla[]
-  artikli        Artikal[]
-  cijeneArtikala CijenaArtikla[]
-  magacini       Magacin[]
-  kalkulacije    Kalkulacija[]
-  dobavljacArtikalVeze DobavljacArtikalVeza[]
-  stanjaZaliha   StanjeZaliha[]
-  prometiZaliha  PrometZaliha[]
-  auditLogovi    AuditLog[]
-  pretplate      AgencijaPretplata[]
-  prava          KorisnikPravo[]
-  aktivnosti     AktivnostDogadjaj[]
-  odgovornaLica  FirmaOdgovornoLice[]
-  fiscalCompanyLinks FiscalCompanyLink[]
-  posRegisters       PosRegister[]
-  posPodesavanja     PosPodesavanje[]
+  id                         String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  naziv                      String
+  pib                        String?                @unique
+  adresa                     String?
+  grad                       String?
+  telefon                    String?
+  email                      String?
+  aktivan                    Boolean                @default(true)
+  is_fiscal_direct_container Boolean                @default(false)
+  is_deleted                 Boolean                @default(false)
+  deleted_at                 DateTime?
+  deleted_by                 String?                @db.Uuid
+  delete_reason              String?
+  created_at                 DateTime               @default(now())
+  created_by                 String?                @db.Uuid
+  updated_at                 DateTime               @updatedAt
+  updated_by                 String?                @db.Uuid
+  firme                      Firma[]
+  kufBooks                   KufBook[]
+  kufEntries                 KufEntry[]
+  kifBooks                   KifBook[]
+  kifEntries                 KifEntry[]
+  fiskalniIzlazniRacuni      FiskalniIzlazniRacun[]
+  pdvPeriodi                 PdvPeriod[]
+  pdvPrijave                 PdvPrijava[]
+  pdvPodesavanja             PdvPodesavanja[]
+  korisnici                  Korisnik[]
+  agencijaKonta              AgencijaKonto[]
+  pdvStope                   PdvStopa[]
+  grupeArtikala              GrupaArtikla[]
+  artikli                    Artikal[]
+  cijeneArtikala             CijenaArtikla[]
+  magacini                   Magacin[]
+  kalkulacije                Kalkulacija[]
+  dobavljacArtikalVeze       DobavljacArtikalVeza[]
+  stanjaZaliha               StanjeZaliha[]
+  prometiZaliha              PrometZaliha[]
+  auditLogovi                AuditLog[]
+  pretplate                  AgencijaPretplata[]
+  prava                      KorisnikPravo[]
+  aktivnosti                 AktivnostDogadjaj[]
+  odgovornaLica              FirmaOdgovornoLice[]
+  fiscalCompanyLinks         FiscalCompanyLink[]
+  posRegisters               PosRegister[]
+  posPodesavanja             PosPodesavanje[]
+  posKifBatches              PosKifBatch[]
+  posAccountingBatches       PosAccountingBatch[]
 
   @@map("agencije")
 }
@@ -199,6 +201,8 @@ model Firma {
   prometiZaliha                 PrometZaliha[]
   fiscalCompanyLink             FiscalCompanyLink?
   posRegisters                  PosRegister[]
+  posKifBatches                 PosKifBatch[]
+  posAccountingBatches          PosAccountingBatch[]
   posPodesavanje                PosPodesavanje?
 
   @@unique([agencija_id, pib])
@@ -206,25 +210,25 @@ model Firma {
 }
 
 model FiscalCompanyLink {
-  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  agencija_id              String    @db.Uuid
-  agencija                 Agencija  @relation(fields: [agencija_id], references: [id])
-  firma_id                 String    @unique @db.Uuid
-  firma                    Firma     @relation(fields: [firma_id], references: [id])
-  fiscal_api_company_id    String?   @unique @db.Uuid
-  onboarding_status        String    @default("NOT_CONFIGURED")
-  fiscal_environment       String?
-  is_suspended             Boolean   @default(false)
-  suspension_reason        String?
-  suspended_at             DateTime?
-  suspended_by             String?   @db.Uuid
-  last_readiness_check_at  DateTime?
-  last_readiness_result    Json?
-  last_correlation_id      String?
-  created_at               DateTime  @default(now())
-  created_by               String?   @db.Uuid
-  updated_at               DateTime  @updatedAt
-  updated_by               String?   @db.Uuid
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id             String    @db.Uuid
+  agencija                Agencija  @relation(fields: [agencija_id], references: [id])
+  firma_id                String    @unique @db.Uuid
+  firma                   Firma     @relation(fields: [firma_id], references: [id])
+  fiscal_api_company_id   String?   @unique @db.Uuid
+  onboarding_status       String    @default("NOT_CONFIGURED")
+  fiscal_environment      String?
+  is_suspended            Boolean   @default(false)
+  suspension_reason       String?
+  suspended_at            DateTime?
+  suspended_by            String?   @db.Uuid
+  last_readiness_check_at DateTime?
+  last_readiness_result   Json?
+  last_correlation_id     String?
+  created_at              DateTime  @default(now())
+  created_by              String?   @db.Uuid
+  updated_at              DateTime  @updatedAt
+  updated_by              String?   @db.Uuid
 
   @@index([agencija_id, onboarding_status])
   @@index([is_suspended])
@@ -420,6 +424,8 @@ model PoslovnaGodina {
   kifBooks                      KifBook[]
   kifEntries                    KifEntry[]
   fiskalniIzlazniRacuni         FiskalniIzlazniRacun[]
+  posKifBatches                 PosKifBatch[]
+  posAccountingBatches          PosAccountingBatch[]
   pdvPeriodi                    PdvPeriod[]
   pdvPrijave                    PdvPrijava[]
   pdvPodesavanja                PdvPodesavanja[]
@@ -438,30 +444,30 @@ model PoslovnaGodina {
 }
 
 model Komitent {
-  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   naziv                 String
-  scope                 KomitentScope        @default(GLOBAL)
-  agencija_id           String?              @db.Uuid
-  firma_id              String?              @db.Uuid
+  scope                 KomitentScope          @default(GLOBAL)
+  agencija_id           String?                @db.Uuid
+  firma_id              String?                @db.Uuid
   pib                   String?
   maticni_broj          String?
   pdv_broj              String?
   pravna_forma          String?
   sifra_djelatnosti     String?
-  datum_registracije    DateTime?            @db.Date
-  is_foreign            Boolean              @default(false)
+  datum_registracije    DateTime?              @db.Date
+  is_foreign            Boolean                @default(false)
   country_code          String?
   country_name          String?
   foreign_tax_number    String?
   adresa                String?
   grad                  String?
-  drzava                String?              @default("Crna Gora")
+  drzava                String?                @default("Crna Gora")
   telefon               String?
   email                 String?
   web_sajt              String?
-  aktivan               Boolean              @default(true)
-  created_at            DateTime             @default(now())
-  updated_at            DateTime             @updatedAt
+  aktivan               Boolean                @default(true)
+  created_at            DateTime               @default(now())
+  updated_at            DateTime               @updatedAt
   firme                 FirmaKomitent[]
   kontakti              KomitentKontakt[]
   stavke_naloga         StavkaNaloga[]
@@ -771,24 +777,24 @@ model GrupaArtikla {
 }
 
 model Magacin {
-  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  agencija_id             String          @db.Uuid
-  agencija                Agencija        @relation(fields: [agencija_id], references: [id])
-  firma_id                String          @db.Uuid
-  firma                   Firma           @relation(fields: [firma_id], references: [id])
+  id                      String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id             String                 @db.Uuid
+  agencija                Agencija               @relation(fields: [agencija_id], references: [id])
+  firma_id                String                 @db.Uuid
+  firma                   Firma                  @relation(fields: [firma_id], references: [id])
   sifra                   String
   naziv                   String
   dozvoli_negativan_lager Boolean?
-  aktivan                 Boolean         @default(true)
+  aktivan                 Boolean                @default(true)
   napomena                String?
-  is_deleted              Boolean         @default(false)
+  is_deleted              Boolean                @default(false)
   deleted_at              DateTime?
-  deleted_by              String?         @db.Uuid
+  deleted_by              String?                @db.Uuid
   delete_reason           String?
-  created_at              DateTime        @default(now())
-  created_by              String?         @db.Uuid
-  updated_at              DateTime        @updatedAt
-  updated_by              String?         @db.Uuid
+  created_at              DateTime               @default(now())
+  created_by              String?                @db.Uuid
+  updated_at              DateTime               @updatedAt
+  updated_by              String?                @db.Uuid
   cijeneArtikala          CijenaArtikla[]
   kalkulacije             Kalkulacija[]
   stanjaZaliha            StanjeZaliha[]
@@ -803,33 +809,33 @@ model Magacin {
 }
 
 model Artikal {
-  id                        String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  agencija_id               String              @db.Uuid
-  agencija                  Agencija            @relation(fields: [agencija_id], references: [id])
-  firma_id                  String              @db.Uuid
-  firma                     Firma               @relation(fields: [firma_id], references: [id])
-  grupa_artikla_id          String?             @db.Uuid
-  grupa_artikla             GrupaArtikla?       @relation(fields: [grupa_artikla_id], references: [id])
-  jedinica_mjere_id         String              @db.Uuid
-  jedinica_mjere            JedinicaMjere       @relation(fields: [jedinica_mjere_id], references: [id])
-  pdv_stopa_id              String?             @db.Uuid
-  pdv_stopa                 PdvStopa?           @relation(fields: [pdv_stopa_id], references: [id])
+  id                        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id               String                 @db.Uuid
+  agencija                  Agencija               @relation(fields: [agencija_id], references: [id])
+  firma_id                  String                 @db.Uuid
+  firma                     Firma                  @relation(fields: [firma_id], references: [id])
+  grupa_artikla_id          String?                @db.Uuid
+  grupa_artikla             GrupaArtikla?          @relation(fields: [grupa_artikla_id], references: [id])
+  jedinica_mjere_id         String                 @db.Uuid
+  jedinica_mjere            JedinicaMjere          @relation(fields: [jedinica_mjere_id], references: [id])
+  pdv_stopa_id              String?                @db.Uuid
+  pdv_stopa                 PdvStopa?              @relation(fields: [pdv_stopa_id], references: [id])
   sifra                     String
   naziv                     String
   barkod                    String?
-  usluga                    Boolean             @default(false)
-  prati_zalihe              Boolean             @default(true)
-  posljednja_nabavna_cijena Decimal?            @db.Decimal(14, 2)
-  aktivan                   Boolean             @default(true)
+  usluga                    Boolean                @default(false)
+  prati_zalihe              Boolean                @default(true)
+  posljednja_nabavna_cijena Decimal?               @db.Decimal(14, 2)
+  aktivan                   Boolean                @default(true)
   napomena                  String?
-  is_deleted                Boolean             @default(false)
+  is_deleted                Boolean                @default(false)
   deleted_at                DateTime?
-  deleted_by                String?             @db.Uuid
+  deleted_by                String?                @db.Uuid
   delete_reason             String?
-  created_at                DateTime            @default(now())
-  created_by                String?             @db.Uuid
-  updated_at                DateTime            @updatedAt
-  updated_by                String?             @db.Uuid
+  created_at                DateTime               @default(now())
+  created_by                String?                @db.Uuid
+  updated_at                DateTime               @updatedAt
+  updated_by                String?                @db.Uuid
   cijene                    CijenaArtikla[]
   stavkeKalkulacija         StavkaKalkulacije[]
   stanjaZaliha              StanjeZaliha[]
@@ -951,24 +957,24 @@ model Kalkulacija {
 }
 
 model DobavljacArtikalVeza {
-  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  agencija_id       String    @db.Uuid
-  agencija          Agencija  @relation(fields: [agencija_id], references: [id])
-  firma_id          String    @db.Uuid
-  firma             Firma     @relation(fields: [firma_id], references: [id])
-  dobavljac_id      String    @db.Uuid
-  dobavljac         Komitent  @relation(fields: [dobavljac_id], references: [id])
-  artikal_id        String    @db.Uuid
-  artikal           Artikal   @relation(fields: [artikal_id], references: [id])
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id       String   @db.Uuid
+  agencija          Agencija @relation(fields: [agencija_id], references: [id])
+  firma_id          String   @db.Uuid
+  firma             Firma    @relation(fields: [firma_id], references: [id])
+  dobavljac_id      String   @db.Uuid
+  dobavljac         Komitent @relation(fields: [dobavljac_id], references: [id])
+  artikal_id        String   @db.Uuid
+  artikal           Artikal  @relation(fields: [artikal_id], references: [id])
   external_key      String
   external_code     String?
   external_name     String
   external_unit     String?
-  external_vat_rate Decimal?  @db.Decimal(5, 2)
-  created_at        DateTime  @default(now())
-  created_by        String?   @db.Uuid
-  updated_at        DateTime  @updatedAt
-  updated_by        String?   @db.Uuid
+  external_vat_rate Decimal? @db.Decimal(5, 2)
+  created_at        DateTime @default(now())
+  created_by        String?  @db.Uuid
+  updated_at        DateTime @updatedAt
+  updated_by        String?  @db.Uuid
 
   @@unique([firma_id, dobavljac_id, external_key])
   @@index([agencija_id, firma_id, dobavljac_id])
@@ -977,40 +983,40 @@ model DobavljacArtikalVeza {
 }
 
 model StavkaKalkulacije {
-  id                          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  kalkulacija_id              String         @db.Uuid
-  kalkulacija                 Kalkulacija    @relation(fields: [kalkulacija_id], references: [id], onDelete: Cascade)
-  redni_broj                  Int
-  artikal_id                  String         @db.Uuid
-  artikal                     Artikal        @relation(fields: [artikal_id], references: [id])
-  kolicina                    Decimal        @db.Decimal(18, 3)
-  fakturna_cijena             Decimal        @db.Decimal(14, 4)
-  fakturna_vrijednost         Decimal        @db.Decimal(14, 2)
-  rabat_procenat              Decimal        @default(0) @db.Decimal(7, 4)
-  rabat_iznos                 Decimal        @default(0) @db.Decimal(14, 2)
-  neto_fakturna_cijena        Decimal        @db.Decimal(14, 4)
-  neto_fakturna_vrijednost    Decimal        @db.Decimal(14, 2)
-  izvor_neto_fakturna_vrijednost Decimal?     @db.Decimal(14, 2)
-  zavisni_trosak              Decimal        @default(0) @db.Decimal(14, 2)
-  nabavna_vrijednost          Decimal        @db.Decimal(14, 2)
-  jedinicna_nabavna_cijena    Decimal        @db.Decimal(14, 4)
-  ulazni_pdv_stopa            Decimal        @default(0) @db.Decimal(5, 2)
-  ulazni_pdv_iznos            Decimal        @default(0) @db.Decimal(14, 2)
-  izvor_ulazni_pdv_iznos      Decimal?        @db.Decimal(14, 2)
-  marza_procenat              Decimal        @default(0) @db.Decimal(15, 4)
-  marza_iznos                 Decimal        @default(0) @db.Decimal(14, 2)
-  prodajna_cijena_bez_pdv     Decimal        @db.Decimal(14, 4)
-  prodajna_cijena_sa_pdv      Decimal        @db.Decimal(14, 4)
-  prodajna_vrijednost_bez_pdv Decimal        @db.Decimal(14, 2)
-  prodajna_vrijednost_sa_pdv  Decimal        @db.Decimal(14, 2)
-  ukalkulisani_pdv_iznos      Decimal        @default(0) @db.Decimal(14, 2)
-  razlika_u_cijeni            Decimal        @default(0) @db.Decimal(14, 2)
-  ruc_procenat                Decimal        @default(0) @db.Decimal(15, 4)
-  created_at                  DateTime       @default(now())
-  created_by                  String?        @db.Uuid
-  updated_at                  DateTime       @updatedAt
-  updated_by                  String?        @db.Uuid
-  prometiZaliha               PrometZaliha[]
+  id                             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kalkulacija_id                 String         @db.Uuid
+  kalkulacija                    Kalkulacija    @relation(fields: [kalkulacija_id], references: [id], onDelete: Cascade)
+  redni_broj                     Int
+  artikal_id                     String         @db.Uuid
+  artikal                        Artikal        @relation(fields: [artikal_id], references: [id])
+  kolicina                       Decimal        @db.Decimal(18, 3)
+  fakturna_cijena                Decimal        @db.Decimal(14, 4)
+  fakturna_vrijednost            Decimal        @db.Decimal(14, 2)
+  rabat_procenat                 Decimal        @default(0) @db.Decimal(7, 4)
+  rabat_iznos                    Decimal        @default(0) @db.Decimal(14, 2)
+  neto_fakturna_cijena           Decimal        @db.Decimal(14, 4)
+  neto_fakturna_vrijednost       Decimal        @db.Decimal(14, 2)
+  izvor_neto_fakturna_vrijednost Decimal?       @db.Decimal(14, 2)
+  zavisni_trosak                 Decimal        @default(0) @db.Decimal(14, 2)
+  nabavna_vrijednost             Decimal        @db.Decimal(14, 2)
+  jedinicna_nabavna_cijena       Decimal        @db.Decimal(14, 4)
+  ulazni_pdv_stopa               Decimal        @default(0) @db.Decimal(5, 2)
+  ulazni_pdv_iznos               Decimal        @default(0) @db.Decimal(14, 2)
+  izvor_ulazni_pdv_iznos         Decimal?       @db.Decimal(14, 2)
+  marza_procenat                 Decimal        @default(0) @db.Decimal(15, 4)
+  marza_iznos                    Decimal        @default(0) @db.Decimal(14, 2)
+  prodajna_cijena_bez_pdv        Decimal        @db.Decimal(14, 4)
+  prodajna_cijena_sa_pdv         Decimal        @db.Decimal(14, 4)
+  prodajna_vrijednost_bez_pdv    Decimal        @db.Decimal(14, 2)
+  prodajna_vrijednost_sa_pdv     Decimal        @db.Decimal(14, 2)
+  ukalkulisani_pdv_iznos         Decimal        @default(0) @db.Decimal(14, 2)
+  razlika_u_cijeni               Decimal        @default(0) @db.Decimal(14, 2)
+  ruc_procenat                   Decimal        @default(0) @db.Decimal(15, 4)
+  created_at                     DateTime       @default(now())
+  created_by                     String?        @db.Uuid
+  updated_at                     DateTime       @updatedAt
+  updated_by                     String?        @db.Uuid
+  prometiZaliha                  PrometZaliha[]
 
   @@unique([kalkulacija_id, redni_broj])
   @@index([artikal_id])
@@ -1277,6 +1283,7 @@ model KifEntry {
   tax_lines                 KifEntryTaxLine[]
   pazar_payments            KifPazarPayment[]
   bankStatementAllocations  BankStatementLineAllocation[]
+  pos_kif_batch             PosKifBatch?
 
   @@unique([firma_id, poslovna_godina_id, redni_broj])
   @@unique([source_type, source_id])
@@ -1290,72 +1297,77 @@ model KifEntry {
 }
 
 model FiskalniIzlazniRacun {
-  id                       String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  agencija_id              String                      @db.Uuid
-  agencija                 Agencija                    @relation(fields: [agencija_id], references: [id])
-  firma_id                 String                      @db.Uuid
-  firma                    Firma                       @relation(fields: [firma_id], references: [id])
-  poslovna_godina_id       String                      @db.Uuid
-  poslovna_godina          PoslovnaGodina              @relation(fields: [poslovna_godina_id], references: [id])
-  kupac_id                 String                      @db.Uuid
-  kupac                    Komitent                    @relation(fields: [kupac_id], references: [id])
-  magacin_id               String?                     @db.Uuid
-  magacin                  Magacin?                    @relation(fields: [magacin_id], references: [id])
-  nalog_id                 String?                     @unique @db.Uuid
-  broj                     Int
-  interni_broj             String
-  broj_racuna              String
-  official_invoice_number  String?
-  datum_racuna             DateTime                    @db.Date
-  datum_prometa            DateTime                    @db.Date
-  datum_valute             DateTime?                   @db.Date
-  mjesto_izdavanja         String?
-  vrsta_racuna             String                      @default("NORMAL")
-  document_type            String                      @default("INVOICE")
-  sales_channel            String                      @default("OFFICE")
-  issued_at                DateTime?
-  pos_register_id          String?                     @db.Uuid
-  pos_register             PosRegister?                @relation(fields: [pos_register_id], references: [id])
-  status                   String                      @default("DRAFT")
-  nacin_placanja           String                      @default("BANK_TRANSFER")
-  fiskalizacija_rezim      String                      @default("EXTERNAL_OR_NONE")
-  vat_transaction_type     String                      @default("DOMESTIC")
-  valuta                   String                      @default("EUR")
-  kurs                     Decimal                     @default(1) @db.Decimal(14, 6)
-  ukupno_osnovica          Decimal                     @default(0) @db.Decimal(14, 2)
-  ukupno_rabat             Decimal                     @default(0) @db.Decimal(14, 2)
-  ukupno_izlazni_pdv       Decimal                     @default(0) @db.Decimal(14, 2)
-  ukupno_sa_pdv            Decimal                     @default(0) @db.Decimal(14, 2)
-  fiscal_api_invoice_id    String?                     @unique @db.Uuid
-  idempotency_key          String?                     @unique
-  fiscal_status            String                      @default("NOT_REQUIRED")
-  iic                      String?
-  jikr                     String?
-  qr_code_data             String?
-  issuer_snapshot          Json?
-  buyer_snapshot           Json?
-  correlation_id           String?
-  fiscal_error_code        String?
-  fiscal_error_message     String?
-  fiscalized_at            DateTime?
-  last_fiscal_attempt_at   DateTime?
-  kif_status               String                      @default("WAITING_KIF")
-  kif_entry_id             String?                     @unique @db.Uuid
-  kif_entry                KifEntry?                   @relation(fields: [kif_entry_id], references: [id])
-  napomena                 String?
-  is_deleted               Boolean                     @default(false)
-  deleted_at               DateTime?
-  deleted_by               String?                     @db.Uuid
-  created_at               DateTime                    @default(now())
-  created_by               String?                     @db.Uuid
-  updated_at               DateTime                    @updatedAt
-  updated_by               String?                     @db.Uuid
-  posted_at                DateTime?
-  posted_by                String?                     @db.Uuid
-  stavke                   StavkaIzlazneFakture[]
-  poreske_stavke           FiskalniIzlazniRacunPorez[]
-  placanja                 SalesDocumentPayment[]
-  fiskalni_pokusaji        FiscalizationAttempt[]
+  id                      String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id             String                      @db.Uuid
+  agencija                Agencija                    @relation(fields: [agencija_id], references: [id])
+  firma_id                String                      @db.Uuid
+  firma                   Firma                       @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id      String                      @db.Uuid
+  poslovna_godina         PoslovnaGodina              @relation(fields: [poslovna_godina_id], references: [id])
+  kupac_id                String                      @db.Uuid
+  kupac                   Komitent                    @relation(fields: [kupac_id], references: [id])
+  magacin_id              String?                     @db.Uuid
+  magacin                 Magacin?                    @relation(fields: [magacin_id], references: [id])
+  nalog_id                String?                     @unique @db.Uuid
+  broj                    Int
+  interni_broj            String
+  broj_racuna             String
+  official_invoice_number String?
+  datum_racuna            DateTime                    @db.Date
+  datum_prometa           DateTime                    @db.Date
+  datum_valute            DateTime?                   @db.Date
+  mjesto_izdavanja        String?
+  vrsta_racuna            String                      @default("NORMAL")
+  document_type           String                      @default("INVOICE")
+  sales_channel           String                      @default("OFFICE")
+  issued_at               DateTime?
+  pos_register_id         String?                     @db.Uuid
+  pos_register            PosRegister?                @relation(fields: [pos_register_id], references: [id])
+  status                  String                      @default("DRAFT")
+  nacin_placanja          String                      @default("BANK_TRANSFER")
+  fiskalizacija_rezim     String                      @default("EXTERNAL_OR_NONE")
+  vat_transaction_type    String                      @default("DOMESTIC")
+  valuta                  String                      @default("EUR")
+  kurs                    Decimal                     @default(1) @db.Decimal(14, 6)
+  ukupno_osnovica         Decimal                     @default(0) @db.Decimal(14, 2)
+  ukupno_rabat            Decimal                     @default(0) @db.Decimal(14, 2)
+  ukupno_izlazni_pdv      Decimal                     @default(0) @db.Decimal(14, 2)
+  ukupno_sa_pdv           Decimal                     @default(0) @db.Decimal(14, 2)
+  fiscal_api_invoice_id   String?                     @unique @db.Uuid
+  idempotency_key         String?                     @unique
+  fiscal_status           String                      @default("NOT_REQUIRED")
+  iic                     String?
+  jikr                    String?
+  qr_code_data            String?
+  issuer_snapshot         Json?
+  buyer_snapshot          Json?
+  correlation_id          String?
+  fiscal_error_code       String?
+  fiscal_error_message    String?
+  fiscalized_at           DateTime?
+  last_fiscal_attempt_at  DateTime?
+  kif_status              String                      @default("WAITING_KIF")
+  kif_entry_id            String?                     @unique @db.Uuid
+  kif_entry               KifEntry?                   @relation(fields: [kif_entry_id], references: [id])
+  napomena                String?
+  is_deleted              Boolean                     @default(false)
+  deleted_at              DateTime?
+  deleted_by              String?                     @db.Uuid
+  created_at              DateTime                    @default(now())
+  created_by              String?                     @db.Uuid
+  updated_at              DateTime                    @updatedAt
+  updated_by              String?                     @db.Uuid
+  posted_at               DateTime?
+  posted_by               String?                     @db.Uuid
+  original_invoice_id     String?                     @db.Uuid
+  original_invoice        FiskalniIzlazniRacun?       @relation("InvoiceCorrections", fields: [original_invoice_id], references: [id])
+  corrective_invoices     FiskalniIzlazniRacun[]      @relation("InvoiceCorrections")
+  correction_reason       String?
+  stavke                  StavkaIzlazneFakture[]
+  poreske_stavke          FiskalniIzlazniRacunPorez[]
+  placanja                SalesDocumentPayment[]
+  fiskalni_pokusaji       FiscalizationAttempt[]
+  pos_kif_membership      PosKifBatchInvoice?
 
   @@unique([firma_id, poslovna_godina_id, broj])
   @@unique([firma_id, poslovna_godina_id, interni_broj])
@@ -1364,39 +1376,40 @@ model FiskalniIzlazniRacun {
   @@index([firma_id, datum_racuna, fiscal_status])
   @@index([firma_id, sales_channel, issued_at])
   @@index([pos_register_id, issued_at])
+  @@index([original_invoice_id])
   @@map("fiskalni_izlazni_racuni")
 }
 
 model PosRegister {
-  id                        String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  agencija_id               String                    @db.Uuid
-  agencija                  Agencija                  @relation(fields: [agencija_id], references: [id])
-  firma_id                  String                    @db.Uuid
-  firma                     Firma                     @relation(fields: [firma_id], references: [id])
-  magacin_id                String?                   @db.Uuid
-  magacin                   Magacin?                  @relation(fields: [magacin_id], references: [id])
-  naziv                     String
-  sifra                     String
-  fiscal_business_unit_id   String                    @db.Uuid
-  fiscal_business_unit_name String?
-  fiscal_device_id          String                    @db.Uuid
-  fiscal_device_code        String?
-  fiscal_operator_id        String?                   @db.Uuid
-  cash_deposit_amount       Decimal?                  @db.Decimal(14, 2)
-  cash_deposit_environment  String?
-  cash_deposit_fcdc         String?
-  cash_deposit_registered_at DateTime?
+  id                          String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id                 String                 @db.Uuid
+  agencija                    Agencija               @relation(fields: [agencija_id], references: [id])
+  firma_id                    String                 @db.Uuid
+  firma                       Firma                  @relation(fields: [firma_id], references: [id])
+  magacin_id                  String?                @db.Uuid
+  magacin                     Magacin?               @relation(fields: [magacin_id], references: [id])
+  naziv                       String
+  sifra                       String
+  fiscal_business_unit_id     String                 @db.Uuid
+  fiscal_business_unit_name   String?
+  fiscal_device_id            String                 @db.Uuid
+  fiscal_device_code          String?
+  fiscal_operator_id          String?                @db.Uuid
+  cash_deposit_amount         Decimal?               @db.Decimal(14, 2)
+  cash_deposit_environment    String?
+  cash_deposit_fcdc           String?
+  cash_deposit_registered_at  DateTime?
   cash_deposit_correlation_id String?
-  podrazumijevano_placanje  String                    @default("CASH")
-  aktivan                   Boolean                   @default(true)
-  is_deleted                Boolean                   @default(false)
-  deleted_at                DateTime?
-  deleted_by                String?                   @db.Uuid
-  created_at                DateTime                  @default(now())
-  created_by                String?                   @db.Uuid
-  updated_at                DateTime                  @updatedAt
-  updated_by                String?                   @db.Uuid
-  racuni                    FiskalniIzlazniRacun[]
+  podrazumijevano_placanje    String                 @default("CASH")
+  aktivan                     Boolean                @default(true)
+  is_deleted                  Boolean                @default(false)
+  deleted_at                  DateTime?
+  deleted_by                  String?                @db.Uuid
+  created_at                  DateTime               @default(now())
+  created_by                  String?                @db.Uuid
+  updated_at                  DateTime               @updatedAt
+  updated_by                  String?                @db.Uuid
+  racuni                      FiskalniIzlazniRacun[]
 
   @@unique([firma_id, sifra])
   @@index([agencija_id, firma_id, aktivan])
@@ -1424,16 +1437,89 @@ model PosPodesavanje {
   @@map("pos_podesavanja")
 }
 
+model PosKifBatch {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id        String               @db.Uuid
+  agencija           Agencija             @relation(fields: [agencija_id], references: [id])
+  firma_id           String               @db.Uuid
+  firma              Firma                @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id String               @db.Uuid
+  poslovna_godina    PoslovnaGodina       @relation(fields: [poslovna_godina_id], references: [id])
+  kif_entry_id       String               @unique @db.Uuid
+  kif_entry          KifEntry             @relation(fields: [kif_entry_id], references: [id])
+  aggregation_mode   String
+  period_from        DateTime             @db.Date
+  period_to          DateTime             @db.Date
+  invoice_count      Int
+  total_base         Decimal              @default(0) @db.Decimal(14, 2)
+  total_tax          Decimal              @default(0) @db.Decimal(14, 2)
+  total_gross        Decimal              @default(0) @db.Decimal(14, 2)
+  status             String               @default("GENERATED")
+  generated_at       DateTime             @default(now())
+  generated_by       String?              @db.Uuid
+  created_at         DateTime             @default(now())
+  updated_at         DateTime             @updatedAt
+  invoices           PosKifBatchInvoice[]
+  accounting_batch   PosAccountingBatch?
+
+  @@index([firma_id, aggregation_mode, period_from, period_to])
+  @@index([agencija_id, firma_id, poslovna_godina_id, status])
+  @@map("pos_kif_batches")
+}
+
+model PosKifBatchInvoice {
+  id                        String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pos_kif_batch_id          String               @db.Uuid
+  pos_kif_batch             PosKifBatch          @relation(fields: [pos_kif_batch_id], references: [id], onDelete: Cascade)
+  fiskalni_izlazni_racun_id String               @unique @db.Uuid
+  fiskalni_izlazni_racun    FiskalniIzlazniRacun @relation(fields: [fiskalni_izlazni_racun_id], references: [id])
+  created_at                DateTime             @default(now())
+
+  @@unique([pos_kif_batch_id, fiskalni_izlazni_racun_id])
+  @@index([pos_kif_batch_id])
+  @@map("pos_kif_batch_invoices")
+}
+
+model PosAccountingBatch {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id        String         @db.Uuid
+  agencija           Agencija       @relation(fields: [agencija_id], references: [id])
+  firma_id           String         @db.Uuid
+  firma              Firma          @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id String         @db.Uuid
+  poslovna_godina    PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  pos_kif_batch_id   String         @unique @db.Uuid
+  pos_kif_batch      PosKifBatch    @relation(fields: [pos_kif_batch_id], references: [id], onDelete: Cascade)
+  journal_id         String?        @db.Uuid
+  journal            Nalog?         @relation(fields: [journal_id], references: [id])
+  aggregation_mode   String
+  period_from        DateTime       @db.Date
+  period_to          DateTime       @db.Date
+  invoice_count      Int
+  total_base         Decimal        @default(0) @db.Decimal(14, 2)
+  total_tax          Decimal        @default(0) @db.Decimal(14, 2)
+  total_gross        Decimal        @default(0) @db.Decimal(14, 2)
+  status             String         @default("WAITING_KIF_POSTING")
+  generated_at       DateTime       @default(now())
+  generated_by       String?        @db.Uuid
+  created_at         DateTime       @default(now())
+  updated_at         DateTime       @updatedAt
+
+  @@index([firma_id, aggregation_mode, period_from, period_to])
+  @@index([agencija_id, firma_id, poslovna_godina_id, status])
+  @@map("pos_accounting_batches")
+}
+
 model SalesDocumentPayment {
-  id                         String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fiskalni_izlazni_racun_id String                @db.Uuid
+  id                        String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fiskalni_izlazni_racun_id String               @db.Uuid
   fiskalni_izlazni_racun    FiskalniIzlazniRacun @relation(fields: [fiskalni_izlazni_racun_id], references: [id], onDelete: Cascade)
-  redni_broj                 Int                   @default(1)
-  payment_method             String
-  amount                     Decimal               @db.Decimal(14, 2)
-  reference                  String?
-  created_at                 DateTime              @default(now())
-  created_by                 String?               @db.Uuid
+  redni_broj                Int                  @default(1)
+  payment_method            String
+  amount                    Decimal              @db.Decimal(14, 2)
+  reference                 String?
+  created_at                DateTime             @default(now())
+  created_by                String?              @db.Uuid
 
   @@unique([fiskalni_izlazni_racun_id, redni_broj])
   @@index([payment_method, created_at])
@@ -1441,20 +1527,20 @@ model SalesDocumentPayment {
 }
 
 model FiscalizationAttempt {
-  id                         String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fiskalni_izlazni_racun_id String                @db.Uuid
+  id                        String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fiskalni_izlazni_racun_id String               @db.Uuid
   fiskalni_izlazni_racun    FiskalniIzlazniRacun @relation(fields: [fiskalni_izlazni_racun_id], references: [id], onDelete: Cascade)
-  attempt_number             Int
-  idempotency_key            String                @unique
-  status                     String
-  correlation_id             String?
-  fiscal_api_invoice_id      String?               @db.Uuid
-  error_code                 String?
-  error_message              String?
-  started_at                 DateTime              @default(now())
-  finished_at                DateTime?
-  duration_ms                Int?
-  created_by                 String?               @db.Uuid
+  attempt_number            Int
+  idempotency_key           String               @unique
+  status                    String
+  correlation_id            String?
+  fiscal_api_invoice_id     String?              @db.Uuid
+  error_code                String?
+  error_message             String?
+  started_at                DateTime             @default(now())
+  finished_at               DateTime?
+  duration_ms               Int?
+  created_by                String?              @db.Uuid
 
   @@unique([fiskalni_izlazni_racun_id, attempt_number])
   @@index([fiskalni_izlazni_racun_id, started_at])
@@ -1463,35 +1549,35 @@ model FiscalizationAttempt {
 }
 
 model StavkaIzlazneFakture {
-  id                         String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  izlazna_faktura_id         String                 @db.Uuid
-  izlazna_faktura            FiskalniIzlazniRacun  @relation(fields: [izlazna_faktura_id], references: [id], onDelete: Cascade)
-  redni_broj                 Int
-  artikal_id                 String                 @db.Uuid
-  artikal                    Artikal                @relation(fields: [artikal_id], references: [id])
-  sifra_artikla              String
-  naziv_artikla              String
-  jedinica_mjere             String
-  usluga                     Boolean
-  kolicina                   Decimal                @db.Decimal(18, 3)
-  jedinicna_cijena_bez_pdv   Decimal                @db.Decimal(14, 4)
-  rabat_procenat             Decimal                @default(0) @db.Decimal(7, 4)
-  rabat_iznos                Decimal                @default(0) @db.Decimal(14, 2)
-  osnovica                   Decimal                @db.Decimal(14, 2)
-  pdv_stopa_id               String?                @db.Uuid
-  pdv_stopa_sifra            String
-  pdv_stopa_naziv            String
-  pdv_stopa_procenat         Decimal                @db.Decimal(5, 2)
-  pdv_iznos                  Decimal                @default(0) @db.Decimal(14, 2)
-  jedinicna_cijena_sa_pdv    Decimal                @db.Decimal(14, 4)
-  ukupno_sa_pdv              Decimal                @db.Decimal(14, 2)
-  jedinicna_nabavna_cijena   Decimal?               @db.Decimal(14, 4)
-  nabavna_vrijednost         Decimal?               @db.Decimal(14, 2)
-  napomena                   String?
-  created_at                 DateTime               @default(now())
-  created_by                 String?                @db.Uuid
-  updated_at                 DateTime               @updatedAt
-  updated_by                 String?                @db.Uuid
+  id                       String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  izlazna_faktura_id       String               @db.Uuid
+  izlazna_faktura          FiskalniIzlazniRacun @relation(fields: [izlazna_faktura_id], references: [id], onDelete: Cascade)
+  redni_broj               Int
+  artikal_id               String               @db.Uuid
+  artikal                  Artikal              @relation(fields: [artikal_id], references: [id])
+  sifra_artikla            String
+  naziv_artikla            String
+  jedinica_mjere           String
+  usluga                   Boolean
+  kolicina                 Decimal              @db.Decimal(18, 3)
+  jedinicna_cijena_bez_pdv Decimal              @db.Decimal(14, 4)
+  rabat_procenat           Decimal              @default(0) @db.Decimal(7, 4)
+  rabat_iznos              Decimal              @default(0) @db.Decimal(14, 2)
+  osnovica                 Decimal              @db.Decimal(14, 2)
+  pdv_stopa_id             String?              @db.Uuid
+  pdv_stopa_sifra          String
+  pdv_stopa_naziv          String
+  pdv_stopa_procenat       Decimal              @db.Decimal(5, 2)
+  pdv_iznos                Decimal              @default(0) @db.Decimal(14, 2)
+  jedinicna_cijena_sa_pdv  Decimal              @db.Decimal(14, 4)
+  ukupno_sa_pdv            Decimal              @db.Decimal(14, 2)
+  jedinicna_nabavna_cijena Decimal?             @db.Decimal(14, 4)
+  nabavna_vrijednost       Decimal?             @db.Decimal(14, 2)
+  napomena                 String?
+  created_at               DateTime             @default(now())
+  created_by               String?              @db.Uuid
+  updated_at               DateTime             @updatedAt
+  updated_by               String?              @db.Uuid
 
   @@unique([izlazna_faktura_id, redni_broj])
   @@index([artikal_id])
@@ -1499,17 +1585,17 @@ model StavkaIzlazneFakture {
 }
 
 model FiskalniIzlazniRacunPorez {
-  id                        String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fiskalni_izlazni_racun_id String                @db.Uuid
+  id                        String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fiskalni_izlazni_racun_id String               @db.Uuid
   fiskalni_izlazni_racun    FiskalniIzlazniRacun @relation(fields: [fiskalni_izlazni_racun_id], references: [id], onDelete: Cascade)
   vat_rate_code             String
   vat_rate_name             String
-  vat_rate_percent          Decimal               @db.Decimal(5, 2)
-  tax_base                  Decimal               @default(0) @db.Decimal(14, 2)
-  output_vat_amount         Decimal               @default(0) @db.Decimal(14, 2)
-  total_with_vat            Decimal               @default(0) @db.Decimal(14, 2)
-  created_at                DateTime              @default(now())
-  created_by                String?               @db.Uuid
+  vat_rate_percent          Decimal              @db.Decimal(5, 2)
+  tax_base                  Decimal              @default(0) @db.Decimal(14, 2)
+  output_vat_amount         Decimal              @default(0) @db.Decimal(14, 2)
+  total_with_vat            Decimal              @default(0) @db.Decimal(14, 2)
+  created_at                DateTime             @default(now())
+  created_by                String?              @db.Uuid
 
   @@index([fiskalni_izlazni_racun_id])
   @@map("fiskalni_izlazni_racun_porezi")
@@ -1607,42 +1693,43 @@ model VrstaNaloga {
 }
 
 model Nalog {
-  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  agencija_id         String?         @db.Uuid
-  firma_id            String          @db.Uuid
-  firma               Firma           @relation(fields: [firma_id], references: [id])
-  poslovna_godina_id  String          @db.Uuid
-  poslovna_godina     PoslovnaGodina  @relation(fields: [poslovna_godina_id], references: [id])
-  vrsta_naloga_id     String          @db.Uuid
-  vrsta_naloga        VrstaNaloga     @relation(fields: [vrsta_naloga_id], references: [id])
-  broj                Int
-  sifra               String?
-  datum               DateTime        @db.Date
-  datum_knjizenja     DateTime?       @db.Date
-  opis                String?
-  status              String          @default("DRAFT")
-  source_type         String          @default("MANUAL")
-  source_module       String?
-  source_sync_status  String?
-  izvorni_dokument_id String?         @db.Uuid
-  kreirao_korisnik_id String?         @db.Uuid
-  kreirao_korisnik    Korisnik?       @relation(fields: [kreirao_korisnik_id], references: [id])
-  created_at          DateTime        @default(now())
-  created_by          String?         @db.Uuid
-  updated_at          DateTime        @updatedAt
-  updated_by          String?         @db.Uuid
-  proknjizen_at       DateTime?
-  proknjizen_by       String?         @db.Uuid
-  vracen_u_nacrt_at   DateTime?
-  vracen_u_nacrt_by   String?         @db.Uuid
-  is_deleted          Boolean         @default(false)
-  deleted_at          DateTime?
-  deleted_by          String?         @db.Uuid
-  delete_reason       String?
-  stavke              StavkaNaloga[]
-  pdvPrijave          PdvPrijava[]
-  bankStatements      BankStatement[]
-  plateObracuni       PlateObracun[]  @relation("PlateObracunNalog")
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id          String?              @db.Uuid
+  firma_id             String               @db.Uuid
+  firma                Firma                @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id   String               @db.Uuid
+  poslovna_godina      PoslovnaGodina       @relation(fields: [poslovna_godina_id], references: [id])
+  vrsta_naloga_id      String               @db.Uuid
+  vrsta_naloga         VrstaNaloga          @relation(fields: [vrsta_naloga_id], references: [id])
+  broj                 Int
+  sifra                String?
+  datum                DateTime             @db.Date
+  datum_knjizenja      DateTime?            @db.Date
+  opis                 String?
+  status               String               @default("DRAFT")
+  source_type          String               @default("MANUAL")
+  source_module        String?
+  source_sync_status   String?
+  izvorni_dokument_id  String?              @db.Uuid
+  kreirao_korisnik_id  String?              @db.Uuid
+  kreirao_korisnik     Korisnik?            @relation(fields: [kreirao_korisnik_id], references: [id])
+  created_at           DateTime             @default(now())
+  created_by           String?              @db.Uuid
+  updated_at           DateTime             @updatedAt
+  updated_by           String?              @db.Uuid
+  proknjizen_at        DateTime?
+  proknjizen_by        String?              @db.Uuid
+  vracen_u_nacrt_at    DateTime?
+  vracen_u_nacrt_by    String?              @db.Uuid
+  is_deleted           Boolean              @default(false)
+  deleted_at           DateTime?
+  deleted_by           String?              @db.Uuid
+  delete_reason        String?
+  stavke               StavkaNaloga[]
+  pdvPrijave           PdvPrijava[]
+  bankStatements       BankStatement[]
+  plateObracuni        PlateObracun[]       @relation("PlateObracunNalog")
+  posAccountingBatches PosAccountingBatch[]
 
   @@unique([firma_id, poslovna_godina_id, vrsta_naloga_id, broj])
   @@index([agencija_id, firma_id, poslovna_godina_id, status])

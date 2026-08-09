@@ -135,3 +135,67 @@ export async function applyPosInventoryMovement(
   }
   return { movements: stockLines.length, alreadyApplied: false };
 }
+
+export async function applyPosReturnInventoryMovement(
+  tx: Prisma.TransactionClient,
+  input: {
+    agencijaId: string;
+    firmaId: string;
+    poslovnaGodinaId: string;
+    magacinId: string | null;
+    correctionInvoiceId: string;
+    originalInvoiceId: string;
+    datumPrometa: Date;
+    userId: string;
+  }
+) {
+  const existing = await tx.prometZaliha.count({
+    where: { tip_dokumenta: "POS_RETURN", dokument_id: input.correctionInvoiceId }
+  });
+  if (existing) return { movements: existing, alreadyApplied: true };
+
+  const [correctionLines, originalLines] = await Promise.all([
+    tx.stavkaIzlazneFakture.findMany({
+      where: { izlazna_faktura_id: input.correctionInvoiceId },
+      include: { artikal: { select: { usluga: true, prati_zalihe: true, posljednja_nabavna_cijena: true } } },
+      orderBy: { redni_broj: "asc" }
+    }),
+    tx.stavkaIzlazneFakture.findMany({
+      where: { izlazna_faktura_id: input.originalInvoiceId },
+      orderBy: { redni_broj: "asc" }
+    })
+  ]);
+  const originalByOrder = new Map(originalLines.map((line) => [line.redni_broj, line]));
+  const stockLines = correctionLines.filter((line) => !line.artikal.usluga && line.artikal.prati_zalihe);
+  if (!stockLines.length) return { movements: 0, alreadyApplied: false };
+  if (!input.magacinId) throw new Error("POS kasa nema povezan magacin za povrat robe.");
+
+  for (const line of stockLines) {
+    const original = originalByOrder.get(line.redni_broj);
+    await tx.$queryRaw`SELECT "id" FROM "stanja_zaliha" WHERE "firma_id"=${input.firmaId}::uuid AND "poslovna_godina_id"=${input.poslovnaGodinaId}::uuid AND "magacin_id"=${input.magacinId}::uuid AND "artikal_id"=${line.artikal_id}::uuid FOR UPDATE`;
+    const state = await tx.stanjeZaliha.findUnique({
+      where: { firma_id_poslovna_godina_id_magacin_id_artikal_id: { firma_id: input.firmaId, poslovna_godina_id: input.poslovnaGodinaId, magacin_id: input.magacinId, artikal_id: line.artikal_id } }
+    });
+    const quantity = decimalToScaled(line.kolicina.abs(), 3);
+    let unitCost = decimalToScaled(original?.jedinicna_nabavna_cijena ?? state?.prosjecna_nabavna_cijena ?? line.artikal.posljednja_nabavna_cijena ?? 0, 4);
+    const lineCost = original?.nabavna_vrijednost ? decimalToScaled(original.nabavna_vrijednost.abs(), 2) : (quantity * unitCost + BigInt(50000)) / BigInt(100000);
+    const oldQuantity = decimalToScaled(state?.kolicina ?? 0, 3);
+    const oldValue = decimalToScaled(state?.nabavna_vrijednost ?? 0, 2);
+    const newQuantity = oldQuantity + quantity;
+    const newValue = oldValue + lineCost;
+    if (newQuantity > BigInt(0)) unitCost = (newValue * BigInt(100000) + newQuantity / BigInt(2)) / newQuantity;
+    const base = decimalToScaled(line.osnovica.abs(), 2);
+    const gross = decimalToScaled(line.ukupno_sa_pdv.abs(), 2);
+    const vat = decimalToScaled(line.pdv_iznos.abs(), 2);
+    const difference = base > lineCost ? base - lineCost : BigInt(0);
+
+    await tx.stanjeZaliha.upsert({
+      where: { firma_id_poslovna_godina_id_magacin_id_artikal_id: { firma_id: input.firmaId, poslovna_godina_id: input.poslovnaGodinaId, magacin_id: input.magacinId, artikal_id: line.artikal_id } },
+      create: { agencija_id: input.agencijaId, firma_id: input.firmaId, poslovna_godina_id: input.poslovnaGodinaId, magacin_id: input.magacinId, artikal_id: line.artikal_id, kolicina: scaledToDecimal(quantity, 3), prosjecna_nabavna_cijena: scaledToDecimal(unitCost, 4), nabavna_vrijednost: scaledToDecimal(lineCost, 2), maloprodajna_vrijednost: scaledToDecimal(gross, 2), razlika_u_cijeni: scaledToDecimal(difference, 2), ukalkulisani_pdv: scaledToDecimal(vat, 2) },
+      update: { kolicina: scaledToDecimal(newQuantity, 3), prosjecna_nabavna_cijena: scaledToDecimal(unitCost, 4), nabavna_vrijednost: scaledToDecimal(newValue, 2), maloprodajna_vrijednost: { increment: scaledToDecimal(gross, 2) }, razlika_u_cijeni: { increment: scaledToDecimal(difference, 2) }, ukalkulisani_pdv: { increment: scaledToDecimal(vat, 2) } }
+    });
+    await tx.stavkaIzlazneFakture.update({ where: { id: line.id }, data: { jedinicna_nabavna_cijena: scaledToDecimal(unitCost, 4), nabavna_vrijednost: scaledToDecimal(-lineCost, 2), updated_by: input.userId } });
+    await tx.prometZaliha.create({ data: { agencija_id: input.agencijaId, firma_id: input.firmaId, poslovna_godina_id: input.poslovnaGodinaId, magacin_id: input.magacinId, artikal_id: line.artikal_id, tip_dokumenta: "POS_RETURN", dokument_id: input.correctionInvoiceId, stavka_dokumenta_id: line.id, datum_prometa: input.datumPrometa, smjer: "IN", kolicina: scaledToDecimal(quantity, 3), jedinicna_nabavna_cijena: scaledToDecimal(unitCost, 4), nabavna_vrijednost: scaledToDecimal(lineCost, 2), prodajna_cijena_sa_pdv: line.jedinicna_cijena_sa_pdv, prodajna_vrijednost: scaledToDecimal(gross, 2), razlika_u_cijeni: scaledToDecimal(difference, 2), ukalkulisani_pdv: scaledToDecimal(vat, 2), prosjecna_cijena_nakon: scaledToDecimal(unitCost, 4), kolicina_nakon: scaledToDecimal(newQuantity, 3), created_by: input.userId } });
+  }
+  return { movements: stockLines.length, alreadyApplied: false };
+}

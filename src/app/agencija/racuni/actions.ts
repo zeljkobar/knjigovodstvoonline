@@ -2585,6 +2585,23 @@ export async function postInvoiceBook(formData: FormData) {
       }
     });
 
+    const postedEntryIds = unpostedEntries.map((entry) => entry.id);
+    await tx.posAccountingBatch.updateMany({
+      where: {
+        pos_kif_batch: {
+          kif_entry_id: { in: postedEntryIds }
+        }
+      },
+      data: {
+        journal_id: journal.id,
+        status: "JOURNAL_DRAFT"
+      }
+    });
+    await tx.posKifBatch.updateMany({
+      where: { kif_entry_id: { in: postedEntryIds } },
+      data: { status: "POSTED_TO_JOURNAL" }
+    });
+
     await tx.nalog.update({
       where: {
         id: journal.id
@@ -4945,7 +4962,8 @@ export async function updateKifPazar(formData: FormData) {
           is_deleted: false
         },
         select: {
-          id: true
+          id: true,
+          source_type: true
         }
       }),
       prisma.pdvStopa.findMany({
@@ -4975,7 +4993,8 @@ export async function updateKifPazar(formData: FormData) {
     !poslovnaGodina ||
     poslovnaGodina.zakljucena ||
     !kifBook ||
-    !existingEntry
+    !existingEntry ||
+    existingEntry.source_type === "POS_KIF_BATCH"
   ) {
     redirectKifEntry(kifBookId, "kif_pazar_greska");
   }
@@ -5745,6 +5764,7 @@ export async function updateKifEntry(formData: FormData) {
       },
       select: {
         id: true,
+        source_type: true,
         posting_status: true,
         journal_id: true,
         fiskalni_izlazni_racun: { select: { id: true } }
@@ -6043,6 +6063,7 @@ export async function deleteKifEntry(formData: FormData) {
       },
       select: {
         id: true,
+        source_type: true,
         posting_status: true,
         journal_id: true,
         internal_kif_number: true,
@@ -6059,7 +6080,8 @@ export async function deleteKifEntry(formData: FormData) {
     !entry ||
     entry.posting_status !== "UNPOSTED" ||
     entry.journal_id ||
-    entry.fiskalni_izlazni_racun
+    entry.fiskalni_izlazni_racun ||
+    entry.source_type === "POS_KIF_BATCH"
   ) {
     redirectKifEntry(kifBookId, "kif_greska");
   }

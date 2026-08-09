@@ -301,6 +301,13 @@ export const fiscalAdminApi = {
   getInvoice(invoiceId: string, actor: FiscalActor) {
     return fiscalRequest<FiscalInvoice>(`/api/v1/fiscal/invoices/${invoiceId}`, actor);
   },
+  createInvoiceStorno(originalInvoiceId: string, payload: Record<string, unknown>, idempotencyKey: string, actor: FiscalActor) {
+    return fiscalRequest<FiscalInvoice>(`/api/v1/fiscal/invoices/${originalInvoiceId}/storno`, actor, {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(payload)
+    });
+  },
   fiscalizeInvoice(invoiceId: string, confirmation: string, actor: FiscalActor) {
     return fiscalRequest<FiscalInvoiceSubmission>(`/api/v1/fiscal/invoices/${invoiceId}/fiscalize`, actor, {
       method: "POST",
