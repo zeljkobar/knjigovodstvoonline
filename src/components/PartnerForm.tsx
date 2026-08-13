@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { lookupIrmsCompany } from "@/lib/irms-browser-bridge";
 
 type PartnerFormProps = {
   action: (formData: FormData) => void;
@@ -34,21 +35,6 @@ export type PartnerFormValues = {
   tip_komitenta?: string | null;
   web_sajt?: string | null;
   datum_registracije?: Date | string | null;
-};
-
-type IrmsCompany = {
-  address?: string;
-  activity?: string;
-  city?: string;
-  email?: string;
-  founded?: string;
-  legalForm?: string;
-  legalName?: string;
-  name?: string;
-  phone?: string;
-  pib?: string;
-  registrationNumber?: string;
-  webAddress?: string;
 };
 
 function setFormValue(form: HTMLFormElement, name: string, value?: string) {
@@ -137,45 +123,27 @@ export function PartnerForm({
     });
 
     try {
-      const response = await fetch("/api/irms/search", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ pib })
-      });
-      const result = (await response.json()) as {
-        data?: IrmsCompany;
-        message?: string;
-      };
+      const data = await lookupIrmsCompany(pib);
 
-      if (!response.ok || !result.data) {
-        setIrmsStatus({
-          message: result.message ?? "Podaci nisu pronadjeni u IRMS-u.",
-          type: "error"
-        });
-        return;
-      }
-
-      setFormValue(form, "naziv", result.data.name || result.data.legalName);
-      setFormValue(form, "pib", result.data.pib);
-      setFormValue(form, "maticni_broj", result.data.registrationNumber);
-      setFormValue(form, "pravna_forma", result.data.legalForm);
-      setFormValue(form, "sifra_djelatnosti", normalizeActivityCode(result.data.activity));
-      setFormValue(form, "datum_registracije", normalizeDateInput(result.data.founded));
-      setFormValue(form, "adresa", result.data.address);
-      setFormValue(form, "grad", result.data.city);
-      setFormValue(form, "telefon", result.data.phone);
-      setFormValue(form, "email", result.data.email);
-      setFormValue(form, "web_sajt", result.data.webAddress);
+      setFormValue(form, "naziv", data.name || data.legalName);
+      setFormValue(form, "pib", data.pib);
+      setFormValue(form, "maticni_broj", data.registrationNumber);
+      setFormValue(form, "pravna_forma", data.legalForm);
+      setFormValue(form, "sifra_djelatnosti", normalizeActivityCode(data.activity));
+      setFormValue(form, "datum_registracije", normalizeDateInput(data.founded));
+      setFormValue(form, "adresa", data.address);
+      setFormValue(form, "grad", data.city);
+      setFormValue(form, "telefon", data.phone);
+      setFormValue(form, "email", data.email);
+      setFormValue(form, "web_sajt", data.webAddress);
 
       setIrmsStatus({
         message: "Podaci su povuceni iz IRMS registra. Pregledajte ih prije snimanja.",
         type: "success"
       });
-    } catch {
+    } catch (error) {
       setIrmsStatus({
-        message: "Greska pri komunikaciji sa IRMS servisom.",
+        message: error instanceof Error ? error.message : "Greška pri komunikaciji sa IRMS servisom.",
         type: "error"
       });
     } finally {

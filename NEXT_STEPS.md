@@ -7,6 +7,9 @@
 - Dodati produkcijsku Fiscal API rutu za prijavu početnog gotovinskog depozita; POS ekran trenutno bezbjedno podržava Test.
 - Ručni mobile QA: artikli, korpa, plaćanje, Test fiskalizacija i štampa.
 - Ručni QA dnevnog/periodičnog POS izvještaja i termalne browser štampe na stvarnom 58/80 mm printeru; zatim reprint audit, smjene i POS Agent. Djelimični POS povrat ostaje nakon što ga podrži Fiscal API.
+- Ručno učitati `browser-extensions/irms-helper` u Chrome/Edge i potvrditi
+  selektore na aktuelnoj IRMS pretrazi i detalju subjekta. Ako produkcijski
+  domen nije pokriven manifestom, dodati njegov tačan HTTPS obrazac.
 
 ## Prioritet 1 — Stabilizacija KIF/KUF
 - QA za edit/delete neproknjiženih računa.

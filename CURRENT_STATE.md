@@ -172,6 +172,12 @@ je od samodeaktivacije i samostalne rotacije.
 
 ### Modul 2 — Firme, poslovne godine, kontni plan, partneri
 - Lista i dodavanje firmi, IRMS pretraga; aktivna firma/godina.
+- IRMS pretraga ima opcioni Chrome/Edge pomoćnik u
+  `browser-extensions/irms-helper`. Nakon korisnikovog klika ekstenzija otvara
+  javni IRMS portal, unosi PIB, čita regularno prikazan rezultat, vraća podatke
+  u formu firme ili partnera i zatvara pomoćni tab. Ne čuva podatke niti
+  zaobilazi reCAPTCHA. Bez instalirane ekstenzije ostaje postojeći serverski
+  pokušaj i ručni unos.
 - Poslovne godine, bankovni računi, ugovor/cijena.
 - Globalni kontni plan + firmi specifičan override, sa pretragom po šifri/nazivu
   na kontnom planu firme.

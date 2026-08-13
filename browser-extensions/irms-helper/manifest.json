@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Summa IRMS pretraga",
+  "version": "1.0.3",
+  "description": "Prenosi javno prikazane podatke iz IRMS registra u Summa računovodstveni program.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["https://irms.tax.gov.me/*"],
+  "background": { "service_worker": "service-worker.js" },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost/*",
+        "https://knjigovodstvoonline.me/*",
+        "https://www.knjigovodstvoonline.me/*",
+        "https://*.summasummarum.me/*"
+      ],
+      "js": ["summa-bridge.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://irms.tax.gov.me/public/search-register*"],
+      "js": ["irms-reader.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": { "default_title": "Summa IRMS pretraga" }
+}

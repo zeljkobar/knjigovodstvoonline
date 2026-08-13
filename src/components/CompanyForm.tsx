@@ -1,30 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { lookupIrmsCompany as fetchIrmsCompany, type IrmsBrowserCompany } from "@/lib/irms-browser-bridge";
 
 type CompanyFormProps = {
   action: (formData: FormData) => void;
   currentYear: number;
-};
-
-type IrmsCompany = {
-  name?: string;
-  legalName?: string;
-  pib?: string;
-  registrationNumber?: string;
-  legalForm?: string;
-  status?: string;
-  founded?: string;
-  activity?: string;
-  address?: string;
-  city?: string;
-  email?: string;
-  phone?: string;
-  webAddress?: string;
-  directors?: Array<{
-    fullName?: string;
-    role?: string;
-  }>;
 };
 
 const subjectTypes = [
@@ -38,6 +19,15 @@ const subjectTypes = [
 
 function splitActivity(activity?: string) {
   const value = String(activity ?? "").trim();
+  const fourDigitMatch = value.match(/^(\d{4})\s*[^\p{L}\p{N}]*\s*(.*)$/u);
+
+  if (fourDigitMatch) {
+    return {
+      code: fourDigitMatch[1],
+      description: fourDigitMatch[2]?.trim() ?? ""
+    };
+  }
+
   const match = value.match(/^(\d{2}(?:[\.,]\d{2})?)\s*[-–—,]?\s*(.*)$/);
 
   if (!match) {
@@ -71,7 +61,7 @@ function subjectTypeFromLegalForm(legalForm?: string) {
   return "DOO";
 }
 
-function executiveDirector(directors?: IrmsCompany["directors"]) {
+function executiveDirector(directors?: IrmsBrowserCompany["directors"]) {
   const normalizedRole = (role?: string) =>
     String(role ?? "")
       .normalize("NFD")
@@ -133,52 +123,34 @@ export function CompanyForm({ action, currentYear }: CompanyFormProps) {
     });
 
     try {
-      const response = await fetch("/api/irms/search", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ pib })
-      });
-      const result = (await response.json()) as {
-        message?: string;
-        data?: IrmsCompany;
-      };
+      const data = await fetchIrmsCompany(pib);
 
-      if (!response.ok || !result.data) {
-        setIrmsStatus({
-          type: "error",
-          message: result.message ?? "Podaci nisu pronadjeni u IRMS-u."
-        });
-        return;
-      }
+      const activity = splitActivity(data.activity);
+      const director = executiveDirector(data.directors);
 
-      const activity = splitActivity(result.data.activity);
-      const director = executiveDirector(result.data.directors);
-
-      setFormValue(form, "naziv", result.data.name || result.data.legalName);
-      setFormValue(form, "skraceni_naziv", result.data.name);
-      setFormValue(form, "pib", result.data.pib);
-      setFormValue(form, "maticni_broj", result.data.registrationNumber);
+      setFormValue(form, "naziv", data.name || data.legalName);
+      setFormValue(form, "skraceni_naziv", data.shortName || data.name || data.legalName);
+      setFormValue(form, "pib", data.pib);
+      setFormValue(form, "maticni_broj", data.registrationNumber);
       setFormValue(form, "sifra_djelatnosti", activity.code);
       setFormValue(form, "opis_djelatnosti", activity.description);
-      setFormValue(form, "adresa", result.data.address);
-      setFormValue(form, "opstina", result.data.city);
-      setFormValue(form, "grad", result.data.city);
-      setFormValue(form, "telefon", result.data.phone);
-      setFormValue(form, "email", result.data.email);
-      setFormValue(form, "web_sajt", result.data.webAddress);
-      setFormValue(form, "tip_subjekta", subjectTypeFromLegalForm(result.data.legalForm));
+      setFormValue(form, "adresa", data.address);
+      setFormValue(form, "opstina", data.city);
+      setFormValue(form, "grad", data.city);
+      setFormValue(form, "telefon", data.phone);
+      setFormValue(form, "email", data.email);
+      setFormValue(form, "web_sajt", data.webAddress);
+      setFormValue(form, "tip_subjekta", subjectTypeFromLegalForm(data.legalForm));
       setFormValue(form, "izvrsni_direktor", director?.fullName);
 
       setIrmsStatus({
         type: "success",
         message: "Podaci su povuceni iz IRMS registra. Pregledajte ih prije snimanja."
       });
-    } catch {
+    } catch (error) {
       setIrmsStatus({
         type: "error",
-        message: "Greska pri komunikaciji sa IRMS servisom."
+        message: error instanceof Error ? error.message : "Greška pri komunikaciji sa IRMS servisom."
       });
     } finally {
       setIsSearching(false);

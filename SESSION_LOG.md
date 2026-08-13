@@ -837,3 +837,13 @@
 - Storno dokumenti ulaze kao negativne vrijednosti, dok se prodaje i storna broje odvojeno.
 - Dodata štampa izvještaja i fiskalnog POS računa za 58/80 mm papir sa QR-om, IKOF/JIKR-om i vezama korektivnih dokumenata.
 - A4 faktura je zadržana kao odvojena opcija; TypeScript provjera je čista.
+
+## 2026-08-10 — IRMS browser pomoćnik
+
+- Dodata je Manifest V3 ekstenzija za Chrome/Edge koja se aktivira samo klikom
+  na IRMS pretragu, koristi javni portal u korisnikovom browseru i vraća javno
+  prikazane podatke u forme firme i partnera.
+- Ekstenzija ne automatizuje niti zaobilazi reCAPTCHA provjeru i ne čuva IRMS
+  podatke. Bez nje aplikacija zadržava postojeći serverski fallback i ručni unos.
+- Dodato je lokalno uputstvo za instalaciju. JavaScript provjere i
+  `npx tsc --noEmit` prolaze; ostaje ručni QA nad aktuelnim IRMS DOM-om.
