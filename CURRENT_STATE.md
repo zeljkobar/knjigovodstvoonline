@@ -8,6 +8,14 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+Kontrolisano trajno brisanje testne firme sada obuhvata i sve lokalne fiskalne
+i POS podatke, uključujući račune, njihove podređene zapise, kase, smjene,
+zbirne obrade i lokalnu Fiscal API vezu. Podaci već poslati u zasebni Fiscal API
+ili Poresku upravu ostaju sačuvani. Provjera `npm run db:check-company-purge`
+potvrđuje pokrivenost svih tabela sa direktnim `firma_id`; podređene FK tabele
+bez `firma_id` i redosljed brisanja obavezno se ručno provjeravaju pri svakoj
+promjeni šeme.
+
 ## POS / Kasa — prva funkcionalna faza
 
 Dodana je mobile-first POS osnova pod `/agencija/pos`. Telefon je primarni UX:
@@ -199,6 +207,10 @@ je od samodeaktivacije i samostalne rotacije.
 - Poslovne godine, bankovni računi, ugovor/cijena.
 - Globalni kontni plan + firmi specifičan override, sa pretragom po šifri/nazivu
   na kontnom planu firme.
+- Globalni kontni plan je usklađen sa `zadaci/kontni plan.xlsx`: aktivna su
+  1.533 konta, puni nazivi dolaze iz kolone `NAZIV`, oznaka `AK` zahtijeva
+  analitiku, a `D` korišćenje radne jedinice. Konta uklonjena iz izvora se
+  deaktiviraju umjesto fizičkog brisanja, radi očuvanja istorijskih knjiženja.
 - Centralni/globalni partneri + agencijski/firmski; ~64k globalnih importovano.
 - Polja za izbor partnera u KIF/KUF, izvodima i stavkama naloga podržavaju brzi
   unos novog partnera kroz modal bez napuštanja ekrana.

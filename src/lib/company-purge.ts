@@ -107,6 +107,30 @@ export async function purgeCompanyData(
 
   // Robni promet i stanja moraju nestati prije dokumenata i šifarnika.
   // Kalkulacija je povezana sa KUF zapisom i nalogom, pa se briše prije njih.
+  // POS zbirne obrade povezuju KIF, naloge i fiskalne racune. Clanstva i
+  // racunovodstvene obrade moraju nestati prije batch-eva i racuna.
+  await izvrsi(
+    "pos_kif_batch_invoices",
+    Prisma.sql`
+      DELETE FROM pos_kif_batch_invoices
+      WHERE pos_kif_batch_id IN (
+        SELECT id FROM pos_kif_batches WHERE firma_id = ${firmaId}::uuid
+      )
+         OR fiskalni_izlazni_racun_id IN (
+           SELECT id FROM fiskalni_izlazni_racuni
+           WHERE firma_id = ${firmaId}::uuid
+         )
+    `
+  );
+  await izvrsi(
+    "pos_accounting_batches",
+    Prisma.sql`DELETE FROM pos_accounting_batches WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "pos_kif_batches",
+    Prisma.sql`DELETE FROM pos_kif_batches WHERE firma_id = ${firmaId}::uuid`
+  );
+
   await izvrsi(
     "prometi_zaliha",
     Prisma.sql`DELETE FROM prometi_zaliha WHERE firma_id = ${firmaId}::uuid`
@@ -119,6 +143,84 @@ export async function purgeCompanyData(
     "kalkulacije",
     Prisma.sql`DELETE FROM kalkulacije WHERE firma_id = ${firmaId}::uuid`
   );
+
+  // Lokalni fiskalni/POS dokumenti imaju podredjene tabele i veze prema
+  // artiklima, magacinima, KIF-u i drugim racunima. Brisu se prije sifarnika.
+  await izvrsi(
+    "sales_document_payments",
+    Prisma.sql`
+      DELETE FROM sales_document_payments
+      WHERE fiskalni_izlazni_racun_id IN (
+        SELECT id FROM fiskalni_izlazni_racuni
+        WHERE firma_id = ${firmaId}::uuid
+      )
+    `
+  );
+  await izvrsi(
+    "fiscalization_attempts",
+    Prisma.sql`
+      DELETE FROM fiscalization_attempts
+      WHERE fiskalni_izlazni_racun_id IN (
+        SELECT id FROM fiskalni_izlazni_racuni
+        WHERE firma_id = ${firmaId}::uuid
+      )
+    `
+  );
+  await izvrsi(
+    "fiskalni_izlazni_racun_porezi",
+    Prisma.sql`
+      DELETE FROM fiskalni_izlazni_racun_porezi
+      WHERE fiskalni_izlazni_racun_id IN (
+        SELECT id FROM fiskalni_izlazni_racuni
+        WHERE firma_id = ${firmaId}::uuid
+      )
+    `
+  );
+  await izvrsi(
+    "stavke_izlaznih_faktura",
+    Prisma.sql`
+      DELETE FROM stavke_izlaznih_faktura
+      WHERE izlazna_faktura_id IN (
+        SELECT id FROM fiskalni_izlazni_racuni
+        WHERE firma_id = ${firmaId}::uuid
+      )
+    `
+  );
+  await izvrsi(
+    "fiskalni_izlazni_racuni_reference_cleanup",
+    Prisma.sql`
+      UPDATE fiskalni_izlazni_racuni
+      SET original_invoice_id = NULL
+      WHERE firma_id = ${firmaId}::uuid
+        AND original_invoice_id IN (
+          SELECT id FROM fiskalni_izlazni_racuni
+          WHERE firma_id = ${firmaId}::uuid
+        )
+    `
+  );
+  await izvrsi(
+    "fiskalni_izlazni_racuni",
+    Prisma.sql`DELETE FROM fiskalni_izlazni_racuni WHERE firma_id = ${firmaId}::uuid`
+  );
+
+  await izvrsi(
+    "pos_smjene",
+    Prisma.sql`DELETE FROM pos_smjene WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "pos_registers",
+    Prisma.sql`DELETE FROM pos_registers WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "pos_podesavanja",
+    Prisma.sql`DELETE FROM pos_podesavanja WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "fiscal_company_links",
+    Prisma.sql`DELETE FROM fiscal_company_links WHERE firma_id = ${firmaId}::uuid`
+  );
+
+  // Tek sada se mogu obrisati robni sifarnici koje koriste stavke faktura.
   await izvrsi(
     "dobavljac_artikal_veze",
     Prisma.sql`DELETE FROM dobavljac_artikal_veze WHERE firma_id = ${firmaId}::uuid`

@@ -36,8 +36,10 @@ export function DeleteCompanyForm({
       <input name="firma_id" type="hidden" value={firmaId} />
       <p>
         Ova radnja trajno briše firmu, poslovne godine, naloge, KIF/KUF,
-        izvode, PDV, plate, M-4 i sva ostala podešavanja i podatke koji pripadaju
-        ovoj firmi. Korisnički nalozi i zajednički šifarnici ostaju sačuvani.
+        izvode, PDV, plate, M-4, lokalne fiskalne/POS podatke i sva ostala
+        podešavanja i podatke koji pripadaju ovoj firmi. Korisnički nalozi i
+        zajednički šifarnici ostaju sačuvani. Podaci koji su već poslati u
+        Fiscal API ili Poresku upravu ne brišu se ovom radnjom.
       </p>
       <label>
         <span>

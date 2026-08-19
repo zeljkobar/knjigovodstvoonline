@@ -44,6 +44,7 @@ npx prisma migrate deploy   # primjena hand-written migracija (vidi pravila ispo
 npx tsc --noEmit            # provjera tipova, mora biti čisto
 npm run planer:dump         # Excel planer  -> CSV izvor (zadaci/planer/)
 npm run planer:build        # CSV izvor      -> Excel planer
+npm run db:check-company-purge # provjera pokrivenosti trajnog brisanja firme
 ```
 
 Baza je PostgreSQL na `127.0.0.1:5432`, konekcija preko `.env`
@@ -112,6 +113,12 @@ Ova pravila su rezultat odluka u specifikaciji i ne smiju se kršiti:
 - **Poslije svake migracije restartuj dev server** (Prisma klijent je inače star).
 - **Nikad `npm run build` dok dev server radi.**
 - Poslije izmjena pokreni `npx tsc --noEmit` i osiguraj da je čisto.
+- **Svaka izmjena baze ili Prisma šeme koja dodaje ili mijenja tabelu direktno
+  ili indirektno vezanu za firmu mora istovremeno uskladiti
+  `src/lib/company-purge.ts`.** Pokreni `npm run db:check-company-purge` i ručno
+  provjeri podređene tabele bez `firma_id`, njihove FK veze i pravilan redoslijed
+  brisanja. Promjena baze nije završena dok trajno brisanje testne firme nije
+  usklađeno.
 
 ## 7. Radni tok agenta (obavezno)
 

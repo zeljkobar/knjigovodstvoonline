@@ -1,67 +1,23 @@
-import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PrismaClient } from "@prisma/client";
+import XLSX from "xlsx";
 
 const prisma = new PrismaClient();
-const sourcePath = resolve("zadaci/kontni_plan_GK_KontP.csv");
-
-function parseCsv(text) {
-  const rows = [];
-  let row = [];
-  let value = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i];
-    const next = text[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && next === '"') {
-        value += '"';
-        i += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (char === "," && !inQuotes) {
-      row.push(value);
-      value = "";
-      continue;
-    }
-
-    if ((char === "\n" || char === "\r") && !inQuotes) {
-      if (char === "\r" && next === "\n") {
-        i += 1;
-      }
-      row.push(value);
-      if (row.some((cell) => cell !== "")) {
-        rows.push(row);
-      }
-      row = [];
-      value = "";
-      continue;
-    }
-
-    value += char;
-  }
-
-  if (value || row.length) {
-    row.push(value);
-    rows.push(row);
-  }
-
-  return rows;
-}
+const sourcePath = resolve("zadaci/kontni plan.xlsx");
 
 function readRows() {
-  const text = readFileSync(sourcePath, "utf8").replace(/^\uFEFF/, "");
-  const [headers, ...rows] = parseCsv(text);
+  const workbook = XLSX.readFile(sourcePath);
+  const worksheet = workbook.Sheets.KontPlan;
 
-  return rows.map((row) =>
-    Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""]))
-  );
+  if (!worksheet) {
+    throw new Error("Excel fajl nema očekivani list KontPlan.");
+  }
+
+  return XLSX.utils.sheet_to_json(worksheet, {
+    range: 2,
+    defval: "",
+    raw: false
+  });
 }
 
 function parentAccount(code, allCodes) {
@@ -100,9 +56,9 @@ async function main() {
   const rows = rawRows
     .map((row) => ({
       sifra: String(row.Konto ?? "").trim(),
-      naziv: String(row.NAZ150 || row.Naziv || "").trim(),
-      stat: String(row.Stat ?? "").trim(),
-      koristiRadnuJedinicu: String(row.unosRJ ?? "").trim().toLowerCase() === "true"
+      naziv: String(row.NAZIV ?? "").trim(),
+      stat: String(row["St."] ?? "").trim().toUpperCase(),
+      koristiRadnuJedinicu: String(row.RJ ?? "").trim().toUpperCase() === "D"
     }))
     .filter((row) => row.sifra && row.naziv);
 
@@ -116,7 +72,7 @@ async function main() {
   }
 
   if (duplicates.length > 0) {
-    throw new Error(`CSV ima duplikate konta: ${duplicates.slice(0, 20).join(", ")}`);
+    throw new Error(`Excel ima duplikate konta: ${duplicates.slice(0, 20).join(", ")}`);
   }
 
   const allCodes = new Set(rows.map((row) => row.sifra));
@@ -168,7 +124,7 @@ async function main() {
   });
 
   console.log(`Importovan kontni plan: ${imported} konta iz ${sourcePath}`);
-  console.log(`Deaktivirana konta van CSV-a: ${deactivated.count}`);
+  console.log(`Deaktivirana konta van Excel plana: ${deactivated.count}`);
 }
 
 main()

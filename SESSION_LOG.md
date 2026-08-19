@@ -3,6 +3,23 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-08-19
+- Globalni kontni plan usklađen je sa `zadaci/kontni plan.xlsx`: nova korektivna
+  migracija upisuje 1.533 aktivna konta, pune nazive iz kolone `NAZIV` i oznake
+  `AK`/`D`, dok konta kojih više nema u izvoru bezbjedno deaktivira.
+- Skripta `prisma/import-kontni-plan.mjs` sada čita isti Excel fajl kao
+  korektivna migracija, pa ručni import i serverske migracije koriste isti izvor.
+- Kontrolisano trajno brisanje testne firme usklađeno je sa lokalnim fiskalnim
+  i POS tabelama: računima i podređenim zapisima, kasama, smjenama, zbirnim
+  obradama i lokalnom vezom sa Fiscal API-jem. Podaci već poslati u zasebni
+  Fiscal API ili Poresku upravu namjerno nijesu obuhvaćeni lokalnim brisanjem.
+- Dodata je provjera `npm run db:check-company-purge`, koja prijavljuje svaku
+  tabelu sa direktnim `firma_id` koja nije obuhvaćena purge tokom. U glavnom
+  vodiču i arhitekturi zapisano je da svaka promjena šeme mora uskladiti purge,
+  uz ručnu kontrolu podređenih FK tabela bez `firma_id` i redosljeda brisanja.
+- Tok nije pokretan nad stvarnim podacima; izvršene su samo nedestruktivne
+  statičke provjere pokrivenosti.
+
 ## 2026-08-17
 - Dodate su opcione POS smjene kao jednostavan presjek pri predaji kase. Radnik
   otvara smjenu sa iznosom preuzete gotovine, a zatvaranje trajno čuva promet

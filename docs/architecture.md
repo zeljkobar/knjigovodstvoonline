@@ -65,6 +65,20 @@ src/
                            # PDV, izvodi, finansijski izvještaji, plate, ...
 ```
 
+## Trajno brisanje testne firme
+
+Kontrolisano trajno brisanje testne firme nalazi se u
+`src/lib/company-purge.ts`. Izvodi se u jednoj backend transakciji, uz provjeru
+agencijskog scope-a, potvrdu punog naziva firme i audit zapis. Brisanje obuhvata
+i lokalne fiskalne i POS podatke povezane sa firmom. Ne briše podatke koji su
+već poslati u zasebni Fiscal API ili Poresku upravu.
+
+Svaka promjena Prisma šeme ili migracija koja dodaje ili mijenja tabelu povezanu
+sa firmom mora istovremeno uskladiti ovaj tok. Komanda
+`npm run db:check-company-purge` automatski provjerava sve tabele koje imaju
+direktni `firma_id`. Podređene tabele bez `firma_id` moraju se dodatno ručno
+provjeriti kroz FK veze i uvrstiti u ispravan redoslijed brisanja.
+
 ## Glavni moduli
 1. Korisnici, agencije, prava
 2. Firme / poslovne godine / kontni plan / partneri

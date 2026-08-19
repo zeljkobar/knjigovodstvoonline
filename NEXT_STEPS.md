@@ -99,7 +99,9 @@
   izvor, te dodati podešavanja firme i default konta po firmi/partneru gdje nisu
   pokrivena. Šifarnik 21 opštine, DJP šifre i raspoloživi računi iz stare MDB
   baze su uneseni. Kontrolisano trajno brisanje testne firme i svih njenih
-  podataka je završeno.
+  lokalnih podataka, uključujući fiskalne/POS zapise, je završeno. Pri svakoj
+  promjeni šeme obavezni su `npm run db:check-company-purge` i ručna provjera
+  podređenih FK tabela bez `firma_id`.
 - **Modul 3:** kontrole po poslovnoj jedinici; dodatni automatizovani testovi
   za validacije, prava i konkurentne zahtjeve pri kreiranju početnog stanja.
 - **Modul 5/7 Izvodi:** dodati parsere za ostale banke, dodatne uslove pravila

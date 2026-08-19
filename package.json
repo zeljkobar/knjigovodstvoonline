@@ -13,6 +13,7 @@
     "partners:import-global": "node scripts/import-global-partners-from-old-site.mjs",
     "planer:dump": "node scripts/planer.mjs dump",
     "planer:build": "node scripts/planer.mjs build",
+    "db:check-company-purge": "node scripts/check-company-purge-coverage.mjs",
     "db:seed": "node prisma/seed.mjs"
   },
   "dependencies": {
