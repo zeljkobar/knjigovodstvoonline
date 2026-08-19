@@ -405,8 +405,9 @@ Umjesto toga čuvati referencu.
 
 # 9. POS SESIJA / SMJENA
 
-Model `PosShift` je planiran, ali nije obavezan za prvi POS MVP. Ne uvoditi ga
-prije osnovnog toka prodaje ako bi nepotrebno usporio pilot.
+Model je implementiran kao `PosSmjena` nakon osnovnog POS toka. Namjerno je
+jednostavan: služi za operativni presjek pri predaji kase, a nije sistem za
+raspoređivanje radnika niti zamjena za dnevni/mjesečni KIF zbir.
 
 Predložena polja:
 
@@ -420,9 +421,7 @@ OpenedAt
 OpeningCashAmount
 ClosedByUserId
 ClosedAt
-ClosingCashAmount
 ExpectedCashAmount
-DifferenceAmount
 Status
 Note
 ```
@@ -432,8 +431,10 @@ Status:
 ```text
 OPEN
 CLOSED
-CANCELLED
 ```
+
+Prva implementacija ne traži unos fizički prebrojane gotovine ni automatski
+obračun manjka/viška. To se može dodati kasnije bez promjene svrhe smjene.
 
 Opcija firme:
 
@@ -1148,6 +1149,7 @@ Podržati:
 Fiscal API `/storno` toka, sa vezom na original, obaveznom potvrdom, povratom
 zalihe, korektivnim KIF/PDV iznosima i auditom. Djelimični povrat se ne simulira
 dok ga Fiscal API zvanično ne podrži.
+
 - audit.
 
 ---

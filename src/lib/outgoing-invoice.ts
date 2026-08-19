@@ -45,6 +45,45 @@ export function calculateOutgoingInvoiceLine(input: {
   };
 }
 
+export function calculateOutgoingInvoiceLineFromGross(input: {
+  quantity: string;
+  grossUnitPrice: string;
+  discountPercent: string;
+  vatPercent: string;
+}) {
+  const quantity = parseScaledInteger(input.quantity, 3);
+  const unitGross = parseScaledInteger(input.grossUnitPrice, 4);
+  const discount = parseScaledInteger(input.discountPercent || "0", 4);
+  const vat = parseScaledInteger(input.vatPercent || "0", 2);
+  if (quantity === null || quantity <= BigInt(0) || unitGross === null || unitGross < BigInt(0) || discount === null || discount < BigInt(0) || discount > BigInt(1000000) || vat === null || vat < BigInt(0)) return null;
+
+  const totalBeforeDiscount = roundDivision(quantity * unitGross, BigInt(100000));
+  const discountCents = roundDivision(totalBeforeDiscount * discount, BigInt(1000000));
+  const totalCents = totalBeforeDiscount - discountCents;
+  const baseCents = vat > BigInt(0)
+    ? roundDivision(totalCents * BigInt(10000), BigInt(10000) + vat)
+    : totalCents;
+  const vatCents = totalCents - baseCents;
+  const unitNet = vat > BigInt(0)
+    ? roundDivision(unitGross * BigInt(10000), BigInt(10000) + vat)
+    : unitGross;
+
+  return {
+    quantity: scaledToDecimal(quantity, 3),
+    unitNet: scaledToDecimal(unitNet, 4),
+    discountPercent: scaledToDecimal(discount, 4),
+    discount: scaledToDecimal(discountCents, 2),
+    base: scaledToDecimal(baseCents, 2),
+    vat: scaledToDecimal(vatCents, 2),
+    unitGross: scaledToDecimal(unitGross, 4),
+    total: scaledToDecimal(totalCents, 2),
+    discountCents,
+    baseCents,
+    vatCents,
+    totalCents
+  };
+}
+
 export function outgoingInvoiceStatusLabel(status: string) {
   return ({ DRAFT: "Nacrt", WAITING_KIF: "Čeka KIF", POSTED: "Prenesena u KIF", CANCELLED: "Stornirana" } as Record<string, string>)[status] ?? status;
 }

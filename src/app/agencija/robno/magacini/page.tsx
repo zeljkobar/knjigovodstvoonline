@@ -11,6 +11,7 @@ import {
   MissingInventoryContext
 } from "../_shared";
 import { inventoryModule } from "@/lib/inventory";
+import { warehouseSalesTypeLabel } from "@/lib/pos-pricing";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
@@ -190,6 +191,13 @@ export default async function WarehousesPage({ searchParams }: WarehousesPagePro
                 <option value="ALLOW">Dozvoli</option>
               </select>
             </label>
+            <label>
+              <span>Tip prodaje</span>
+              <select defaultValue={editedWarehouse?.tip_prodaje ?? "RETAIL"} name="tip_prodaje">
+                <option value="RETAIL">Maloprodajni — cijene sa PDV-om</option>
+                <option value="WHOLESALE">Veleprodajni — cijene bez PDV-a</option>
+              </select>
+            </label>
             <label className="form-span-2">
               <span>Napomena</span>
               <input defaultValue={editedWarehouse?.napomena ?? ""} name="napomena" />
@@ -226,6 +234,7 @@ export default async function WarehousesPage({ searchParams }: WarehousesPagePro
               <tr>
                 <th>Šifra</th>
                 <th>Naziv</th>
+                <th>Tip prodaje</th>
                 <th>Negativan lager</th>
                 <th>Status</th>
                 <th>Napomena</th>
@@ -237,6 +246,7 @@ export default async function WarehousesPage({ searchParams }: WarehousesPagePro
                 <tr key={warehouse.id}>
                   <td><strong>{warehouse.sifra}</strong></td>
                   <td>{warehouse.naziv}</td>
+                  <td>{warehouseSalesTypeLabel(warehouse.tip_prodaje)}</td>
                   <td>
                     {negativeStockLabel(
                       warehouse.dozvoli_negativan_lager,
@@ -273,7 +283,7 @@ export default async function WarehousesPage({ searchParams }: WarehousesPagePro
                 </tr>
               )) : (
                 <tr>
-                  <td className="empty-state" colSpan={canUpdate ? 6 : 5}>
+                  <td className="empty-state" colSpan={canUpdate ? 7 : 6}>
                     Nema magacina za izabrane filtere.
                   </td>
                 </tr>

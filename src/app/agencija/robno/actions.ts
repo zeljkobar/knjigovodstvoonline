@@ -767,6 +767,7 @@ export async function createWarehouse(formData: FormData) {
   const context = await requireInventoryActionContext("create", path, firmaId);
   const sifra = normalizeInventoryCode(text(formData.get("sifra")));
   const naziv = text(formData.get("naziv"));
+  const salesType = text(formData.get("tip_prodaje")) === "WHOLESALE" ? "WHOLESALE" : "RETAIL";
 
   if (!sifra || !naziv) {
     inventoryRedirect(path, "magacin_obavezno");
@@ -794,6 +795,7 @@ export async function createWarehouse(formData: FormData) {
       firma_id: firmaId,
       sifra,
       naziv,
+      tip_prodaje: salesType,
       dozvoli_negativan_lager: warehouseNegativeStockValue(
         text(formData.get("negativan_lager"))
       ),
@@ -828,6 +830,7 @@ export async function updateWarehouse(formData: FormData) {
   const context = await requireInventoryActionContext("update", path, firmaId);
   const sifra = normalizeInventoryCode(text(formData.get("sifra")));
   const naziv = text(formData.get("naziv"));
+  const salesType = text(formData.get("tip_prodaje")) === "WHOLESALE" ? "WHOLESALE" : "RETAIL";
 
   if (!warehouseId || !sifra || !naziv) {
     inventoryRedirect(path, "magacin_obavezno", params);
@@ -871,6 +874,7 @@ export async function updateWarehouse(formData: FormData) {
     data: {
       sifra,
       naziv,
+      tip_prodaje: salesType,
       dozvoli_negativan_lager: warehouseNegativeStockValue(
         text(formData.get("negativan_lager"))
       ),

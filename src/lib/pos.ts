@@ -21,7 +21,7 @@ export async function getPosContext(action: PermissionAction = "view") {
         is_deleted: false,
         ...(user.rola === "admin_agencije" ? {} : { korisnici: { some: { korisnik_id: user.id, is_deleted: false } } })
       },
-      select: { id: true, naziv: true, skraceni_naziv: true, pib: true, pdv_broj: true, pdv_obveznik: true, adresa: true, grad: true, drzava: true, telefon: true, email: true, web_sajt: true, fiscalCompanyLink: true }
+      select: { id: true, naziv: true, skraceni_naziv: true, pib: true, pdv_broj: true, pdv_obveznik: true, dozvoli_negativan_lager: true, adresa: true, grad: true, drzava: true, telefon: true, email: true, web_sajt: true, fiscalCompanyLink: true }
     }),
     prisma.poslovnaGodina.findFirst({ where: { id: work.poslovnaGodinaId, firma_id: work.firmaId }, select: { id: true, godina: true, zakljucena: true } }),
     hasPermission(user, { firmaId: work.firmaId, modul: posModule, akcija: action })

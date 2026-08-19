@@ -5181,7 +5181,7 @@ td small {
 .invoice-print-brand h1 { margin: 0 0 1mm; font-size: 15pt; }
 .invoice-print-brand p { margin: 0.6mm 0; color: #52627d; font-size: 8pt; }
 .invoice-print-title { display: grid; gap: 1.2mm; text-align: right; }
-.invoice-print-title span { color: #3159a6; font-size: 8pt; font-weight: 800; letter-spacing: 0.14em; }
+.invoice-print-title span { color: #3159a6; font-size: 7pt; font-weight: 800; letter-spacing: 0.1em; }
 .invoice-print-title strong { font-size: 18pt; }
 .invoice-print-title small { color: #64748b; font-size: 7.5pt; }
 
@@ -5198,7 +5198,7 @@ td small {
 .invoice-print-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 7.5pt; }
 .invoice-print-table thead { display: table-header-group; }
 .invoice-print-table tr { break-inside: avoid; }
-.invoice-print-table th { padding: 2.4mm 1.5mm; background: #3159a6; color: #fff; font-size: 6.5pt; text-align: right; text-transform: uppercase; }
+.invoice-print-table th { padding: 2.2mm 1.2mm; background: #3159a6; color: #fff; font-size: 5.8pt; line-height: 1.25; text-align: right; text-transform: uppercase; }
 .invoice-print-table td { padding: 2.5mm 1.5mm; border-bottom: 1px solid #dbe3ef; text-align: right; vertical-align: top; }
 .invoice-print-table th:nth-child(1), .invoice-print-table td:nth-child(1) { width: 5%; text-align: center; }
 .invoice-print-table th:nth-child(2), .invoice-print-table td:nth-child(2) { width: 10%; text-align: left; }
@@ -5210,7 +5210,7 @@ td small {
 .invoice-print-payment, .invoice-print-totals { border: 1px solid #d4dcea; border-radius: 3mm; padding: 4mm; }
 .invoice-print-payment h3, .invoice-print-tax h3 { margin: 0 0 3mm; color: #3159a6; font-size: 9pt; }
 .invoice-print-payment > p, .invoice-print-totals p { display: flex; justify-content: space-between; gap: 4mm; margin: 0; padding: 1.4mm 0; border-bottom: 1px solid #e5eaf2; font-size: 8pt; }
-.invoice-print-totals .invoice-print-grand-total { margin-top: 2mm; padding: 3mm; border: 0; border-radius: 2mm; background: #3159a6; color: #fff; font-size: 12pt; }
+.invoice-print-totals .invoice-print-grand-total { margin-top: 2mm; padding: 3mm; border: 0; border-radius: 2mm; background: #3159a6; color: #fff; font-size: 10pt; }
 .invoice-print-note { margin-top: 3mm; font-size: 8pt; }
 .invoice-print-note span { color: #64748b; font-weight: 700; }
 .invoice-print-note p { margin: 1mm 0 0; }

@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-08-08. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-08-19. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -54,7 +54,17 @@ je osnova za izvještaje prodaje po artiklima sačuvana i kada je minus dozvolje
 Usluge se ne razdužuju. Pravilo negativnog lagera nasljeđuje firmu ili se u POS
 podešavanjima posebno dozvoljava/blokira za magacin kase. Ako je minus blokiran,
 nedovoljna količina zaustavlja naplatu prije kreiranja i fiskalizacije računa.
+Svaka POS kasa sada ima vidljiv izbor magacina u POS podešavanjima; osvježavanje
+Fiscal API veze više ne mijenja taj izbor. Roba koja prati zalihe zahtijeva
+povezan magacin, dok usluge i artikli bez praćenja zaliha mogu raditi bez njega.
 Jedinstvena veza prometa sa stavkom računa sprječava duplo razduženje pri retry-u.
+
+Magacin sada određuje i režim prodajne cijene. Maloprodajni magacin koristi
+maloprodajnu cijenu sa PDV-om kao konačnu vrijednost i iz nje računa osnovicu i
+PDV unazad; veleprodajni magacin koristi veleprodajnu cijenu bez PDV-a i na nju
+dodaje PDV. POS nije ograničen na jedan režim niti ga određuje način plaćanja.
+Kasa prikazuje artikle i cijene svog magacina, a promjena kase prazni korpu da se
+ne pomiješaju režimi. Postojeći magacini su migracijom ostali maloprodajni.
 
 POS virman se nakon uspješne fiskalizacije pojedinačno priprema za postojeći KIF
 i dobija `DRAFT` nalog po istoj šemi kao obična izlazna faktura. Ako su godina,
@@ -89,8 +99,16 @@ podržava. POS sada ima izvještaj prometa po periodu i kasi sa neto prikazom
 prodaje i storna, načinima plaćanja, PDV rekapitulacijom i prodajom po artiklima,
 kao i zasebnu štampu izvještaja. Fiskalni POS račun ima browser štampu za
 58/80 mm termalni papir, uz QR, IKOF/JIKR, kupca, plaćanja i vezu originala sa
-stornom; postojeća A4 faktura ostaje dostupna. Smjene, reprint audit i lokalni
-POS Agent još nijesu završeni.
+stornom; postojeća A4 faktura ostaje dostupna.
+
+Opcione POS smjene završene su na `/agencija/pos/smjene`. Radnik otvara smjenu
+za konkretnu kasu i evidentira operativnu gotovinu koju je preuzeo. Pri predaji
+kase pravi se nepromjenjiv presjek od otvaranja do tog trenutka: broj računa,
+gotovina, kartice, virmani, ostala plaćanja, ukupan promet i očekivana gotovina
+u kasi. Storna ulaze kao negativni dokumenti. Jedna kasa može imati samo jednu
+otvorenu smjenu, dok novi radnik nakon presjeka otvara novu. Presjek smjene ne
+mijenja dnevni ili mjesečni KIF zbir. Reprint audit i lokalni POS Agent još
+nijesu završeni.
 
 ## Fiskalna integracija — spremna pozadina, portal nije implementiran
 
@@ -317,8 +335,8 @@ je od samodeaktivacije i samostalne rotacije.
   `Završi knjiženje`. Uspješna fiskalizacija odmah čuva PDV rekapitulaciju i
   uklanja oznaku nacrta sa štampe; konačna fiskalna štampa ne zavisi od kasnijeg
   računovodstvenog knjiženja i ulaska u KIF.
-- Izlazna faktura ima odvojenu A4 portrait HTML/CSS štampu bez menija, sa
-  izdavaocem, kupcem, datumima, stavkama, rekapitulacijom PDV-a, podacima za
+- Izlazna faktura ima odvojenu dvojezičnu srpsko-englesku A4 portrait HTML/CSS
+  štampu bez menija, sa izdavaocem, kupcem, datumima, stavkama, rekapitulacijom PDV-a, podacima za
   plaćanje, ukupnim iznosom i jasnim `NACRT` vodenim žigom. Nove fakture čuvaju
   snapshot izdavaoca i kupca. Kada Fiscal API vrati i lokalni račun sačuva
   `qr_code_data`, IKOF i JIKR, štampa generiše QR tačno iz tog zvaničnog URL-a;

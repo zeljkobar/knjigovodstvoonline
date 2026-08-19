@@ -23,15 +23,14 @@ export async function configureDefaultPosRegister() {
   const link = ctx.firma.fiscalCompanyLink;
   if (!link?.fiscal_api_company_id || link.is_suspended) redirect("/agencija/pos/podesavanja?poruka=fiskalizacija");
   const actor = { id: ctx.user.id, name: ctx.user.korisnicko_ime };
-  let company, readiness, units, devices, operators, warehouse;
+  let company, readiness, units, devices, operators;
   try {
-    [company, readiness, units, devices, operators, warehouse] = await Promise.all([
+    [company, readiness, units, devices, operators] = await Promise.all([
       fiscalAdminApi.getCompany(link.fiscal_api_company_id, actor),
       fiscalAdminApi.getReadiness(link.fiscal_api_company_id, actor),
       fiscalAdminApi.listBusinessUnits(link.fiscal_api_company_id, actor),
       fiscalAdminApi.listDevices(link.fiscal_api_company_id, actor),
-      fiscalAdminApi.listOperators(link.fiscal_api_company_id, actor),
-      prisma.magacin.findFirst({ where: { firma_id: ctx.firma.id, aktivan: true, is_deleted: false }, orderBy: { created_at: "asc" }, select: { id: true } })
+      fiscalAdminApi.listOperators(link.fiscal_api_company_id, actor)
     ]);
   } catch (error) {
     const code = error instanceof FiscalAdminApiError ? error.code : "FISCAL_API_UNAVAILABLE";
@@ -50,13 +49,46 @@ export async function configureDefaultPosRegister() {
     }),
     prisma.posRegister.upsert({
       where: { firma_id_sifra: { firma_id: ctx.firma.id, sifra: "KASA-1" } },
-      create: { agencija_id: ctx.user.agencija_id!, firma_id: ctx.firma.id, magacin_id: warehouse?.id, naziv: "Kasa 1", sifra: "KASA-1", fiscal_business_unit_id: unit.id, fiscal_business_unit_name: unit.name, fiscal_device_id: device.id, fiscal_device_code: device.internalCode, fiscal_operator_id: operator.id, created_by: ctx.user.id, updated_by: ctx.user.id },
-      update: { magacin_id: warehouse?.id, fiscal_business_unit_id: unit.id, fiscal_business_unit_name: unit.name, fiscal_device_id: device.id, fiscal_device_code: device.internalCode, fiscal_operator_id: operator.id, aktivan: true, is_deleted: false, updated_by: ctx.user.id }
+      create: { agencija_id: ctx.user.agencija_id!, firma_id: ctx.firma.id, naziv: "Kasa 1", sifra: "KASA-1", fiscal_business_unit_id: unit.id, fiscal_business_unit_name: unit.name, fiscal_device_id: device.id, fiscal_device_code: device.internalCode, fiscal_operator_id: operator.id, created_by: ctx.user.id, updated_by: ctx.user.id },
+      update: { fiscal_business_unit_id: unit.id, fiscal_business_unit_name: unit.name, fiscal_device_id: device.id, fiscal_device_code: device.internalCode, fiscal_operator_id: operator.id, aktivan: true, is_deleted: false, updated_by: ctx.user.id }
     })
   ]);
   await auditLog({ korisnikId: ctx.user.id, agencijaId: ctx.user.agencija_id, firmaId: ctx.firma.id, modul: posModule, akcija: "configure_pos_register", tipEntiteta: "PosRegister", novaVrijednost: { sifra: "KASA-1", environment: company.data.environment, device: device.internalCode } });
   revalidatePath("/agencija/pos");
   redirect("/agencija/pos/podesavanja?poruka=sacuvano");
+}
+
+export async function updatePosRegisterWarehouse(formData: FormData) {
+  const ctx = await requirePosContext("manage");
+  const registerId = text(formData, "register_id");
+  const warehouseId = text(formData, "magacin_id") || null;
+  const [register, warehouse] = await Promise.all([
+    prisma.posRegister.findFirst({
+      where: { id: registerId, agencija_id: ctx.user.agencija_id!, firma_id: ctx.firma.id, is_deleted: false },
+      select: { id: true, magacin_id: true }
+    }),
+    warehouseId ? prisma.magacin.findFirst({
+      where: { id: warehouseId, agencija_id: ctx.user.agencija_id!, firma_id: ctx.firma.id, aktivan: true, is_deleted: false },
+      select: { id: true, naziv: true }
+    }) : null
+  ]);
+  if (!register || (warehouseId && !warehouse)) redirect("/agencija/pos/podesavanja?poruka=lager_magacin");
+
+  await prisma.posRegister.update({ where: { id: register.id }, data: { magacin_id: warehouse?.id ?? null, updated_by: ctx.user.id } });
+  await auditLog({
+    korisnikId: ctx.user.id,
+    agencijaId: ctx.user.agencija_id,
+    firmaId: ctx.firma.id,
+    modul: posModule,
+    akcija: "update_pos_register_warehouse",
+    tipEntiteta: "PosRegister",
+    entitetId: register.id,
+    staraVrijednost: { magacin_id: register.magacin_id },
+    novaVrijednost: { magacin_id: warehouse?.id ?? null, magacin: warehouse?.naziv ?? null }
+  });
+  revalidatePath("/agencija/pos");
+  revalidatePath("/agencija/pos/podesavanja");
+  redirect("/agencija/pos/podesavanja?poruka=magacin_sacuvan");
 }
 
 export async function updatePosAccountingIntegration(formData: FormData) {

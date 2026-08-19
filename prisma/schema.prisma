@@ -81,6 +81,7 @@ model Agencija {
   posPodesavanja             PosPodesavanje[]
   posKifBatches              PosKifBatch[]
   posAccountingBatches       PosAccountingBatch[]
+  posSmjene                  PosSmjena[]
 
   @@map("agencije")
 }
@@ -110,6 +111,8 @@ model Korisnik {
   prava               KorisnikPravo[]
   aktivnosti          AktivnostDogadjaj[]
   obnovljenePretplate AgencijaPretplata[] @relation("PretplatuObnovio")
+  otvorenePosSmjene    PosSmjena[]          @relation("PosSmjenuOtvorio")
+  zatvorenePosSmjene   PosSmjena[]          @relation("PosSmjenuZatvorio")
 
   @@map("korisnici")
 }
@@ -204,6 +207,7 @@ model Firma {
   posKifBatches                 PosKifBatch[]
   posAccountingBatches          PosAccountingBatch[]
   posPodesavanje                PosPodesavanje?
+  posSmjene                     PosSmjena[]
 
   @@unique([agencija_id, pib])
   @@map("firme")
@@ -426,6 +430,7 @@ model PoslovnaGodina {
   fiskalniIzlazniRacuni         FiskalniIzlazniRacun[]
   posKifBatches                 PosKifBatch[]
   posAccountingBatches          PosAccountingBatch[]
+  posSmjene                     PosSmjena[]
   pdvPeriodi                    PdvPeriod[]
   pdvPrijave                    PdvPrijava[]
   pdvPodesavanja                PdvPodesavanja[]
@@ -784,6 +789,7 @@ model Magacin {
   firma                   Firma                  @relation(fields: [firma_id], references: [id])
   sifra                   String
   naziv                   String
+  tip_prodaje             String                 @default("RETAIL")
   dozvoli_negativan_lager Boolean?
   aktivan                 Boolean                @default(true)
   napomena                String?
@@ -1410,10 +1416,45 @@ model PosRegister {
   updated_at                  DateTime               @updatedAt
   updated_by                  String?                @db.Uuid
   racuni                      FiskalniIzlazniRacun[]
+  smjene                      PosSmjena[]
 
   @@unique([firma_id, sifra])
   @@index([agencija_id, firma_id, aktivan])
   @@map("pos_registers")
+}
+
+model PosSmjena {
+  id                   String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id          String         @db.Uuid
+  agencija             Agencija       @relation(fields: [agencija_id], references: [id])
+  firma_id             String         @db.Uuid
+  firma                Firma          @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id   String         @db.Uuid
+  poslovna_godina      PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  pos_register_id      String         @db.Uuid
+  pos_register         PosRegister    @relation(fields: [pos_register_id], references: [id])
+  status               String         @default("OPEN")
+  opened_at            DateTime       @default(now())
+  opened_by            String         @db.Uuid
+  opened_by_user       Korisnik       @relation("PosSmjenuOtvorio", fields: [opened_by], references: [id])
+  opening_cash_amount  Decimal        @default(0) @db.Decimal(14, 2)
+  closed_at            DateTime?
+  closed_by            String?        @db.Uuid
+  closed_by_user       Korisnik?      @relation("PosSmjenuZatvorio", fields: [closed_by], references: [id])
+  invoice_count        Int            @default(0)
+  cash_total           Decimal        @default(0) @db.Decimal(14, 2)
+  card_total           Decimal        @default(0) @db.Decimal(14, 2)
+  bank_transfer_total  Decimal        @default(0) @db.Decimal(14, 2)
+  other_total          Decimal        @default(0) @db.Decimal(14, 2)
+  gross_total          Decimal        @default(0) @db.Decimal(14, 2)
+  expected_cash_amount Decimal        @default(0) @db.Decimal(14, 2)
+  note                 String?
+  created_at           DateTime       @default(now())
+  updated_at           DateTime       @updatedAt
+
+  @@index([agencija_id, firma_id, poslovna_godina_id, opened_at])
+  @@index([pos_register_id, status])
+  @@map("pos_smjene")
 }
 
 model PosPodesavanje {

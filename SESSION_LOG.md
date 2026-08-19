@@ -3,6 +3,16 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-08-17
+- Dodate su opcione POS smjene kao jednostavan presjek pri predaji kase. Radnik
+  otvara smjenu sa iznosom preuzete gotovine, a zatvaranje trajno čuva promet
+  po načinima plaćanja, broj računa, ukupan promet i očekivanu gotovinu.
+- Jedna kasa može imati samo jednu otvorenu smjenu. Sve akcije imaju backend
+  provjeru tenant/firma/godina scope-a i audit, a presjek ne mijenja postojeći
+  dnevni ili mjesečni KIF zbir.
+- Produkcijski početni depozit nije lažno povezan na testni endpoint: čeka
+  odgovarajuću produkcijsku rutu i ugovor u Summa Fiscal API-ju.
+
 ## 2026-08-09
 - Implementirana je zbirna dnevna ili mjesečna POS obrada gotovine i kartica.
   Obrada idempotentno kreira jedan zbirni `PAZAR` u otvorenom KIF-u, vezuje svaki
@@ -847,3 +857,32 @@
   podatke. Bez nje aplikacija zadržava postojeći serverski fallback i ručni unos.
 - Dodato je lokalno uputstvo za instalaciju. JavaScript provjere i
   `npx tsc --noEmit` prolaze; ostaje ručni QA nad aktuelnim IRMS DOM-om.
+
+## 2026-08-17 — Dvojezična A4 izlazna faktura
+
+- Postojeća A4 štampa izlazne fakture dopunjena je engleskim prevodima svih
+  važnih naslova, kolona, datuma, načina plaćanja, iznosa, PDV rekapitulacije,
+  fiskalnog statusa i napomena.
+- Poslovni i fiskalni podaci, QR sadržaj, iznosi i logika knjiženja nijesu
+  mijenjani; izmjena važi i za POS dokument kada se otvara njegova A4 faktura.
+
+## 2026-08-19 — Povezivanje POS kase i magacina
+
+- POS podešavanja sada imaju vidljiv izbor magacina za svaku kasu; osvježavanje
+  fiskalne veze više ne mijenja ručno izabrani magacin.
+- Prodaja robe koja prati zalihe prije poziva Fiscal API-ja provjerava da kasa
+  ima magacin i, kada je negativan lager blokiran, da postoji dovoljna količina.
+- Usluge i artikli bez praćenja zaliha mogu se prodavati bez magacina; kada je
+  minus dozvoljen, promet i stanje se i dalje evidentiraju radi izvještaja.
+
+## 2026-08-19 — Maloprodajni i veleprodajni POS magacini
+
+- Magacin je dobio eksplicitni tip `RETAIL` ili `WHOLESALE`; postojeći zapisi
+  ostaju maloprodajni, a izbor se uređuje u šifarniku magacina.
+- POS kasa koristi cjenovnik povezanog magacina nezavisno od načina plaćanja.
+  Maloprodajna cijena sa PDV-om je konačna i osnovica se računa unazad, dok
+  veleprodaja polazi od cijene bez PDV-a i dodaje porez.
+- Promjena kase prazni lokalnu korpu i učitava samo artikle/cijene tog magacina.
+  Time je otklonjeno centovno odstupanje kod artikla 2,10 EUR i većih količina.
+- Primijenjena je migracija `20260819120000_magacin_tip_prodaje`, regenerisan je
+  Prisma Client i `npx tsc --noEmit` prolazi.

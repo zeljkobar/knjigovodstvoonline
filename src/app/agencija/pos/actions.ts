@@ -5,9 +5,10 @@ import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { auditLog } from "@/lib/audit";
 import { fiscalAdminApi, FiscalAdminApiError } from "@/lib/fiscal-admin-api";
-import { calculateOutgoingInvoiceLine } from "@/lib/outgoing-invoice";
-import { scaledToDecimal } from "@/lib/inventory-calculation";
+import { calculateOutgoingInvoiceLine, calculateOutgoingInvoiceLineFromGross } from "@/lib/outgoing-invoice";
+import { decimalToScaled, scaledToDecimal } from "@/lib/inventory-calculation";
 import { posModule, requirePosContext } from "@/lib/pos";
+import { normalizeWarehouseSalesType, selectPosPrice, warehouseSalesTypes } from "@/lib/pos-pricing";
 import { finalizePosTransferAccounting } from "@/lib/pos-transfer-accounting";
 import { applyPosInventoryMovement, applyPosReturnInventoryMovement } from "@/lib/pos-inventory";
 import { prisma } from "@/lib/prisma";
@@ -16,6 +17,41 @@ type PosLine = { itemId?: string; quantity?: number };
 const paymentTypes: Record<string, string> = { CASH: "Cash", CARD: "Card", BANK_TRANSFER: "BankAccount", OTHER: "Other" };
 function input(formData: FormData, key: string) { return String(formData.get(key) ?? "").trim(); }
 function apiNumber(value: { toString(): string }) { return Number(value.toString()); }
+
+async function validatePosStockBeforeFiscalization(input: {
+  agencijaId: string;
+  firmaId: string;
+  poslovnaGodinaId: string;
+  magacinId: string | null;
+  allowNegativeStock: boolean;
+  lines: Array<{ artikalId: string; naziv: string; quantity: { toString(): string }; tracksStock: boolean }>;
+}) {
+  const requested = new Map<string, { naziv: string; quantity: bigint }>();
+  for (const line of input.lines) {
+    if (!line.tracksStock) continue;
+    const previous = requested.get(line.artikalId);
+    requested.set(line.artikalId, {
+      naziv: line.naziv,
+      quantity: (previous?.quantity ?? BigInt(0)) + decimalToScaled(line.quantity, 3)
+    });
+  }
+  if (!requested.size) return null;
+  if (!input.magacinId) return "magacin";
+  if (input.allowNegativeStock) return null;
+
+  const stock = await prisma.stanjeZaliha.findMany({
+    where: {
+      agencija_id: input.agencijaId,
+      firma_id: input.firmaId,
+      poslovna_godina_id: input.poslovnaGodinaId,
+      magacin_id: input.magacinId,
+      artikal_id: { in: [...requested.keys()] }
+    },
+    select: { artikal_id: true, kolicina: true }
+  });
+  const available = new Map(stock.map((row) => [row.artikal_id, decimalToScaled(row.kolicina, 3)]));
+  return [...requested.entries()].some(([artikalId, value]) => (available.get(artikalId) ?? BigInt(0)) < value.quantity) ? "lager" : null;
+}
 
 async function finishTransferAccounting(input: { invoiceId: string; paymentMethod: string; enabled: boolean; ctx: Awaited<ReturnType<typeof requirePosContext>> }) {
   if (!input.enabled || input.paymentMethod !== "BANK_TRANSFER") return null;
@@ -38,10 +74,10 @@ export async function createAndFiscalizePosSale(formData: FormData) {
 
   const [settings, register, items, selectedBuyer, bankAccount] = await Promise.all([
     prisma.posPodesavanje.findUnique({ where: { firma_id: ctx.firma.id } }),
-    prisma.posRegister.findFirst({ where: { id: registerId, agencija_id: ctx.user.agencija_id!, firma_id: ctx.firma.id, aktivan: true, is_deleted: false }, include: { magacin: { select: { dozvoli_negativan_lager: true } } } }),
+    prisma.posRegister.findFirst({ where: { id: registerId, agencija_id: ctx.user.agencija_id!, firma_id: ctx.firma.id, aktivan: true, is_deleted: false }, include: { magacin: { select: { dozvoli_negativan_lager: true, tip_prodaje: true } } } }),
     prisma.artikal.findMany({
       where: { id: { in: clean.map((line) => line.itemId!) }, agencija_id: ctx.user.agencija_id!, firma_id: ctx.firma.id, aktivan: true, is_deleted: false },
-      include: { jedinica_mjere: true, pdv_stopa: true, cijene: { where: { aktivna: true, is_deleted: false, tip: { in: ["RETAIL", "MALOPRODAJNA"] }, OR: [{ vazi_od: null }, { vazi_od: { lte: new Date() } }], AND: [{ OR: [{ vazi_do: null }, { vazi_do: { gte: new Date() } }] }] }, orderBy: [{ vazi_od: "desc" }, { created_at: "desc" }] } }
+      include: { jedinica_mjere: true, pdv_stopa: true, cijene: { where: { aktivna: true, is_deleted: false, tip: { in: ["RETAIL", "MALOPRODAJNA", "WHOLESALE", "VELEPRODAJNA"] }, OR: [{ vazi_od: null }, { vazi_od: { lte: new Date() } }], AND: [{ OR: [{ vazi_do: null }, { vazi_do: { gte: new Date() } }] }] }, orderBy: [{ vazi_od: "desc" }, { created_at: "desc" }] } }
     }),
     buyerId ? prisma.komitent.findFirst({
       where: { id: buyerId, aktivan: true, OR: [{ scope: "GLOBAL" }, { scope: "AGENCY", agencija_id: ctx.user.agencija_id! }, { scope: "COMPANY", firma_id: ctx.firma.id }] },
@@ -52,16 +88,33 @@ export async function createAndFiscalizePosSale(formData: FormData) {
   if (!settings?.aktivan || !register || !ctx.firma.fiscalCompanyLink?.fiscal_api_company_id || ctx.firma.fiscalCompanyLink.is_suspended) redirect("/agencija/pos?poruka=podesavanje");
   if ((buyerId && !selectedBuyer) || (paymentMethod === "BANK_TRANSFER" && !selectedBuyer)) redirect("/agencija/pos?poruka=kupac");
   const byId = new Map(items.map((item) => [item.id, item]));
+  const warehouseType = normalizeWarehouseSalesType(register.magacin?.tip_prodaje);
   const rows: Prisma.StavkaIzlazneFaktureCreateManyInput[] = [];
   let discount = BigInt(0), base = BigInt(0), vat = BigInt(0), total = BigInt(0);
   for (let index = 0; index < clean.length; index += 1) {
-    const source = clean[index]; const item = byId.get(source.itemId!); const price = item?.cijene.find((candidate) => !candidate.magacin_id || candidate.magacin_id === register.magacin_id);
+    const source = clean[index]; const item = byId.get(source.itemId!); const price = item ? selectPosPrice(item.cijene, register.magacin_id, warehouseType) : null;
     if (!item?.pdv_stopa || !price) redirect("/agencija/pos?poruka=cijena");
-    const calculated = calculateOutgoingInvoiceLine({ quantity: String(source.quantity), netUnitPrice: price.cijena_bez_pdv.toString(), discountPercent: "0", vatPercent: ctx.firma.pdv_obveznik ? item.pdv_stopa.procenat.toString() : "0" });
+    const vatPercent = ctx.firma.pdv_obveznik ? item.pdv_stopa.procenat.toString() : "0";
+    const calculated = warehouseType === warehouseSalesTypes.retail
+      ? calculateOutgoingInvoiceLineFromGross({ quantity: String(source.quantity), grossUnitPrice: price.cijena_sa_pdv.toString(), discountPercent: "0", vatPercent })
+      : calculateOutgoingInvoiceLine({ quantity: String(source.quantity), netUnitPrice: price.cijena_bez_pdv.toString(), discountPercent: "0", vatPercent });
     if (!calculated) redirect("/agencija/pos?poruka=iznos");
     discount += calculated.discountCents; base += calculated.baseCents; vat += calculated.vatCents; total += calculated.totalCents;
     rows.push({ izlazna_faktura_id: "00000000-0000-0000-0000-000000000000", redni_broj: index + 1, artikal_id: item.id, sifra_artikla: item.sifra, naziv_artikla: item.naziv, jedinica_mjere: item.jedinica_mjere.oznaka, usluga: item.usluga, kolicina: calculated.quantity, jedinicna_cijena_bez_pdv: calculated.unitNet, rabat_procenat: calculated.discountPercent, rabat_iznos: calculated.discount, osnovica: calculated.base, pdv_stopa_id: item.pdv_stopa.id, pdv_stopa_sifra: item.pdv_stopa.sifra, pdv_stopa_naziv: item.pdv_stopa.naziv, pdv_stopa_procenat: ctx.firma.pdv_obveznik ? item.pdv_stopa.procenat : 0, pdv_iznos: calculated.vat, jedinicna_cijena_sa_pdv: calculated.unitGross, ukupno_sa_pdv: calculated.total, created_by: ctx.user.id, updated_by: ctx.user.id });
   }
+
+  const stockError = await validatePosStockBeforeFiscalization({
+    agencijaId: ctx.user.agencija_id!,
+    firmaId: ctx.firma.id,
+    poslovnaGodinaId: ctx.year.id,
+    magacinId: register.magacin_id,
+    allowNegativeStock: register.magacin?.dozvoli_negativan_lager ?? ctx.firma.dozvoli_negativan_lager,
+    lines: rows.map((row) => {
+      const item = byId.get(row.artikal_id!);
+      return { artikalId: row.artikal_id!, naziv: row.naziv_artikla, quantity: row.kolicina, tracksStock: Boolean(item && !item.usluga && item.prati_zalihe) };
+    })
+  });
+  if (stockError) redirect(`/agencija/pos?poruka=${stockError}`);
 
   const now = new Date(); const day = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const dueDate = new Date(day); if (paymentMethod === "BANK_TRANSFER") dueDate.setUTCDate(dueDate.getUTCDate() + 7);

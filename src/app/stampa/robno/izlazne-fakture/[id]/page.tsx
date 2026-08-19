@@ -20,7 +20,12 @@ function date(value: Date | null) {
   return value?.toLocaleDateString("sr-Latn-ME") ?? "-";
 }
 
-const paymentLabels: Record<string, string> = { BANK_TRANSFER: "Virman", CASH: "Gotovina", CARD: "Kartica", OTHER: "Drugo" };
+const paymentLabels: Record<string, string> = {
+  BANK_TRANSFER: "Virman / Bank transfer",
+  CASH: "Gotovina / Cash",
+  CARD: "Kartica / Card",
+  OTHER: "Drugo / Other"
+};
 
 export default async function OutgoingInvoicePrintPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
@@ -71,45 +76,45 @@ export default async function OutgoingInvoicePrintPage({ params }: { params: Pro
 
   return <main className="print-page invoice-print-page">
     <div className="print-toolbar">
-      <Link className="print-button print-back-button" href={invoice.sales_channel === "POS" ? "/agencija/pos/racuni" : `/agencija/robno/izlazne-fakture/${invoice.id}`}>Nazad</Link>
-      <PrintButton label="Štampaj fakturu" />
+      <Link className="print-button print-back-button" href={invoice.sales_channel === "POS" ? "/agencija/pos/racuni" : `/agencija/robno/izlazne-fakture/${invoice.id}`}>Nazad / Back</Link>
+      <PrintButton label="Štampaj fakturu / Print invoice" />
     </div>
     <article className="invoice-print-document">
-      {invoice.status === "DRAFT" && !fiscalized ? <div className="invoice-print-watermark">NACRT</div> : null}
+      {invoice.status === "DRAFT" && !fiscalized ? <div className="invoice-print-watermark">NACRT / DRAFT</div> : null}
       <header className="invoice-print-header">
-        <div className="invoice-print-brand"><div className="invoice-print-monogram">{(issuer.skraceniNaziv ?? issuer.naziv ?? "SS").slice(0, 2).toUpperCase()}</div><div><h1>{issuer.naziv}</h1><p>{[issuer.adresa, issuer.grad, issuer.drzava].filter(Boolean).join(", ")}</p><p>PIB: {issuer.pib ?? "-"}{issuer.pdvBroj ? ` · PDV: ${issuer.pdvBroj}` : ""}</p></div></div>
-        <div className="invoice-print-title"><span>IZLAZNA FAKTURA</span><strong>{invoiceNumber}</strong><small>Poslovna oznaka: {invoice.interni_broj}</small></div>
+        <div className="invoice-print-brand"><div className="invoice-print-monogram">{(issuer.skraceniNaziv ?? issuer.naziv ?? "SS").slice(0, 2).toUpperCase()}</div><div><h1>{issuer.naziv}</h1><p>{[issuer.adresa, issuer.grad, issuer.drzava].filter(Boolean).join(", ")}</p><p>PIB / Tax ID: {issuer.pib ?? "-"}{issuer.pdvBroj ? ` · PDV / VAT: ${issuer.pdvBroj}` : ""}</p></div></div>
+        <div className="invoice-print-title"><span>IZLAZNA FAKTURA / SALES INVOICE</span><strong>{invoiceNumber}</strong><small>Poslovna oznaka / Internal reference: {invoice.interni_broj}</small></div>
       </header>
 
       <section className="invoice-print-parties">
-        <div><span>IZDAVALAC</span><h2>{issuer.naziv}</h2><p>{[issuer.adresa, issuer.grad].filter(Boolean).join(", ")}</p><p>PIB: {issuer.pib ?? "-"}</p>{issuer.telefon || issuer.email ? <p>{[issuer.telefon, issuer.email].filter(Boolean).join(" · ")}</p> : null}</div>
-        <div><span>KUPAC</span><h2>{buyer.naziv}</h2><p>{[buyer.adresa, buyer.grad, buyer.drzava].filter(Boolean).join(", ")}</p><p>PIB: {buyer.pib ?? "-"}{buyer.pdvBroj ? ` · PDV: ${buyer.pdvBroj}` : ""}</p>{buyer.email ? <p>{buyer.email}</p> : null}</div>
+        <div><span>IZDAVALAC / SUPPLIER</span><h2>{issuer.naziv}</h2><p>{[issuer.adresa, issuer.grad].filter(Boolean).join(", ")}</p><p>PIB / Tax ID: {issuer.pib ?? "-"}</p>{issuer.telefon || issuer.email ? <p>{[issuer.telefon, issuer.email].filter(Boolean).join(" · ")}</p> : null}</div>
+        <div><span>KUPAC / CUSTOMER</span><h2>{buyer.naziv}</h2><p>{[buyer.adresa, buyer.grad, buyer.drzava].filter(Boolean).join(", ")}</p><p>PIB / Tax ID: {buyer.pib ?? "-"}{buyer.pdvBroj ? ` · PDV / VAT: ${buyer.pdvBroj}` : ""}</p>{buyer.email ? <p>{buyer.email}</p> : null}</div>
       </section>
 
       <section className="invoice-print-meta">
-        <div><span>Datum računa</span><strong>{date(invoice.datum_racuna)}</strong></div>
-        <div><span>Datum prometa</span><strong>{date(invoice.datum_prometa)}</strong></div>
-        <div><span>Rok plaćanja</span><strong>{date(invoice.datum_valute)}</strong></div>
-        <div><span>Način plaćanja</span><strong>{paymentLabels[invoice.nacin_placanja] ?? invoice.nacin_placanja}</strong></div>
+        <div><span>Datum računa / Invoice date</span><strong>{date(invoice.datum_racuna)}</strong></div>
+        <div><span>Datum prometa / Supply date</span><strong>{date(invoice.datum_prometa)}</strong></div>
+        <div><span>Rok plaćanja / Due date</span><strong>{date(invoice.datum_valute)}</strong></div>
+        <div><span>Način plaćanja / Payment</span><strong>{paymentLabels[invoice.nacin_placanja] ?? invoice.nacin_placanja}</strong></div>
       </section>
 
-      <table className="invoice-print-table"><thead><tr><th>#</th><th>Šifra</th><th>Opis robe / usluge</th><th>JM</th><th>Količina</th><th>Cijena bez PDV</th><th>Rabat</th><th>PDV</th><th>Ukupno</th></tr></thead><tbody>
+      <table className="invoice-print-table"><thead><tr><th>#</th><th>Šifra<br />Code</th><th>Opis robe / usluge<br />Description</th><th>JM<br />Unit</th><th>Količina<br />Qty</th><th>Cijena bez PDV<br />Price excl. VAT</th><th>Rabat<br />Discount</th><th>PDV<br />VAT</th><th>Ukupno<br />Total</th></tr></thead><tbody>
         {invoice.stavke.map((line) => <tr key={line.id}><td>{line.redni_broj}</td><td>{line.sifra_artikla}</td><td><strong>{line.naziv_artikla}</strong>{line.napomena ? <small>{line.napomena}</small> : null}</td><td>{line.jedinica_mjere}</td><td>{money(line.kolicina, 3)}</td><td>{money(line.jedinicna_cijena_bez_pdv, 4)}</td><td>{money(line.rabat_procenat)}%</td><td>{money(line.pdv_stopa_procenat)}%</td><td><strong>{money(line.ukupno_sa_pdv)}</strong></td></tr>)}
       </tbody></table>
 
       <section className="invoice-print-bottom">
-        <div className="invoice-print-payment"><h3>Podaci za plaćanje</h3><p><span>Banka</span><strong>{issuer.banka ?? "-"}</strong></p><p><span>Žiro račun</span><strong>{issuer.ziroRacun ?? "-"}</strong></p><p><span>Poziv / opis</span><strong>{invoiceNumber}</strong></p>{invoice.napomena ? <div className="invoice-print-note"><span>Napomena</span><p>{invoice.napomena}</p></div> : null}</div>
-        <div className="invoice-print-totals"><p><span>Osnovica</span><strong>{money(invoice.ukupno_osnovica)} €</strong></p><p><span>Rabat</span><strong>{money(invoice.ukupno_rabat)} €</strong></p><p><span>PDV</span><strong>{money(invoice.ukupno_izlazni_pdv)} €</strong></p><p className="invoice-print-grand-total"><span>ZA PLAĆANJE</span><strong>{money(invoice.ukupno_sa_pdv)} €</strong></p></div>
+        <div className="invoice-print-payment"><h3>Podaci za plaćanje / Payment details</h3><p><span>Banka / Bank</span><strong>{issuer.banka ?? "-"}</strong></p><p><span>Žiro račun / Bank account</span><strong>{issuer.ziroRacun ?? "-"}</strong></p><p><span>Poziv / opis / Reference</span><strong>{invoiceNumber}</strong></p>{invoice.napomena ? <div className="invoice-print-note"><span>Napomena / Note</span><p>{invoice.napomena}</p></div> : null}</div>
+        <div className="invoice-print-totals"><p><span>Osnovica / Net</span><strong>{money(invoice.ukupno_osnovica)} €</strong></p><p><span>Rabat / Discount</span><strong>{money(invoice.ukupno_rabat)} €</strong></p><p><span>PDV / VAT</span><strong>{money(invoice.ukupno_izlazni_pdv)} €</strong></p><p className="invoice-print-grand-total"><span>ZA PLAĆANJE / AMOUNT DUE</span><strong>{money(invoice.ukupno_sa_pdv)} €</strong></p></div>
       </section>
 
-      <section className="invoice-print-tax"><h3>Rekapitulacija PDV-a</h3><table><thead><tr><th>Stopa</th><th>Osnovica</th><th>PDV</th><th>Ukupno</th></tr></thead><tbody>{taxRows.map((tax) => <tr key={tax.id}><td>{money(tax.vat_rate_percent)}%</td><td>{money(tax.tax_base)} €</td><td>{money(tax.output_vat_amount)} €</td><td>{money(tax.total_with_vat)} €</td></tr>)}</tbody></table></section>
+      <section className="invoice-print-tax"><h3>Rekapitulacija PDV-a / VAT summary</h3><table><thead><tr><th>Stopa / Rate</th><th>Osnovica / Tax base</th><th>PDV / VAT</th><th>Ukupno / Total</th></tr></thead><tbody>{taxRows.map((tax) => <tr key={tax.id}><td>{money(tax.vat_rate_percent)}%</td><td>{money(tax.tax_base)} €</td><td>{money(tax.output_vat_amount)} €</td><td>{money(tax.total_with_vat)} €</td></tr>)}</tbody></table></section>
 
       <section className={`invoice-print-fiscal ${fiscalized ? "is-fiscalized" : ""}`}>
         {qrDataUrl ? <Image unoptimized width={240} height={240} src={qrDataUrl} alt="QR kod za provjeru fiskalnog računa" /> : null}
-        <div><span>FISKALNI STATUS</span><h3>{fiscalized ? "Fiskalizovan račun" : invoice.fiskalizacija_rezim === "SUMMA" ? "Račun još nije fiskalizovan" : "Fiskalizacija se ne vrši kroz Summa sistem"}</h3>{fiscalized ? <><p><strong>IKOF:</strong> {invoice.iic}</p><p><strong>JIKR:</strong> {invoice.jikr}</p><p className="invoice-print-qr-url">QR vodi na zvaničnu provjeru Poreske uprave.</p></> : <p>Fiskalni QR se prikazuje tek nakon uspješne fiskalizacije i dobijenog zvaničnog QR podatka.</p>}</div>
+        <div><span>FISKALNI STATUS / FISCAL STATUS</span><h3>{fiscalized ? "Fiskalizovan račun / Fiscalized invoice" : invoice.fiskalizacija_rezim === "SUMMA" ? "Račun još nije fiskalizovan / Invoice not yet fiscalized" : "Fiskalizacija se ne vrši kroz Summa sistem / Fiscalization is handled externally"}</h3>{fiscalized ? <><p><strong>IKOF:</strong> {invoice.iic}</p><p><strong>JIKR:</strong> {invoice.jikr}</p><p className="invoice-print-qr-url">QR vodi na zvaničnu provjeru Poreske uprave. / The QR code opens the official Tax Administration verification.</p></> : <p>Fiskalni QR se prikazuje tek nakon uspješne fiskalizacije. / The fiscal QR code is shown after successful fiscalization.</p>}</div>
       </section>
 
-      <footer className="invoice-print-footer"><span>Dokument je generisan elektronski.</span><span>{issuer.webSajt ?? issuer.email ?? ""}</span></footer>
+      <footer className="invoice-print-footer"><span>Dokument je generisan elektronski. / This document was generated electronically.</span><span>{issuer.webSajt ?? issuer.email ?? ""}</span></footer>
     </article>
   </main>;
 }
