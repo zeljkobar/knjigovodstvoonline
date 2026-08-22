@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 import { hasPermission } from "@/lib/permissions";
@@ -50,6 +50,13 @@ export async function GET(request: Request) {
 
   if (!user || !["admin_agencije", "korisnik_agencije", "klijent"].includes(user.rola)) {
     return NextResponse.json({ message: "Niste prijavljeni." }, { status: 401 });
+  }
+
+  if (isDirectFiscalTenantUser(user)) {
+    return NextResponse.json(
+      { message: "Portal pretraga kupaca još nije aktivirana." },
+      { status: 403 }
+    );
   }
 
   const workContext = await readWorkContext();

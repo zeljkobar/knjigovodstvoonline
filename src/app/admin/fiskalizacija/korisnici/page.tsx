@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { createFiscalClient } from "../actions";
+import { approveFiscalCompanyAgencyTransfer, createFiscalClient, rejectFiscalCompanyAgencyTransfer } from "../actions";
+import { FiscalClientActivationForm } from "@/components/FiscalClientActivationForm";
 
 type Props = { searchParams?: Promise<{ poruka?: string }> };
 
@@ -9,11 +10,14 @@ const messages: Record<string, string> = {
   PRISTUP_OBAVEZNA_POLJA: "Za pristup klijenta unesite i korisničko ime i e-mail.",
   AGENCIJA_NIJE_PRONADJENA: "Izabrana agencija nije pronađena.",
   KLIJENT_GRESKA: "Fiskalni klijent nije kreiran. Provjerite PIB, korisničko ime i e-mail."
+  ,TRANSFER_ODOBREN: "Firma je povezana sa knjigovodstvenom agencijom bez promjene fiskalizacije.",
+  TRANSFER_ODBIJEN: "Zahtjev za povezivanje je odbijen.",
+  TRANSFER_GRESKA: "Zahtjev nije obrađen. Provjerite njegov status i podatke."
 };
 
 export default async function FiscalClientsPage({ searchParams }: Props) {
   const query = await searchParams;
-  const [agencies, companies] = await Promise.all([
+  const [agencies, companies, availableCompanies, transferRequests] = await Promise.all([
     prisma.agencija.findMany({
       where: { aktivan: true, is_deleted: false, is_fiscal_direct_container: false },
       orderBy: { naziv: "asc" },
@@ -32,6 +36,16 @@ export default async function FiscalClientsPage({ searchParams }: Props) {
           take: 1
         }
       }
+    }),
+    prisma.firma.findMany({
+      where: { aktivan: true, is_deleted: false, fiscalCompanyLink: null, agencija: { is_fiscal_direct_container: false } },
+      orderBy: [{ agencija: { naziv: "asc" } }, { naziv: "asc" }],
+      select: { id: true, agencija_id: true, naziv: true, pib: true }
+    }),
+    prisma.firmaAgencyTransferRequest.findMany({
+      where: { status: "PENDING" },
+      orderBy: { requested_at: "asc" },
+      include: { firma: { select: { naziv: true, pib: true } } }
     })
   ]);
   const message = query?.poruka ? messages[query.poruka] ?? query.poruka : null;
@@ -50,21 +64,16 @@ export default async function FiscalClientsPage({ searchParams }: Props) {
     <section className="admin-form-section">
       <h3>Novi fiskalni klijent</h3>
       <p>Za klijenta agencije račune mogu praviti agencija i klijent. Kod direktnog klijenta račune pravi samo klijent i njegovi korisnici.</p>
-      <form className="admin-form" action={createFiscalClient}>
-        <label><span>Način saradnje</span><select name="client_type" required><option value="AGENCY">Klijent knjigovodstvene agencije</option><option value="DIRECT">Direktni klijent — bez agencije</option></select></label>
-        <label><span>Agencija (samo ako ga vodi naša agencija)</span><select name="agencija_id"><option value="">Bez agencije / izaberi agenciju</option>{agencies.map((agency) => <option key={agency.id} value={agency.id}>{agency.naziv}{agency.pib ? ` — ${agency.pib}` : ""}</option>)}</select></label>
-        <label><span>Puni naziv firme</span><input name="naziv" required /></label>
-        <label><span>Skraćeni naziv</span><input name="skraceni_naziv" /></label>
-        <label><span>PIB</span><input name="pib" inputMode="numeric" required /></label>
-        <label><span>Adresa</span><input name="adresa" /></label>
-        <label><span>Grad</span><input name="grad" /></label>
-        <label><span><input name="pdv_obveznik" type="checkbox" value="true" /> PDV obveznik</span></label>
-        <div><strong>Pristup vlasnika firme (opciono)</strong><small>Ako popuniš oba polja, klijent dobija pozivnicu i pristup samo svojoj firmi.</small></div>
-        <label><span>Korisničko ime klijenta</span><input name="korisnicko_ime" /></label>
-        <label><span>E-mail klijenta</span><input name="email" type="email" /></label>
-        <button type="submit">Dodaj fiskalnog klijenta</button>
-      </form>
+      <FiscalClientActivationForm action={createFiscalClient} agencies={agencies} companies={availableCompanies.map((company) => ({ id: company.id, agencijaId: company.agencija_id, naziv: company.naziv, pib: company.pib }))} />
     </section>
+
+    {transferRequests.length ? <section className="admin-panel">
+      <div className="panel-header"><h3>Zahtjevi za povezivanje sa agencijom</h3><span>{transferRequests.length}</span></div>
+      <div className="table-wrap"><table><thead><tr><th>Firma</th><th>Datum početka</th><th>Ciljna agencija</th><th>Akcija</th></tr></thead><tbody>{transferRequests.map((request) => {
+        const agency = agencies.find((item) => item.id === request.target_agencija_id);
+        return <tr key={request.id}><td><strong>{request.firma.naziv}</strong><small>PIB {request.firma.pib ?? "—"}</small></td><td>{request.accounting_start_date.toLocaleDateString("sr-Latn-ME")}</td><td>{agency?.naziv ?? "Nepoznata agencija"}</td><td><div className="table-actions"><form action={approveFiscalCompanyAgencyTransfer}><input type="hidden" name="request_id" value={request.id} /><button type="submit">Odobri</button></form><form action={rejectFiscalCompanyAgencyTransfer}><input type="hidden" name="request_id" value={request.id} /><input name="reason" placeholder="Razlog odbijanja" /><button className="danger-button" type="submit">Odbij</button></form></div></td></tr>;
+      })}</tbody></table></div>
+    </section> : null}
 
     <section className="admin-panel">
       <div className="panel-header"><h3>Postojeći fiskalni klijenti</h3><span>{companies.length} ukupno</span></div>

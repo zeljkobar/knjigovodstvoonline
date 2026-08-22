@@ -71,6 +71,10 @@ export async function purgeCompanyData(
 
   // Raspodjele povezuju izvode sa KIF/KUF računima i moraju prve nestati.
   await izvrsi(
+    "firma_agency_transfer_requests",
+    Prisma.sql`DELETE FROM firma_agency_transfer_requests WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
     "bank_statement_line_allocations",
     Prisma.sql`DELETE FROM bank_statement_line_allocations WHERE firma_id = ${firmaId}::uuid`
   );

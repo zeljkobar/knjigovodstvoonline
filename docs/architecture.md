@@ -2,7 +2,7 @@
 
 > Sažetak iz [`PROJEKAT_PLAN.md`](../PROJEKAT_PLAN.md) i
 > [`zadaci/00_MASTER_SPEC_Racunovodstveni_Program_AZURIRAN_KIF_KUF.md`](../zadaci/00_MASTER_SPEC_Racunovodstveni_Program_AZURIRAN_KIF_KUF.md).
-> Implementacioni status provjeren prema kodu 2026-07-25.
+> Implementacioni status ciljano usklađen 2026-08-19.
 
 ## Tehnološki stek
 - **Frontend/Backend:** Next.js 15 (App Router, server komponente, server
@@ -10,7 +10,8 @@
 - **ORM:** Prisma 6. **Baza:** PostgreSQL.
 - **Auth:** sesije + bcrypt (`src/lib/auth.ts`, `session.ts`).
 - **Mejl:** nodemailer. **Excel:** xlsx. **PDF čitanje:** pdfjs-dist.
-- Bez fiskalizacije u prvoj verziji.
+- Fiskalizacija ide preko zasebnog Summa Fiscal API-ja; ovaj sajt koristi samo
+  serverske klijente i ne implementira PU XML/potpis u Next.js aplikaciji.
 
 ## Okruženje i baza
 - PostgreSQL na `127.0.0.1:5432`, baza `knjigovodstvoonline`.
@@ -25,6 +26,10 @@
 - **agencija** — vidi samo svoje firme; kreira firme i klijentske naloge.
   Podjela na `admin_agencije` i `korisnik_agencije` (radnik).
 - **klijent** — vezan za jednu firmu, u osnovi read-only.
+- **direktni fiskalni korisnik** — tehnički korisnik u skrivenom sistemskom
+  tenant kontejneru, vezan za jednu firmu preko `KorisnikFirma`; planirani
+  `/portal` daje mu POS i klasične bezgotovinske fakture bez računovodstvene i
+  fiskalno-administratorske konfiguracije.
 
 Prava se uvijek provjeravaju na backendu: prijava → agencija → firma → modul →
 akcija (`src/lib/permissions.ts`, `auth.ts`, `work-context.ts`).
@@ -32,6 +37,9 @@ akcija (`src/lib/permissions.ts`, `auth.ts`, `work-context.ts`).
 ## Globalni kontekst rada
 Agencija, firma i poslovna godina se biraju u gornjoj traci; svi moduli rade nad
 tim izborom (`src/lib/work-context.ts`, `src/app/agencija/kontekst/`).
+Planirani direktni `/portal` ne prikazuje birače: backend automatski bira jedinu
+dozvoljenu firmu i važeću poslovnu godinu, ali ih ponovo provjerava pri svakom
+zahtjevu.
 
 ## Jezik i konvencije baze
 - Tabele i polja na **srpskom** (`agencije`, `firme`, `korisnici`,
@@ -58,6 +66,7 @@ src/
     admin/                 # admin platforme
     agencija/              # glavni rad agencije (nalozi, racuni, firme, ...)
     klijent/               # klijentski portal (read-only)
+    portal/                # planirani direktni fiskalni portal (POS + fakture)
     api/                   # API rute (npr. partners/search)
     stampa/                # čiste HTML/CSS print stranice
   components/              # UI komponente (forme, editori, pretrage)
@@ -135,13 +144,16 @@ dodatno imaju statuse na srpskom: otvorena, djelimično knjižena, knjižena.
 ## Trenutni status razvoja
 - **Core funkcionalno:** korisnici/agencije, firme, kontni plan, partneri,
   nalozi, bruto bilans, analitičke kartice i KIF/KUF.
-- **Prva puna/MVP implementacija postoji:** PDV prijava i XML, izvodi sa
+- **Prva puna/MVP implementacija postoji:** robni šifarnici i domaća
+  kalkulacija, izlazne fakture, mobile-first POS, fiskalizacija preko Fiscal
+  API-ja, puni POS storno, lager tok, PDV prijava i XML, izvodi sa
   parserima više banaka, plate sa IOPPD štampom/XML-om i godišnjim M-4
   obrascima i podesivom šemom kontiranja po kategoriji, te završni račun sa
   obrascima, korekcijama, zaključnim knjiženjem i arhivom.
 - **Djelimično ili otvoreno:** potpuna primjena prava na svakom backend toku,
   testovi, zaključavanje PDV perioda, napredne alokacije izvoda, obustave i
   storno knjiženja plata, XML završnog računa.
-- **Nije implementirano:** robno knjigovodstvo, puni klijentski portal,
-  dashboard podstranice i većina zbirnih izvještaja. Fiskalizacija nije dio
-  prve verzije.
+- **Nije implementirano:** poseban `/portal` direktnog fiskalnog klijenta,
+  puni standardni klijentski portal, dio naprednog robnog toka, dashboard
+  podstranice i većina zbirnih izvještaja. Obim direktnog portala je dogovoren
+  u [`../zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`](../zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md).

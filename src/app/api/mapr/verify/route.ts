@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 
 function fiscalSearchParams(qrUrl: string) {
@@ -32,6 +32,10 @@ export async function POST(req: NextRequest) {
 
   if (!user || !["admin_agencije", "korisnik_agencije"].includes(user.rola)) {
     return NextResponse.json({ success: false, message: "Niste prijavljeni." }, { status: 401 });
+  }
+
+  if (isDirectFiscalTenantUser(user)) {
+    return NextResponse.json({ success: false, message: "Ruta nije dostupna u direktnom portalu." }, { status: 403 });
   }
 
   let qrUrl: string;

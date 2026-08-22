@@ -3,7 +3,21 @@
 > Lista otvorenih zadataka. Kad se nešto završi, prebaci u
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
-## Prioritet 0 — POS druga faza
+## Prioritet 0 — neposredni nastavak
+- Ručno QA provjeriti uključivanje fiskalizacije postojećoj firmi agencije, PIB
+  detekciju, odbijanje zahtjeva i odobrenje transfera na testnoj firmi. Nakon
+  toga implementirati klijentski dashboard sa uslovnim dugmetom
+  **Fiskalizacija**.
+- Ručno end-to-end QA provjeriti stvarne fiskalne operacije direktnog portala:
+  POS prodaju, retry istog dokumenta, puni storno, OFFICE fakturu i termalnu
+  štampu. Statički i responsive QA portala je završen. Konfiguraciju sertifikata,
+  ENU-a, operatera, aktivacije i suspenzije i dalje zadržava platformski admin.
+- Na produkcijskom serveru potvrditi aktivni commit. Ako `9a7eccd` nije
+  deployovan, pokrenuti postojeći kontrolisani deploy i primijeniti migraciju
+  `20260819170000_uskladi_kontni_plan_sa_excelom`, pa provjeriti PM2, HTTP i
+  Fiscal API vezu.
+
+## Prioritet 1 — POS druga faza
 - Dodati produkcijsku Fiscal API rutu za prijavu početnog gotovinskog depozita; POS ekran trenutno bezbjedno podržava Test.
 - Ručni mobile QA: artikli, korpa, plaćanje, Test fiskalizacija i štampa.
 - Ručni QA dnevnog/periodičnog POS izvještaja, smjenskog presjeka i termalne browser štampe na stvarnom 58/80 mm printeru; zatim reprint audit i POS Agent. Djelimični POS povrat ostaje nakon što ga podrži Fiscal API.
@@ -11,7 +25,7 @@
   selektore na aktuelnoj IRMS pretrazi i detalju subjekta. Ako produkcijski
   domen nije pokriven manifestom, dodati njegov tačan HTTPS obrazac.
 
-## Prioritet 1 — Stabilizacija KIF/KUF
+## Prioritet 2 — Stabilizacija KIF/KUF
 - QA za edit/delete neproknjiženih računa.
 - Kontrole i upozorenja za duplikate računa.
 - Kontrole zbirnih iznosa (osnovica + PDV = ukupno po stopama).
@@ -26,13 +40,13 @@
   naplate, zabrana preklapanja po kasi, izmjena/brisanje nacrta, knjiženje po
   podešenim kontima i ulazak u izlazni PDV.
 
-## Prioritet 2 — Testovi
+## Prioritet 3 — Testovi
 - Automatsko knjiženje KIF/KUF po šemi.
 - Dopuna postojećeg naloga naknadnim računima.
 - Validacija analitičkih konta i obaveznog partnera.
 - Bruto bilans (početno stanje, subtotali, ukupno).
 
-## Prioritet 3 — Sljedeći moduli (po prioritetu)
+## Prioritet 4 — Sljedeći moduli (po prioritetu)
 - **Izvodi i automatsko knjiženje.** Prva MVP osnova postoji: tabele, uvoz,
   batch upload XML/HTM/PDF fajlova, parseri za NLB XML/PDF, Erste HTM, CKB,
   Hipotekarnu, Lovćen i Prvu banku PDF, kao i tekst/CSV-like redove, preview
@@ -132,28 +146,28 @@
 - Kompletan unos produkcionog profila i automatski kontrolni testni račun od
   1,00 EUR sa potvrdom nakon JIKR-a dostupni su na detalju fiskalne firme.
 - Administracija jedinica, ENU-a, operatera, sertifikata, fiskalnog identiteta,
-  centralnih upozorenja, audit filtera i API aplikacija je završena. Za
-  produkcijski deployment ostaje prenos generisanog jednokratnog ključa u
-  serverski secret manager konkretne aplikacije.
-- Mapirati postojeće korisnike i prava te buduće izlazne fakture na tenant-aware
-  ugovor Summa Fiscal API-ja; agencijski korisnici ne smiju uređivati fiskalnu
-  konfiguraciju.
+  centralnih upozorenja, audit filtera i API aplikacija je završena. Produkcijski
+  API klijent `KnjigovodstvoOnline Production` je kreiran, postavljen kroz
+  serverske environment varijable i autentifikovani API poziv je potvrđen.
+  Ključ se ne smije kopirati u repozitorijum ili dokumentaciju.
+- Agencijski tok izlaznih faktura i POS fiskalizacije već koristi tenant-aware
+  serverski Fiscal API ugovor. Agencijski korisnici i direktni fiskalni klijenti
+  ne smiju uređivati sertifikate, ENU, operatere ili activation status.
 - Platformski unos fiskalnog klijenta sada kreira firmu pod izabranom agencijom,
   tekuću poslovnu godinu i lokalni fiskalni profil; pristup vlasnika firme i
   pozivnica su opcioni. Podržan je i direktni klijent bez knjigovodstvene
-  agencije, kroz skriveni sistemski tenant. Sljedeće omogućiti naknadno otvaranje/izmjenu pristupa
-  klijenta sa detalja firme i povezati prava sa izlaznim fakturama.
-- Lokalna osnova fiskalnog izlaznog računa sada čuva Fiscal API ID, fiskalni
-  status, IKOF/IIC, JIKR, QR podatak, PDV razradu i vezu sa KIF zapisom. Pri
-  izradi ekrana fakture dopuniti stabilni idempotency ključ, correlation ID i
-  kompletan audit životnog ciklusa prije produkcionog slanja.
-- Napraviti pregled nacrta, eksplicitnu potvrdu i zaštitu od duplog slanja prije
-  omogućavanja bilo kog produkcionog poziva.
-- Prvo koristiti mock/test integraciju. Live test ili produkcijsko slanje ne
-  pokretati iz standardnog builda i ne izvršavati bez posebne potvrde korisnika.
+  agencije, kroz skriveni sistemski tenant. Sljedeće omogućiti naknadno
+  otvaranje/izmjenu pristupa sa detalja firme i izraditi njegov poseban
+  klijentski dashboard.
+- Fiskalni izlazni račun i POS već čuvaju Fiscal API ID, status, IKOF/IIC, JIKR,
+  QR, PDV razradu, stabilne idempotency/correlation podatke i vezu sa KIF tokom.
+  Sljedeće su kontrolisani produkcijski QA, reprint audit, produkcijski početni
+  depozit i djelimični povrat kada ga Fiscal API podrži.
 
 ## Nije implementirano
-- Klijentski portal, fiskalno web fakturisanje i dashboard izvještaji.
+- Potpuniji standardni klijentski portal i većina opštih dashboard izvještaja.
+- Produkcijski početni depozit, reprint audit, lokalni POS Agent i djelimični
+  povrat prije odgovarajuće podrške Fiscal API-ja.
 
 ## Invarijante koje treba čuvati (provjera prije/poslije rada)
 - POSTED nalozi ulaze u bruto bilans; DRAFT/DELETED ne ulaze u izvještaje.

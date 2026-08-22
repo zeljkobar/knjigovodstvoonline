@@ -11,7 +11,7 @@ import {
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { kifEntryKinds } from "@/lib/kif-pazar";
 import { hasPermission } from "@/lib/permissions";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -45,6 +45,10 @@ export async function GET(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Sesija je istekla." }, { status: 401 });
+  }
+
+  if (isDirectFiscalTenantUser(user)) {
+    return NextResponse.json({ error: "Ruta nije dostupna u direktnom portalu." }, { status: 403 });
   }
 
   if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {

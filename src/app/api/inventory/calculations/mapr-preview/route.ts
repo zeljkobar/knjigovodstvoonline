@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { inventoryModule, itemPriceTypes } from "@/lib/inventory";
 import {
   fetchMaprInvoice,
@@ -19,6 +19,9 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user || !["admin_agencije", "korisnik_agencije"].includes(user.rola) || !user.agencija_id) {
     return NextResponse.json({ message: "Niste prijavljeni." }, { status: 401 });
+  }
+  if (isDirectFiscalTenantUser(user)) {
+    return NextResponse.json({ message: "Ruta nije dostupna u direktnom portalu." }, { status: 403 });
   }
   const workContext = await readWorkContext();
   if (!workContext.firmaId || !workContext.poslovnaGodinaId) {

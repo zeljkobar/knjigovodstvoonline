@@ -15,6 +15,8 @@ const poruke: Record<string, string> = {
   tip_nevalidan: "Tip subjekta nije validan.",
   direktor_nevalidan: "JMBG izvršnog direktora mora imati 13 cifara i mora biti vezan za ime direktora.",
   agencija_nedostaje: "Korisnik nije povezan sa agencijom."
+  ,fiskalni_transfer_zahtjev: "Firma sa ovim PIB-om već koristi Summa fiskalizaciju. Zahtjev za povezivanje je poslat platformskoj administraciji.",
+  pib_druga_agencija: "Firma sa ovim PIB-om već postoji u sistemu. Kontaktirajte platformsku administraciju radi provjere."
 };
 
 export default async function NovaFirmaPage({ searchParams }: NovaFirmaPageProps) {

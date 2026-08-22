@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auditLog } from "@/lib/audit";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -33,6 +33,13 @@ export async function POST(request: Request) {
 
   if (!user || !["admin_agencije", "korisnik_agencije"].includes(user.rola) || !user.agencija_id) {
     return NextResponse.json({ message: "Niste prijavljeni." }, { status: 401 });
+  }
+
+  if (isDirectFiscalTenantUser(user)) {
+    return NextResponse.json(
+      { message: "Portal unos kupca još nije aktiviran." },
+      { status: 403 }
+    );
   }
   const agencijaId = user.agencija_id;
 

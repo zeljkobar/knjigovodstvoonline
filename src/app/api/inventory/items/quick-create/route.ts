@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { auditLog } from "@/lib/audit";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import {
   calculateItemPriceAmounts,
   inventoryCentsToDecimal,
@@ -26,6 +26,9 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user || !["admin_agencije", "korisnik_agencije"].includes(user.rola) || !user.agencija_id) {
     return NextResponse.json({ message: "Niste prijavljeni." }, { status: 401 });
+  }
+  if (isDirectFiscalTenantUser(user)) {
+    return NextResponse.json({ message: "Ruta nije dostupna u direktnom portalu." }, { status: 403 });
   }
   const agencijaId = user.agencija_id;
   const workContext = await readWorkContext();

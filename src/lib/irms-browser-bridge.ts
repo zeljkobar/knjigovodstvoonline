@@ -51,7 +51,10 @@ export async function lookupIrmsThroughBrowser(pib: string) {
   });
 }
 
-export async function lookupIrmsCompany(pib: string) {
+export async function lookupIrmsCompany(
+  pib: string,
+  endpoint = "/api/irms/search"
+) {
   try {
     return await lookupIrmsThroughBrowser(pib);
   } catch (error) {
@@ -60,7 +63,7 @@ export async function lookupIrmsCompany(pib: string) {
     }
   }
 
-  const response = await fetch("/api/irms/search", {
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ pib })

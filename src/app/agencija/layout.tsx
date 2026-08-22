@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { logout } from "@/app/actions";
 import { AgencyTopBar } from "@/components/AgencyTopBar";
-import { requireAnyRole } from "@/lib/auth";
+import { requireAgencyWorkspaceUser } from "@/lib/auth";
 import { getAgencyNavigation } from "@/lib/navigation";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
@@ -11,7 +11,7 @@ export default async function AgencijaLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije", "klijent"]);
+  const user = await requireAgencyWorkspaceUser();
   const navigation = getAgencyNavigation(user.rola);
   const workContext = await readWorkContext();
   const [agencija, firme] = user.agencija_id

@@ -21,6 +21,20 @@ Ovaj direktorijum sadrži operativnu, integracionu i izvornu dokumentaciju za Su
 - [`WEBSITE_INVOICE_PDF_CONTRACT.md`](WEBSITE_INVOICE_PDF_CONTRACT.md) — podjela odgovornosti i tačna polja koja sajt koristi za PDF/štampu.
 - [`OFFICIAL_PU_DOCUMENTATION_NOTES.md`](OFFICIAL_PU_DOCUMENTATION_NOTES.md) — korišćeni zvanični PU izvori i pravila njihovog korišćenja.
 
+## POS i portal direktnog fiskalnog klijenta
+
+- [`SUMMA_POS_MODULE_SPEC.md`](SUMMA_POS_MODULE_SPEC.md) — zajedničko POS jezgro,
+  fiskalizacija, lager, smjene, izvještaji i odnos prema fakturama.
+- [`DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`](DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md) —
+  dogovorena ciljna specifikacija posebnog `/portal` interfejsa za direktnog
+  fiskalnog klijenta, sa POS-om i klasičnim bezgotovinskim fakturama.
+- [`FISCAL_CLIENT_AGENCY_LINKING_DECISIONS.md`](FISCAL_CLIENT_AGENCY_LINKING_DECISIONS.md) —
+  uključivanje fiskalizacije postojećoj firmi agencije i kontrolisani prelazak
+  direktnog fiskalnog klijenta pod agenciju bez dupliranja firme.
+
+Specifikacija direktnog portala je projektni dodatak za `knjigovodstvoonline`.
+Ne mijenja Fiscal API ugovor i ne znači da je portal već implementiran.
+
 ## Zvanični lokalni izvori
 
 `official_pu_v5/` sadrži korišćene EFI v5 DOCX, XSD i WSDL fajlove. Te fajlove treba tretirati kao normativni tehnički izvor za XML/SOAP ugovor.

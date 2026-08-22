@@ -23,6 +23,7 @@ type QuickItemCreateModalProps = {
   vatRates: Option[];
   onClose: () => void;
   onCreated: (item: QuickItemResult) => void;
+  endpoint?: string;
 };
 
 export function QuickItemCreateModal({
@@ -30,7 +31,8 @@ export function QuickItemCreateModal({
   units,
   vatRates,
   onClose,
-  onCreated
+  onCreated,
+  endpoint = "/api/inventory/items/quick-create"
 }: QuickItemCreateModalProps) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -52,7 +54,7 @@ export function QuickItemCreateModal({
     setIsSaving(true);
     setStatus("");
     try {
-      const response = await fetch("/api/inventory/items/quick-create", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

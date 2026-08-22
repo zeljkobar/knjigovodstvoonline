@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test:portal": "tsc -p tests/tsconfig.json && node --test .test-build/tests/direct-portal-policy.test.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "kontni-plan:import": "node prisma/import-kontni-plan.mjs",

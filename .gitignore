@@ -39,6 +39,7 @@ logs/
 
 # TypeScript
 *.tsbuildinfo
+.test-build/
 
 # Misc
 .turbo/

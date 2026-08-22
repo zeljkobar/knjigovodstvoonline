@@ -8,6 +8,58 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Fiskalni klijent i agencija — 2026-08-20
+
+- Platformski admin kod agencijskog klijenta bira postojeću firmu izabrane
+  agencije i uključuje joj fiskalizaciju bez kreiranja duplikata firme.
+- Dodavanje firme u agenciji globalno provjerava PIB. Ako PIB pripada direktnom
+  fiskalnom klijentu, umjesto nove firme kreira se zahtjev za povezivanje koji
+  odobrava platformski admin.
+- Odobrenje zadržava isti `Firma.id`, Fiscal API vezu i fiskalnu istoriju te u
+  jednoj transakciji prenosi firm-specific tenant scope ciljnoj agenciji.
+- Migracija `20260820143000_fiscal_company_agency_transfer_requests` je lokalno
+  primijenjena. Klijentski dashboard i dugme **Fiskalizacija** ostaju naknadni
+  korak.
+
+## Handoff za novi chat — 2026-08-19
+
+- Glavna grana je `main`; prije ovog dokumentacionog ažuriranja lokalni `HEAD` i
+  `origin/main` bili su na `9a7eccd` (`feat: update chart of accounts and company
+  purge`). Taj commit sadrži korektivnu migraciju kontnog plana i proširenu
+  kontrolu trajnog brisanja testne firme.
+- Produkcijski sajt i veza sa Fiscal API-jem posljednji put su eksplicitno
+  provjereni dok je server bio na commitu `38f44d9`: sajt je vraćao HTTP 200,
+  Fiscal API `health` je bio zdrav, autentifikovani poziv prema listi firmi je
+  vraćao HTTP 200, a PM2 proces je bio online na portu 3004. Prije narednog rada
+  na produkciji treba provjeriti da li je `9a7eccd` već deployovan i da li je
+  primijenjena migracija `20260819170000_uskladi_kontni_plan_sa_excelom`.
+- SMTP slanje pozivnica je podešeno i radi lokalno i na produkciji. SMTP tajne
+  ostaju isključivo u lokalnim/serverskim environment varijablama i ne smiju se
+  prepisivati u dokumentaciju ili git.
+- Postoje četiri poslovna tipa pristupa: platformski `admin`, administrator
+  agencije, radnik agencije i klijent firme. Admin agencije kreira standardne
+  klijentske korisnike svojih firmi. Platformski admin može kreirati i direktnog
+  fiskalnog klijenta bez knjigovodstvene agencije, u skrivenom sistemskom
+  tenantu.
+- Za direktnog fiskalnog klijenta postoje firma, poslovna godina, pozivnica/login,
+  dodjela samo njegove firme, fiskalni profil i zaseban portal. Implementirana je
+  detaljna specifikacija
+  [`zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`](zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md):
+  prva verzija obuhvata i POS i klasične bezgotovinske fakture, jedinstveni
+  pregled fiskalnih računa, izvještaje, artikle, kupce i dozvoljena podešavanja.
+  Portal obuhvata dashboard, POS, OFFICE fakture, račune, izvještaje, artikle,
+  cijene, kupce i operativna podešavanja. Fiskalna konfiguracija ostaje
+  isključivo platformskom adminu.
+
+Operativna podešavanja direktnog portala čuvaju kontakt za dokumente, glavni
+bankovni račun, podrazumijevanu kasu, njen magacin i način plaćanja, rok OFFICE
+fakture, 58/80 mm format, automatsko otvaranje štampe, obaveznost smjene i
+pravilo negativnog lagera. Fiskalni identitet je samo za pregled. Testni početni
+depozit dostupan je po kasi; produkcija je bezbjedno blokirana dok Fiscal API ne
+objavi produkcijsku rutu. Responsive QA na 390/375 px potvrđuje donju navigaciju
+i odsustvo horizontalnog overflow-a na glavnim stranicama, uključujući Artikle,
+Kupce i Podešavanja.
+
 Kontrolisano trajno brisanje testne firme sada obuhvata i sve lokalne fiskalne
 i POS podatke, uključujući račune, njihove podređene zapise, kase, smjene,
 zbirne obrade i lokalnu Fiscal API vezu. Podaci već poslati u zasebni Fiscal API
@@ -99,10 +151,14 @@ dupli obuhvat, zaključana godina, zatvoren/nepostojeći KIF i nepodudaranje na�
 naplate sa bruto iznosom blokiraju obradu. Automatski POS KIF zapis nije moguće
 ručno mijenjati ili brisati. POS virmani ostaju pojedinačni KIF tok.
 
-Potpuni POS storno je završen: kreira povezani negativni fiskalni dokument,
-čuva original, vraća robu na lager i koriguje KIF/PDV. Virman koristi obrnuto
-pojedinačno knjiženje, a gotovina i kartica naredni inkrementalni zbirni pazar
-istog perioda. Djelimični povrat se ne simulira jer ga Fiscal API još ne
+Potpuni POS storno je završen i agencijski POS i direktni portal koriste isti
+serverski servis: kreira povezani negativni fiskalni dokument, čuva original,
+vraća robu na lager i koriguje KIF/PDV. Virman koristi obrnuto pojedinačno
+knjiženje, a gotovina i kartica naredni inkrementalni zbirni pazar istog perioda
+kada dokument vodi agencija; direktni `FISCAL_ONLY` portal ne kreira KIF ni
+nalog. Portal dozvoljava storno samo fiskalizovanog POS računa bez postojeće
+korekcije, uz pravo, otvorenu godinu, razlog i kritičnu potvrdu. Djelimični
+povrat se ne simulira jer ga Fiscal API još ne
 podržava. POS sada ima izvještaj prometa po periodu i kasi sa neto prikazom
 prodaje i storna, načinima plaćanja, PDV rekapitulacijom i prodajom po artiklima,
 kao i zasebnu štampu izvještaja. Fiskalni POS račun ima browser štampu za
@@ -118,7 +174,7 @@ otvorenu smjenu, dok novi radnik nakon presjeka otvara novu. Presjek smjene ne
 mijenja dnevni ili mjesečni KIF zbir. Reprint audit i lokalni POS Agent još
 nijesu završeni.
 
-## Fiskalna integracija — spremna pozadina, portal nije implementiran
+## Fiskalna integracija — administracija, izdavanje i direktni portal rade
 
 Summa Fiscal API je 02.08.2026. postavljen na produkcijski server i dostupan je
 isključivo preko HTTPS-a na `https://fiscal.summasummarum.me`. Javni
@@ -135,10 +191,12 @@ readiness provjeru, kontrolisanu potvrdu testnog računa, produkcionu aktivaciju
 povratak u test, registraciju produkcionog ENU-a, fiskalni audit, upozorenja o
 isteku sertifikata i globalnu suspenziju/reaktivaciju firme. Kritične operacije
 zahtijevaju tačan kontrolni tekst vezan za PIB, račun ili internu ENU oznaku.
-Lokalna veza i
-poslovni status čuvaju se u `fiscal_company_links`; sertifikat i lozinka se ne
-čuvaju u ovom projektu. Korisnički tok izdavanja fiskalizovanih faktura još nije
-implementiran.
+Lokalna veza i poslovni status čuvaju se u `fiscal_company_links`; sertifikat i
+lozinka se ne čuvaju u ovom projektu. Izdavanje i fiskalizacija izlaznih faktura,
+POS prodaja, retry neuspjele fiskalizacije, potpuni storno, izvještaji i štampa
+jesu implementirani. Direktni fiskalni klijent ima zaseban portal sa sopstvenim
+kontekstom i `FISCAL_ONLY` tokom; standardni računovodstveni klijentski
+dashboard ostaje odvojen zadatak.
 
 Detalj fiskalne firme sada ima kompletnu formu produkcionog profila: kod
 proizvođača, naziv/verziju i produkcione kodove softvera i održavaoca,
@@ -170,6 +228,9 @@ Fiskalni klijent može biti klijent postojeće knjigovodstvene agencije ili
 direktan klijent bez agencije. Direktni klijenti se u pozadini drže u jednom
 označenom sistemskom tenant kontejneru radi izolacije podataka; taj kontejner je
 skriven iz administrativnih lista i izbora stvarnih knjigovodstvenih agencija.
+Ovo je samo sigurna osnova pristupa: direktni klijent još nema svoju prilagođenu
+početnu stranicu. Ne treba ga miješati sa standardnim klijentskim korisnikom
+kojeg administrator agencije otvara za firmu koju ta agencija vodi.
 Dokumentacioni ugovor za integraciju nalazi se u `zadaci/fiskalizacija/`.
 Implementacija mora koristiti serverski Fiscal API klijent; sistemski API ključ
 ne smije dospjeti u browser. Postojeća prijava, prava i scope po agenciji/firmi
@@ -709,9 +770,10 @@ je od samodeaktivacije i samostalne rotacije.
 
 ## Djelimično implementirano / otvoreno
 - Robno knjigovodstvo: navigacija, osnovni šifarnici, domaća kalkulacija i njena
-  šema knjiženja su implementirani. Placeholderi ostaju za lager/promet,
-  izlazne fakture, povrate,
-  prenose, popis, otpis, nivelaciju i robne izvještaje.
+  šema knjiženja su implementirani. Izlazne fakture, POS razduženje i osnovni
+  promet postoje. Otvoreni su detaljniji ekrani lager liste i kartice artikla,
+  uvozna kalkulacija, povrati, prenosi, popis, otpis, nivelacija i širi robni
+  izvještaji.
 - Izvodi: prva MVP baza/stranica/import/preview/knjiženje i pregledne
   podstranice postoje. Implementirani su parseri za NLB XML/PDF, Erste HTM, CKB
   PDF, Hipotekarna PDF, Lovćen PDF i Prva banka PDF; ostaju parseri za ostale
@@ -724,13 +786,23 @@ je od samodeaktivacije i samostalne rotacije.
   podešavanja kontiranja i automatski `PAYROLL` nalog postoje po kategoriji.
   Ostaju obustave, uplatnice, storno/namjensko vraćanje knjiženja,
   arhiva/finalni print/export i dodatna opisna pravila koja traže ručne parametre.
-- Klijentski portal, većina dashboard izvještaja.
+- Standardni klijentski portal je ograničen, a poseban dashboard za direktnog
+  fiskalnog klijenta još nije implementiran. Njegov obim, sigurnosni guardovi,
+  POS i bezgotovinske fakture dogovoreni su u
+  [`zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`](zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md).
+  Većina opštih dashboard izvještaja takođe ostaje otvorena.
 - Završni račun: Bilans uspjeha, Bilans stanja, Statistički aneks, trajne ručne
   korekcije po AOP/koloni, predlog zaključnog naloga za klase 5/6 i arhiva
   snimljenih obrazaca postoje; ostaje XML/export.
 - PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
 
 ## Zadnje provjere
+- Handoff stanje: `main` i `origin/main` bili su na `9a7eccd` prije izmjene ova
+  tri dokumenta. U ovoj dokumentacionoj sesiji kod, Prisma šema i migracije
+  nijesu mijenjani niti su pokretane poslovne operacije.
+- Produkcija je posljednji put eksplicitno provjerena na `38f44d9`: PM2 online,
+  lokalni port 3004 HTTP 200, javni sajt HTTP 200 i autentifikovani Fiscal API
+  poziv HTTP 200. Deploy novijeg `9a7eccd` treba potvrditi na serveru.
 - `npx prisma migrate deploy` primijenio je migraciju
   `20260730170000_kif_pazar`; Prisma klijent je regenerisan i razvojni server
   restartovan. `npx tsc --noEmit`, `npx prisma validate` i lint prolaze bez

@@ -11,7 +11,10 @@ import {
   CompanyPurgeError,
   purgeCompanyData
 } from "@/lib/company-purge";
-import { sendInvitationEmail } from "@/lib/email";
+import {
+  sendFiscalAgencyTransferRequestEmail,
+  sendInvitationEmail
+} from "@/lib/email";
 import {
   createInvitationToken,
   createInvitationUrl
@@ -312,17 +315,47 @@ export async function createCompany(formData: FormData) {
   if (pib) {
     const postojecaFirma = await prisma.firma.findFirst({
       where: {
-        agencija_id: agencijaId,
         pib,
         is_deleted: false
       },
       select: {
-        id: true
+        id: true,
+        naziv: true,
+        pib: true,
+        agencija_id: true,
+        agencija: { select: { is_fiscal_direct_container: true } },
+        fiscalCompanyLink: { select: { id: true } }
       }
     });
 
     if (postojecaFirma) {
-      redirectCompanyDetail(postojecaFirma.id, "pib_postoji");
+      if (postojecaFirma.agencija_id === agencijaId) redirectCompanyDetail(postojecaFirma.id, "pib_postoji");
+      if (postojecaFirma.agencija.is_fiscal_direct_container && postojecaFirma.fiscalCompanyLink) {
+        const pending = await prisma.firmaAgencyTransferRequest.findFirst({ where: { firma_id: postojecaFirma.id, status: "PENDING" }, select: { id: true } });
+        if (!pending) {
+          const [, targetAgency] = await Promise.all([
+            prisma.firmaAgencyTransferRequest.create({ data: { firma_id: postojecaFirma.id, source_agencija_id: postojecaFirma.agencija_id, target_agencija_id: agencijaId, requested_by: admin.id, accounting_start_date: new Date() } }),
+            prisma.agencija.findUnique({ where: { id: agencijaId }, select: { naziv: true } })
+          ]);
+          await auditLog({ korisnikId: admin.id, agencijaId, firmaId: postojecaFirma.id, modul: "agencija.firme", akcija: "agency_transfer_requested", tipEntiteta: "Firma", entitetId: postojecaFirma.id, novaVrijednost: { pib, target_agencija_id: agencijaId } });
+          try {
+            await sendFiscalAgencyTransferRequestEmail({
+              companyName: postojecaFirma.naziv,
+              companyPib: postojecaFirma.pib ?? pib,
+              agencyName: targetAgency?.naziv ?? "Nepoznata agencija",
+              requestedBy: admin.korisnicko_ime
+            });
+          } catch (error) {
+            console.error("Fiscal agency transfer notification email failed", {
+              firmaId: postojecaFirma.id,
+              targetAgencyId: agencijaId,
+              error
+            });
+          }
+        }
+        redirectNewCompany("fiskalni_transfer_zahtjev");
+      }
+      redirectNewCompany("pib_druga_agencija");
     }
   }
 

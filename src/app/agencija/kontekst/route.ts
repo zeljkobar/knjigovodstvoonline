@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { requireAgencyWorkspaceUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   ACTIVE_COMPANY_COOKIE,
@@ -16,7 +16,7 @@ function safeReturnTo(value: string | null) {
 }
 
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
+  const user = await requireAgencyWorkspaceUser();
   const url = new URL(request.url);
   const returnTo = safeReturnTo(url.searchParams.get("returnTo"));
   const response = NextResponse.redirect(new URL(returnTo, request.url));

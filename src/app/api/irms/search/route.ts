@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { searchIrmsByPib } from "@/lib/irms";
 
 export async function POST(request: Request) {
@@ -7,6 +7,10 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ message: "Niste prijavljeni." }, { status: 401 });
+  }
+
+  if (isDirectFiscalTenantUser(user)) {
+    return NextResponse.json({ message: "Ruta nije dostupna u direktnom portalu." }, { status: 403 });
   }
 
   try {

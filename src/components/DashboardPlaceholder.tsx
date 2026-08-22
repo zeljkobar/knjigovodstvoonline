@@ -3,11 +3,13 @@ import { logout } from "@/app/actions";
 type DashboardPlaceholderProps = {
   title: string;
   korisnickoIme: string;
+  children?: React.ReactNode;
 };
 
 export function DashboardPlaceholder({
   title,
-  korisnickoIme
+  korisnickoIme,
+  children
 }: DashboardPlaceholderProps) {
   return (
     <main className="dashboard-page">
@@ -18,6 +20,7 @@ export function DashboardPlaceholder({
           Prijavljeni ste kao <strong>{korisnickoIme}</strong>. Ova stranica je
           privremeni dashboard koji cemo kasnije zamijeniti pravim pregledima.
         </p>
+        {children}
         <form action={logout}>
           <button className="secondary-button" type="submit">
             Odjava

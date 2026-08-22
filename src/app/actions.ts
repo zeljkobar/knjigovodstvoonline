@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auditLog } from "@/lib/audit";
-import { getRolePath } from "@/lib/auth";
+import { resolveAuthenticatedHome } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   clearAttempts,
@@ -12,6 +12,7 @@ import {
   recordFailedAttempt
 } from "@/lib/rate-limit";
 import { createSession, destroySession, readSession } from "@/lib/session";
+import { clearWorkContext } from "@/lib/work-context";
 
 export async function login(formData: FormData) {
   const korisnickoIme = String(formData.get("korisnicko_ime") ?? "").trim();
@@ -116,7 +117,7 @@ export async function login(formData: FormData) {
     rola: korisnik.rola
   });
 
-  redirect(getRolePath(korisnik.rola));
+  redirect(await resolveAuthenticatedHome(korisnik.id));
 }
 
 export async function logout() {
@@ -146,6 +147,7 @@ export async function logout() {
     }
   }
 
+  await clearWorkContext();
   await destroySession();
   redirect("/");
 }

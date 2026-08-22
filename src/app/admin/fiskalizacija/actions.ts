@@ -10,9 +10,42 @@ import { sendInvitationEmail } from "@/lib/email";
 import { fiscalAdminApi, FiscalAdminApiError } from "@/lib/fiscal-admin-api";
 import { createInvitationToken, createInvitationUrl } from "@/lib/invitations";
 import { prisma } from "@/lib/prisma";
+import { approveCompanyAgencyTransfer } from "@/lib/company-agency-transfer";
+import {
+  DIRECT_PORTAL_OWNER_PERMISSIONS,
+  directPortalOperatorPermissions
+} from "@/lib/direct-portal-policy";
 
 function text(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
+}
+
+export async function approveFiscalCompanyAgencyTransfer(formData: FormData) {
+  const admin = await requireRole("admin");
+  const requestId = text(formData, "request_id");
+  if (!requestId) redirect("/admin/fiskalizacija/korisnici?poruka=TRANSFER_GRESKA");
+  try {
+    const result = await prisma.$transaction((tx) => approveCompanyAgencyTransfer(tx, requestId, admin.id), { timeout: 30000 });
+    await auditLog({ korisnikId: admin.id, agencijaId: result.targetAgencyId, firmaId: result.firmaId, modul: "admin.fiskalizacija", akcija: "agency_transfer_approved", tipEntiteta: "Firma", entitetId: result.firmaId, upisiAktivnost: false });
+  } catch (error) {
+    console.error("approve fiscal company agency transfer failed", { requestId, error });
+    redirect("/admin/fiskalizacija/korisnici?poruka=TRANSFER_GRESKA");
+  }
+  revalidatePath("/admin/fiskalizacija/korisnici");
+  revalidatePath("/agencija/firme");
+  redirect("/admin/fiskalizacija/korisnici?poruka=TRANSFER_ODOBREN");
+}
+
+export async function rejectFiscalCompanyAgencyTransfer(formData: FormData) {
+  const admin = await requireRole("admin");
+  const requestId = text(formData, "request_id");
+  const reason = text(formData, "reason");
+  const request = await prisma.firmaAgencyTransferRequest.findFirst({ where: { id: requestId, status: "PENDING" }, select: { id: true, firma_id: true, target_agencija_id: true } });
+  if (!request) redirect("/admin/fiskalizacija/korisnici?poruka=TRANSFER_GRESKA");
+  await prisma.firmaAgencyTransferRequest.update({ where: { id: request.id }, data: { status: "REJECTED", decided_by: admin.id, decided_at: new Date(), rejection_reason: reason || "Zahtjev odbijen nakon administratorske provjere." } });
+  await auditLog({ korisnikId: admin.id, agencijaId: request.target_agencija_id, firmaId: request.firma_id, modul: "admin.fiskalizacija", akcija: "agency_transfer_rejected", tipEntiteta: "Firma", entitetId: request.firma_id, novaVrijednost: { razlog: reason || null }, upisiAktivnost: false });
+  revalidatePath("/admin/fiskalizacija/korisnici");
+  redirect("/admin/fiskalizacija/korisnici?poruka=TRANSFER_ODBIJEN");
 }
 
 function fail(firmaId: string, code: string, correlationId?: string): never {
@@ -621,13 +654,29 @@ export async function createFiscalClient(formData: FormData) {
   const admin = await requireRole("admin");
   const clientType = text(formData, "client_type");
   const agencijaId = text(formData, "agencija_id");
+  const existingFirmaId = text(formData, "firma_id");
   const naziv = text(formData, "naziv");
   const pib = text(formData, "pib");
   const email = text(formData, "email");
   const username = text(formData, "korisnicko_ime");
   const createLogin = Boolean(email || username);
 
-  if (!naziv || !pib || (clientType !== "DIRECT" && !agencijaId)) redirect("/admin/fiskalizacija/korisnici?poruka=KLIJENT_OBAVEZNA_POLJA");
+  if (clientType === "AGENCY") {
+    if (!agencijaId || !existingFirmaId) redirect("/admin/fiskalizacija/korisnici?poruka=KLIJENT_OBAVEZNA_POLJA");
+    const firma = await prisma.firma.findFirst({
+      where: { id: existingFirmaId, agencija_id: agencijaId, aktivan: true, is_deleted: false, agencija: { aktivan: true, is_deleted: false, is_fiscal_direct_container: false } },
+      select: { id: true, naziv: true, fiscalCompanyLink: { select: { id: true } } }
+    });
+    if (!firma) redirect("/admin/fiskalizacija/korisnici?poruka=AGENCIJA_NIJE_PRONADJENA");
+    if (firma.fiscalCompanyLink) redirect(`/admin/fiskalizacija/${firma.id}?poruka=FIRMA_VEC_POSTOJI`);
+    await prisma.fiscalCompanyLink.create({ data: { agencija_id: agencijaId, firma_id: firma.id, created_by: admin.id, updated_by: admin.id } });
+    await auditLog({ korisnikId: admin.id, agencijaId, firmaId: firma.id, modul: "admin.fiskalizacija", akcija: "fiscalization_enabled_for_agency_company", tipEntiteta: "Firma", entitetId: firma.id, novaVrijednost: { naziv: firma.naziv, tip_klijenta: "AGENCY" }, upisiAktivnost: false });
+    revalidatePath("/admin/fiskalizacija");
+    revalidatePath("/admin/fiskalizacija/korisnici");
+    redirect(`/admin/fiskalizacija/${firma.id}?poruka=KLIJENT_KREIRAN`);
+  }
+
+  if (clientType !== "DIRECT" || !naziv || !pib) redirect("/admin/fiskalizacija/korisnici?poruka=KLIJENT_OBAVEZNA_POLJA");
   if (createLogin && (!email || !username)) redirect("/admin/fiskalizacija/korisnici?poruka=PRISTUP_OBAVEZNA_POLJA");
 
   const [agencija, existingCompany] = await Promise.all([
@@ -673,11 +722,15 @@ export async function createFiscalClient(formData: FormData) {
       }, select: { id: true, korisnicko_ime: true, email: true } });
       await tx.korisnikFirma.create({ data: {
         korisnik_id: user.id, firma_id: firma.id, moze_da_gleda: true, moze_da_unosi: true,
+        moze_da_mijenja: clientType === "DIRECT",
         access_type: "FISCAL_CLIENT", created_by: admin.id, updated_by: admin.id
       }});
-      await tx.korisnikPravo.createMany({ data: fiscalPermissionActions.map((action) => ({
+      const ownerPermissions = clientType === "DIRECT"
+        ? DIRECT_PORTAL_OWNER_PERMISSIONS
+        : fiscalPermissionActions.map((action) => ({ modul: "fiskalizacija", akcija: action }));
+      await tx.korisnikPravo.createMany({ data: ownerPermissions.map((permission) => ({
         agencija_id: agencija.id, korisnik_id: user.id, firma_id: firma.id,
-        modul: "fiskalizacija", akcija: action, dozvoljeno: true,
+        modul: permission.modul, akcija: permission.akcija, dozvoljeno: true,
         created_by: admin.id, updated_by: admin.id
       })) });
       await tx.pozivnica.create({ data: {
@@ -686,7 +739,13 @@ export async function createFiscalClient(formData: FormData) {
       }});
       return { firmaId: firma.id, user };
     });
-  } catch {
+  } catch (error) {
+    console.error("createFiscalClient transaction failed", {
+      clientType,
+      hasEmail: Boolean(email),
+      hasUsername: Boolean(username),
+      error
+    });
     redirect("/admin/fiskalizacija/korisnici?poruka=KLIJENT_GRESKA");
   }
 
@@ -721,7 +780,12 @@ export async function createFiscalUser(formData: FormData) {
 
   const firma = await prisma.firma.findFirst({
     where: { id: firmaId, is_deleted: false, fiscalCompanyLink: { isNot: null } },
-    select: { id: true, agencija_id: true, naziv: true }
+    select: {
+      id: true,
+      agencija_id: true,
+      naziv: true,
+      agencija: { select: { is_fiscal_direct_container: true } }
+    }
   });
   if (!firma) redirect("/admin/fiskalizacija/korisnici?poruka=FIRMA_NIJE_FISKALNA");
 
@@ -745,9 +809,22 @@ export async function createFiscalUser(formData: FormData) {
         moze_da_mijenja: false, moze_da_brise: false,
         access_type: "FISCAL_OPERATOR", created_by: admin.id, updated_by: admin.id
       }});
-      await tx.korisnikPravo.createMany({ data: fiscalPermissionActions.map((action) => ({
+      const permissionRows = [
+        ...fiscalPermissionActions.map((action) => ({
+          modul: "fiskalizacija",
+          akcija: action,
+          dozvoljeno: enabled.has(action)
+        })),
+        ...(firma.agencija.is_fiscal_direct_container
+          ? directPortalOperatorPermissions(enabled).map((permission) => ({
+              ...permission,
+              dozvoljeno: true
+            }))
+          : [])
+      ];
+      await tx.korisnikPravo.createMany({ data: permissionRows.map((permission) => ({
         agencija_id: firma.agencija_id, korisnik_id: created.id, firma_id: firma.id,
-        modul: "fiskalizacija", akcija: action, dozvoljeno: enabled.has(action),
+        modul: permission.modul, akcija: permission.akcija, dozvoljeno: permission.dozvoljeno,
         created_by: admin.id, updated_by: admin.id
       })) });
       await tx.pozivnica.create({ data: { korisnik_id: created.id, token_hash: tokenHash, expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } });

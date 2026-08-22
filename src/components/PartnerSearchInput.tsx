@@ -20,11 +20,14 @@ type PartnerResult = {
 };
 
 type PartnerSearchInputProps = {
+  companyOnly?: boolean;
   disabled?: boolean;
   initialPartner?: PartnerResult | null;
   label?: string;
   name: string;
+  quickCreateEndpoint?: string;
   required?: boolean;
+  searchEndpoint?: string;
 };
 
 function normalizePib(value: string) {
@@ -33,11 +36,14 @@ function normalizePib(value: string) {
 }
 
 export function PartnerSearchInput({
+  companyOnly = false,
   disabled = false,
   initialPartner = null,
   label = "Partner",
   name,
-  required = false
+  quickCreateEndpoint = "/api/partners/quick-create",
+  required = false,
+  searchEndpoint = "/api/partners/search"
 }: PartnerSearchInputProps) {
   const [selected, setSelected] = useState<PartnerResult | null>(initialPartner);
   const [query, setQuery] = useState(initialPartner?.label ?? "");
@@ -77,7 +83,7 @@ export function PartnerSearchInput({
       setIsSearching(true);
       try {
         const response = await fetch(
-          `/api/partners/search?q=${encodeURIComponent(cleanQuery)}`,
+          `${searchEndpoint}?q=${encodeURIComponent(cleanQuery)}`,
           {
             signal: controller.signal
           }
@@ -111,7 +117,7 @@ export function PartnerSearchInput({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [disabled, query, selected, selectedLabel]);
+  }, [disabled, query, searchEndpoint, selected, selectedLabel]);
 
   useEffect(() => {
     async function handleFiscalSupplier(event: Event) {
@@ -128,7 +134,7 @@ export function PartnerSearchInput({
 
       try {
         const response = await fetch(
-          `/api/partners/search?q=${encodeURIComponent(pib)}&exactPib=1`
+          `${searchEndpoint}?q=${encodeURIComponent(pib)}&exactPib=1`
         );
         const data = (await response.json()) as { results?: PartnerResult[] };
         const partner = (data.results ?? []).find((item) => item.pib === pib);
@@ -151,7 +157,7 @@ export function PartnerSearchInput({
 
     document.addEventListener("fiscal-supplier-detected", handleFiscalSupplier);
     return () => document.removeEventListener("fiscal-supplier-detected", handleFiscalSupplier);
-  }, [disabled]);
+  }, [disabled, searchEndpoint]);
 
   function selectPartner(partner: PartnerResult) {
     setSelected(partner);
@@ -246,6 +252,8 @@ export function PartnerSearchInput({
       ) : null}
       {isCreateOpen ? (
         <QuickPartnerCreateModal
+          companyOnly={companyOnly}
+          endpoint={quickCreateEndpoint}
           initialName={query}
           initialPib={detectedPib}
           onClose={() => setIsCreateOpen(false)}

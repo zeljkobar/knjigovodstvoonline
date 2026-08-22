@@ -3,6 +3,70 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-08-22 — Operativna podešavanja i responsive završetak direktnog portala
+
+- `/portal/podesavanja` više nije placeholder: vlasnik može uređivati kontakt
+  za dokumente, glavni račun, podrazumijevanu kasu/magacin/plaćanje, rok OFFICE
+  fakture, 58/80 mm štampu, automatsku štampu, smjene i pravilo lagera.
+- Fiskalni identitet ostaje samo za pregled. Testni depozit je dostupan po kasi;
+  produkcija je namjerno blokirana dok Fiscal API ne dobije produkcijsku rutu.
+- Migracija `20260822170000_direct_portal_operational_settings` je primijenjena,
+  Prisma klijent regenerisan i dev server restartovan. Purge provjera pokriva
+  svih 54 tabela sa direktnim `firma_id`.
+- Browser QA na 390/375 px otkrio je i uklonio horizontalni overflow na
+  Artikli/Kupci. Dashboard, Fakture, Računi, Izvještaji, Artikli, Kupci i
+  Podešavanja sada staju u mobilnu širinu i imaju donji meni. TypeScript i lint
+  su čisti, a svih 9 portal testova prolazi.
+
+## 2026-08-20 — Povezivanje fiskalnog klijenta sa agencijom
+
+- Agencijskom klijentu fiskalizacija se uključuje izborom postojeće firme;
+  osnovni podaci, poslovna godina i korisnici se ne dupliraju.
+- Globalna PIB provjera prepoznaje direktnog fiskalnog klijenta i kreira
+  evidentirani zahtjev za povezivanje. Platformski admin ga odobrava ili odbija.
+- Odobrenje prenosi isti firm-specific scope pod ciljnu agenciju, zadržavajući
+  Fiscal API identitet i istoriju, uz audit.
+- Dodata i primijenjena migracija
+  `20260820143000_fiscal_company_agency_transfer_requests`; TypeScript, ESLint i
+  company-purge provjera su čisti (ESLint ima četiri ranija upozorenja).
+
+## 2026-08-19 — Specifikacija portala direktnog fiskalnog klijenta
+
+- Dogovorena je i dodata detaljna implementaciona specifikacija
+  `zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`.
+- Prva verzija portala obuhvata i mobile-first POS i klasične bezgotovinske
+  fakture, uz dashboard, jedinstveni pregled fiskalnih računa, izvještaje,
+  artikle, kupce i ograničena operativna podešavanja.
+- Portal koristi `/portal`, automatski kontekst jedne firme i strogi backend
+  guard koji direktnom korisniku zabranjuje agencijski interfejs. Sistemski
+  tenant ostaje skriven.
+- Sertifikati, ENU, fiskalni operateri, Test/Production aktivacija, suspenzija i
+  API aplikacije ostaju isključivo platformskom adminu.
+- Usklađene su prateće projektne i POS specifikacije te planer. Aplikacijski kod,
+  Prisma šema, migracije i poslovni podaci nijesu mijenjani.
+
+## 2026-08-19 — Handoff za nastavak u novom chatu
+
+- Ažurirana su samo tri handoff dokumenta; aplikacijski kod, Prisma šema i
+  migracije nijesu mijenjani u ovoj sesiji.
+- Prije ovog ažuriranja `main` i `origin/main` bili su na commitu `9a7eccd`, koji
+  sadrži usklađivanje globalnog kontnog plana sa Excel izvorom i proširenu
+  kontrolu trajnog brisanja testne firme.
+- Produkcijski sajt, PM2 proces i autentifikovana veza sa Fiscal API-jem bili su
+  uspješno provjereni na `38f44d9`. Novi chat prvo treba da potvrdi da je
+  `9a7eccd` deployovan i da je njegova migracija primijenjena prije daljih
+  produkcijskih izmjena.
+- Trenutna funkcionalna cjelina obuhvata centralnu fiskalnu administraciju,
+  izlazne fakture, mobile-first POS, fiskalizaciju i retry, puni storno, lager po
+  magacinu, maloprodajne/veleprodajne cijene, smjene, zbirni KIF tok, POS
+  izvještaje te A4 i termalnu štampu.
+- Platformski admin može kreirati direktnog fiskalnog klijenta u skrivenom
+  sistemskom tenantu i opciono mu otvoriti pristup samo njegovoj firmi. Za tog
+  korisnika još nema zasebnog prilagođenog dashboarda; to je sljedeći veći
+  proizvodni korak.
+- SMTP slanje pozivnica je u međuvremenu podešeno i potvrđeno kao funkcionalno
+  lokalno i na produkciji. Tajne ostaju samo u environment konfiguraciji.
+
 ## 2026-08-19
 - Globalni kontni plan usklađen je sa `zadaci/kontni plan.xlsx`: nova korektivna
   migracija upisuje 1.533 aktivna konta, pune nazive iz kolone `NAZIV` i oznake
@@ -903,3 +967,17 @@
   Time je otklonjeno centovno odstupanje kod artikla 2,10 EUR i većih količina.
 - Primijenjena je migracija `20260819120000_magacin_tip_prodaje`, regenerisan je
   Prisma Client i `npx tsc --noEmit` prolazi.
+
+## 2026-08-22 — Zajednički puni POS storno za agenciju i direktni portal
+
+- Postojeći puni POS storno izdvojen je u tenant-aware serverski servis koji
+  koriste i agencijski POS i direktni fiskalni portal; fiskalna logika se više
+  ne implementira posebno po interfejsu.
+- Direktni portal prikazuje dugme `Storniraj račun` samo za podoban
+  fiskalizovani POS račun i zahtijeva razlog i kritičnu potvrdu. Direktni tok je
+  `FISCAL_ONLY`, pa ne kreira KIF ni nalog, dok agencijski tok zadržava postojeću
+  računovodstvenu obradu i povrat robe na lager.
+- Dodata je zaštita fiskalnog okruženja, stabilan idempotency ključ i lokalna
+  reconciliation oznaka ako je remote storno potvrđen prije lokalne greške.
+  TypeScript je čist, svih 9 portal testova prolazi, a lint nema grešaka (četiri
+  ranija upozorenja ostaju).

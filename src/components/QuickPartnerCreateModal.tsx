@@ -16,6 +16,8 @@ export type QuickPartnerResult = {
 };
 
 type QuickPartnerCreateModalProps = {
+  companyOnly?: boolean;
+  endpoint?: string;
   initialName: string;
   initialPib?: string;
   onClose: () => void;
@@ -29,6 +31,8 @@ function normalizePib(value: string) {
 }
 
 export function QuickPartnerCreateModal({
+  companyOnly = false,
+  endpoint = "/api/partners/quick-create",
   initialName,
   initialPib = "",
   onClose,
@@ -63,7 +67,7 @@ export function QuickPartnerCreateModal({
     setStatus("");
 
     try {
-      const response = await fetch("/api/partners/quick-create", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -75,7 +79,7 @@ export function QuickPartnerCreateModal({
           isForeign,
           name: cleanName,
           pib: cleanPib,
-          scope,
+          scope: companyOnly ? "COMPANY" : scope,
           type
         })
       });
@@ -136,13 +140,20 @@ export function QuickPartnerCreateModal({
               <option value="ostalo">Ostalo</option>
             </select>
           </label>
-          <label>
-            <span>Vidljivost</span>
-            <select value={scope} onChange={(event) => setScope(event.target.value)}>
-              <option value="AGENCY">Cijela agencija</option>
-              <option value="COMPANY">Samo aktivna firma</option>
-            </select>
-          </label>
+          {companyOnly ? (
+            <label>
+              <span>Vidljivost</span>
+              <input disabled value="Samo aktivna firma" />
+            </label>
+          ) : (
+            <label>
+              <span>Vidljivost</span>
+              <select value={scope} onChange={(event) => setScope(event.target.value)}>
+                <option value="AGENCY">Cijela agencija</option>
+                <option value="COMPANY">Samo aktivna firma</option>
+              </select>
+            </label>
+          )}
           <label>
             <span>Žiro račun</span>
             <input

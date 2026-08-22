@@ -12,21 +12,28 @@ export class PosInventoryError extends Error {
   }
 }
 
-export async function applyPosInventoryMovement(
+type SalesInventoryMovementInput = {
+  agencijaId: string;
+  firmaId: string;
+  poslovnaGodinaId: string;
+  magacinId: string | null;
+  invoiceId: string;
+  datumPrometa: Date;
+  allowNegative: boolean;
+  userId: string;
+};
+
+async function applySalesInventoryMovement(
   tx: Prisma.TransactionClient,
-  input: {
-    agencijaId: string;
-    firmaId: string;
-    poslovnaGodinaId: string;
-    magacinId: string | null;
-    invoiceId: string;
-    datumPrometa: Date;
-    allowNegative: boolean;
-    userId: string;
+  input: SalesInventoryMovementInput & {
+    documentType: "POS_SALE" | "OUTGOING_INVOICE";
   }
 ) {
   const existing = await tx.prometZaliha.count({
-    where: { tip_dokumenta: "POS_SALE", dokument_id: input.invoiceId }
+    where: {
+      tip_dokumenta: input.documentType,
+      dokument_id: input.invoiceId
+    }
   });
   if (existing) return { movements: existing, alreadyApplied: true };
 
@@ -41,7 +48,9 @@ export async function applyPosInventoryMovement(
   });
   const stockLines = lines.filter((line) => !line.artikal.usluga && line.artikal.prati_zalihe);
   if (!stockLines.length) return { movements: 0, alreadyApplied: false };
-  if (!input.magacinId) throw new Error("POS kasa nema povezan magacin za robu koja prati zalihe.");
+  if (!input.magacinId) {
+    throw new Error("Dokument nema povezan magacin za robu koja prati zalihe.");
+  }
 
   for (const line of stockLines) {
     await tx.$queryRaw`SELECT "id" FROM "stanja_zaliha" WHERE "firma_id"=${input.firmaId}::uuid AND "poslovna_godina_id"=${input.poslovnaGodinaId}::uuid AND "magacin_id"=${input.magacinId}::uuid AND "artikal_id"=${line.artikal_id}::uuid FOR UPDATE`;
@@ -115,7 +124,7 @@ export async function applyPosInventoryMovement(
         poslovna_godina_id: input.poslovnaGodinaId,
         magacin_id: input.magacinId,
         artikal_id: line.artikal_id,
-        tip_dokumenta: "POS_SALE",
+        tip_dokumenta: input.documentType,
         dokument_id: input.invoiceId,
         stavka_dokumenta_id: line.id,
         datum_prometa: input.datumPrometa,
@@ -134,6 +143,26 @@ export async function applyPosInventoryMovement(
     });
   }
   return { movements: stockLines.length, alreadyApplied: false };
+}
+
+export function applyPosInventoryMovement(
+  tx: Prisma.TransactionClient,
+  input: SalesInventoryMovementInput
+) {
+  return applySalesInventoryMovement(tx, {
+    ...input,
+    documentType: "POS_SALE"
+  });
+}
+
+export function applyOutgoingInvoiceInventoryMovement(
+  tx: Prisma.TransactionClient,
+  input: SalesInventoryMovementInput
+) {
+  return applySalesInventoryMovement(tx, {
+    ...input,
+    documentType: "OUTGOING_INVOICE"
+  });
 }
 
 export async function applyPosReturnInventoryMovement(

@@ -4,7 +4,18 @@ import { prisma } from "@/lib/prisma";
 import { normalizeWarehouseSalesType, selectPosPrice } from "@/lib/pos-pricing";
 import { PosTerminal } from "./PosTerminal";
 
-export default async function PosPage({ searchParams }: { searchParams: Promise<{ poruka?: string; uspjeh?: string; greska?: string; obrada?: string }> }) {
+function validationMessage(code: string) {
+  const messages: Record<string, string> = {
+    magacin: "Naplata nije pokrenuta. Izabrana kasa nema povezan magacin za robu koja prati zalihe.",
+    lager: "Naplata nije pokrenuta. Nema dovoljno robe na stanju, a negativan lager je blokiran.",
+    smjena: "Otvorite svoju smjenu na izabranoj kasi prije naplate.",
+    u_toku: "Zahtjev je već primljen. Provjerite status računa prije novog pokušaja."
+  };
+
+  return messages[code] ?? "Naplata nije pokrenuta. Provjerite artikle, cijene i podešavanje kase.";
+}
+
+export default async function PosPage({ searchParams }: { searchParams: Promise<{ poruka?: string; uspjeh?: string; greska?: string; obrada?: string; racun?: string }> }) {
   const [params, ctx] = await Promise.all([searchParams, getPosContext("create")]);
   if (!ctx.firma || !ctx.year) return <section className="admin-panel"><p>Izaberite firmu i poslovnu godinu.</p></section>;
   if (!ctx.allowed) return <section className="admin-panel"><p>Nemate pravo izdavanja POS računa za ovu firmu.</p></section>;
@@ -12,7 +23,22 @@ export default async function PosPage({ searchParams }: { searchParams: Promise<
   const now = new Date();
   const [settings, registers, sourceItems, successInvoice, failedInvoice] = await Promise.all([
     prisma.posPodesavanje.findUnique({ where: { firma_id: ctx.firma.id } }),
-    prisma.posRegister.findMany({ where: { firma_id: ctx.firma.id, aktivan: true, is_deleted: false }, include: { magacin: { select: { naziv: true, tip_prodaje: true } } }, orderBy: { naziv: "asc" } }),
+    prisma.posRegister.findMany({
+      where: { agencija_id: ctx.user.agencija_id!, firma_id: ctx.firma.id, aktivan: true, is_deleted: false },
+      include: {
+        magacin: { select: { naziv: true, tip_prodaje: true } },
+        smjene: {
+          where: {
+            poslovna_godina_id: ctx.year.id,
+            opened_by: ctx.user.id,
+            status: "OPEN"
+          },
+          select: { id: true },
+          take: 1
+        }
+      },
+      orderBy: { naziv: "asc" }
+    }),
     prisma.artikal.findMany({ where: { firma_id: ctx.firma.id, aktivan: true, is_deleted: false }, include: { grupa_artikla: true, jedinica_mjere: true, pdv_stopa: true, cijene: { where: { aktivna: true, is_deleted: false, tip: { in: ["RETAIL", "MALOPRODAJNA", "WHOLESALE", "VELEPRODAJNA"] }, OR: [{ vazi_od: null }, { vazi_od: { lte: now } }], AND: [{ OR: [{ vazi_do: null }, { vazi_do: { gte: now } }] }] }, orderBy: [{ vazi_od: "desc" }, { created_at: "desc" }] } }, orderBy: { naziv: "asc" } }),
     params.uspjeh ? prisma.fiskalniIzlazniRacun.findFirst({ where: { id: params.uspjeh, firma_id: ctx.firma.id, sales_channel: "POS" }, select: { id: true, broj_racuna: true, ukupno_sa_pdv: true } }) : null,
     params.greska ? prisma.fiskalniIzlazniRacun.findFirst({ where: { id: params.greska, firma_id: ctx.firma.id, sales_channel: "POS" }, select: { id: true, interni_broj: true, fiscal_error_message: true, correlation_id: true } }) : null
@@ -27,7 +53,19 @@ export default async function PosPage({ searchParams }: { searchParams: Promise<
     {successInvoice ? <div className="status-banner success">Račun {successInvoice.broj_racuna} je fiskalizovan. <Link href={`/stampa/robno/izlazne-fakture/${successInvoice.id}`}>Otvori štampu</Link></div> : null}
     {params.obrada ? <div className="status-banner error">Fiskalizacija je uspješna, ali virman račun još nije pripremljen za KIF. Otvorite <Link href="/agencija/pos/racuni">Fiskalne račune</Link> i izaberite „Završi knjiženje“.</div> : null}
     {failedInvoice ? <div className="status-banner error">Račun {failedInvoice.interni_broj} je sačuvan, ali fiskalizacija nije uspjela: {failedInvoice.fiscal_error_message} {failedInvoice.correlation_id ? `(ID: ${failedInvoice.correlation_id})` : ""}</div> : null}
-    {params.poruka ? <p className="status-banner error">{params.poruka === "magacin" ? "Naplata nije pokrenuta. Izabrana kasa nema povezan magacin za robu koja prati zalihe." : params.poruka === "lager" ? "Naplata nije pokrenuta. Nema dovoljno robe na stanju, a negativan lager je blokiran." : "Naplata nije pokrenuta. Provjerite artikle, cijene i podešavanje kase."}</p> : null}
-    <PosTerminal items={items} registers={registers.map((register) => ({ id: register.id, name: register.naziv, code: register.sifra, defaultPayment: register.podrazumijevano_placanje, warehouseType: normalizeWarehouseSalesType(register.magacin?.tip_prodaje), warehouseName: register.magacin?.naziv ?? null }))} />
+    {params.poruka ? <p className={`status-banner ${params.poruka === "u_toku" ? "warning" : "error"}`}>{validationMessage(params.poruka)}{params.poruka === "u_toku" ? <> <Link href="/agencija/pos/racuni">Otvori fiskalne račune</Link>.</> : null}</p> : null}
+    <PosTerminal
+      items={items}
+      registers={registers.map((register) => ({
+        id: register.id,
+        name: register.naziv,
+        code: register.sifra,
+        defaultPayment: register.podrazumijevano_placanje,
+        warehouseType: normalizeWarehouseSalesType(register.magacin?.tip_prodaje),
+        warehouseName: register.magacin?.naziv ?? null,
+        shiftOpen: register.smjene.length > 0
+      }))}
+      requiresShift={settings.zahtijeva_smjenu}
+    />
   </div>;
 }

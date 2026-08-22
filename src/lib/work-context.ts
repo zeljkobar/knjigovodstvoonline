@@ -18,6 +18,12 @@ export async function readWorkContext(): Promise<WorkContext> {
   };
 }
 
+export async function clearWorkContext() {
+  const cookieStore = await cookies();
+  cookieStore.delete(ACTIVE_COMPANY_COOKIE);
+  cookieStore.delete(ACTIVE_YEAR_COOKIE);
+}
+
 export function workContextCookieOptions() {
   return {
     httpOnly: true,

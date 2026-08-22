@@ -1,0 +1,19 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "isolatedModules": false,
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "noEmit": false,
+    "outDir": "../.test-build",
+    "plugins": [],
+    "rootDir": "..",
+    "target": "ES2020"
+  },
+  "include": [
+    "direct-portal-policy.test.ts",
+    "../src/lib/direct-portal-policy.ts",
+    "../src/lib/portal-navigation.ts"
+  ]
+}

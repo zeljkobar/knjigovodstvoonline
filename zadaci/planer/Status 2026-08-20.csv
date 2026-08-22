@@ -1,0 +1,2 @@
+Modul,Status,Implementirano,Otvoreno,Napomena
+Fiskalni klijent i agencija,Implementirano,"Uključivanje fiskalizacije izborom postojeće firme agencije; globalna PIB detekcija; zahtjev i platformsko odobrenje/odbijanje prelaska direktnog klijenta bez duplikata.","Ručni end-to-end QA transfera na testnoj firmi i naknadna implementacija klijentskog dashboarda sa dugmetom Fiskalizacija.","Isti firma_id i Fiscal API veza ostaju kanonski; transfer firm-specific tenant scope-a je auditovan."

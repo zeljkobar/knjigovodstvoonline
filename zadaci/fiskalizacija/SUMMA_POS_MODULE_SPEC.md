@@ -291,6 +291,7 @@ knjigovodstvena agencija niti se korisniku predstavlja u interfejsu.
 Direktni POS klijent dobija samo aktivirane module i ekrane koji su mu potrebni:
 
 - POS / Kasa,
+- klasične bezgotovinske izlazne fakture,
 - artikle, grupe, cijene i po potrebi magacine,
 - pregled svojih računa i dnevnog prometa,
 - svoje korisnike i ograničena POS podešavanja,
@@ -303,6 +304,11 @@ firmom i istim podacima; ne pravi se nova firma i ne migriraju se POS računi.
 Za direktnog klijenta računovodstvena integracija može biti isključena. Sistem
 i dalje čuva kompletne fiskalne i prodajne podatke, ali ne smije automatski
 kreirati KIF ili naloge ako ta opcija nije aktivirana za firmu.
+
+Kompletan portal, njegova `/portal` navigacija, prava, dashboard i poseban tok
+bezgotovinskih faktura definisani su u
+[`DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`](DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md).
+Taj dokument ima prednost za UX i prava direktnog fiskalnog klijenta.
 
 ---
 
@@ -325,6 +331,12 @@ Može:
 - upravljati kasirima,
 - pregledati smjene,
 - raditi izvještaje.
+
+Za korisnika **direktnog fiskalnog portala** postoji strogi izuzetak: on ne
+kreira kase u Fiscal API-ju, ne povezuje ENU, ne upravlja fiskalnim operaterima,
+sertifikatima, aktivacijom ili suspenzijom. Te operacije ostaju isključivo
+platformskom adminu pod `/admin/fiskalizacija`. Portal vlasnik uređuje samo
+dozvoljena lokalna operativna podešavanja već konfigurisanih kasa.
 
 ## 7.2. Poslovođa
 
@@ -2457,7 +2469,7 @@ Tablet/mobile:
 
 ---
 
-# 72. KASNIJE: POS DASHBOARD ZA VLASNIKA
+# 72. POS DASHBOARD ZA VLASNIKA
 
 Primjer:
 
@@ -2479,7 +2491,10 @@ Top artikli
 3. Cappuccino
 ```
 
-Ovo nije uslov za prvi MVP.
+Za generički prvi POS MVP ovaj dashboard nije bio blokirajući uslov. Za
+dogovoreni portal direktnog fiskalnog klijenta osnovni operativni dashboard je
+dio prve verzije i prioritet 0. Precizne metrike i pravila storna definisani su
+u [`DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`](DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md).
 
 ---
 

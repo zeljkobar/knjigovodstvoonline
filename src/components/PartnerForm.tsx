@@ -8,6 +8,7 @@ type PartnerFormProps = {
   buttonLabel?: string;
   firmaId?: string;
   initialValues?: PartnerFormValues;
+  irmsEndpoint?: string;
   mode?: "agency" | "global";
 };
 
@@ -92,6 +93,7 @@ export function PartnerForm({
   buttonLabel = "Sačuvaj partnera",
   firmaId,
   initialValues,
+  irmsEndpoint = "/api/irms/search",
   mode = "agency"
 }: PartnerFormProps) {
   const [irmsStatus, setIrmsStatus] = useState<{
@@ -123,7 +125,7 @@ export function PartnerForm({
     });
 
     try {
-      const data = await lookupIrmsCompany(pib);
+      const data = await lookupIrmsCompany(pib, irmsEndpoint);
 
       setFormValue(form, "naziv", data.name || data.legalName);
       setFormValue(form, "pib", data.pib);

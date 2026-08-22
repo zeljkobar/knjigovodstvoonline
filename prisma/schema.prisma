@@ -111,8 +111,8 @@ model Korisnik {
   prava               KorisnikPravo[]
   aktivnosti          AktivnostDogadjaj[]
   obnovljenePretplate AgencijaPretplata[] @relation("PretplatuObnovio")
-  otvorenePosSmjene    PosSmjena[]          @relation("PosSmjenuOtvorio")
-  zatvorenePosSmjene   PosSmjena[]          @relation("PosSmjenuZatvorio")
+  otvorenePosSmjene   PosSmjena[]         @relation("PosSmjenuOtvorio")
+  zatvorenePosSmjene  PosSmjena[]         @relation("PosSmjenuZatvorio")
 
   @@map("korisnici")
 }
@@ -208,9 +208,31 @@ model Firma {
   posAccountingBatches          PosAccountingBatch[]
   posPodesavanje                PosPodesavanje?
   posSmjene                     PosSmjena[]
+  transferZahtjevi              FirmaAgencyTransferRequest[]
 
   @@unique([agencija_id, pib])
   @@map("firme")
+}
+
+model FirmaAgencyTransferRequest {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firma_id              String    @db.Uuid
+  firma                 Firma     @relation(fields: [firma_id], references: [id])
+  source_agencija_id    String    @db.Uuid
+  target_agencija_id    String    @db.Uuid
+  requested_by          String    @db.Uuid
+  requested_at          DateTime  @default(now())
+  accounting_start_date DateTime  @db.Date
+  status                String    @default("PENDING")
+  decided_by            String?   @db.Uuid
+  decided_at            DateTime?
+  rejection_reason      String?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  @@index([firma_id, status])
+  @@index([target_agencija_id, status])
+  @@map("firma_agency_transfer_requests")
 }
 
 model FiscalCompanyLink {
@@ -1342,6 +1364,7 @@ model FiskalniIzlazniRacun {
   fiscal_api_invoice_id   String?                     @unique @db.Uuid
   idempotency_key         String?                     @unique
   fiscal_status           String                      @default("NOT_REQUIRED")
+  fiscal_environment      String?
   iic                     String?
   jikr                    String?
   qr_code_data            String?
@@ -1417,6 +1440,7 @@ model PosRegister {
   updated_by                  String?                @db.Uuid
   racuni                      FiskalniIzlazniRacun[]
   smjene                      PosSmjena[]
+  podrazumijevana_za          PosPodesavanje?        @relation("DefaultPosRegister")
 
   @@unique([firma_id, sifra])
   @@index([agencija_id, firma_id, aktivan])
@@ -1458,21 +1482,25 @@ model PosSmjena {
 }
 
 model PosPodesavanje {
-  id                          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  agencija_id                 String   @db.Uuid
-  agencija                    Agencija @relation(fields: [agencija_id], references: [id])
-  firma_id                    String   @unique @db.Uuid
-  firma                       Firma    @relation(fields: [firma_id], references: [id])
-  aktivan                     Boolean  @default(false)
-  racunovodstvena_integracija Boolean  @default(false)
-  kif_rezim                   String   @default("DAILY")
-  knjizenje_rezim             String   @default("DAILY")
-  zahtijeva_smjenu            Boolean  @default(false)
-  automatska_stampa           Boolean  @default(false)
-  created_at                  DateTime @default(now())
-  created_by                  String?  @db.Uuid
-  updated_at                  DateTime @updatedAt
-  updated_by                  String?  @db.Uuid
+  id                          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id                 String       @db.Uuid
+  agencija                    Agencija     @relation(fields: [agencija_id], references: [id])
+  firma_id                    String       @unique @db.Uuid
+  firma                       Firma        @relation(fields: [firma_id], references: [id])
+  aktivan                     Boolean      @default(false)
+  racunovodstvena_integracija Boolean      @default(false)
+  kif_rezim                   String       @default("DAILY")
+  knjizenje_rezim             String       @default("DAILY")
+  zahtijeva_smjenu            Boolean      @default(false)
+  automatska_stampa           Boolean      @default(false)
+  format_stampe               String       @default("58")
+  podrazumijevani_rok_dana    Int          @default(7)
+  podrazumijevana_kasa_id     String?      @unique @db.Uuid
+  podrazumijevana_kasa        PosRegister? @relation("DefaultPosRegister", fields: [podrazumijevana_kasa_id], references: [id])
+  created_at                  DateTime     @default(now())
+  created_by                  String?      @db.Uuid
+  updated_at                  DateTime     @updatedAt
+  updated_by                  String?      @db.Uuid
 
   @@index([agencija_id, aktivan])
   @@map("pos_podesavanja")

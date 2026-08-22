@@ -10,7 +10,7 @@ type Option = { id: string; label: string };
 function newLine(): Line { return { key: crypto.randomUUID(), itemId: "", quantity: "1", netUnitPrice: "", discountPercent: "0", note: "" }; }
 function number(value: string) { const parsed = Number(value.replace(",", ".")); return Number.isFinite(parsed) ? parsed : 0; }
 
-export function OutgoingInvoiceLinesEditor({ items: initialItems, initialLines, groups, units, vatRates, disabled = false }: { items: Item[]; initialLines: Omit<Line, "key">[]; groups: Option[]; units: Option[]; vatRates: Option[]; disabled?: boolean }) {
+export function OutgoingInvoiceLinesEditor({ items: initialItems, initialLines, groups, units, vatRates, disabled = false, quickItemEndpoint }: { items: Item[]; initialLines: Omit<Line, "key">[]; groups: Option[]; units: Option[]; vatRates: Option[]; disabled?: boolean; quickItemEndpoint?: string }) {
   const [items, setItems] = useState(initialItems);
   const [lines, setLines] = useState<Line[]>(() => initialLines.length ? initialLines.map((line) => ({ ...line, key: crypto.randomUUID() })) : [newLine()]);
   const [newItemTarget, setNewItemTarget] = useState<string | null>(null);
@@ -55,6 +55,6 @@ export function OutgoingInvoiceLinesEditor({ items: initialItems, initialLines, 
     </table></div>
     <div className="outgoing-invoice-editor-footer"><div className="button-row"><button className="secondary-button" disabled={disabled} type="button" onClick={() => setLines((current) => [...current, newLine()])}>+ Dodaj stavku</button><button className="secondary-button" disabled={disabled} type="button" onClick={() => setNewItemTarget(lines.find((line) => !line.itemId)?.key ?? lines[lines.length - 1]?.key ?? null)}>+ Novi artikal / usluga</button></div><div className="invoice-live-totals"><span>Osnovica <strong>{totals.base.toFixed(2)} €</strong></span><span>PDV <strong>{totals.vat.toFixed(2)} €</strong></span><span>Za plaćanje <strong>{totals.total.toFixed(2)} €</strong></span></div></div>
     <p className="admin-hint">Enter prelazi u sljedeće polje. Na kraju reda automatski se dodaje nova stavka. Cijena i PDV se preuzimaju iz šifarnika, ali cijenu možeš korigovati na nacrtu.</p>
-    {newItemTarget ? <QuickItemCreateModal groups={groups} units={units} vatRates={vatRates} onClose={() => setNewItemTarget(null)} onCreated={createdItem} /> : null}
+    {newItemTarget ? <QuickItemCreateModal endpoint={quickItemEndpoint} groups={groups} units={units} vatRates={vatRates} onClose={() => setNewItemTarget(null)} onCreated={createdItem} /> : null}
   </>;
 }

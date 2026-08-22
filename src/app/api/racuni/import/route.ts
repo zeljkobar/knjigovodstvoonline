@@ -6,7 +6,7 @@ import {
   invoicePostingDocumentTypes,
   invoicePostingFields
 } from "@/lib/account-plan";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { prisma } from "@/lib/prisma";
 import { vatTransactionTypes } from "@/lib/vat-transaction";
@@ -941,6 +941,10 @@ export async function POST(req: NextRequest) {
 
   if (!user || !["admin_agencije", "korisnik_agencije"].includes(user.rola)) {
     return NextResponse.json({ message: "Niste prijavljeni." }, { status: 401 });
+  }
+
+  if (isDirectFiscalTenantUser(user)) {
+    return NextResponse.json({ message: "Ruta nije dostupna u direktnom portalu." }, { status: 403 });
   }
 
   const workContext = await readWorkContext();

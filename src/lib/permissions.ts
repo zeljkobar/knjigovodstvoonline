@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "./prisma";
-import { getCurrentUser } from "./auth";
+import { getCurrentUser, isDirectFiscalTenantUser } from "./auth";
 
 export type PermissionAction =
   | "view"
@@ -24,6 +24,10 @@ export async function requireAgencyUser() {
 
   if (!user) {
     redirect("/?greska=sesija");
+  }
+
+  if (isDirectFiscalTenantUser(user)) {
+    redirect("/portal");
   }
 
   if (!user.agencija_id || !["admin_agencije", "korisnik_agencije", "klijent"].includes(user.rola)) {
@@ -115,6 +119,11 @@ export async function hasPermission(
 
 export async function requirePermission(check: PermissionCheck) {
   const user = await getCurrentUser();
+
+  if (isDirectFiscalTenantUser(user)) {
+    redirect("/portal");
+  }
+
   const allowed = await hasPermission(user, check);
 
   if (!allowed) {
