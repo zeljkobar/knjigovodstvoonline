@@ -1,6 +1,9 @@
 # ROADMAP
 
-Status je ažuriran 02.08.2026. Detaljan presjek završenog rada nalazi se u [`CURRENT_STATE.md`](CURRENT_STATE.md).
+Status Fiscal API-ja je ažuriran 02.08.2026, a implementacija u
+`knjigovodstvoonline` i prateća dokumentacija usklađene su sa kodom 31.08.2026.
+Detaljan presjek završenog
+rada nalazi se u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
 ## Faza 0 — Dokumentacija i osnova
 
@@ -51,36 +54,38 @@ Status je ažuriran 02.08.2026. Detaljan presjek završenog rada nalazi se u [`C
 - [x] Napraviti i pregledati nacrt prvog stvarnog bezgotovinskog računa.
 - [x] Poslati prvi račun tek nakon eksplicitne potvrde korisnika.
 - [x] Provjeriti JIKR i QR nakon produkcione fiskalizacije.
-- [ ] Registar partnera i artikala/usluga (snapshot kupca na fiskalnom računu je implementiran).
+- [x] Registar partnera i artikala/usluga u sajtu, uključujući portalske
+  šifarnike i async pretragu partnera.
 - [x] Konkurentno bezbjedna backend numeracija po ENU-u i godini.
-- [ ] Forma, pregled i zaključavanje fiskalizovanog računa.
+- [x] Forma, pregled i zabrana izmjene/brisanja fiskalizovanog računa u sajtu.
 - [x] Definisati API ugovor i podjelu odgovornosti za PDF/štampu.
-- [ ] Implementirati konačni PDF/štampu u administrativnom sajtu.
+- [x] Implementirati A4 i 58/80 mm HTML/CSS browser štampu u sajtu.
 - [ ] Slanje e-mailom.
-- [ ] Pregled i pretraga fiskalizovanih računa.
-- [ ] Korisnička prijava i tenant-aware klijentski portal na `fiscal.summasummarum.me` ili povezani portal u `knjigovodstvo.summasummarum.me`.
-- [ ] Serverska integracija portala sa Fiscal API-jem bez izlaganja API ključa pregledniku.
-- [ ] Obavezni pregled nacrta i eksplicitna potvrda ovlašćenog korisnika prije svakog produkcionog slanja.
+- [x] Pregled i pretraga fiskalizovanih računa.
+- [x] Korisnička prijava i tenant-aware `/portal` u povezanom sajtu.
+- [x] Serverska integracija portala sa Fiscal API-jem bez izlaganja API ključa pregledniku.
+- [x] Obavezni pregled nacrta i eksplicitna potvrda ovlašćenog korisnika prije produkcionog slanja iz portala.
 
-## Faza 3 — Accounting Engine
+## Faza 3 — Accounting Engine u `knjigovodstvoonline`
 
-- [ ] KIF i KUF.
-- [ ] PDV evidencija.
-- [ ] Knjiženje računa.
-- [ ] Avansi i storna u računovodstvenom modulu.
-- [ ] Otvorene stavke.
+- [x] KIF i KUF.
+- [x] PDV evidencija i prijava.
+- [x] Knjiženje računa.
+- [x] Potpuni POS storno sa računovodstvenom obradom.
+- [ ] Avansni računi.
+- [x] Otvorene stavke.
 
-## Faza 4 — Bank Engine
+## Faza 4 — Bank Engine u `knjigovodstvoonline`
 
-- [ ] Uvoz bankovnih izvoda.
-- [ ] Prepoznavanje uplata i isplata.
-- [ ] Povezivanje po žiro računu.
-- [ ] Pravila knjiženja.
-- [ ] Preview prije knjiženja.
+- [x] Uvoz bankovnih izvoda za podržane banke/formate.
+- [x] Prepoznavanje uplata i isplata.
+- [x] Povezivanje po žiro računu.
+- [x] Pravila i predlog knjiženja.
+- [x] Preview prije knjiženja.
 
 ## Faza 5 — OCR Engine
 
-- [ ] Upload ulaznih računa.
+- [x] Upload ulaznih računa i MAPR/QR import podržanih PDF/slikovnih formata.
 - [ ] OCR ekstrakcija i validacija.
-- [ ] Povezivanje sa partnerima.
-- [ ] Slanje u KUF.
+- [x] Povezivanje sa partnerima.
+- [x] Slanje u KUF.

@@ -1,0 +1,2 @@
+Modul,Status,Implementirano,Otvoreno,Napomena
+Dashboard agencije,Implementirano,"Uklonjeni zadnji audit logovi; dodati brojači i liste DRAFT naloga, WAITING_KUF kalkulacija i WAITING_KIF izlaznih računa za aktivnu firmu/godinu; direktni linkovi i permission-aware prazna stanja.","Po potrebi proširiti dashboard rokovima i dodatnim operativnim kontrolama iz postojećih podstranica.","Browser QA potvrđen na aktivnoj firmi/godini; TypeScript, ESLint i diff provjere su čiste."

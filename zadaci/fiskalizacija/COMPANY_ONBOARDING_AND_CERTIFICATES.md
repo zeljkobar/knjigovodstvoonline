@@ -102,6 +102,11 @@ Onboarding prihvata samo `Test` okruženje. Produkcija se ne može uključiti ob
 
 Detalji produkcionog profila, `BankOnly` zaštite i ENU registracije su u [`PRODUCTION_PROFILE_AND_ENU.md`](PRODUCTION_PROFILE_AND_ENU.md).
 
-Za firmu PIB `02825767` ovaj workflow je stvarno završen 02.08.2026: kontrolni testni račun dobio je JIKR, produkcioni ENU je registrovan kroz `RegisterTCR`, a aktivacioni status je `ProductionActive`. Nijedan stvarni produkcioni račun još nije poslat.
+Za firmu PIB `02825767` ovaj workflow je stvarno završen 02.08.2026: kontrolni
+testni račun dobio je JIKR, produkcioni ENU je registrovan kroz `RegisterTCR`, a
+aktivacioni status je `ProductionActive`. Nakon aktivacije je 02.08.2026, uz
+pregled nacrta i eksplicitnu potvrdu korisnika, uspješno fiskalizovan prvi
+stvarni bezgotovinski produkcioni račun od 121,00 EUR; detalji su u
+[`CURRENT_STATE.md`](CURRENT_STATE.md).
 
 Ostale activation dozvole su `activation:read` i `activation:test`. Sve promjene ostavljaju audit događaje.

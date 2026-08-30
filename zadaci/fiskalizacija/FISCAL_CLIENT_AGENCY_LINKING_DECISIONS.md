@@ -1,10 +1,11 @@
 # Povezivanje fiskalnog klijenta i knjigovodstvene agencije
 
-> Status: usvojene proizvodne odluke, implementacija slijedi naknadno  
+> Status: implementirano u kodu; ručni end-to-end QA transfera ostaje.
+>
 > Datum odluke: 2026-08-20
 
-Ovaj dokument definiše dogovoreni način uključivanja fiskalizacije firmama koje
-vodi knjigovodstvena agencija, pristup fiskalnom portalu sa budućeg klijentskog
+Ovaj dokument definiše način uključivanja fiskalizacije firmama koje
+vodi knjigovodstvena agencija, pristup fiskalnom portalu sa klijentskog
 dashboarda i prelazak postojećeg direktnog fiskalnog klijenta pod
 knjigovodstvenu agenciju.
 
@@ -51,10 +52,10 @@ Za način saradnje **Direktni klijent — bez agencije** zadržava se poseban to
 kreiranje nove firme, jer takva firma još ne postoji u knjigovodstvenoj
 agenciji.
 
-## 2. Fiskalizacija na budućem klijentskom dashboardu
+## 2. Fiskalizacija na klijentskom dashboardu
 
-Klijentski dashboard još nije predmet ove implementacije i biće projektovan i
-implementiran naknadno.
+Postojeći ograničeni klijentski dashboard implementira ovu vezu bez uvođenja
+drugog fiskalnog portala.
 
 Dogovorena je samo sljedeća funkcionalna veza:
 
@@ -71,9 +72,9 @@ Istu portalsku funkcionalnost treba moći koristiti:
 - klijent firme koju vodi knjigovodstvena agencija, ako je toj firmi uključena
   fiskalizacija i korisniku dodijeljeno pravo.
 
-Direktni klijent nakon prijave može ići direktno na fiskalni portal. Klijent
-knjigovodstvene agencije će naknadno dobijati standardni klijentski dashboard i
-sa njega otvarati fiskalni portal preko dugmeta **Fiskalizacija**.
+Direktni klijent nakon prijave ide direktno na fiskalni portal. Klijent
+knjigovodstvene agencije otvara isti portal sa svog dashboarda preko dugmeta
+**Fiskalizacija** kada backend potvrdi portalski kontekst i prava.
 
 Pristup se mora provjeravati na backendu. Samo postojanje ili prikaz dugmeta nije
 dovoljna autorizacija. Portal mora potvrditi vezu korisnika sa firmom, aktivnu
@@ -140,10 +141,9 @@ Takav slučaj ide na posebnu administratorsku provjeru.
 
 1. Fiskalizacija klijentu agencije uključuje se izborom postojeće firme te
    agencije, ne ponovnim unosom i kreiranjem firme.
-2. Budući klijentski dashboard prikazuje dugme **Fiskalizacija** samo firmama i
-   korisnicima koji imaju aktivnu fiskalizaciju i odgovarajuće pravo; sam
-   dashboard će biti implementiran naknadno.
+2. Klijentski dashboard prikazuje dugme **Fiskalizacija** samo firmama i
+   korisnicima za koje backend potvrdi aktivni portalski kontekst i
+   odgovarajuće pravo.
 3. Postojeći direktni fiskalni klijent koji naknadno angažuje agenciju povezuje
    se preko kontrolisanog zahtjeva pokrenutog podudaranjem PIB-a. Zadržavaju se
    ista firma, fiskalizacija i istorija, bez dupliranja podataka.
-

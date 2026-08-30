@@ -19,6 +19,12 @@ import {
   payrollStatuses
 } from "@/lib/payroll";
 import {
+  allowedPayrollPeriod,
+  calculateAutomaticPayrollHours,
+  employeeMonthlyScheduledHours,
+  isPayrollPeriodAllowed
+} from "@/lib/payroll-hours";
+import {
   hasPayrollPostingAggregateConflict,
   payrollPostingAmountCents,
   payrollPostingComponents,
@@ -59,6 +65,61 @@ function dateValue(value: FormDataEntryValue | null) {
 
 function centsToDecimal(cents: number) {
   return (cents / 100).toFixed(2);
+}
+
+function automaticPayrollPeriodAndHours({
+  calculation,
+  employee,
+  periodFrom,
+  periodTo
+}: {
+  calculation: Pick<PlateObracun, "kategorija" | "datum_od" | "datum_do" | "fond_sati">;
+  employee: Pick<
+    PlateRadnik,
+    "datum_pocetka" | "datum_prestanka" | "mjesecni_sati" | "procenat_radnog_vremena"
+  >;
+  periodFrom?: Date | null;
+  periodTo?: Date | null;
+}) {
+  const allowed = allowedPayrollPeriod({
+    calculationFrom: calculation.datum_od,
+    calculationTo: calculation.datum_do,
+    employmentFrom: payrollCategoryRequiresEmployment(calculation.kategorija)
+      ? employee.datum_pocetka
+      : null,
+    employmentTo: payrollCategoryRequiresEmployment(calculation.kategorija)
+      ? employee.datum_prestanka
+      : null
+  });
+
+  if (!allowed) {
+    return null;
+  }
+
+  const from = periodFrom ?? dateValue(allowed.from);
+  const to = periodTo ?? dateValue(allowed.to);
+
+  if (!from || !to || !isPayrollPeriodAllowed({ from, to, allowed })) {
+    return null;
+  }
+
+  const monthlyScheduledHours = employeeMonthlyScheduledHours({
+    calculationFundHours: calculation.fond_sati,
+    employeeMonthlyHours: employee.mjesecni_sati,
+    employmentPercentage: Number(employee.procenat_radnog_vremena)
+  });
+
+  return {
+    from,
+    to,
+    automaticHours: calculateAutomaticPayrollHours({
+      calculationFrom: calculation.datum_od,
+      calculationTo: calculation.datum_do,
+      periodFrom: from,
+      periodTo: to,
+      monthlyScheduledHours
+    })
+  };
 }
 
 async function requirePlateManageContext(returnPath: string) {
@@ -458,7 +519,7 @@ async function effectiveIncomeType(
 
 function payrollEmployeeEligibilityWhere(
   context: Awaited<ReturnType<typeof requirePlateManageContext>>,
-  category: string,
+  calculation: Pick<PlateObracun, "kategorija" | "datum_od" | "datum_do">,
   employeeId?: string
 ): Prisma.PlateRadnikWhereInput {
   return {
@@ -466,7 +527,24 @@ function payrollEmployeeEligibilityWhere(
     agencija_id: context.agencijaId,
     firma_id: context.firma.id,
     aktivan: true,
-    ...(payrollCategoryRequiresEmployment(category) ? { zaposlen: true } : {}),
+    ...(payrollCategoryRequiresEmployment(calculation.kategorija)
+      ? {
+          AND: [
+            {
+              OR: [
+                { datum_pocetka: null },
+                { datum_pocetka: { lte: calculation.datum_do } }
+              ]
+            },
+            {
+              OR: [
+                { datum_prestanka: null },
+                { datum_prestanka: { gte: calculation.datum_od } }
+              ]
+            }
+          ]
+        }
+      : {}),
     is_deleted: false
   };
 }
@@ -1653,7 +1731,10 @@ function employeeSnapshot(employee: {
 function payrollBlockingIssuesForLine({
   employee,
   line,
-  calculationDate
+  calculationDate,
+  calculationFrom,
+  calculationTo,
+  requiresEmployment
 }: {
   employee: {
     ime: string;
@@ -1662,9 +1743,12 @@ function payrollBlockingIssuesForLine({
     opstina: string | null;
     poreska_opstina: string | null;
     datum_pocetka: Date | null;
+    datum_prestanka: Date | null;
     minuli_rad_godina: number;
   };
   line: {
+    datum_od: Date;
+    datum_do: Date;
     ukupno_sati: number;
     input_neto_cent: number;
     input_bruto_cent: number;
@@ -1675,6 +1759,9 @@ function payrollBlockingIssuesForLine({
     koristi_minuli_rad: boolean;
   };
   calculationDate: Date;
+  calculationFrom: Date;
+  calculationTo: Date;
+  requiresEmployment: boolean;
 }) {
   const issues: string[] = [];
   const employeeName = `${employee.prezime} ${employee.ime}`;
@@ -1693,6 +1780,22 @@ function payrollBlockingIssuesForLine({
 
   if (line.ukupno_sati <= 0) {
     issues.push(`${employeeName}: sati za obračun moraju biti veći od nule.`);
+  }
+
+  const allowedPeriod = allowedPayrollPeriod({
+    calculationFrom,
+    calculationTo,
+    employmentFrom: requiresEmployment ? employee.datum_pocetka : null,
+    employmentTo: requiresEmployment ? employee.datum_prestanka : null
+  });
+
+  if (
+    !allowedPeriod ||
+    !isPayrollPeriodAllowed({ from: line.datum_od, to: line.datum_do, allowed: allowedPeriod })
+  ) {
+    issues.push(
+      `${employeeName}: period stavke mora biti unutar mjeseca obračuna i trajanja zaposlenja.`
+    );
   }
 
   if (
@@ -1756,9 +1859,13 @@ async function createCalculationWorkerWithDefaultLine({
     startDate: employee.datum_pocetka,
     referenceDate: calculation.datum_do
   });
-  const employeeHours = employee.mjesecni_sati ?? Math.round(
-    calculation.fond_sati * (Number(employee.procenat_radnog_vremena) / 100)
-  );
+  const periodAndHours = automaticPayrollPeriodAndHours({ calculation, employee });
+
+  if (!periodAndHours) {
+    return null;
+  }
+
+  const employeeHours = periodAndHours.automaticHours;
   const calculationEmployee = await tx.plateObracunRadnik.upsert({
     where: {
       obracun_id_radnik_id: {
@@ -1809,8 +1916,8 @@ async function createCalculationWorkerWithDefaultLine({
       vrsta_obracuna_id: calculationType.id,
       sifra_primanja: incomeType.sifra,
       naziv_primanja: incomeType.naziv,
-      datum_od: calculation.datum_od,
-      datum_do: calculation.datum_do,
+      datum_od: periodAndHours.from,
+      datum_do: periodAndHours.to,
       fond_sati: calculation.fond_sati,
       ukupno_sati: employeeHours,
       procenat: 100,
@@ -1855,7 +1962,7 @@ async function preparePayrollLines(calculationId: string, context: Awaited<Retur
   }
 
   const employees = await prisma.plateRadnik.findMany({
-    where: payrollEmployeeEligibilityWhere(context, calculation.kategorija),
+    where: payrollEmployeeEligibilityWhere(context, calculation),
     orderBy: [
       {
         prezime: "asc"
@@ -1961,7 +2068,7 @@ export async function addPayrollWorkerToCalculation(formData: FormData) {
 
   const [employee, existingWorker, lastLine] = await Promise.all([
     prisma.plateRadnik.findFirst({
-      where: payrollEmployeeEligibilityWhere(context, calculation.kategorija, employeeId)
+      where: payrollEmployeeEligibilityWhere(context, calculation, employeeId)
     }),
     prisma.plateObracunRadnik.findFirst({
       where: {
@@ -2126,9 +2233,21 @@ export async function updatePayrollCalculationLine(formData: FormData) {
   const bruto = parseMoneyToCents(formData.get("input_bruto"));
   const fiksniDio = parseMoneyToCents(formData.get("fiksni_dio"));
   const hours = numberValue(formData.get("ukupno_sati"));
+  const periodFrom = dateValue(formData.get("datum_od"));
+  const periodTo = dateValue(formData.get("datum_do"));
   const calculationType = await effectiveCalculationType(text(formData.get("vrsta_obracuna_id")));
 
-  if (!lineId || !calculationId || neto === null || bruto === null || fiksniDio === null || hours < 0) {
+  if (
+    !lineId ||
+    !calculationId ||
+    neto === null ||
+    bruto === null ||
+    fiksniDio === null ||
+    !Number.isInteger(hours) ||
+    hours < 0 ||
+    !periodFrom ||
+    !periodTo
+  ) {
     redirect(`/agencija/plate/obracun?obracun=${calculationId}&poruka=stavka_nevalidna`);
   }
 
@@ -2175,6 +2294,20 @@ export async function updatePayrollCalculationLine(formData: FormData) {
       is_deleted: false
     }
   });
+  const periodAndHours = employee
+    ? automaticPayrollPeriodAndHours({
+        calculation,
+        employee,
+        periodFrom,
+        periodTo
+      })
+    : null;
+
+  if (!employee || !periodAndHours) {
+    redirect(
+      `/agencija/plate/obracun?obracun=${calculation.id}&radnik=${line.radnik_id}&poruka=period_nevalidan`
+    );
+  }
   const seniorityYears = effectiveSeniorityYears({
     manualYears: calculationWorker?.minuli_rad_godina || employee?.minuli_rad_godina || 0,
     startDate: employee?.datum_pocetka,
@@ -2194,6 +2327,8 @@ export async function updatePayrollCalculationLine(formData: FormData) {
         vrsta_obracuna_id: calculationType.id,
         sifra_primanja: incomeType.sifra,
         naziv_primanja: incomeType.naziv,
+        datum_od: periodAndHours.from,
+        datum_do: periodAndHours.to,
         ukupno_sati: hours,
         input_neto_cent: neto,
         input_bruto_cent: bruto,
@@ -2264,7 +2399,11 @@ export async function updatePayrollCalculationLine(formData: FormData) {
     novaVrijednost: {
       neto,
       bruto,
-      hours
+      hours,
+      datumOd: periodAndHours.from,
+      datumDo: periodAndHours.to,
+      automatskiSati: periodAndHours.automaticHours,
+      satiRucnoIzmijenjeni: hours !== periodAndHours.automaticHours
     }
   });
 
@@ -2279,9 +2418,22 @@ export async function addPayrollCalculationLine(formData: FormData) {
   const neto = parseMoneyToCents(formData.get("input_neto"));
   const bruto = parseMoneyToCents(formData.get("input_bruto"));
   const fiksniDio = parseMoneyToCents(formData.get("fiksni_dio"));
+  const hours = numberValue(formData.get("ukupno_sati"));
+  const periodFrom = dateValue(formData.get("datum_od"));
+  const periodTo = dateValue(formData.get("datum_do"));
   const calculationType = await effectiveCalculationType(text(formData.get("vrsta_obracuna_id")));
 
-  if (!calculationId || !workerId || neto === null || bruto === null || fiksniDio === null) {
+  if (
+    !calculationId ||
+    !workerId ||
+    neto === null ||
+    bruto === null ||
+    fiksniDio === null ||
+    !Number.isInteger(hours) ||
+    hours < 0 ||
+    !periodFrom ||
+    !periodTo
+  ) {
     redirect(`/agencija/plate/obracun?obracun=${calculationId}&poruka=stavka_nevalidna`);
   }
 
@@ -2315,6 +2467,17 @@ export async function addPayrollCalculationLine(formData: FormData) {
     redirect("/agencija/plate/obracun?poruka=obracun_zakljucan");
   }
 
+  const periodAndHours = automaticPayrollPeriodAndHours({
+    calculation,
+    employee,
+    periodFrom,
+    periodTo
+  });
+
+  if (!periodAndHours) {
+    redirect(`/agencija/plate/obracun?obracun=${calculation.id}&radnik=${workerId}&poruka=period_nevalidan`);
+  }
+
   const lastLine = await prisma.plateObracunStavka.findFirst({
     where: {
       obracun_id: calculation.id
@@ -2346,10 +2509,10 @@ export async function addPayrollCalculationLine(formData: FormData) {
       vrsta_obracuna_id: calculationType.id,
       sifra_primanja: incomeType.sifra,
       naziv_primanja: incomeType.naziv,
-      datum_od: calculation.datum_od,
-      datum_do: calculation.datum_do,
+      datum_od: periodAndHours.from,
+      datum_do: periodAndHours.to,
       fond_sati: calculation.fond_sati,
-      ukupno_sati: numberValue(formData.get("ukupno_sati"), calculationWorker.ukupno_sati),
+      ukupno_sati: hours,
       input_neto_cent: neto,
       input_bruto_cent: bruto,
       fiksni_dio_cent: fiksniDio,
@@ -2385,7 +2548,12 @@ export async function addPayrollCalculationLine(formData: FormData) {
     novaVrijednost: {
       radnikId: workerId,
       neto,
-      bruto
+      bruto,
+      hours,
+      datumOd: periodAndHours.from,
+      datumDo: periodAndHours.to,
+      automatskiSati: periodAndHours.automaticHours,
+      satiRucnoIzmijenjeni: hours !== periodAndHours.automaticHours
     }
   });
 
@@ -2452,7 +2620,10 @@ export async function calculatePayrollCalculation(formData: FormData) {
     return payrollBlockingIssuesForLine({
       employee,
       line,
-      calculationDate: calculation.datum_do
+      calculationDate: calculation.datum_do,
+      calculationFrom: calculation.datum_od,
+      calculationTo: calculation.datum_do,
+      requiresEmployment: payrollCategoryRequiresEmployment(calculation.kategorija)
     });
   });
 

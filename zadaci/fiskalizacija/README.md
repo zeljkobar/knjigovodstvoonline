@@ -26,14 +26,16 @@ Ovaj direktorijum sadrži operativnu, integracionu i izvornu dokumentaciju za Su
 - [`SUMMA_POS_MODULE_SPEC.md`](SUMMA_POS_MODULE_SPEC.md) — zajedničko POS jezgro,
   fiskalizacija, lager, smjene, izvještaji i odnos prema fakturama.
 - [`DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`](DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md) —
-  dogovorena ciljna specifikacija posebnog `/portal` interfejsa za direktnog
-  fiskalnog klijenta, sa POS-om i klasičnim bezgotovinskim fakturama.
+  implementaciona specifikacija i provjereni status posebnog `/portal`
+  interfejsa za direktnog fiskalnog klijenta, sa POS-om i klasičnim
+  bezgotovinskim fakturama.
 - [`FISCAL_CLIENT_AGENCY_LINKING_DECISIONS.md`](FISCAL_CLIENT_AGENCY_LINKING_DECISIONS.md) —
   uključivanje fiskalizacije postojećoj firmi agencije i kontrolisani prelazak
   direktnog fiskalnog klijenta pod agenciju bez dupliranja firme.
 
 Specifikacija direktnog portala je projektni dodatak za `knjigovodstvoonline`.
-Ne mijenja Fiscal API ugovor i ne znači da je portal već implementiran.
+Ne mijenja Fiscal API ugovor. Portal je implementiran u kodu sajta; kontrolisani
+live/E2E fiskalni pilot i provjera stvarnog 58/80 mm printera ostaju otvoreni.
 
 ## Zvanični lokalni izvori
 

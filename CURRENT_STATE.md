@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-08-19. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-08-31. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -18,21 +18,24 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - Odobrenje zadržava isti `Firma.id`, Fiscal API vezu i fiskalnu istoriju te u
   jednoj transakciji prenosi firm-specific tenant scope ciljnoj agenciji.
 - Migracija `20260820143000_fiscal_company_agency_transfer_requests` je lokalno
-  primijenjena. Klijentski dashboard i dugme **Fiskalizacija** ostaju naknadni
-  korak.
+  primijenjena. Ograničeni klijentski dashboard sada prikazuje dugme
+  **Fiskalizacija** samo kada backend potvrdi portalski kontekst, aktivnu firmu,
+  poslovnu godinu i eksplicitna prava; dugme otvara isti `/portal`.
 
-## Handoff za novi chat — 2026-08-19
+## Handoff za novi chat — 2026-08-31
 
-- Glavna grana je `main`; prije ovog dokumentacionog ažuriranja lokalni `HEAD` i
-  `origin/main` bili su na `9a7eccd` (`feat: update chart of accounts and company
-  purge`). Taj commit sadrži korektivnu migraciju kontnog plana i proširenu
-  kontrolu trajnog brisanja testne firme.
+- Glavna grana je `main`. Posljednji udaljeni commit prije objedinjavanja ove
+  serije bio je `2f330e9` (`feat: add direct fiscal client portal`). Serija od
+  23–31.08.2026. obuhvata pojedinačni period/sate radnika, sklopivi agencijski
+  meni, operativni dashboard, lager i karticu artikla, centralne izvještaje,
+  štampe bruto bilansa i kartice konta te kontrole završnog računa.
+- U ovoj seriji nije mijenjana Prisma šema i nije dodata nova migracija baze.
+  Planer je usklađen kroz CSV izvore i regenerisani Excel dokument.
 - Produkcijski sajt i veza sa Fiscal API-jem posljednji put su eksplicitno
   provjereni dok je server bio na commitu `38f44d9`: sajt je vraćao HTTP 200,
   Fiscal API `health` je bio zdrav, autentifikovani poziv prema listi firmi je
-  vraćao HTTP 200, a PM2 proces je bio online na portu 3004. Prije narednog rada
-  na produkciji treba provjeriti da li je `9a7eccd` već deployovan i da li je
-  primijenjena migracija `20260819170000_uskladi_kontni_plan_sa_excelom`.
+  vraćao HTTP 200, a PM2 proces je bio online na portu 3004. Deploy objedinjene
+  serije i svih novijih migracija nije provjeravan u ovoj sesiji.
 - SMTP slanje pozivnica je podešeno i radi lokalno i na produkciji. SMTP tajne
   ostaju isključivo u lokalnim/serverskim environment varijablama i ne smiju se
   prepisivati u dokumentaciju ili git.
@@ -171,8 +174,9 @@ kase pravi se nepromjenjiv presjek od otvaranja do tog trenutka: broj računa,
 gotovina, kartice, virmani, ostala plaćanja, ukupan promet i očekivana gotovina
 u kasi. Storna ulaze kao negativni dokumenti. Jedna kasa može imati samo jednu
 otvorenu smjenu, dok novi radnik nakon presjeka otvara novu. Presjek smjene ne
-mijenja dnevni ili mjesečni KIF zbir. Reprint audit i lokalni POS Agent još
-nijesu završeni.
+mijenja dnevni ili mjesečni KIF zbir. Direktni portal auditira otvaranje A4 i
+58/80 mm štampe. Reprint audit agencijskog POS-a i lokalni POS Agent još nijesu
+završeni.
 
 ## Fiskalna integracija — administracija, izdavanje i direktni portal rade
 
@@ -195,8 +199,9 @@ Lokalna veza i poslovni status čuvaju se u `fiscal_company_links`; sertifikat i
 lozinka se ne čuvaju u ovom projektu. Izdavanje i fiskalizacija izlaznih faktura,
 POS prodaja, retry neuspjele fiskalizacije, potpuni storno, izvještaji i štampa
 jesu implementirani. Direktni fiskalni klijent ima zaseban portal sa sopstvenim
-kontekstom i `FISCAL_ONLY` tokom; standardni računovodstveni klijentski
-dashboard ostaje odvojen zadatak.
+kontekstom i `FISCAL_ONLY` tokom. Standardni klijentski prostor je i dalje
+ograničen, ali uslovno dugme **Fiskalizacija** već otvara isti portal za
+ovlašćenog klijenta firme agencije.
 
 Detalj fiskalne firme sada ima kompletnu formu produkcionog profila: kod
 proizvođača, naziv/verziju i produkcione kodove softvera i održavaoca,
@@ -248,9 +253,18 @@ je od samodeaktivacije i samostalne rotacije.
 ## Završeno / core funkcionalno
 
 ### Navigacija
-- Fiksni lijevi meni i gornji podmeniji po modulu.
+- Fiksni lijevi meni i gornji podmeniji po modulu. Agencijski meni se na
+  desktopu sklapa na ikonice i pamti izbor u pregledniku; na telefonu se otvara
+  kao bočni panel preko sadržaja i zatvara klikom van menija ili tipkom Escape.
 - Globalna traka: agencija, firma, godina, korisnik.
 - Glavna sekcija `Računi` sa KIF/KUF podmenijem.
+
+### Dashboard agencije
+- Početni dashboard više ne prikazuje audit log. Za aktivnu firmu i poslovnu
+  godinu prikazuje broj i najnovije nacrte naloga, završene kalkulacije koje
+  čekaju prenos u KUF i završene izlazne račune koji čekaju prenos u KIF.
+- Svaka stavka vodi direktno na izvorni nalog, kalkulaciju ili račun. Upiti su
+  ograničeni aktivnom agencijom/firmom/godinom i pravima korisnika.
 
 ### Modul 1 — Korisnici, agencije, prava
 - Autentifikacija, admin/agencijski korisnici.
@@ -302,7 +316,10 @@ je od samodeaktivacije i samostalne rotacije.
   fakture popunjava broj, datume i iznos na odgovarajućoj strani.
 - F10 popunjava razliku na aktivnom redu; F9 proknjižava.
 - Bruto bilans (filteri, početno stanje, subtotali, ukupno); klik na konto vodi
-  na analitičku karticu. Print bruto bilansa i naloga bez menija.
+  na analitičku karticu. Print bruto bilansa i naloga je bez menija. Bruto
+  bilans ima zasebnu tabelu od osam kolona sa stabilnim širinama, neprelomivim
+  iznosima i A4 landscape štampom; više ne koristi sedmokolonski stil Bilansa
+  stanja koji je sabijao posljednju kolonu.
 - Stranica `Nalozi / Početno stanje` automatski priprema jedan numerisan
   `DRAFT` nalog iz krajnjih salda `POSTED` naloga prethodne poslovne godine.
   Prenose se samo konta klasa 0–4, zbirno po kontu i partneru; klase 5 i 6 se
@@ -414,6 +431,14 @@ je od samodeaktivacije i samostalne rotacije.
   snapshot izdavaoca i kupca. Kada Fiscal API vrati i lokalni račun sačuva
   `qr_code_data`, IKOF i JIKR, štampa generiše QR tačno iz tog zvaničnog URL-a;
   nefiskalizovan račun nikada ne dobija izmišljeni QR.
+- Lager lista je implementirana nad `stanja_zaliha` za aktivnu firmu i poslovnu
+  godinu. Dostupna je i pod `Robno / Zalihe` i u centralnim `Izvještajima`, uz
+  zajedničku serversku komponentu, filtere po magacinu, grupi, artiklu i znaku
+  stanja te zbir nabavne/maloprodajne vrijednosti, RUC-a i ukalkulisanog PDV-a.
+- Kartica artikla je implementirana nad `prometi_zaliha` na oba ista mjesta.
+  Prikazuje početno stanje iz prometa prije izabranog perioda, sve ulaze i
+  izlaze, tekuću količinu i nabavnu vrijednost, uz filter magacina/datuma i
+  direktne linkove na kalkulaciju, izlaznu fakturu ili POS štampu.
 
 ### Modul 6 — Računi, KIF i KUF
 - PDV stope dinamičke u podešavanjima.
@@ -615,6 +640,16 @@ je od samodeaktivacije i samostalne rotacije.
   kontra i dodaje zbirne kontra stavke na 5990 i 6990. Predlog se može ručno
   provjeriti/korigovati i sačuvati kao standardni nacrt naloga tipa Završni
   račun.
+- Stranica `/agencija/zavrsni-racun/kontrole` je funkcionalni read-only centar
+  spremnosti aktivne firme i godine. Objedinjuje kontrole balansa i sadržaja
+  POSTED naloga, partner analitike, datuma i nacrta, početnog stanja, KIF/KUF-a,
+  dokumenata koji čekaju knjige, izvoda, plata i PDV perioda, šema obrazaca,
+  konta 5990/6990, zatvaranja klasa 5/6, ručnih korekcija, arhive i matičnih
+  podataka. Blokirajuće kontrole dodatno zahtijevaju saldo 0,00 na izvornim
+  kontima ulaznog/izlaznog PDV-a iz aktivnih KIF/KUF i PDV šema, dugovni ili
+  nulti saldo na svim kontima klase 5 i potražni ili nulti saldo na svim kontima
+  klase 6. Svako sporno konto vodi direktno na svoju karticu. Stranica ne
+  mijenja podatke niti zaključava godinu.
 - Završni račun ima arhivu snimljenih obrazaca:
   `finansijski_izvjestaj_arhive`
   (`20260707110000_finansijski_izvjestaj_arhiva`). Dugme `Snimi` na
@@ -637,11 +672,16 @@ je od samodeaktivacije i samostalne rotacije.
   razlogom prestanka, a neaktivni/bivši radnik se može reaktivirati.
 - Stranica `/agencija/plate/obracun` omogućava kreiranje obračuna po kategoriji
   (`Redovan rad`, `Ugovor o djelu`, `Zakup`, `Ostali ugovori`) za aktivnu
-  firmu/godinu. Redovan rad priprema samo trenutno zaposlene radnike, dok
-  zakup/ugovori mogu koristiti aktivna lica koja ne moraju biti zaposlena u
-  firmi. U nacrtu se bira radnik iz lijeve liste i rade mjesečne korekcije
-  stavki prije obračuna (šifra primanja, vrsta obračuna, sati, neto/bruto/fiksni
-  dio, koeficijenti i minuli rad). Obračun koristi pripremljene mjesečne stavke
+  firmu/godinu. Redovan rad priprema radnike čiji se period zaposlenja preklapa
+  sa mjesecom obračuna, uključujući one koji su počeli ili završili radni odnos
+  tokom mjeseca, dok zakup/ugovori mogu koristiti aktivna lica koja ne moraju
+  biti zaposlena u firmi. U nacrtu se bira radnik iz lijeve liste i rade
+  mjesečne korekcije stavki prije obračuna (šifra primanja, vrsta obračuna,
+  datum od/do, sati, neto/bruto/fiksni dio, koeficijenti i minuli rad). Sistem
+  presijeca period granicama mjeseca i datumima zaposlenja/prestanka, predlaže
+  sate proporcionalno radnim danima i mjesečnom fondu radnika, a računovođa
+  može ručno promijeniti sate ili ih vratiti na automatski prijedlog. Obračun
+  koristi pripremljene mjesečne stavke
   i ne briše ručne korekcije. Postojeći obračun se može obrisati dok nije
   proknjižen/zaključan, a radnici se mogu naknadno dodavati u obračun ili
   izbacivati iz njega bez brisanja cijelog obračuna.
@@ -768,12 +808,30 @@ je od samodeaktivacije i samostalne rotacije.
   nalogom. Ponovno knjiženje je blokirano, a automatski nalog se ne može vratiti
   u nacrt kroz opštu akciju naloga.
 
+### Modul 11 — Izvještaji i dashboard
+- Centralne rute `/agencija/izvjestaji/kartice-konta` i
+  `/agencija/izvjestaji/kartice-partnera` koriste postojeću analitičku karticu
+  glavne knjige. Kartica konta dozvoljava izbor svakog aktivnog konta koje ima
+  POSTED promet, dok kartica partnera zadržava analitička konta i filter
+  partnera; filteri ostaju na centralnim URL-ovima. Kartica konta koristi
+  master-detail raspored: lijevo je pretraživ i skrolabilan spisak konta sa
+  izborom konta jednim klikom i prebacivanjem između konta sa prometom/svih
+  aktivnih konta, a desno filteri i promet izabranog konta. Na telefonu se
+  spisak i detalj prikazuju kao dva koraka sa povratkom na konta. Izabrana
+  kartica ima zasebnu čistu A4 landscape štampu koja prenosi filter partnera i
+  perioda te prikazuje početni saldo, promet, tekući saldo i završni zbir.
+- `/agencija/izvjestaji/pdv` koristi postojeći mjesečni PDV pregled sa statusom,
+  ulaznim i izlaznim PDV-om, obavezom/kreditom i ulazom u period/prijavu.
+- `/agencija/izvjestaji/plate` je centralni pregled postojećih izvještaja plata
+  i vodi na obračune, M-4, OPP-ND i IOPPD. Sve rute koriste postojeće backend
+  provjere konteksta i prava; nije dodata paralelna računica niti nova baza.
+
 ## Djelimično implementirano / otvoreno
 - Robno knjigovodstvo: navigacija, osnovni šifarnici, domaća kalkulacija i njena
   šema knjiženja su implementirani. Izlazne fakture, POS razduženje i osnovni
-  promet postoje. Otvoreni su detaljniji ekrani lager liste i kartice artikla,
-  uvozna kalkulacija, povrati, prenosi, popis, otpis, nivelacija i širi robni
-  izvještaji.
+  promet postoje, kao i lager lista i kartica artikla u Robnom i centralnim
+  Izvještajima. Otvoreni su uvozna kalkulacija, povrati, prenosi, popis, otpis,
+  nivelacija i širi robni izvještaji.
 - Izvodi: prva MVP baza/stranica/import/preview/knjiženje i pregledne
   podstranice postoje. Implementirani su parseri za NLB XML/PDF, Erste HTM, CKB
   PDF, Hipotekarna PDF, Lovćen PDF i Prva banka PDF; ostaju parseri za ostale
@@ -786,23 +844,29 @@ je od samodeaktivacije i samostalne rotacije.
   podešavanja kontiranja i automatski `PAYROLL` nalog postoje po kategoriji.
   Ostaju obustave, uplatnice, storno/namjensko vraćanje knjiženja,
   arhiva/finalni print/export i dodatna opisna pravila koja traže ručne parametre.
-- Standardni klijentski portal je ograničen, a poseban dashboard za direktnog
-  fiskalnog klijenta još nije implementiran. Njegov obim, sigurnosni guardovi,
-  POS i bezgotovinske fakture dogovoreni su u
-  [`zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`](zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md).
-  Većina opštih dashboard izvještaja takođe ostaje otvorena.
+- Standardni klijentski portal je ograničen na postojeći dashboard i uslovni
+  ulaz u fiskalizaciju. Poseban `/portal` je implementiran sa backend guardovima,
+  POS-om, bezgotovinskim fakturama, računima, izvještajima, šifarnicima i
+  operativnim podešavanjima. Otvoreni su ručni live/E2E fiskalni QA i preostali
+  opšti računovodstveni dashboard izvještaji.
 - Završni račun: Bilans uspjeha, Bilans stanja, Statistički aneks, trajne ručne
   korekcije po AOP/koloni, predlog zaključnog naloga za klase 5/6 i arhiva
   snimljenih obrazaca postoje; ostaje XML/export.
 - PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
 
 ## Zadnje provjere
-- Handoff stanje: `main` i `origin/main` bili su na `9a7eccd` prije izmjene ova
-  tri dokumenta. U ovoj dokumentacionoj sesiji kod, Prisma šema i migracije
-  nijesu mijenjani niti su pokretane poslovne operacije.
+- Objedinjena serija 23–31.08.2026. prolazi `npx tsc --noEmit`, portal testove
+  9/9 i testove računanja perioda/sati plata 5/5. ESLint nema grešaka; ostaju
+  četiri ranija upozorenja (tri u IRMS browser ekstenziji i `_prev` u admin
+  akcijama). `git diff --check` je čist.
+- `npx prisma validate` potvrđuje validnu šemu. U ovoj seriji nijesu mijenjani
+  `prisma/schema.prisma`, migracije ni poslovni podaci.
+- Razvojni server je pokrenut na portu 3000. Izmijenjene prijavljene rute koje
+  su otvarane tokom rada vraćaju HTTP 200; završni vizuelni pregled pojedinih
+  print stranica ostaje moguć kroz sistemski print dijalog.
 - Produkcija je posljednji put eksplicitno provjerena na `38f44d9`: PM2 online,
   lokalni port 3004 HTTP 200, javni sajt HTTP 200 i autentifikovani Fiscal API
-  poziv HTTP 200. Deploy novijeg `9a7eccd` treba potvrditi na serveru.
+  poziv HTTP 200. Deploy objedinjene serije treba potvrditi na serveru.
 - `npx prisma migrate deploy` primijenio je migraciju
   `20260730170000_kif_pazar`; Prisma klijent je regenerisan i razvojni server
   restartovan. `npx tsc --noEmit`, `npx prisma validate` i lint prolaze bez
@@ -818,11 +882,13 @@ je od samodeaktivacije i samostalne rotacije.
   `20260729120000_domace_kalkulacije` i
   `20260729143000_kalkulacija_default_maloprodaja`; Prisma klijent je
   regenerisan i dev server restartovan.
-- `npm run lint` prolazi bez grešaka, uz jedno postojeće upozorenje za `_prev`
-  u `src/app/admin/actions.ts`.
+- `npm run lint` prolazi bez grešaka, uz četiri postojeća upozorenja: tri
+  neiskorišćena helpera u `browser-extensions/irms-helper/irms-reader.js` i
+  `_prev` u `src/app/admin/actions.ts`.
 - `npx tsc --noEmit --incremental false` prolazi.
 - `npx prisma validate` potvrđuje da je Prisma šema validna.
-- U repozitorijumu nema automatizovanih test fajlova.
+- Automatizovani testovi trenutno pokrivaju pravila direktnog fiskalnog portala
+  i računanje pojedinačnog perioda/sati radnika u obračunu plata.
 - `npx prisma migrate deploy` primijenio je migracije
   `20260724120000_plate_kontiranje_podesavanja` i
   `20260724130000_plate_obracun_nalog_veza`;

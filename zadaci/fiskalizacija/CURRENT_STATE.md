@@ -2,7 +2,10 @@
 
 ## Datum presjeka
 
-03.08.2026.
+Fiscal API backend: 03.08.2026.
+
+Integracija u `knjigovodstvoonline` i prateća dokumentacija usklađene sa kodom:
+31.08.2026.
 
 ## Sažetak
 
@@ -92,14 +95,26 @@ Lični identifikacioni broj operatera, PFX sadržaj, privatni ključ i lozinka n
 - prvi produkcioni račun dobio je IKOF `C99AF90FE4C1C9998020899DC1DBAD40` i JIKR `f46d961d-ba51-443c-8acf-ccf1f8bffda6`;
 - potvrđeno je trajno čuvanje fiskalnog statusa i kompletne produkcione request/response razmjene.
 
+## Integracija u `knjigovodstvoonline`
+
+U kodu sajta su implementirani serverski Fiscal API klijent i administratorski
+modul pod `/admin/fiskalizacija`, korisnički `/portal`, POS i OFFICE izdavanje,
+kontrolisani retry, potpuni storno, pregled/pretraga računa, A4 i 58/80 mm
+browser štampa, izvještaji/export, artikli, cijene, kupci i operativna
+podešavanja. Portal koristi backend provjeru firme, poslovne godine i prava;
+direktni `FISCAL_ONLY` dokumenti ne kreiraju KIF ni nalog. Postojeći klijentski
+dashboard firme agencije uslovno prikazuje dugme **Fiskalizacija** i otvara isti
+portal.
+
 ## Važno ograničenje trenutnog stanja
 
-`ProductionActive` znači da je fiskalni backend tehnički i konfiguraciono prebačen na produkcioni kontekst. To ne znači da je završen kompletan korisnički sajt niti da treba automatski poslati račun.
+`ProductionActive` znači da je fiskalni backend tehnički i konfiguraciono
+prebačen na produkcioni kontekst. Implementacija korisničkog sajta sama po sebi
+ne znači da su završeni kontrolisani live/E2E pilot niti provjera stvarnog
+printera i ne dozvoljava automatsko slanje računa.
 
 Još nijesu završeni:
 
-- korisnički portal za unos i pregled računa;
-- konačni PDF/štampa računa;
 - e-mail isporuka računa;
 - produkcijski secret manager i potvrđena off-site kopija vault ključa;
 - automatizovani retry worker;
@@ -109,11 +124,22 @@ Još nijesu završeni:
 
 Produkcijski deployment je izvršen 02.08.2026. na Ubuntu 24.04 serveru: postojeći host PostgreSQL 16, Nginx/Certbot HTTPS na `fiscal.summasummarum.me`, te API, Worker i backup u Dockeru. API je zdrav, zaštićeni endpoint bez ključa vraća `401`, sva tri kontejnera koriste `restart: unless-stopped`, a dnevni PostgreSQL/vault/exchange backup je uspješno vraćen i provjeren u izolovanoj testnoj bazi. Nijedan račun nije poslat tokom deployment provjera.
 
-Javna provjera `https://fiscal.summasummarum.me/health` vraća `Healthy`. Početna ruta `/` trenutno očekivano vraća `404` jer je na domenu objavljen backend API, a ne korisnički web interfejs. Domen se kasnije može koristiti i kao ulaz u klijentski softver, ali tek nakon implementacije prijave korisnika, tenant izolacije, prava pristupa, korisničkog portala i eksplicitne potvrde prije fiskalizacije. API ključ sistemske integracije nije zamjena za korisničku prijavu.
+Javna provjera `https://fiscal.summasummarum.me/health` vraća `Healthy`. Početna
+ruta `/` trenutno očekivano vraća `404` jer je na tom domenu objavljen backend
+API, a korisnički interfejs je implementiran u povezanom sajtu pod `/portal`.
+API ključ sistemske integracije nije zamjena za korisničku prijavu; portal
+provjerava tenant, firmu i prava na backendu.
 
 ## Sljedeći korak
 
-EF migracije za kupca, korektivni workflow i zvanični fiskalni broj primijenjene su na lokalnu razvojnu i produkcijsku bazu. Sljedeći korak je izrada korisničkog portala i serverske integracije u projektu `knjigovodstvoonline`; PDF/štampu pravi sajt prema [`WEBSITE_INVOICE_PDF_CONTRACT.md`](WEBSITE_INVOICE_PDF_CONTRACT.md). Svaki naredni produkcioni račun i dalje mora proći pregled nacrta i eksplicitnu potvrdu prije slanja.
+EF migracije za kupca, korektivni workflow i zvanični fiskalni broj primijenjene
+su na lokalnu razvojnu i produkcijsku bazu. Korisnički portal, serverska
+integracija i HTML/CSS štampa prema
+[`WEBSITE_INVOICE_PDF_CONTRACT.md`](WEBSITE_INVOICE_PDF_CONTRACT.md) postoje u
+projektu `knjigovodstvoonline`. Sljedeći korak je kontrolisani live/E2E QA POS
+prodaje, retry-a, storna, OFFICE fakture i stvarne termalne štampe. Svaki naredni
+produkcioni račun i dalje mora proći pregled nacrta i eksplicitnu potvrdu prije
+slanja.
 
 Za detalje pogledati:
 

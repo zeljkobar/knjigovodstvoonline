@@ -11,6 +11,7 @@ import {
 } from "../actions";
 import { getPlateContext, MissingPlateContext } from "../_shared";
 import { PayrollCalculationForm } from "./PayrollCalculationForm";
+import { PayrollPeriodHoursFields } from "./PayrollPeriodHoursFields";
 import {
   calculateSeniorityCoefficient,
   effectiveSeniorityYears,
@@ -20,6 +21,15 @@ import {
   payrollStatuses,
   payrollStatusLabel
 } from "@/lib/payroll";
+import {
+  allowedPayrollPeriod,
+  calculateAutomaticPayrollHours,
+  employeeMonthlyScheduledHours,
+  employmentOverlapsPayrollPeriod,
+  isPayrollPeriodAllowed,
+  normalizePayrollPeriod,
+  payrollDateInputValue
+} from "@/lib/payroll-hours";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -52,6 +62,8 @@ const messages: Record<string, string> = {
   stavka_sacuvana: "Stavka je sačuvana. Obračun je vraćen u nacrt dok ga ponovo ne obradite.",
   stavka_dodata: "Dodatna stavka je dodata.",
   stavka_nevalidna: "Podaci stavke nisu ispravni.",
+  period_nevalidan:
+    "Period stavke mora biti unutar mjeseca obračuna i trajanja zaposlenja radnika.",
   kontekst: "Izaberite firmu i poslovnu godinu.",
   prava: "Nemate pravo za rad sa platama.",
   godina_zakljucena: "Poslovna godina je zaključana.",
@@ -145,7 +157,10 @@ function employeePreparationIssues(employee: {
 function lineControlIssues({
   employee,
   line,
-  calculationDate
+  calculationDate,
+  calculationFrom,
+  calculationTo,
+  requiresEmployment
 }: {
   employee?: {
     ime: string;
@@ -155,10 +170,13 @@ function lineControlIssues({
     poreska_opstina: string | null;
     tekuci_racun: string | null;
     datum_pocetka: Date | null;
+    datum_prestanka: Date | null;
     minuli_rad_godina: number;
   };
   line: {
     redni_broj: number;
+    datum_od: Date;
+    datum_do: Date;
     ukupno_sati: number;
     input_neto_cent: number;
     input_bruto_cent: number;
@@ -169,6 +187,9 @@ function lineControlIssues({
     koristi_minuli_rad: boolean;
   };
   calculationDate: Date;
+  calculationFrom: Date;
+  calculationTo: Date;
+  requiresEmployment: boolean;
 }) {
   const issues: PayrollControlIssue[] = [];
   const name = employee ? employeeName(employee) : `Stavka ${line.redni_broj}`;
@@ -196,6 +217,23 @@ function lineControlIssues({
 
   if (line.ukupno_sati <= 0) {
     issues.push({ level: "error", message: `${name}: sati za obračun moraju biti veći od nule.` });
+  }
+
+  const allowedPeriod = allowedPayrollPeriod({
+    calculationFrom,
+    calculationTo,
+    employmentFrom: requiresEmployment ? employee.datum_pocetka : null,
+    employmentTo: requiresEmployment ? employee.datum_prestanka : null
+  });
+
+  if (
+    !allowedPeriod ||
+    !isPayrollPeriodAllowed({ from: line.datum_od, to: line.datum_do, allowed: allowedPeriod })
+  ) {
+    issues.push({
+      level: "error",
+      message: `${name}: period stavke mora biti unutar mjeseca obračuna i trajanja zaposlenja.`
+    });
   }
 
   if (
@@ -363,6 +401,58 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
   });
   const selectedSeniorityCoefficient = calculateSeniorityCoefficient(selectedSeniorityYears);
   const selectedLines = selectedWorkerId ? lines.filter((line) => line.radnik_id === selectedWorkerId) : [];
+  const payrollPeriodProps = (
+    employee: (typeof employees)[number] | null | undefined,
+    line?: (typeof lines)[number]
+  ) => {
+    if (!selected) {
+      return null;
+    }
+
+    const calculationFrom = payrollDateInputValue(selected.datum_od);
+    const calculationTo = payrollDateInputValue(selected.datum_do);
+    const usesEmploymentPeriod = payrollCategoryRequiresEmployment(selected.kategorija);
+    const employmentFrom = usesEmploymentPeriod
+      ? payrollDateInputValue(employee?.datum_pocetka)
+      : "";
+    const employmentTo = usesEmploymentPeriod
+      ? payrollDateInputValue(employee?.datum_prestanka)
+      : "";
+    const allowed = allowedPayrollPeriod({
+      calculationFrom,
+      calculationTo,
+      employmentFrom: employmentFrom || null,
+      employmentTo: employmentTo || null
+    }) ?? { from: calculationFrom, to: calculationTo };
+    const period = normalizePayrollPeriod({
+      requestedFrom: line?.datum_od,
+      requestedTo: line?.datum_do,
+      allowed
+    });
+    const monthlyScheduledHours = employeeMonthlyScheduledHours({
+      calculationFundHours: selected.fond_sati,
+      employeeMonthlyHours: employee?.mjesecni_sati,
+      employmentPercentage: Number(employee?.procenat_radnog_vremena ?? 100)
+    });
+    const automaticHours = calculateAutomaticPayrollHours({
+      calculationFrom,
+      calculationTo,
+      periodFrom: period.from,
+      periodTo: period.to,
+      monthlyScheduledHours
+    });
+
+    return {
+      calculationFrom,
+      calculationTo,
+      employmentFrom: employmentFrom || null,
+      employmentTo: employmentTo || null,
+      initialFrom: period.from,
+      initialTo: period.to,
+      initialHours: line?.ukupno_sati ?? automaticHours,
+      monthlyScheduledHours
+    };
+  };
   const incomeTypePriority = (incomeType: (typeof incomeTypes)[number]) => {
     const categoryPriority = incomeType.kategorija === selected?.kategorija ? 100 : 0;
     const scopePriority =
@@ -400,7 +490,13 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
     ? employees.filter(
         (employee) =>
           employee.aktivan &&
-          (!payrollCategoryRequiresEmployment(selected.kategorija) || employee.zaposlen)
+          (!payrollCategoryRequiresEmployment(selected.kategorija) ||
+            employmentOverlapsPayrollPeriod({
+              calculationFrom: selected.datum_od,
+              calculationTo: selected.datum_do,
+              employmentFrom: employee.datum_pocetka,
+              employmentTo: employee.datum_prestanka
+            }))
       )
     : [];
   const availableEmployeesForCalculation = eligibleEmployeesForControls.filter(
@@ -412,7 +508,10 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
           lineControlIssues({
             employee: employeesById.get(line.radnik_id),
             line,
-            calculationDate: selected.datum_do
+            calculationDate: selected.datum_do,
+            calculationFrom: selected.datum_od,
+            calculationTo: selected.datum_do,
+            requiresEmployment: payrollCategoryRequiresEmployment(selected.kategorija)
           })
         )
       : eligibleEmployeesForControls.flatMap(employeePreparationIssues);
@@ -800,10 +899,9 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                             ))}
                           </select>
                         </label>
-                        <label>
-                          <span>Sati</span>
-                          <input name="ukupno_sati" type="number" defaultValue={line.ukupno_sati} min="0" />
-                        </label>
+                        {payrollPeriodProps(selectedWorker, line) ? (
+                          <PayrollPeriodHoursFields {...payrollPeriodProps(selectedWorker, line)!} />
+                        ) : null}
                         <label>
                           <span>Neto input</span>
                           <input name="input_neto" defaultValue={moneyInput(line.input_neto_cent)} />
@@ -906,10 +1004,9 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                           ))}
                         </select>
                       </label>
-                      <label>
-                        <span>Sati</span>
-                        <input name="ukupno_sati" type="number" defaultValue={selected.fond_sati} min="0" />
-                      </label>
+                      {payrollPeriodProps(selectedWorker) ? (
+                        <PayrollPeriodHoursFields {...payrollPeriodProps(selectedWorker)!} />
+                      ) : null}
                       <label>
                         <span>Neto input</span>
                         <input name="input_neto" defaultValue="0.00" />

@@ -6,11 +6,15 @@
 > Za administratorski modul firmi, ENU uređaja, operatera i sertifikata koristiti
 > [WEBSITE_FISCAL_ADMINISTRATION_SPEC.md](WEBSITE_FISCAL_ADMINISTRATION_SPEC.md).
 
-**Status dokumenta:** implementaciono uputstvo
+**Status dokumenta:** implementaciono uputstvo; integracija sajta provjerena u
+kodu 23.08.2026.
 **Namjena:** Codex agentu koji razvija sajt Summa Summarum
 **Primarni cilj:** omogućiti pravljenje, fiskalizovanje, prikazivanje i praćenje računa preko Summa Fiscal API-ja
 **Fiskalno područje:** Crna Gora
-**Trenutno potvrđeno:** testni bezgotovinski račun uspješno je poslat testnom servisu Poreske uprave i dobijen je JIKR
+**Trenutno potvrđeno:** testni bezgotovinski račun i prvi stvarni bezgotovinski
+produkcioni račun uspješno su fiskalizovani i dobili JIKR; sajt implementira
+serversko izdavanje, prikaz, štampu, kontrolisani retry i potpuni storno, uz
+preostali ručni live/E2E QA
 
 ---
 
@@ -828,21 +832,21 @@ Status backend-a i preostalih obaveza sajta:
 - [x] Fiscal API autentifikacija i autorizacija;
 - [x] tenant izolacija;
 - [x] bezbjedno čuvanje sertifikata u šifrovanom Fiscal API vaultu;
-- [ ] HTTPS između svih komponenti;
+- [x] HTTPS između sajta i javnog Fiscal API endpointa;
 - [x] produkcioni PU endpoint, aktivni sertifikat i registrovani ENU;
 - [x] automatska i konkurentno bezbjedna backend numeracija po ENU-u i godini;
 - [x] QR verifikacioni URL po zvaničnoj specifikaciji;
-- [ ] konačni PDF/štampa računa;
+- [x] A4 i 58/80 mm HTML/CSS browser štampa računa u sajtu;
 - [ ] stabilan retry mehanizam;
 - [ ] zvanično usklađen offline/naknadni tok;
 - [x] potpuni storno/korektivni backend workflow;
-- [ ] korisnički ekran i pregled/potvrda storna na sajtu;
+- [x] korisnički ekran i pregled/potvrda potpunog storna na sajtu;
 - [ ] djelimične korekcije i `ERROR_CORRECTIVE`;
 - [ ] avansni računi ako ih sajt nudi;
 - [x] trajni fiskalni i administratorski audit;
 - [x] trajni alertovi i background provjera isteka sertifikata;
 - [ ] produkcijski monitoring i kanal isporuke alerta;
-- [ ] backup i provjeren restore;
+- [x] dnevni PostgreSQL/vault/exchange backup i izolovani restore test;
 - [x] idempotency zaštita od duplog kreiranja/slanja po firmi;
 - [ ] test svih podržanih načina plaćanja;
 - [x] provjera prava API klijenta i pristupa firmi;

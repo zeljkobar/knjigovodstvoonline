@@ -280,6 +280,7 @@ export default async function BrutoBilansPrintPage({ searchParams }: BrutoBilans
 
   return (
     <main className="print-page">
+      <style>{`@page { size: A4 landscape; margin: 10mm; }`}</style>
       <div className="print-toolbar">
         <PrintButton label="Štampaj" />
       </div>
@@ -298,7 +299,12 @@ export default async function BrutoBilansPrintPage({ searchParams }: BrutoBilans
           </div>
         </header>
 
-        <table className="balance-print-table">
+        <table className="trial-balance-print-table">
+          <colgroup>
+            <col className="trial-balance-col-code" />
+            <col className="trial-balance-col-name" />
+            <col className="trial-balance-col-amount" span={6} />
+          </colgroup>
           <thead>
             <tr>
               <th>Konto</th>

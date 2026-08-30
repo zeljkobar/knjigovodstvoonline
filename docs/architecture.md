@@ -2,7 +2,7 @@
 
 > Sažetak iz [`PROJEKAT_PLAN.md`](../PROJEKAT_PLAN.md) i
 > [`zadaci/00_MASTER_SPEC_Racunovodstveni_Program_AZURIRAN_KIF_KUF.md`](../zadaci/00_MASTER_SPEC_Racunovodstveni_Program_AZURIRAN_KIF_KUF.md).
-> Implementacioni status ciljano usklađen 2026-08-19.
+> Implementacioni status ciljano usklađen 2026-08-31.
 
 ## Tehnološki stek
 - **Frontend/Backend:** Next.js 15 (App Router, server komponente, server
@@ -27,7 +27,7 @@
   Podjela na `admin_agencije` i `korisnik_agencije` (radnik).
 - **klijent** — vezan za jednu firmu, u osnovi read-only.
 - **direktni fiskalni korisnik** — tehnički korisnik u skrivenom sistemskom
-  tenant kontejneru, vezan za jednu firmu preko `KorisnikFirma`; planirani
+  tenant kontejneru, vezan za jednu firmu preko `KorisnikFirma`; implementirani
   `/portal` daje mu POS i klasične bezgotovinske fakture bez računovodstvene i
   fiskalno-administratorske konfiguracije.
 
@@ -37,7 +37,7 @@ akcija (`src/lib/permissions.ts`, `auth.ts`, `work-context.ts`).
 ## Globalni kontekst rada
 Agencija, firma i poslovna godina se biraju u gornjoj traci; svi moduli rade nad
 tim izborom (`src/lib/work-context.ts`, `src/app/agencija/kontekst/`).
-Planirani direktni `/portal` ne prikazuje birače: backend automatski bira jedinu
+Direktni `/portal` ne prikazuje birače: backend automatski bira jedinu
 dozvoljenu firmu i važeću poslovnu godinu, ali ih ponovo provjerava pri svakom
 zahtjevu.
 
@@ -66,7 +66,7 @@ src/
     admin/                 # admin platforme
     agencija/              # glavni rad agencije (nalozi, racuni, firme, ...)
     klijent/               # klijentski portal (read-only)
-    portal/                # planirani direktni fiskalni portal (POS + fakture)
+    portal/                # direktni fiskalni portal (POS + fakture + izvještaji)
     api/                   # API rute (npr. partners/search)
     stampa/                # čiste HTML/CSS print stranice
   components/              # UI komponente (forme, editori, pretrage)
@@ -149,11 +149,16 @@ dodatno imaju statuse na srpskom: otvorena, djelimično knjižena, knjižena.
   API-ja, puni POS storno, lager tok, PDV prijava i XML, izvodi sa
   parserima više banaka, plate sa IOPPD štampom/XML-om i godišnjim M-4
   obrascima i podesivom šemom kontiranja po kategoriji, te završni račun sa
-  obrascima, korekcijama, zaključnim knjiženjem i arhivom.
+  obrascima, korekcijama, objedinjenim kontrolama spremnosti (uključujući nulti
+  saldo izvornih PDV konta i prirodu salda klasa 5/6), zaključnim knjiženjem i
+  arhivom, kao i direktni
+  fiskalni `/portal` sa POS-om, OFFICE fakturama, računima, izvještajima,
+  šifarnicima i operativnim podešavanjima.
 - **Djelimično ili otvoreno:** potpuna primjena prava na svakom backend toku,
   testovi, zaključavanje PDV perioda, napredne alokacije izvoda, obustave i
   storno knjiženja plata, XML završnog računa.
-- **Nije implementirano:** poseban `/portal` direktnog fiskalnog klijenta,
-  puni standardni klijentski portal, dio naprednog robnog toka, dashboard
-  podstranice i većina zbirnih izvještaja. Obim direktnog portala je dogovoren
-  u [`../zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`](../zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md).
+- **Nije implementirano:** puni standardni klijentski portal, dio naprednog
+  robnog toka, dashboard podstranice i većina zbirnih izvještaja. Direktni
+  fiskalni portal je implementiran u obimu
+  [`../zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`](../zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md),
+  uz preostali ručni live/E2E QA.

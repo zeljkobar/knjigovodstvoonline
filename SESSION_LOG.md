@@ -981,3 +981,171 @@
   reconciliation oznaka ako je remote storno potvrđen prije lokalne greške.
   TypeScript je čist, svih 9 portal testova prolazi, a lint nema grešaka (četiri
   ranija upozorenja ostaju).
+
+## 2026-08-23 — Usklađen fiskalizacioni status sa implementacijom
+
+- Pročitani su svi Markdown fajlovi u `zadaci/fiskalizacija` i zastarjele
+  tvrdnje su provjerene prema stvarnim rutama, servisima, Prisma migracijama i
+  testovima u projektu.
+- Dokumentacija sada tačno navodi implementirani direktni `/portal`,
+  administratorski fiskalni UI, povezivanje fiskalnog klijenta sa agencijom,
+  uslovni ulaz sa klijentskog dashboarda, A4/termalnu štampu i puni storno.
+- Live PU/E2E, cross-tenant/IDOR i stvarni printer QA, e-mail, offline tok,
+  djelimične korekcije, POS Agent i produkcijski depozit nijesu označeni
+  završenim bez dokaza.
+- `npm run test:portal` prolazi 9/9, `npx tsc --noEmit` je čist nakon regeneracije
+  Prisma klijenta i instalacije zaključanih zavisnosti, lint nema grešaka uz
+  četiri ranija upozorenja, a Excel planer je regenerisan iz CSV izvora.
+
+## 2026-08-23 — Pojedinačni period i sati radnika u obračunu plata
+
+- Obračunska stavka radnika dobila je uređivanje datuma od/do unutar mjeseca i
+  stvarnog trajanja zaposlenja, automatski prijedlog sati prema radnim danima i
+  mjesečnom fondu te ručni override sa jasnim odstupanjem i vraćanjem na auto.
+- Priprema redovnog obračuna više ne zavisi samo od trenutnog statusa
+  `zaposlen`, nego uključuje svakog radnika čiji se datum zaposlenja/prestanka
+  preklapa sa obračunskim mjesecom, uključujući rad od samo nekoliko dana.
+- Backend ponovo računa automatske sate, odbija period van dozvoljenih granica
+  i u audit upisuje period, automatske/efektivne sate i oznaku ručne izmjene.
+  `npm run test:payroll` prolazi 5/5, `npx tsc --noEmit` i ESLint su čisti;
+  browser QA je potvrdio ručni unos i vraćanje na automatske sate bez slanja
+  postojeće forme.
+
+## 2026-08-23 — Sklopivi glavni agencijski meni
+
+- Agencijski lijevi meni na desktopu može da se sklopi na 76 px, pri čemu
+  ostaju ikonice sa nazivom na hover/fokus, aktivna stavka i dostupna odjava.
+- Izbor otvorenog/sklopljenog stanja čuva se lokalno u pregledniku i važi pri
+  prelasku između svih agencijskih modula. Sadržaj automatski koristi oslobođenu
+  širinu.
+- Na širini do 640 px meni je bočni panel sa backdropom, zaključavanjem skrola i
+  zatvaranjem dugmetom, klikom van panela, izborom rute ili tipkom Escape.
+- Uklonjen je slučajni okvir oko tekstualnih naziva stavki, a privremeni Unicode
+  znakovi zamijenjeni su ujednačenim linijskim SVG ikonama sa suptilnom
+  pozadinom. Browser QA je potvrđen u otvorenom i sklopljenom stanju.
+- `npx tsc --noEmit`, ESLint i `git diff --check` prolaze. Završni vizuelni QA
+  je završen u aktivnoj prijavljenoj browser sesiji.
+
+## 2026-08-25 — Operativne stavke na početnom dashboardu
+
+- Uklonjena je tabela zadnjih audit aktivnosti sa `/agencija`; audit podaci i
+  postojeći posebni ekran aktivnosti nijesu brisani niti mijenjani.
+- Dashboard za aktivnu firmu/godinu sada broji i prikazuje najnovije `DRAFT`
+  naloge, kalkulacije `WAITING_KUF` bez KUF zapisa i podobne izlazne račune
+  `WAITING_KIF` bez KIF zapisa.
+- Kartice vode na nacrte i odgovarajuće KIF/KUF tokove, a redovi direktno na
+  izvorni dokument. Svaki upit provjerava tenant scope, dodjelu firme i pravo
+  pregleda modula; bez konteksta ili prava prikazuje se jasno prazno stanje.
+- Browser QA je potvrđen na firmi SUMMA SUMMARUM za 2026. godinu, bez grešaka
+  aplikacije. `npx tsc --noEmit`, ESLint i `git diff --check` prolaze.
+
+## 2026-08-30 — Lager lista i kartica artikla
+
+- Implementirana je zajednička lager lista za `Robno / Zalihe` i centralne
+  `Izvještaje`, bez dupliranja upita ili računice. Prikazuje stanje po magacinu
+  i artiklu, vrijednosti zaliha i filtere po pretrazi, magacinu, grupi i znaku
+  količine.
+- Kartica artikla prikazuje početno stanje prije izabranog perioda, hronološke
+  ulaze/izlaze, nabavne cijene i vrijednosti te tekuću količinu i vrijednost.
+  Dokumenti vode na kalkulaciju, izlaznu fakturu ili POS štampu.
+- Oba izvještaja koriste aktivnu agenciju, firmu i poslovnu godinu te backend
+  pravo `robno/view`. Nije bila potrebna migracija baze. `npx tsc --noEmit` i
+  ESLint prolaze bez grešaka; četiri ranija lint upozorenja ostaju. Live provjera
+  podataka nije završena jer lokalna PostgreSQL baza na portu 5432 nije dostupna.
+
+## 2026-08-30 — Centralni izvještaji za kartice, PDV i plate
+
+- Završene su centralne rute za kartice konta i partnera ponovnom upotrebom
+  postojeće analitičke kartice glavne knjige. Kartica konta prikazuje i
+  sintetička konta sa POSTED prometom, a partnerski prikaz ostaje ograničen na
+  analitička konta i partnera.
+- Centralni PDV izvještaj koristi postojeći pregled mjesečnih PDV perioda, dok
+  centralni pregled plata vodi na postojeće obračune, M-4, OPP-ND i IOPPD.
+  Filteri kartica zadržavaju URL centralnog izvještaja.
+- Nije bila potrebna migracija baze. `npx tsc --noEmit`, ESLint i
+  `git diff --check` prolaze; ESLint i dalje prijavljuje četiri ranija
+  upozorenja. Dev server već radi na portu 3000, a live provjera stvarnih
+  podataka ostaje ograničena dok lokalna PostgreSQL baza na portu 5432 nije
+  dostupna.
+
+## 2026-08-30 — Master-detail kartica konta
+
+- Centralna `/agencija/izvjestaji/kartice-konta` više ne bira konto iz padajućeg
+  menija. Lijevo prikazuje pretraživ spisak brojeva i naziva konta, označava
+  aktivno konto i jednim klikom otvara njegovu karticu desno.
+- Podrazumijevano se prikazuju samo konta sa `POSTED` prometom u aktivnoj
+  poslovnoj godini, uz izbor `Prikaži sva` za sva aktivna konta firme. Pretraga,
+  partner, period, režim liste i izabrano konto ostaju u URL-u.
+- Desktop koristi sticky lijevi panel i skrolabilan spisak. Na telefonu se prvo
+  bira konto, zatim se prikazuje detalj sa dugmetom za povratak. Partnerska i
+  izvorna kombinovana analitička kartica nijesu promijenile svoj način izbora.
+- Nije bila potrebna migracija. Ruta i izbor konta potvrđeni su sa HTTP 200 na
+  aktivnom dev serveru; `npx tsc --noEmit`, ESLint i `git diff --check` prolaze,
+  uz četiri ranija lint upozorenja.
+
+## 2026-08-31 — Ispravka štampe bruto bilansa
+
+- Otklonjen je uzrok sabijanja posljednje kolone: bruto bilans je koristio
+  sedmokolonsku CSS raspodjelu Bilansa stanja iako ima osam kolona, pa je
+  koloni `Saldo potražuje` ostajao približno 1% širine.
+- Bruto bilans sada koristi zasebnu tabelu i `colgroup`: konto 8%, naziv 26% i
+  šest novčanih kolona po 11%. Brojevi su neprelomivi i poravnati tabularno,
+  dok se naziv konta može prelomiti na granici riječi.
+- Štampa eksplicitno koristi A4 landscape sa marginom 10 mm, ponavlja zaglavlje
+  tabele i ne cijepa red preko stranice. Bilans stanja nije mijenjan.
+- Ruta `/stampa/bruto-bilans` kompajlira se i vraća HTTP 200; TypeScript,
+  ESLint i `git diff --check` prolaze uz četiri ranija lint
+  upozorenja. Automatizovani screenshot nije završen zbog neusklađene lokalne
+  verzije browser plugina.
+
+## 2026-08-31 — Štampa kartice konta
+
+- Na centralnoj kartici konta dodato je dugme `Štampa kartice` koje u novom
+  tabu otvara čistu `/stampa/kartica-konta` stranicu i prenosi izabrani konto,
+  partnera i period.
+- A4 landscape obrazac prikazuje firmu, PIB, godinu, konto i partnera, početni
+  saldo prije perioda, promet duguje/potražuje, hronološke stavke sa tekućim
+  saldom i završni zbir. Zaglavlje tabele se ponavlja, a iznosi se ne lome.
+- Print ruta provjerava prijavu, agenciju, dodjelu firme, poslovnu godinu,
+  pripadnost konta i scope partnera; u podatke ulaze samo `POSTED` nalozi.
+- Migracija baze nije bila potrebna. Ruta se kompajlira i vraća HTTP 200 u
+  prijavljenoj sesiji; `npx tsc --noEmit` i ESLint prolaze bez grešaka, uz četiri
+  ranija lint upozorenja. Vizuelna automatizacija nije bila dostupna zbog
+  neusklađene lokalne verzije Chrome plugina.
+
+## 2026-08-31 — Kontrole završnog računa
+
+- Placeholder `/agencija/zavrsni-racun/kontrole` zamijenjen je funkcionalnim
+  read-only kontrolnim centrom za aktivnu firmu i poslovnu godinu. Ruta koristi
+  `zavrsni_racun/view`, tenant scope i dodjelu firme.
+- Glavna knjiga provjerava balans svakog POSTED naloga, prazne naloge, obaveznu
+  partner analitiku, datume van godine, nacrte i početno stanje. Pomoćne
+  evidencije obuhvataju neproknjižene KIF/KUF račune, dokumente koji čekaju
+  knjigu, izvode, plate i PDV periode.
+- Završne kontrole provjeravaju sva tri šablona, konta 5990/6990, preostale
+  salde klasa 5/6 mimo rezultatskih konta, završne naloge, ručne korekcije i
+  arhivu. Posebno se prikazuje potpunost matičnih podataka i status godine.
+- Dodate su blokirajuće kontrole prirode konta: svako konto klase 5 mora imati
+  dugovni ili nulti saldo, a svako konto klase 6 potražni ili nulti saldo.
+  Izvorna konta ulaznog i izlaznog PDV-a iz aktivnih KIF/KUF šema i šeme PDV
+  prijave (uključujući carinski i paušalni PDV, ali ne PDV obavezu/kredit) moraju
+  imati saldo 0,00. Svako odstupanje ima direktan link na karticu konta.
+- Svaka greška ili upozorenje ima direktan link na ekran za razrješenje, uz
+  ukupni status i brojače. Stranica ne mijenja podatke niti automatski zaključava
+  godinu. Nije bila potrebna migracija baze; prijavljena ruta vraća HTTP 200 i
+  `npx tsc --noEmit` prolazi.
+
+## 2026-08-31 — Objedinjavanje serije i handoff dokumentacije
+
+- `CURRENT_STATE.md`, `NEXT_STEPS.md`, arhitektura, računovodstvena
+  dokumentacija, fiskalni dokumentacioni paket i planer usklađeni su sa svim
+  funkcionalnostima završenim od 23. do 31.08.2026. Uklonjene su zastarjele
+  reference na stari deploy cilj i kontradiktorne oznake HTTPS/backup statusa.
+- Objedinjena serija obuhvata period i sate radnika, sklopivi meni, operativni
+  dashboard, lager listu i karticu artikla, centralne izvještaje, master-detail i
+  štampu kartice konta, ispravku štampe bruto bilansa te kontrole završnog
+  računa sa pravilima PDV konta i klasa 5/6.
+- Završne provjere: `npx tsc --noEmit`, `npm run test:payroll` 5/5,
+  `npm run test:portal` 9/9, `npx prisma validate` i `git diff --check` prolaze.
+  ESLint nema grešaka; ostaju četiri ranija upozorenja. Prisma šema i migracije
+  nijesu mijenjane u ovoj seriji, a build nije pokretan dok dev server radi.

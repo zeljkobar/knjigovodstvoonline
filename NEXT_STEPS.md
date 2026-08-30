@@ -5,22 +5,21 @@
 
 ## Prioritet 0 — neposredni nastavak
 - Ručno QA provjeriti uključivanje fiskalizacije postojećoj firmi agencije, PIB
-  detekciju, odbijanje zahtjeva i odobrenje transfera na testnoj firmi. Nakon
-  toga implementirati klijentski dashboard sa uslovnim dugmetom
-  **Fiskalizacija**.
+  detekciju, odbijanje zahtjeva i odobrenje transfera na testnoj firmi, kao i
+  uslovno dugme **Fiskalizacija** na postojećem klijentskom dashboardu.
 - Ručno end-to-end QA provjeriti stvarne fiskalne operacije direktnog portala:
   POS prodaju, retry istog dokumenta, puni storno, OFFICE fakturu i termalnu
   štampu. Statički i responsive QA portala je završen. Konfiguraciju sertifikata,
   ENU-a, operatera, aktivacije i suspenzije i dalje zadržava platformski admin.
-- Na produkcijskom serveru potvrditi aktivni commit. Ako `9a7eccd` nije
-  deployovan, pokrenuti postojeći kontrolisani deploy i primijeniti migraciju
-  `20260819170000_uskladi_kontni_plan_sa_excelom`, pa provjeriti PM2, HTTP i
-  Fiscal API vezu.
+- Na produkcijskom serveru potvrditi aktivni commit i deployovati najnoviji
+  `main`. Provjeriti da li je migracija
+  `20260819170000_uskladi_kontni_plan_sa_excelom` već primijenjena, zatim
+  provjeriti PM2, HTTP i Fiscal API vezu.
 
 ## Prioritet 1 — POS druga faza
 - Dodati produkcijsku Fiscal API rutu za prijavu početnog gotovinskog depozita; POS ekran trenutno bezbjedno podržava Test.
 - Ručni mobile QA: artikli, korpa, plaćanje, Test fiskalizacija i štampa.
-- Ručni QA dnevnog/periodičnog POS izvještaja, smjenskog presjeka i termalne browser štampe na stvarnom 58/80 mm printeru; zatim reprint audit i POS Agent. Djelimični POS povrat ostaje nakon što ga podrži Fiscal API.
+- Ručni QA dnevnog/periodičnog POS izvještaja, smjenskog presjeka i termalne browser štampe na stvarnom 58/80 mm printeru; zatim reprint audit agencijskog POS-a i POS Agent. Direktni portal već auditira otvaranje A4 i termalne štampe. Djelimični POS povrat ostaje nakon što ga podrži Fiscal API.
 - Ručno učitati `browser-extensions/irms-helper` u Chrome/Edge i potvrditi
   selektore na aktuelnoj IRMS pretrazi i detalju subjekta. Ako produkcijski
   domen nije pokriven manifestom, dodati njegov tačan HTTPS obrazac.
@@ -66,9 +65,10 @@
   pregledom svih stavki, povezivanjem postojećih i kreiranjem novih artikala.
   Završavanje kalkulacije zadužuje lager i kreira njen nalog, dok se KUF zapis
   naknadno preuzima iz mjesečne KUF knjige i ne knjiži ponovo po KUF šemi.
-  Sljedeće uraditi ručni end-to-end QA MAPR pregleda, završavanja i preuzimanja
-  u KUF na firmi sa podešenom robnom šemom, zatim ekrane lager
-  liste i kartice artikla nad već postojećim stanjem/prometom. Poslije toga
+  Lager lista i kartica artikla sada postoje nad stanjem/prometom aktivne firme
+  i godine, i u Robnom i u centralnim Izvještajima. Sljedeće uraditi ručni
+  end-to-end QA MAPR pregleda, završavanja i preuzimanja u KUF na firmi sa
+  podešenom robnom šemom, kao i live QA lagera/kartice sa stvarnim prometima.
   Izlazne fakture sada imaju pregled, otvaranje nacrta, brzi tabelarni unos,
   šemu knjiženja i kontrolisano završavanje za firme koje koriste drugi ili
   nijedan fiskalni sistem. Završavanje provjerava lager, razdužuje robu po
@@ -100,6 +100,10 @@
   Dodati su godišnji M-4 pregled, pojedinačni službeni M-4, Tabela 1 i Tabela 2,
   uz podatke firme, M-4 klasifikaciju osnova i potvrđene mjesečne uplate;
   puna uplata se jednim klikom preuzima iz važećih obračuna izabranog mjeseca.
+  Pojedinačna stavka radnika sada ima datum od/do, automatski prijedlog sati i
+  auditiranu ručnu korekciju; priprema obuhvata i radnike koji počnu i/ili
+  završe radni odnos tokom mjeseca. Za kasniju fazu ostaje kalendar praznika i
+  nestandardnih smjena umjesto osnovnog proporcionalnog modela ponedjeljak–petak.
   Sljedeće: obustave, opisna pravila koja traže ručne parametre, ručni QA IOPPD
   XML upload-a na portalu, uplatnice, namjenski storno/vraćanje automatskog
   `PAYROLL` naloga i print/export obračuna. M-4 je završen u dogovorenom obimu.
@@ -134,7 +138,10 @@
   imaju prvu implementaciju iz POSTED naloga, podesivu šemu po firmi i trajne
   ručne korekcije po AOP/koloni. Predlog zaključnog naloga za zatvaranje klasa
   5/6 u nacrt naloga tipa Završni račun postoji, kao i arhiva snimljenih
-  obrazaca. Ostaje XML/export.
+  obrazaca. Objedinjeni ekran kontrola spremnosti glavne knjige, pomoćnih
+  evidencija, završnih knjiženja i matičnih podataka je implementiran. Uključuje
+  nulti saldo izvornih konta ulaznog/izlaznog PDV-a i pravilnu prirodu salda
+  klasa 5/6, sa direktnim otvaranjem kartice spornog konta. Ostaje XML/export.
 
 ## Fiskalizacija — naredni kontrolisani koraci
 
@@ -156,18 +163,20 @@
 - Platformski unos fiskalnog klijenta sada kreira firmu pod izabranom agencijom,
   tekuću poslovnu godinu i lokalni fiskalni profil; pristup vlasnika firme i
   pozivnica su opcioni. Podržan je i direktni klijent bez knjigovodstvene
-  agencije, kroz skriveni sistemski tenant. Sljedeće omogućiti naknadno
-  otvaranje/izmjenu pristupa sa detalja firme i izraditi njegov poseban
-  klijentski dashboard.
+  agencije, kroz skriveni sistemski tenant. Direktni `/portal` i uslovni ulaz sa
+  klijentskog dashboarda su implementirani; sljedeće je omogućiti naknadno
+  otvaranje/izmjenu pristupa sa detalja firme.
 - Fiskalni izlazni račun i POS već čuvaju Fiscal API ID, status, IKOF/IIC, JIKR,
   QR, PDV razradu, stabilne idempotency/correlation podatke i vezu sa KIF tokom.
-  Sljedeće su kontrolisani produkcijski QA, reprint audit, produkcijski početni
-  depozit i djelimični povrat kada ga Fiscal API podrži.
+  Sljedeće su kontrolisani produkcijski QA, reprint audit agencijskog POS-a,
+  produkcijski početni depozit i djelimični povrat kada ga Fiscal API podrži.
 
 ## Nije implementirano
-- Potpuniji standardni klijentski portal i većina opštih dashboard izvještaja.
-- Produkcijski početni depozit, reprint audit, lokalni POS Agent i djelimični
-  povrat prije odgovarajuće podrške Fiscal API-ja.
+- Potpuniji standardni klijentski portal i preostali opšti dashboard izvještaji;
+  centralne kartice konta/partnera, PDV, plate, lager i kartica artikla već koriste
+  postojeće funkcionalne prikaze.
+- Produkcijski početni depozit, reprint audit agencijskog POS-a, lokalni POS
+  Agent i djelimični povrat prije odgovarajuće podrške Fiscal API-ja.
 
 ## Invarijante koje treba čuvati (provjera prije/poslije rada)
 - POSTED nalozi ulaze u bruto bilans; DRAFT/DELETED ne ulaze u izvještaje.

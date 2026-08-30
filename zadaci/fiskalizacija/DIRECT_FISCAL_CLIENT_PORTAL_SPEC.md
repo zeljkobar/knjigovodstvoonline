@@ -2,9 +2,11 @@
 
 **Projekat:** `knjigovodstvoonline`
 
-**Status:** dogovorena specifikacija; implementacija nije započeta
+**Status:** implementirano u kodu sajta; kontrolisani live/E2E pilot nije završen
 
 **Datum odluke:** 19.08.2026.
+
+**Provjera implementacije:** 23.08.2026.
 
 **Primarni URL prostor:** `/portal`
 
@@ -1196,7 +1198,9 @@ Portal se smatra spremnim za kontrolisani pilot kada su ispunjeni svi kriterijum
 
 ## 31. Kontrolna lista prije prvog produkcijskog pilota
 
-- [ ] Direktni portal guard i tenant testovi prolaze.
+- [x] Unit testovi portalske politike, prava, navigacije, konteksta i
+  idempotency identiteta prolaze (`npm run test:portal`, 9 testova).
+- [ ] Ručni/integracioni cross-tenant i IDOR testovi prolaze.
 - [ ] Produkcijski commit i migracije su potvrđeni.
 - [ ] Firma je aktivna i nije suspendovana.
 - [ ] Fiscal API health i autentifikovani serverski poziv rade.
@@ -1207,7 +1211,7 @@ Portal se smatra spremnim za kontrolisani pilot kada su ispunjeni svi kriterijum
 - [ ] Production potvrda prikazuje tačan nacrt.
 - [ ] Retry i nepoznat ishod su testirani sa mock API-jem.
 - [ ] Potpuni storno je testiran u dozvoljenom okruženju.
-- [ ] Reprint ostavlja audit zapis.
+- [x] Otvaranje konačne A4 i 58/80 mm štampe ostavlja audit zapis.
 - [ ] A4 i 58/80 mm štampa su vizuelno provjerene.
 - [ ] Support kontakt i correlation ID tok su vidljivi korisniku.
 - [ ] Nije izvršeno automatsko live slanje bez eksplicitne potvrde.

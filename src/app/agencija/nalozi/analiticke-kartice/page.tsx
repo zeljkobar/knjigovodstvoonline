@@ -12,9 +12,12 @@ type AnalitickeKarticePageProps = {
     datum_do?: string;
     datum_od?: string;
     konto?: string;
+    konto_q?: string;
     konto_prefix?: string;
     partner?: string;
     partner_q?: string;
+    prikaz?: string;
+    sva_konta?: string;
   }>;
 };
 
@@ -43,10 +46,30 @@ export default async function AnalitickeKarticePage({
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const workContext = await readWorkContext();
   const params = await searchParams;
+  const variant =
+    params?.prikaz === "account"
+      ? "account"
+      : params?.prikaz === "partner"
+        ? "partner"
+        : "combined";
+  const title =
+    variant === "account"
+      ? "Kartice konta"
+      : variant === "partner"
+        ? "Kartice partnera"
+        : "Analitičke kartice";
+  const basePath =
+    variant === "account"
+      ? "/agencija/izvjestaji/kartice-konta"
+      : variant === "partner"
+        ? "/agencija/izvjestaji/kartice-partnera"
+        : "/agencija/nalozi/analiticke-kartice";
   const selectedAccount = params?.konto ?? "";
+  const accountQuery = params?.konto_q?.trim() ?? "";
   const selectedAccountPrefix = params?.konto_prefix?.trim() ?? "";
   const selectedPartner = params?.partner ?? "";
   const selectedPartnerQuery = params?.partner_q?.trim() ?? "";
+  const showAllAccounts = variant === "account" && params?.sva_konta === "1";
   const dateFrom = parseDateFilter(params?.datum_od);
   const dateTo = parseDateFilter(params?.datum_do);
 
@@ -55,7 +78,7 @@ export default async function AnalitickeKarticePage({
       <div className="admin-stack">
         <header className="admin-header">
           <div>
-            <h1>Analitičke kartice</h1>
+            <h1>{title}</h1>
           </div>
         </header>
         <section className="admin-card">
@@ -100,17 +123,39 @@ export default async function AnalitickeKarticePage({
       where: {
         firma_id: workContext.firmaId,
         aktivan: true,
-        tip_konta: "analiticko",
-        stavke_naloga: {
-          some: {
-            nalog: {
-              firma_id: workContext.firmaId,
-              poslovna_godina_id: workContext.poslovnaGodinaId,
-              status: journalStatuses.posted,
-              is_deleted: false
+        ...(variant === "account" ? {} : { tip_konta: "analiticko" as const }),
+        ...(variant === "account" && showAllAccounts
+          ? {}
+          : {
+              stavke_naloga: {
+                some: {
+                  nalog: {
+                    firma_id: workContext.firmaId,
+                    poslovna_godina_id: workContext.poslovnaGodinaId,
+                    status: journalStatuses.posted,
+                    is_deleted: false
+                  }
+                }
+              }
+            }),
+        ...(variant === "account" && accountQuery
+          ? {
+              OR: [
+                {
+                  sifra: {
+                    contains: accountQuery,
+                    mode: "insensitive" as const
+                  }
+                },
+                {
+                  naziv: {
+                    contains: accountQuery,
+                    mode: "insensitive" as const
+                  }
+                }
+              ]
             }
-          }
-        }
+          : {})
       },
       orderBy: {
         sifra: "asc"
@@ -132,6 +177,22 @@ export default async function AnalitickeKarticePage({
       ? await prisma.komitent.findUnique({
           where: { id: selectedPartner },
           select: { naziv: true, pib: true }
+        })
+      : null;
+
+  const selectedAccountRecord =
+    selectedAccount && selectedAccount !== "ALL"
+      ? await prisma.firmaKonto.findFirst({
+          where: {
+            id: selectedAccount,
+            firma_id: workContext.firmaId,
+            aktivan: true
+          },
+          select: {
+            id: true,
+            sifra: true,
+            naziv: true
+          }
         })
       : null;
 
@@ -200,13 +261,19 @@ export default async function AnalitickeKarticePage({
       : {})
   };
 
-  const lines =
-    selectedAccount ||
-    selectedAccountPrefix ||
-    selectedPartner ||
-    selectedPartnerQuery ||
-    dateFrom ||
-    dateTo
+  const shouldLoadLines =
+    variant === "account"
+      ? Boolean(selectedAccount || selectedAccountPrefix)
+      : Boolean(
+          selectedAccount ||
+            selectedAccountPrefix ||
+            selectedPartner ||
+            selectedPartnerQuery ||
+            dateFrom ||
+            dateTo
+        );
+
+  const lines = shouldLoadLines
       ? await prisma.stavkaNaloga.findMany({
           where,
           orderBy: [
@@ -283,15 +350,197 @@ export default async function AnalitickeKarticePage({
   const totalCredit = rows.reduce((sum, row) => sum + row.credit, 0);
   const totalBalance = totalDebit - totalCredit;
 
+  function accountHref(accountId?: string, overrides?: { showAll?: boolean }) {
+    const query = new URLSearchParams();
+    const nextShowAll = overrides?.showAll ?? showAllAccounts;
+
+    if (accountId) query.set("konto", accountId);
+    if (accountQuery) query.set("konto_q", accountQuery);
+    if (selectedPartner && selectedPartner !== "ALL") query.set("partner", selectedPartner);
+    if (selectedPartnerQuery) query.set("partner_q", selectedPartnerQuery);
+    if (params?.datum_od) query.set("datum_od", params.datum_od);
+    if (params?.datum_do) query.set("datum_do", params.datum_do);
+    if (nextShowAll) query.set("sva_konta", "1");
+
+    const serialized = query.toString();
+    return serialized ? `${basePath}?${serialized}` : basePath;
+  }
+
+  function accountPrintHref() {
+    const query = new URLSearchParams({ konto: selectedAccount });
+
+    if (selectedPartner && selectedPartner !== "ALL") query.set("partner", selectedPartner);
+    if (selectedPartnerQuery) query.set("partner_q", selectedPartnerQuery);
+    if (params?.datum_od) query.set("datum_od", params.datum_od);
+    if (params?.datum_do) query.set("datum_do", params.datum_do);
+
+    return `/stampa/kartica-konta?${query.toString()}`;
+  }
+
+  const filterPanel = (
+    <section className="admin-card account-card-filter-panel">
+      <div className="card-header">
+        <h2>Filteri kartice</h2>
+        <span>{rows.length} stavki</span>
+      </div>
+      <AutoSubmitFilterForm
+        action={basePath}
+        className={`admin-form journal-filter-form${
+          variant === "account" ? " account-card-filter-form" : ""
+        }`}
+      >
+        {variant === "account" ? (
+          <>
+            {selectedAccount ? <input name="konto" type="hidden" value={selectedAccount} /> : null}
+            {accountQuery ? <input name="konto_q" type="hidden" value={accountQuery} /> : null}
+            {showAllAccounts ? <input name="sva_konta" type="hidden" value="1" /> : null}
+          </>
+        ) : (
+          <label>
+            <span>Konto</span>
+            <select name="konto" defaultValue={selectedAccount || "ALL"}>
+              <option value="ALL">Sva konta</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.sifra} - {account.naziv}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {selectedAccountPrefix ? (
+          <input name="konto_prefix" type="hidden" value={selectedAccountPrefix} />
+        ) : null}
+        <label>
+          <span>Partner</span>
+          <PartnerFilterSelect
+            initialId={selectedPartner}
+            initialLabel={selectedPartnerLabel}
+            name="partner"
+          />
+        </label>
+        <label>
+          <span>Datum od</span>
+          <input defaultValue={params?.datum_od ?? ""} name="datum_od" type="date" />
+        </label>
+        <label>
+          <span>Datum do</span>
+          <input defaultValue={params?.datum_do ?? ""} name="datum_do" type="date" />
+        </label>
+      </AutoSubmitFilterForm>
+    </section>
+  );
+
+  const cardPanel = (
+    <section className="admin-card account-card-table-panel">
+      <div className="card-header">
+        <div>
+          <h2>
+            {variant === "account"
+              ? selectedAccountRecord
+                ? `${selectedAccountRecord.sifra} — ${selectedAccountRecord.naziv}`
+                : selectedAccountPrefix
+                  ? `Grupa konta ${selectedAccountPrefix}`
+                  : "Kartica konta"
+              : variant === "partner"
+                ? "Kartica partnera"
+                : "Kartica"}
+          </h2>
+          {variant === "account" && selectedAccountRecord ? (
+            <p className="account-card-selected-caption">Proknjiženi promet izabrane poslovne godine</p>
+          ) : null}
+        </div>
+        <div className="account-card-header-actions">
+          <span>
+            Duguje {money(totalDebit)} · Potražuje {money(totalCredit)}
+          </span>
+          {variant === "account" && selectedAccountRecord ? (
+            <Link
+              className="secondary-button account-card-print-link"
+              href={accountPrintHref()}
+              target="_blank"
+            >
+              Štampa kartice
+            </Link>
+          ) : null}
+        </div>
+      </div>
+      <div className="table-wrap">
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Nalog</th>
+              <th>Konto</th>
+              <th>Partner</th>
+              <th>Opis</th>
+              <th>Duguje</th>
+              <th>Potražuje</th>
+              <th>Saldo</th>
+              <th>Akcija</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const journalCode =
+                row.nalog.sifra ||
+                formatJournalCode(
+                  row.nalog.vrsta_naloga.prefiks,
+                  row.nalog.poslovna_godina.godina,
+                  row.nalog.broj
+                );
+
+              return (
+                <tr key={row.id}>
+                  <td>{formatDate(row.nalog.datum)}</td>
+                  <td>
+                    <strong>{journalCode}</strong>
+                    <small>{row.nalog.vrsta_naloga.naziv}</small>
+                  </td>
+                  <td>
+                    {row.firma_konto.sifra}
+                    <small>{row.firma_konto.naziv}</small>
+                  </td>
+                  <td>
+                    {row.komitent?.naziv ?? "-"}
+                    <small>{row.komitent?.pib ?? ""}</small>
+                  </td>
+                  <td>{row.opis || row.nalog.opis || "-"}</td>
+                  <td>{money(row.debit)}</td>
+                  <td>{money(row.credit)}</td>
+                  <td>{money(row.runningBalance)}</td>
+                  <td>
+                    <Link className="table-link" href={`/agencija/nalozi/${row.nalog.id}`}>
+                      Otvori
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={9}>
+                  {variant === "account" && !selectedAccount && !selectedAccountPrefix
+                    ? "Izaberite konto sa spiska da otvorite njegovu karticu."
+                    : "Nema proknjiženih stavki za izabrane uslove."}
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+
   return (
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <h1>Analitičke kartice</h1>
+          <h1>{title}</h1>
         </div>
       </header>
 
-      <section className="stats-grid">
+      <section className="stats-grid account-card-summary">
         <article className="stat-card">
           <span>Firma</span>
           <strong>{firma.naziv}</strong>
@@ -306,121 +555,94 @@ export default async function AnalitickeKarticePage({
         </article>
       </section>
 
-      <section className="admin-card">
-        <div className="card-header">
-          <h2>Filteri</h2>
-          <span>
-            {selectedAccountPrefix ? `Prefiks konta ${selectedAccountPrefix} · ` : ""}
-            {rows.length} stavki
-          </span>
-        </div>
-        <AutoSubmitFilterForm
-          action="/agencija/nalozi/analiticke-kartice"
-          className="admin-form journal-filter-form"
-        >
-          <label>
-            <span>Konto</span>
-            <select name="konto" defaultValue={selectedAccount || "ALL"}>
-              <option value="ALL">Sva konta</option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.sifra} - {account.naziv}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selectedAccountPrefix ? (
-            <input name="konto_prefix" type="hidden" value={selectedAccountPrefix} />
-          ) : null}
-          <label>
-            <span>Partner</span>
-            <PartnerFilterSelect
-              initialId={selectedPartner}
-              initialLabel={selectedPartnerLabel}
-              name="partner"
-            />
-          </label>
-          <label>
-            <span>Datum od</span>
-            <input defaultValue={params?.datum_od ?? ""} name="datum_od" type="date" />
-          </label>
-          <label>
-            <span>Datum do</span>
-            <input defaultValue={params?.datum_do ?? ""} name="datum_do" type="date" />
-          </label>
-        </AutoSubmitFilterForm>
-      </section>
+      {variant === "account" ? (
+        <section className="account-card-workspace">
+          <aside
+            className={`admin-card account-card-sidebar${
+              selectedAccount || selectedAccountPrefix
+                ? " account-card-sidebar--mobile-hidden"
+                : ""
+            }`}
+          >
+            <div className="account-card-sidebar-header">
+              <div>
+                <h2>Konta</h2>
+                <span>{accounts.length} prikazano</span>
+              </div>
+              <Link
+                className="account-card-list-toggle"
+                href={accountHref(selectedAccount || undefined, {
+                  showAll: !showAllAccounts
+                })}
+              >
+                {showAllAccounts ? "Samo sa prometom" : "Prikaži sva"}
+              </Link>
+            </div>
 
-      <section className="admin-card">
-        <div className="card-header">
-          <h2>Kartica</h2>
-          <span>
-            Duguje {money(totalDebit)} · Potražuje {money(totalCredit)}
-          </span>
-        </div>
-        <div className="table-wrap">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Datum</th>
-                <th>Nalog</th>
-                <th>Konto</th>
-                <th>Partner</th>
-                <th>Opis</th>
-                <th>Duguje</th>
-                <th>Potražuje</th>
-                <th>Saldo</th>
-                <th>Akcija</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const journalCode =
-                  row.nalog.sifra ||
-                  formatJournalCode(
-                    row.nalog.vrsta_naloga.prefiks,
-                    row.nalog.poslovna_godina.godina,
-                    row.nalog.broj
-                  );
-
-                return (
-                  <tr key={row.id}>
-                    <td>{formatDate(row.nalog.datum)}</td>
-                    <td>
-                      <strong>{journalCode}</strong>
-                      <small>{row.nalog.vrsta_naloga.naziv}</small>
-                    </td>
-                    <td>
-                      {row.firma_konto.sifra}
-                      <small>{row.firma_konto.naziv}</small>
-                    </td>
-                    <td>
-                      {row.komitent?.naziv ?? "-"}
-                      <small>{row.komitent?.pib ?? ""}</small>
-                    </td>
-                    <td>{row.opis || row.nalog.opis || "-"}</td>
-                    <td>{money(row.debit)}</td>
-                    <td>{money(row.credit)}</td>
-                    <td>{money(row.runningBalance)}</td>
-                    <td>
-                      <Link className="table-link" href={`/agencija/nalozi/${row.nalog.id}`}>
-                        Otvori
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={9}>
-                    Izaberite filtere ili nema proknjiženih stavki za izabrane uslove.
-                  </td>
-                </tr>
+            <AutoSubmitFilterForm
+              action={basePath}
+              className="account-card-search-form"
+              debounceMs={250}
+            >
+              {selectedAccount ? <input name="konto" type="hidden" value={selectedAccount} /> : null}
+              {selectedPartner ? <input name="partner" type="hidden" value={selectedPartner} /> : null}
+              {selectedPartnerQuery ? (
+                <input name="partner_q" type="hidden" value={selectedPartnerQuery} />
               ) : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              {params?.datum_od ? <input name="datum_od" type="hidden" value={params.datum_od} /> : null}
+              {params?.datum_do ? <input name="datum_do" type="hidden" value={params.datum_do} /> : null}
+              {showAllAccounts ? <input name="sva_konta" type="hidden" value="1" /> : null}
+              <label>
+                <span>Pretraga</span>
+                <input
+                  defaultValue={accountQuery}
+                  name="konto_q"
+                  placeholder="Broj ili naziv konta"
+                  type="search"
+                />
+              </label>
+            </AutoSubmitFilterForm>
+
+            <nav aria-label="Spisak konta" className="account-card-account-list">
+              {accounts.map((account) => (
+                <Link
+                  aria-current={selectedAccount === account.id ? "page" : undefined}
+                  className={selectedAccount === account.id ? "active" : undefined}
+                  href={accountHref(account.id)}
+                  key={account.id}
+                >
+                  <strong>{account.sifra}</strong>
+                  <span>{account.naziv}</span>
+                </Link>
+              ))}
+              {accounts.length === 0 ? (
+                <p className="account-card-list-empty">
+                  Nema konta za izabranu pretragu.
+                </p>
+              ) : null}
+            </nav>
+          </aside>
+
+          <div
+            className={`account-card-detail${
+              selectedAccount || selectedAccountPrefix
+                ? ""
+                : " account-card-detail--mobile-hidden"
+            }`}
+          >
+            <Link className="account-card-mobile-back" href={accountHref()}>
+              ← Nazad na konta
+            </Link>
+            {filterPanel}
+            {cardPanel}
+          </div>
+        </section>
+      ) : (
+        <>
+          {filterPanel}
+          {cardPanel}
+        </>
+      )}
     </div>
   );
 }
