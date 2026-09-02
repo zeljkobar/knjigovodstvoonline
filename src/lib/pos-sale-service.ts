@@ -463,7 +463,8 @@ export async function createAndFiscalizePosSale(inputData: {
           magacin: {
             select: {
               dozvoli_negativan_lager: true,
-              tip_prodaje: true
+              tip_prodaje: true,
+              poslovna_jedinica_id: true
             }
           }
         }
@@ -760,6 +761,7 @@ export async function createAndFiscalizePosSale(inputData: {
         poslovna_godina_id: year.id,
         kupac_id: buyer.id,
         magacin_id: register.magacin_id,
+        poslovna_jedinica_id: register.magacin?.poslovna_jedinica_id ?? null,
         pos_register_id: register.id,
         broj: number,
         interni_broj: internal,

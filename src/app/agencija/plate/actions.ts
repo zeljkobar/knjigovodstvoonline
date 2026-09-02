@@ -1086,6 +1086,7 @@ export async function postPayrollCalculation(formData: FormData) {
           agencija_id: context.agencijaId,
           firma_id: context.firma.id,
           poslovna_godina_id: context.godina.id,
+          poslovna_jedinica_id: calculation.poslovna_jedinica_id,
           vrsta_naloga_id: journalType.id,
           broj: journalNumber,
           sifra: journalCode,
@@ -1117,6 +1118,7 @@ export async function postPayrollCalculation(formData: FormData) {
           data: {
             nalog_id: journal.id,
             konto_id: line.kontoId,
+            poslovna_jedinica_id: calculation.poslovna_jedinica_id,
             duguje:
               line.direction === "D" ? centsToDecimal(line.amountCents) : "0.00",
             potrazuje:
@@ -1574,8 +1576,25 @@ export async function createPayrollCalculation(formData: FormData) {
   const datumObracuna = dateValue(formData.get("datum_obracuna"));
   const datumIsplate = dateValue(formData.get("datum_isplate"));
   const fondSati = numberValue(formData.get("fond_sati"), 176);
+  const requestedBusinessUnitId = text(formData.get("poslovna_jedinica_id")) || null;
 
   if (!isPayrollCategory(category) || month < 1 || month > 12 || !datumOd || !datumDo || !datumObracuna || fondSati <= 0) {
+    redirect("/agencija/plate/obracun?poruka=obracun_nevalidan");
+  }
+
+  const businessUnit = requestedBusinessUnitId
+    ? await prisma.poslovnaJedinica.findFirst({
+        where: {
+          id: requestedBusinessUnitId,
+          agencija_id: context.agencijaId,
+          firma_id: context.firma.id,
+          aktivna: true,
+          is_deleted: false
+        },
+        select: { id: true }
+      })
+    : null;
+  if (requestedBusinessUnitId && !businessUnit) {
     redirect("/agencija/plate/obracun?poruka=obracun_nevalidan");
   }
 
@@ -1597,6 +1616,7 @@ export async function createPayrollCalculation(formData: FormData) {
       agencija_id: context.agencijaId,
       firma_id: context.firma.id,
       poslovna_godina_id: context.godina.id,
+      poslovna_jedinica_id: businessUnit?.id ?? null,
       kategorija: category,
       broj: (last?.broj ?? 0) + 1,
       oznaka: payrollCategoryLabel(category),

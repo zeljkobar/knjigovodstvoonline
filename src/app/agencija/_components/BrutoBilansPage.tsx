@@ -15,6 +15,7 @@ type BrutoBilansPageProps = {
     konto?: string;
     nivo?: string;
     samo_zbir?: string;
+    jedinica?: string;
   }>;
   basePath?: string;
 };
@@ -34,6 +35,13 @@ function parseDateFilter(value?: string) {
   return new Date(`${value}T00:00:00.000Z`);
 }
 
+function parseBusinessUnitFilter(value?: string) {
+  if (value === "NONE") return value;
+  return value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : "ALL";
+}
+
 function analyticsHref(
   accountPrefix: string,
   params?: Awaited<BrutoBilansPageProps["searchParams"]>
@@ -48,6 +56,10 @@ function analyticsHref(
 
   if (params?.datum_do) {
     query.set("datum_do", params.datum_do);
+  }
+
+  if (params?.jedinica) {
+    query.set("jedinica", params.jedinica);
   }
 
   return `/agencija/nalozi/analiticke-kartice?${query.toString()}`;
@@ -80,6 +92,10 @@ function printHref(params?: Awaited<BrutoBilansPageProps["searchParams"]>) {
     query.set("samo_zbir", params.samo_zbir);
   }
 
+  if (params?.jedinica) {
+    query.set("jedinica", params.jedinica);
+  }
+
   const suffix = query.toString();
 
   return `/stampa/bruto-bilans${suffix ? `?${suffix}` : ""}`;
@@ -110,6 +126,7 @@ export async function BrutoBilansPage({
   const summaryOnly = params?.samo_zbir === "1" && aggregationLevel !== null;
   const dateFrom = parseDateFilter(params?.datum_od);
   const dateTo = parseDateFilter(params?.datum_do);
+  const selectedBusinessUnit = parseBusinessUnitFilter(params?.jedinica);
 
   if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
     return (
@@ -126,7 +143,7 @@ export async function BrutoBilansPage({
     );
   }
 
-  const [firma, godina, accounts, stavke] = await Promise.all([
+  const [firma, godina, accounts, businessUnits, stavke] = await Promise.all([
     prisma.firma.findFirst({
       where: {
         id: workContext.firmaId,
@@ -170,8 +187,20 @@ export async function BrutoBilansPage({
         naziv: true
       }
     }),
+    prisma.poslovnaJedinica.findMany({
+      where: {
+        agencija_id: user.agencija_id,
+        firma_id: workContext.firmaId,
+        is_deleted: false
+      },
+      select: { id: true, sifra: true, naziv: true, aktivna: true },
+      orderBy: [{ aktivna: "desc" }, { sifra: "asc" }]
+    }),
     prisma.stavkaNaloga.findMany({
       where: {
+        ...(selectedBusinessUnit !== "ALL"
+          ? { poslovna_jedinica_id: selectedBusinessUnit === "NONE" ? null : selectedBusinessUnit }
+          : {}),
         nalog: {
           firma_id: workContext.firmaId,
           poslovna_godina_id: workContext.poslovnaGodinaId,
@@ -397,6 +426,16 @@ export async function BrutoBilansPage({
           <label>
             <span>Datum od</span>
             <input defaultValue={params?.datum_od ?? ""} name="datum_od" type="date" />
+          </label>
+          <label>
+            <span>Poslovna jedinica</span>
+            <select name="jedinica" defaultValue={selectedBusinessUnit}>
+              <option value="ALL">Sve jedinice</option>
+              <option value="NONE">Bez poslovne jedinice</option>
+              {businessUnits.map((unit) => (
+                <option key={unit.id} value={unit.id}>{unit.sifra} - {unit.naziv}{unit.aktivna ? "" : " (neaktivna)"}</option>
+              ))}
+            </select>
           </label>
           <label>
             <span>Datum do</span>

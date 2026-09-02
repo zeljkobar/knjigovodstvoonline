@@ -42,6 +42,27 @@ function nullableValue(formData: FormData, key: string) {
   return data || null;
 }
 
+async function validBusinessUnitId(
+  requestedId: string | null,
+  agencijaId: string,
+  firmaId: string
+) {
+  if (!requestedId) return null;
+
+  const unit = await prisma.poslovnaJedinica.findFirst({
+    where: {
+      id: requestedId,
+      agencija_id: agencijaId,
+      firma_id: firmaId,
+      aktivna: true,
+      is_deleted: false
+    },
+    select: { id: true }
+  });
+
+  return unit?.id ?? null;
+}
+
 function parseDate(formData: FormData, key: string) {
   const data = value(formData, key);
 
@@ -1410,6 +1431,7 @@ type PostingLineInput = {
   documentNumber: string;
   documentDate: Date;
   dueDate: Date | null;
+  businessUnitId: string | null;
 };
 
 function amountForKufField(
@@ -1673,6 +1695,7 @@ export async function postInvoiceBook(formData: FormData) {
               supplier_invoice_number: true,
               invoice_date: true,
               due_date: true,
+              poslovna_jedinica_id: true,
               total_gross: true,
               is_import: true,
               goods_value: true,
@@ -1921,7 +1944,8 @@ export async function postInvoiceBook(formData: FormData) {
               partnerId,
               documentNumber,
               documentDate: entry.invoice_date,
-              dueDate: entry.due_date
+              dueDate: entry.due_date,
+              businessUnitId: entry.poslovna_jedinica_id
             });
           };
 
@@ -1997,6 +2021,7 @@ export async function postInvoiceBook(formData: FormData) {
             documentNumber: normalizeFiscalInvoiceNumber(entry.supplier_invoice_number),
             documentDate: entry.invoice_date,
             dueDate: entry.due_date,
+            businessUnitId: entry.poslovna_jedinica_id,
             isExpenseLine: source === invoicePostingAccountSources.inputExpense
           });
         }
@@ -2110,6 +2135,7 @@ export async function postInvoiceBook(formData: FormData) {
             nalog_id: journal.id,
             konto_id: account.id,
             komitent_id: line.partnerId,
+            poslovna_jedinica_id: line.businessUnitId,
             duguje: line.direction === "D" ? centsToDecimal(line.amountCents) : "0.00",
             potrazuje: line.direction === "P" ? centsToDecimal(line.amountCents) : "0.00",
             opis: "racun",
@@ -2202,6 +2228,7 @@ export async function postInvoiceBook(formData: FormData) {
             entry_kind: true,
             invoice_date: true,
             due_date: true,
+            poslovna_jedinica_id: true,
             total_gross: true,
             revenue_account: {
               select: {
@@ -2407,6 +2434,7 @@ export async function postInvoiceBook(formData: FormData) {
             documentNumber,
             documentDate: entry.invoice_date,
             dueDate: entry.due_date,
+            businessUnitId: entry.poslovna_jedinica_id,
             isRevenueLine: false
           });
         }
@@ -2444,6 +2472,7 @@ export async function postInvoiceBook(formData: FormData) {
           documentNumber,
           documentDate: entry.invoice_date,
           dueDate: entry.due_date,
+          businessUnitId: entry.poslovna_jedinica_id,
           isRevenueLine:
             field.code.startsWith("OSNOVICA_") ||
             field.code.startsWith("OSLOBODJENO_")
@@ -2558,6 +2587,7 @@ export async function postInvoiceBook(formData: FormData) {
           nalog_id: journal.id,
           konto_id: account.id,
           komitent_id: line.partnerId,
+          poslovna_jedinica_id: line.businessUnitId,
           duguje: line.direction === "D" ? centsToDecimal(line.amountCents) : "0.00",
           potrazuje: line.direction === "P" ? centsToDecimal(line.amountCents) : "0.00",
           opis: "racun",
@@ -2954,6 +2984,7 @@ export async function createKufEntry(formData: FormData) {
   const receiptDate = parseDate(formData, "receipt_date");
   const dueDate = parseDate(formData, "due_date");
   const note = nullableValue(formData, "note");
+  const requestedBusinessUnitId = nullableValue(formData, "poslovna_jedinica_id");
   const invoiceTotalCents = parseMoneyToCents(value(formData, "invoice_total"));
   const expenseAccountCode = value(formData, "expense_account_code");
   const submittedVatTransactionType = value(formData, "vat_transaction_type");
@@ -3046,6 +3077,12 @@ export async function createKufEntry(formData: FormData) {
 
     redirectKuf("kuf_greska");
   }
+  const businessUnitId = await validBusinessUnitId(
+    requestedBusinessUnitId,
+    user.agencija_id,
+    firma.id
+  );
+  if (requestedBusinessUnitId && !businessUnitId) redirectKufEntry(kufBookId, "kuf_greska");
 
   const vatTransactionType = normalizeVatTransactionType(
     submittedVatTransactionType,
@@ -3271,6 +3308,7 @@ export async function createKufEntry(formData: FormData) {
         firma_id: firma.id,
         poslovna_godina_id: poslovnaGodina.id,
         dobavljac_id: supplier.id,
+        poslovna_jedinica_id: businessUnitId,
         redni_broj: redniBroj,
         internal_kuf_number: internalNumber,
         supplier_invoice_number: supplierInvoiceNumber,
@@ -3311,6 +3349,7 @@ export async function createKufEntry(formData: FormData) {
       select: {
         id: true,
         internal_kuf_number: true,
+        poslovna_jedinica_id: true,
         supplier_invoice_number: true,
         total_gross: true
       }
@@ -3603,6 +3642,7 @@ export async function importCalculationsToKuf(formData: FormData) {
           firma_id: firma.id,
           poslovna_godina_id: poslovnaGodina.id,
           dobavljac_id: calculation.dobavljac_id,
+          poslovna_jedinica_id: calculation.poslovna_jedinica_id,
           redni_broj: redniBroj,
           internal_kuf_number: internalNumber,
           supplier_invoice_number: calculation.broj_racuna_dobavljaca,
@@ -3719,6 +3759,7 @@ export async function updateKufEntry(formData: FormData) {
   const receiptDate = parseDate(formData, "receipt_date");
   const dueDate = parseDate(formData, "due_date");
   const note = nullableValue(formData, "note");
+  const requestedBusinessUnitId = nullableValue(formData, "poslovna_jedinica_id");
   const invoiceTotalCents = parseMoneyToCents(value(formData, "invoice_total"));
   const expenseAccountCode = value(formData, "expense_account_code");
   const submittedVatTransactionType = value(formData, "vat_transaction_type");
@@ -3845,6 +3886,12 @@ export async function updateKufEntry(formData: FormData) {
   ) {
     redirectKufEntry(kufBookId, "kuf_greska");
   }
+  const businessUnitId = await validBusinessUnitId(
+    requestedBusinessUnitId,
+    user.agencija_id,
+    firma.id
+  );
+  if (requestedBusinessUnitId && !businessUnitId) redirectKufEntry(kufBookId, "kuf_greska");
 
   await requireInvoicePermission(
     user,
@@ -4048,6 +4095,7 @@ export async function updateKufEntry(formData: FormData) {
       },
       data: {
         dobavljac_id: supplier.id,
+        poslovna_jedinica_id: businessUnitId,
         supplier_invoice_number: supplierInvoiceNumber,
         fiscal_iic: fiscalIic,
         fiscal_fic: fiscalFic,
@@ -4085,6 +4133,7 @@ export async function updateKufEntry(formData: FormData) {
       select: {
         id: true,
         internal_kuf_number: true,
+        poslovna_jedinica_id: true,
         supplier_invoice_number: true,
         total_gross: true
       }
@@ -4567,6 +4616,7 @@ export async function createKifPazar(formData: FormData) {
   const cashRegister = normalizedPazarCashRegister(formData);
   const revenueAccountCode = value(formData, "revenue_account_code");
   const note = nullableValue(formData, "note");
+  const requestedBusinessUnitId = nullableValue(formData, "poslovna_jedinica_id");
 
   if (!kifBookId || !period || totalCents === null || totalCents <= 0) {
     redirectKifEntry(kifBookId, "kif_pazar_obavezno");
@@ -4659,6 +4709,8 @@ export async function createKifPazar(formData: FormData) {
   if (!firma || !poslovnaGodina || poslovnaGodina.zakljucena || !kifBook) {
     redirectKifEntry(kifBookId, "kif_pazar_greska");
   }
+  const businessUnitId = await validBusinessUnitId(requestedBusinessUnitId, user.agencija_id, firma.id);
+  if (requestedBusinessUnitId && !businessUnitId) redirectKifEntry(kifBookId, "kif_pazar_greska");
 
   await requireInvoicePermission(
     user,
@@ -4724,6 +4776,7 @@ export async function createKifPazar(formData: FormData) {
       where: {
         firma_id: firma.id,
         entry_kind: kifEntryKinds.pazar,
+        poslovna_jedinica_id: businessUnitId,
         is_deleted: false,
         pazar_period_from: {
           lte: period.periodTo
@@ -4783,6 +4836,7 @@ export async function createKifPazar(formData: FormData) {
         firma_id: firma.id,
         poslovna_godina_id: poslovnaGodina.id,
         kupac_id: customer.id,
+        poslovna_jedinica_id: businessUnitId,
         redni_broj: redniBroj,
         internal_kif_number: internalNumber,
         customer_invoice_number: pazarDocumentNumber(
@@ -4825,6 +4879,7 @@ export async function createKifPazar(formData: FormData) {
       select: {
         id: true,
         internal_kif_number: true,
+        poslovna_jedinica_id: true,
         customer_invoice_number: true,
         total_gross: true
       }
@@ -4875,6 +4930,7 @@ export async function updateKifPazar(formData: FormData) {
   const cashRegister = normalizedPazarCashRegister(formData);
   const revenueAccountCode = value(formData, "revenue_account_code");
   const note = nullableValue(formData, "note");
+  const requestedBusinessUnitId = nullableValue(formData, "poslovna_jedinica_id");
 
   if (
     !kifBookId ||
@@ -4998,6 +5054,8 @@ export async function updateKifPazar(formData: FormData) {
   ) {
     redirectKifEntry(kifBookId, "kif_pazar_greska");
   }
+  const businessUnitId = await validBusinessUnitId(requestedBusinessUnitId, user.agencija_id, firma.id);
+  if (requestedBusinessUnitId && !businessUnitId) redirectKifEntry(kifBookId, "kif_pazar_greska");
 
   await requireInvoicePermission(
     user,
@@ -5063,6 +5121,7 @@ export async function updateKifPazar(formData: FormData) {
       where: {
         firma_id: firma.id,
         entry_kind: kifEntryKinds.pazar,
+        poslovna_jedinica_id: businessUnitId,
         is_deleted: false,
         id: {
           not: existingEntry.id
@@ -5118,6 +5177,7 @@ export async function updateKifPazar(formData: FormData) {
         id: existingEntry.id
       },
       data: {
+        poslovna_jedinica_id: businessUnitId,
         customer_invoice_number: pazarDocumentNumber(
           period.periodType,
           period.periodFrom,
@@ -5154,6 +5214,7 @@ export async function updateKifPazar(formData: FormData) {
       select: {
         id: true,
         internal_kif_number: true,
+        poslovna_jedinica_id: true,
         customer_invoice_number: true,
         total_gross: true
       }
@@ -5308,7 +5369,7 @@ export async function importFiscalInvoicesToKif(formData: FormData) {
       const redniBroj = nextNumber++;
       const entry = await tx.kifEntry.create({ data: {
         kif_book_id: kifBook.id, agencija_id: user.agencija_id!, firma_id: firma.id,
-        poslovna_godina_id: poslovnaGodina.id, kupac_id: invoice.kupac_id, redni_broj: redniBroj,
+        poslovna_godina_id: poslovnaGodina.id, kupac_id: invoice.kupac_id, poslovna_jedinica_id: invoice.poslovna_jedinica_id, redni_broj: redniBroj,
         internal_kif_number: `KIF-${poslovnaGodina.godina}-${String(redniBroj).padStart(4, "0")}`,
         customer_invoice_number: invoice.broj_racuna, invoice_date: invoice.datum_racuna,
         due_date: invoice.datum_valute, vat_transaction_type: invoice.vat_transaction_type,
@@ -5350,6 +5411,7 @@ export async function createKifEntry(formData: FormData) {
   const invoiceDate = parseDate(formData, "invoice_date");
   const dueDate = parseDate(formData, "due_date");
   const note = nullableValue(formData, "note");
+  const requestedBusinessUnitId = nullableValue(formData, "poslovna_jedinica_id");
   const invoiceTotalCents = parseMoneyToCents(value(formData, "invoice_total"));
   const revenueAccountCode = value(formData, "revenue_account_code");
   const submittedVatTransactionType = value(formData, "vat_transaction_type");
@@ -5428,6 +5490,12 @@ export async function createKifEntry(formData: FormData) {
   if (!firma || !poslovnaGodina || poslovnaGodina.zakljucena || !buyer) {
     redirectKifEntry(kifBookId, "kif_greska");
   }
+  const businessUnitId = await validBusinessUnitId(
+    requestedBusinessUnitId,
+    user.agencija_id,
+    firma.id
+  );
+  if (requestedBusinessUnitId && !businessUnitId) redirectKifEntry(kifBookId, "kif_greska");
 
   await requireInvoicePermission(
     user,
@@ -5613,6 +5681,7 @@ export async function createKifEntry(formData: FormData) {
         firma_id: firma.id,
         poslovna_godina_id: poslovnaGodina.id,
         kupac_id: buyer.id,
+        poslovna_jedinica_id: businessUnitId,
         redni_broj: redniBroj,
         internal_kif_number: internalNumber,
         customer_invoice_number: customerInvoiceNumber,
@@ -5640,6 +5709,7 @@ export async function createKifEntry(formData: FormData) {
       select: {
         id: true,
         internal_kif_number: true,
+        poslovna_jedinica_id: true,
         customer_invoice_number: true,
         total_gross: true
       }
@@ -5682,6 +5752,7 @@ export async function updateKifEntry(formData: FormData) {
   const invoiceDate = parseDate(formData, "invoice_date");
   const dueDate = parseDate(formData, "due_date");
   const note = nullableValue(formData, "note");
+  const requestedBusinessUnitId = nullableValue(formData, "poslovna_jedinica_id");
   const invoiceTotalCents = parseMoneyToCents(value(formData, "invoice_total"));
   const revenueAccountCode = value(formData, "revenue_account_code");
   const submittedVatTransactionType = value(formData, "vat_transaction_type");
@@ -5784,6 +5855,12 @@ export async function updateKifEntry(formData: FormData) {
   ) {
     redirectKifEntry(kifBookId, "kif_greska");
   }
+  const businessUnitId = await validBusinessUnitId(
+    requestedBusinessUnitId,
+    user.agencija_id,
+    firma.id
+  );
+  if (requestedBusinessUnitId && !businessUnitId) redirectKifEntry(kifBookId, "kif_greska");
 
   await requireInvoicePermission(
     user,
@@ -5962,6 +6039,7 @@ export async function updateKifEntry(formData: FormData) {
       },
       data: {
         kupac_id: buyer.id,
+        poslovna_jedinica_id: businessUnitId,
         customer_invoice_number: customerInvoiceNumber,
         invoice_date: invoiceDate,
         due_date: dueDate,
@@ -5986,6 +6064,7 @@ export async function updateKifEntry(formData: FormData) {
       select: {
         id: true,
         internal_kif_number: true,
+        poslovna_jedinica_id: true,
         customer_invoice_number: true,
         total_gross: true
       }

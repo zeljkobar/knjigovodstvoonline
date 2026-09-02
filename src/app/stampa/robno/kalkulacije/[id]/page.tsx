@@ -42,6 +42,7 @@ export default async function CalculationPrintPage({ params }: PageProps) {
     include: {
       firma: true,
       magacin: true,
+      poslovna_jedinica: true,
       dobavljac: true,
       poslovna_godina: { select: { godina: true } },
       stavke: {
@@ -106,7 +107,7 @@ export default async function CalculationPrintPage({ params }: PageProps) {
           <div><span>Dobavljač</span><strong>{calculation.dobavljac.naziv}</strong><small>PIB: {calculation.dobavljac.pib ?? "-"}</small><small>{calculation.dobavljac.adresa ?? ""} {calculation.dobavljac.grad ?? ""}</small></div>
           <div><span>Račun dobavljača</span><strong>{calculation.broj_racuna_dobavljaca}</strong><small>Datum: {date(calculation.datum_racuna_dobavljaca)}</small><small>Valuta: {date(calculation.datum_valute)}</small></div>
           <div><span>Kalkulacija</span><strong>{date(calculation.datum_kalkulacije)}</strong><small>Tip: {calculation.tip_prodaje === "RETAIL" ? "Maloprodaja" : "Veleprodaja"}</small><small>Valuta: {calculation.valuta}</small></div>
-          <div><span>Magacin</span><strong>{calculation.magacin.sifra} · {calculation.magacin.naziv}</strong><small>{calculation.napomena ?? ""}</small></div>
+          <div><span>Magacin</span><strong>{calculation.magacin.sifra} · {calculation.magacin.naziv}</strong><small>{calculation.poslovna_jedinica ? `Poslovna jedinica: ${calculation.poslovna_jedinica.sifra} · ${calculation.poslovna_jedinica.naziv}` : "Bez poslovne jedinice"}</small><small>{calculation.napomena ?? ""}</small></div>
         </section>
 
         <table className="calculation-print-table">

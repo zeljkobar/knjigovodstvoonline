@@ -1149,3 +1149,33 @@
   `npm run test:portal` 9/9, `npx prisma validate` i `git diff --check` prolaze.
   ESLint nema grešaka; ostaju četiri ranija upozorenja. Prisma šema i migracije
   nijesu mijenjane u ovoj seriji, a build nije pokretan dok dev server radi.
+
+## 2026-09-02 — Poslovne jedinice u nalozima i robnom
+
+- Placeholder je zamijenjen firm-specific šifarnikom poslovnih jedinica sa
+  unosom, izmjenom, aktivacijom/deaktivacijom, backend pravima i auditom.
+- Magacin se opciono vezuje za jedinicu. Domaća i MAPR kalkulacija pamte
+  jedinicu iz magacina, a automatski `CALCULATION` nalog je nasljeđuje; ručni
+  nalog ima direktan izbor jedinice u zaglavlju.
+- Bruto bilans i kartice konta/partnera, uključujući štampu bruto bilansa i
+  kartice konta, filtriraju proknjiženi promet po poslovnoj jedinici ili po
+  nalozima bez jedinice.
+- Ručna migracija `20260902120000_poslovne_jedinice` je primijenjena, Prisma
+  klijent regenerisan i dev server restartovan. Company-purge je usklađen i
+  pokriva svih 55 tabela sa direktnim `firma_id`. TypeScript je čist; ESLint
+  nema grešaka i prijavljuje četiri ranija upozorenja.
+
+## 2026-09-02 — Poslovne jedinice kroz dokumente i izvještaje
+
+- Poslovna jedinica je dodata na KIF/KUF zapise, izlazne/POS račune, izvode,
+  obračune plata i stavke naloga. Izlazni/POS račun je preuzima iz magacina;
+  automatska i ručna knjiženja je prenose na stavke naloga.
+- Ručni KIF/KUF, pazar, izvod i obračun plate imaju opcioni izbor jedinice. POS
+  zbir se pravi odvojeno po jedinici, a KIF/KUF nalog može sadržati stavke iz
+  više jedinica.
+- Dodat je izvještaj rezultata po jedinicama (klasa 6 minus klasa 5) i kontrola
+  proknjiženih stavki bez jedinice na kontima koja koriste radnu jedinicu.
+- Primijenjena je migracija `20260902143000_poslovne_jedinice_dokumenti`,
+  regenerisan Prisma klijent i restartovan dev server. TypeScript i ESLint su
+  bez grešaka (ostaju četiri ranija upozorenja); company-purge pokriva 55/55
+  direktnih tabela firme.

@@ -67,7 +67,7 @@ export async function createAndFiscalizePosStorno(input: {
     const internal = `POS-ST-${context.year}-${String(number).padStart(6, "0")}`;
     const idempotencyKey = `pos-storno:${original.id}`;
     const correction = await tx.fiskalniIzlazniRacun.create({ data: {
-      agencija_id: original.agencija_id, firma_id: original.firma_id, poslovna_godina_id: original.poslovna_godina_id, kupac_id: original.kupac_id, magacin_id: original.magacin_id, pos_register_id: original.pos_register_id,
+      agencija_id: original.agencija_id, firma_id: original.firma_id, poslovna_godina_id: original.poslovna_godina_id, kupac_id: original.kupac_id, magacin_id: original.magacin_id, poslovna_jedinica_id: original.poslovna_jedinica_id, pos_register_id: original.pos_register_id,
       original_invoice_id: original.id, correction_reason: input.reason.trim(), broj: number, interni_broj: internal, broj_racuna: internal, datum_racuna: day, datum_prometa: day, datum_valute: day,
       vrsta_racuna: "CORRECTIVE", document_type: "POS_RETURN", sales_channel: "POS", issued_at: now, status: "DRAFT", nacin_placanja: original.nacin_placanja, fiskalizacija_rezim: "SUMMA", vat_transaction_type: original.vat_transaction_type,
       valuta: original.valuta, kurs: original.kurs, ukupno_osnovica: original.ukupno_osnovica.negated(), ukupno_rabat: original.ukupno_rabat.negated(), ukupno_izlazni_pdv: original.ukupno_izlazni_pdv.negated(), ukupno_sa_pdv: original.ukupno_sa_pdv.negated(),

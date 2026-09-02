@@ -484,7 +484,7 @@ async function createMaprCalculation(
         aktivan: true,
         is_deleted: false
       },
-      select: { id: true }
+      select: { id: true, poslovna_jedinica_id: true }
     }),
     prisma.komitent.findFirst({
       where: {
@@ -789,6 +789,7 @@ async function createMaprCalculation(
         firma_id: firmaId,
         poslovna_godina_id: context.godina.id,
         magacin_id: warehouse.id,
+        poslovna_jedinica_id: warehouse.poslovna_jedinica_id,
         dobavljac_id: supplier.id,
         broj,
         interni_broj: `KAL-${context.godina.godina}-${String(broj).padStart(4, "0")}`,
@@ -948,7 +949,7 @@ export async function createCalculation(formData: FormData) {
         aktivan: true,
         is_deleted: false
       },
-      select: { id: true }
+      select: { id: true, poslovna_jedinica_id: true }
     }),
     prisma.komitent.findFirst({
       where: {
@@ -995,6 +996,7 @@ export async function createCalculation(formData: FormData) {
         firma_id: firmaId,
         poslovna_godina_id: context.godina.id,
         magacin_id: warehouse.id,
+        poslovna_jedinica_id: warehouse.poslovna_jedinica_id,
         dobavljac_id: supplier.id,
         broj,
         interni_broj: `KAL-${context.godina.godina}-${String(broj).padStart(4, "0")}`,
@@ -1086,6 +1088,7 @@ export async function updateCalculationHeader(formData: FormData) {
     where: { id },
     data: {
       magacin_id: warehouse.id,
+      poslovna_jedinica_id: warehouse.poslovna_jedinica_id,
       dobavljac_id: supplier.id,
       broj_racuna_dobavljaca: invoiceNumber,
       datum_racuna_dobavljaca: invoiceDate,
@@ -1600,6 +1603,7 @@ export async function postCalculation(formData: FormData) {
         agencija_id: context.agencijaId,
         firma_id: firmaId,
         poslovna_godina_id: context.godina.id,
+        poslovna_jedinica_id: calculation.poslovna_jedinica_id,
         vrsta_naloga_id: journalType.id,
         broj: journalNumber,
         sifra: formatJournalCode(journalType.prefiks, context.godina.godina, journalNumber),
@@ -1623,6 +1627,7 @@ export async function postCalculation(formData: FormData) {
           nalog_id: journal.id,
           konto_id: account.id,
           komitent_id: calculation.dobavljac_id,
+          poslovna_jedinica_id: calculation.poslovna_jedinica_id,
           duguje: line.direction === "D" ? cents(line.amount) : "0.00",
           potrazuje: line.direction === "P" ? cents(line.amount) : "0.00",
           opis: `Kalkulacija ${calculation.interni_broj}`,

@@ -147,7 +147,6 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/nalozi/vrste", label: "Vrste naloga" },
     { href: "/agencija/nalozi/pocetno-stanje", label: "Početno stanje" },
     { href: "/agencija/nalozi/partneri", label: "Partneri" },
-    { href: "/agencija/nalozi/poslovne-jedinice", label: "Poslovne jedinice" },
     { href: "/agencija/nalozi/bruto-bilans", label: "Bruto bilans" },
     { href: "/agencija/nalozi/analiticke-kartice", label: "Analitičke kartice" },
     { href: "/agencija/nalozi/kupci-dobavljaci", label: "Kupci / dobavljači" }
@@ -264,6 +263,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/izvjestaji", label: "Bruto bilans" },
     { href: "/agencija/izvjestaji/kartice-konta", label: "Kartice konta" },
     { href: "/agencija/izvjestaji/kartice-partnera", label: "Kartice partnera" },
+    { href: "/agencija/izvjestaji/rezultat-po-jedinicama", label: "Rezultat po jedinicama" },
     { href: "/agencija/izvjestaji/kupci", label: "Kupci" },
     { href: "/agencija/izvjestaji/dobavljaci", label: "Dobavljači" },
     { href: "/agencija/izvjestaji/lager", label: "Lager lista" },

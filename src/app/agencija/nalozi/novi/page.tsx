@@ -24,6 +24,7 @@ const poruke: Record<string, string> = {
   vrsta_nevalidna: "Vrsta naloga nije validna.",
   konto_nevalidno: "Konto ne postoji ili je deaktivirano za firmu.",
   partner_obavezan: "Za analiticko konto morate izabrati partnera.",
+  poslovna_jedinica_nevalidna: "Poslovna jedinica nije dostupna u izabranoj firmi.",
   nalog_greska: "Nalog nije sacuvan."
 };
 
@@ -167,6 +168,18 @@ export default async function NoviNalogPage({ searchParams }: NoviNalogPageProps
   const requiredAnalyticsAccounts = accounts
     .filter((account) => account.analitika_obavezna)
     .map((account) => account.sifra);
+  const businessUnits = activeCompany
+    ? await prisma.poslovnaJedinica.findMany({
+        where: {
+          agencija_id: user.agencija_id,
+          firma_id: activeCompany.id,
+          aktivna: true,
+          is_deleted: false
+        },
+        select: { id: true, sifra: true, naziv: true },
+        orderBy: { sifra: "asc" }
+      })
+    : [];
 
   return (
     <div className="admin-stack">
@@ -220,6 +233,15 @@ export default async function NoviNalogPage({ searchParams }: NoviNalogPageProps
               <label>
                 <span>Datum naloga</span>
                 <input defaultValue={todayInputValue()} name="datum" required type="date" />
+              </label>
+              <label>
+                <span>Poslovna jedinica</span>
+                <select name="poslovna_jedinica_id">
+                  <option value="">Bez poslovne jedinice</option>
+                  {businessUnits.map((unit) => (
+                    <option key={unit.id} value={unit.id}>{unit.sifra} · {unit.naziv}</option>
+                  ))}
+                </select>
               </label>
               <label className="form-wide">
                 <span>Opis naloga</span>

@@ -19,12 +19,14 @@ type BankStatementImportFormProps = {
   accountOptions: AccountOption[];
   bankAccounts: BankAccountOption[];
   defaultBankAccountId: string;
+  businessUnits: Array<{ id: string; sifra: string; naziv: string }>;
 };
 
 export function BankStatementImportForm({
   accountOptions,
   bankAccounts,
-  defaultBankAccountId
+  defaultBankAccountId,
+  businessUnits
 }: BankStatementImportFormProps) {
   const [selectedBankAccountId, setSelectedBankAccountId] = useState(defaultBankAccountId);
   const [fileSummary, setFileSummary] = useState("Nijedan fajl nije izabran");
@@ -96,6 +98,15 @@ export function BankStatementImportForm({
       <label>
         <span>Broj izvoda</span>
         <input name="statement_number" placeholder="popunjava XML ili unesite ručno" />
+      </label>
+      <label>
+        <span>Poslovna jedinica (opciono)</span>
+        <select name="poslovna_jedinica_id" defaultValue="">
+          <option value="">Bez poslovne jedinice</option>
+          {businessUnits.map((unit) => (
+            <option key={unit.id} value={unit.id}>{unit.sifra} — {unit.naziv}</option>
+          ))}
+        </select>
       </label>
       <label>
         <span>Datum izvoda</span>

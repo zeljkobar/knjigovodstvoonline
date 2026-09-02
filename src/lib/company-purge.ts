@@ -325,6 +325,10 @@ export async function purgeCompanyData(
     "nalozi",
     Prisma.sql`DELETE FROM nalozi WHERE firma_id = ${firmaId}::uuid`
   );
+  await izvrsi(
+    "poslovne_jedinice",
+    Prisma.sql`DELETE FROM poslovne_jedinice WHERE firma_id = ${firmaId}::uuid`
+  );
 
   // Vrste računa kaskadno brišu svoja pravila kontiranja.
   await izvrsi(

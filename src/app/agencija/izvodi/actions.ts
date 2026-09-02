@@ -2214,6 +2214,7 @@ export async function importBankStatement(formData: FormData) {
   const { user, firma, poslovnaGodina } = await getActiveContext();
   const companyBankAccountId = value(formData, "company_bank_account_id");
   const bankAccountKontoCode = nullableValue(formData, "bank_account_konto_code");
+  const requestedBusinessUnitId = nullableValue(formData, "poslovna_jedinica_id");
   const uploadedStatements = await readUploadedStatements(formData);
 
   if (
@@ -2230,7 +2231,7 @@ export async function importBankStatement(formData: FormData) {
     redirectStatements("godina_zakljucena");
   }
 
-  const [companyBankAccount, bankAccountKonto] = await Promise.all([
+  const [companyBankAccount, bankAccountKonto, businessUnit] = await Promise.all([
     prisma.firmaBankovniRacun.findFirst({
       where: {
         id: companyBankAccountId,
@@ -2246,8 +2247,21 @@ export async function importBankStatement(formData: FormData) {
     }),
     bankAccountKontoCode
       ? resolveCompanyAccount(prisma, firma.id, bankAccountKontoCode)
+      : null,
+    requestedBusinessUnitId
+      ? prisma.poslovnaJedinica.findFirst({
+          where: {
+            id: requestedBusinessUnitId,
+            agencija_id: user.agencija_id,
+            firma_id: firma.id,
+            aktivna: true,
+            is_deleted: false
+          },
+          select: { id: true }
+        })
       : null
   ]);
+  if (requestedBusinessUnitId && !businessUnit) redirectStatements("izvod_obavezno");
 
   const bankSetting = companyBankAccount
     ? await prisma.bankStatementAccountSetting.findUnique({
@@ -2477,6 +2491,7 @@ export async function importBankStatement(formData: FormData) {
         agencija_id: user.agencija_id,
         firma_id: firma.id,
         poslovna_godina_id: poslovnaGodina.id,
+        poslovna_jedinica_id: businessUnit?.id ?? null,
         company_bank_account_id: companyBankAccount.id,
         bank_account_konto_id: effectiveBankAccountKonto.id,
         statement_number: statementNumber,
@@ -3593,6 +3608,7 @@ export async function postSelectedBankStatements(formData: FormData) {
           agencija_id: agencijaId,
           firma_id: firmaId,
           poslovna_godina_id: poslovnaGodinaId,
+          poslovna_jedinica_id: statement.poslovna_jedinica_id,
           vrsta_naloga_id: journalType.id,
           broj
         },
@@ -3640,6 +3656,7 @@ export async function postSelectedBankStatements(formData: FormData) {
           data: {
             nalog_id: nalog.id,
             konto_id: statement.bank_account_konto_id,
+            poslovna_jedinica_id: statement.poslovna_jedinica_id,
             duguje: centsToDecimal(totalInflow),
             potrazuje: "0.00",
             opis: `Ukupan priliv po izvodu ${statement.statement_number}`,
@@ -3659,6 +3676,7 @@ export async function postSelectedBankStatements(formData: FormData) {
           data: {
             nalog_id: nalog.id,
             konto_id: statement.bank_account_konto_id,
+            poslovna_jedinica_id: statement.poslovna_jedinica_id,
             duguje: "0.00",
             potrazuje: centsToDecimal(totalOutflow),
             opis: `Ukupan odliv po izvodu ${statement.statement_number}`,
@@ -3702,6 +3720,7 @@ export async function postSelectedBankStatements(formData: FormData) {
           data: {
             nalog_id: nalog.id,
             konto_id: accountId,
+            poslovna_jedinica_id: statement.poslovna_jedinica_id,
             komitent_id: account?.analitika_obavezna ? line.partner_id : null,
             duguje: line.direction === "OUTFLOW" ? centsToDecimal(amount) : "0.00",
             potrazuje: line.direction === "INFLOW" ? centsToDecimal(amount) : "0.00",

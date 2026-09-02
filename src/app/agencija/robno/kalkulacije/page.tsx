@@ -79,6 +79,7 @@ export default async function CalculationsPage({ searchParams }: PageProps) {
         aktivan: true,
         is_deleted: false
       },
+      include: { poslovna_jedinica: { select: { sifra: true, naziv: true } } },
       orderBy: [{ sifra: "asc" }, { naziv: "asc" }]
     }),
     prisma.kalkulacija.findMany({
@@ -88,6 +89,7 @@ export default async function CalculationsPage({ searchParams }: PageProps) {
       },
       include: {
         magacin: { select: { sifra: true, naziv: true } },
+        poslovna_jedinica: { select: { sifra: true, naziv: true } },
         dobavljac: { select: { naziv: true } },
         _count: { select: { stavke: true } }
       },
@@ -156,7 +158,7 @@ export default async function CalculationsPage({ searchParams }: PageProps) {
             firmaId={context.firma.id}
             warehouses={warehouses.map((warehouse) => ({
               id: warehouse.id,
-              label: `${warehouse.sifra} · ${warehouse.naziv}`
+              label: `${warehouse.sifra} · ${warehouse.naziv}${warehouse.poslovna_jedinica ? ` — ${warehouse.poslovna_jedinica.sifra} · ${warehouse.poslovna_jedinica.naziv}` : ""}`
             }))}
             items={items.map((item) => ({
               id: item.id,
@@ -196,13 +198,14 @@ export default async function CalculationsPage({ searchParams }: PageProps) {
         {calculations.length === 0 ? <p className="empty-state">Nema kalkulacija za izabrani filter.</p> : (
           <div className="table-wrap">
             <table className="admin-table">
-              <thead><tr><th>Broj</th><th>Datum</th><th>Dobavljač / račun</th><th>Magacin</th><th>Stavke</th><th>Nabavna vrijednost</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Broj</th><th>Datum</th><th>Dobavljač / račun</th><th>Magacin</th><th>Poslovna jedinica</th><th>Stavke</th><th>Nabavna vrijednost</th><th>Status</th><th></th></tr></thead>
               <tbody>{calculations.map((calculation) => (
                 <tr key={calculation.id}>
                   <td><strong>{calculation.interni_broj}</strong></td>
                   <td>{calculation.datum_kalkulacije.toLocaleDateString("sr-Latn-ME")}</td>
                   <td>{calculation.dobavljac.naziv}<small className="table-secondary">{calculation.broj_racuna_dobavljaca}</small></td>
                   <td>{calculation.magacin.sifra} · {calculation.magacin.naziv}</td>
+                  <td>{calculation.poslovna_jedinica ? `${calculation.poslovna_jedinica.sifra} · ${calculation.poslovna_jedinica.naziv}` : "-"}</td>
                   <td>{calculation._count.stavke}</td>
                   <td className="numeric-cell">{money(calculation.ukupno_nabavna_vrijednost)}</td>
                   <td><span className={`status-badge status-${calculation.status.toLowerCase()}`}>{calculationStatusLabel(calculation.status)}</span></td>

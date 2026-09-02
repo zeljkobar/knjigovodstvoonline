@@ -32,6 +32,7 @@ const messages: Record<string, string> = {
   magacin_obavezno: "Šifra i naziv magacina su obavezni.",
   magacin_postoji: "Magacin sa ovom šifrom već postoji.",
   magacin_greska: "Magacin nije pronađen.",
+  poslovna_jedinica_greska: "Poslovna jedinica nije dostupna u izabranoj firmi.",
   negativan_lager_sacuvan: "Podrazumijevano pravilo negativnog lagera je sačuvano.",
   kontekst: "Izaberite važeću firmu u gornjoj traci.",
   prava: "Nemate pravo za ovu akciju."
@@ -59,7 +60,7 @@ export default async function WarehousesPage({ searchParams }: WarehousesPagePro
 
   const q = params?.q?.trim() ?? "";
   const status = params?.status === "neaktivni" ? "neaktivni" : params?.status === "svi" ? "svi" : "aktivni";
-  const [canCreate, canUpdate, canManage, warehouses] = await Promise.all([
+  const [canCreate, canUpdate, canManage, warehouses, businessUnits] = await Promise.all([
     hasPermission(context.user, {
       firmaId: context.firma.id,
       modul: inventoryModule,
@@ -91,7 +92,18 @@ export default async function WarehousesPage({ searchParams }: WarehousesPagePro
             }
           : {})
       },
+      include: { poslovna_jedinica: { select: { id: true, sifra: true, naziv: true } } },
       orderBy: [{ aktivan: "desc" }, { sifra: "asc" }]
+    }),
+    prisma.poslovnaJedinica.findMany({
+      where: {
+        agencija_id: context.user.agencija_id!,
+        firma_id: context.firma.id,
+        aktivna: true,
+        is_deleted: false
+      },
+      select: { id: true, sifra: true, naziv: true },
+      orderBy: [{ sifra: "asc" }]
     })
   ]);
   const editedWarehouse = params?.uredi
@@ -102,7 +114,8 @@ export default async function WarehousesPage({ searchParams }: WarehousesPagePro
           agencija_id: context.user.agencija_id!,
           firma_id: context.firma.id,
           is_deleted: false
-        }
+        },
+        include: { poslovna_jedinica: { select: { id: true, sifra: true, naziv: true } } }
       }))
     : null;
   const message = params?.poruka ? messages[params.poruka] : null;
@@ -198,6 +211,19 @@ export default async function WarehousesPage({ searchParams }: WarehousesPagePro
                 <option value="WHOLESALE">Veleprodajni — cijene bez PDV-a</option>
               </select>
             </label>
+            <label>
+              <span>Poslovna jedinica</span>
+              <select
+                defaultValue={editedWarehouse?.poslovna_jedinica_id ?? ""}
+                name="poslovna_jedinica_id"
+              >
+                <option value="">Bez poslovne jedinice</option>
+                {businessUnits.map((unit) => (
+                  <option key={unit.id} value={unit.id}>{unit.sifra} · {unit.naziv}</option>
+                ))}
+              </select>
+              <small>Magacin nasljeđuje organizacionu pripadnost ove jedinice.</small>
+            </label>
             <label className="form-span-2">
               <span>Napomena</span>
               <input defaultValue={editedWarehouse?.napomena ?? ""} name="napomena" />
@@ -235,6 +261,7 @@ export default async function WarehousesPage({ searchParams }: WarehousesPagePro
                 <th>Šifra</th>
                 <th>Naziv</th>
                 <th>Tip prodaje</th>
+                <th>Poslovna jedinica</th>
                 <th>Negativan lager</th>
                 <th>Status</th>
                 <th>Napomena</th>
@@ -247,6 +274,7 @@ export default async function WarehousesPage({ searchParams }: WarehousesPagePro
                   <td><strong>{warehouse.sifra}</strong></td>
                   <td>{warehouse.naziv}</td>
                   <td>{warehouseSalesTypeLabel(warehouse.tip_prodaje)}</td>
+                  <td>{warehouse.poslovna_jedinica ? `${warehouse.poslovna_jedinica.sifra} · ${warehouse.poslovna_jedinica.naziv}` : "-"}</td>
                   <td>
                     {negativeStockLabel(
                       warehouse.dozvoli_negativan_lager,
@@ -283,7 +311,7 @@ export default async function WarehousesPage({ searchParams }: WarehousesPagePro
                 </tr>
               )) : (
                 <tr>
-                  <td className="empty-state" colSpan={canUpdate ? 7 : 6}>
+                  <td className="empty-state" colSpan={canUpdate ? 8 : 7}>
                     Nema magacina za izabrane filtere.
                   </td>
                 </tr>

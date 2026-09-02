@@ -62,6 +62,9 @@ export default async function NalogPrintPage({ params }: NalogPrintPageProps) {
       status: true,
       created_at: true,
       proknjizen_at: true,
+      poslovna_jedinica: {
+        select: { sifra: true, naziv: true }
+      },
       firma: {
         select: {
           naziv: true,
@@ -159,6 +162,10 @@ export default async function NalogPrintPage({ params }: NalogPrintPageProps) {
           <div>
             <span>Datum knjiženja</span>
             <strong>{formatDate(nalog.datum_knjizenja)}</strong>
+          </div>
+          <div>
+            <span>Poslovna jedinica</span>
+            <strong>{nalog.poslovna_jedinica ? `${nalog.poslovna_jedinica.sifra} · ${nalog.poslovna_jedinica.naziv}` : "-"}</strong>
           </div>
           <div>
             <span>Kreirao</span>

@@ -28,6 +28,7 @@ type InitialPazar = {
   total: string;
   revenueAccountCode: string;
   note: string;
+  businessUnitId: string;
   taxLines: Array<{
     vatRateId: string;
     taxBase: string;
@@ -49,6 +50,7 @@ type KifPazarFormProps = {
   revenueAccountRequired: boolean;
   revenueAccounts: RevenueAccount[];
   defaultRevenueAccount: string;
+  businessUnits: Array<{ id: string; sifra: string; naziv: string }>;
 };
 
 function parseMoneyToCents(input: string) {
@@ -86,7 +88,8 @@ export function KifPazarForm({
   rates,
   revenueAccountRequired,
   revenueAccounts,
-  defaultRevenueAccount
+  defaultRevenueAccount,
+  businessUnits
 }: KifPazarFormProps) {
   const [periodType, setPeriodType] = useState(
     initial?.periodType ?? pazarPeriodTypes.daily
@@ -228,6 +231,15 @@ export function KifPazarForm({
           placeholder="Opciono"
           disabled={disabled}
         />
+      </label>
+      <label>
+        <span>Poslovna jedinica (opciono)</span>
+        <select name="poslovna_jedinica_id" defaultValue={initial?.businessUnitId ?? ""} disabled={disabled}>
+          <option value="">Bez poslovne jedinice</option>
+          {businessUnits.map((unit) => (
+            <option key={unit.id} value={unit.id}>{unit.sifra} — {unit.naziv}</option>
+          ))}
+        </select>
       </label>
 
       {revenueAccountRequired ? (

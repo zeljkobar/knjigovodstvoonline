@@ -27,6 +27,7 @@ export async function generatePosKifBatch(input: {
   year: number;
   mode: string;
   selectedDate: Date;
+  businessUnitId: string | null;
   userId: string;
 }) {
   if (!posBatchModes.includes(input.mode as (typeof posBatchModes)[number])) {
@@ -39,10 +40,13 @@ export async function generatePosKifBatch(input: {
 
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`pos-kif-batch:${input.firmaId}:${input.mode}:${period.from.toISOString()}`}))`;
-    const [year, book, settings, invoices] = await Promise.all([
+    const [year, book, settings, businessUnit, invoices] = await Promise.all([
       tx.poslovnaGodina.findFirst({ where: { id: input.poslovnaGodinaId, firma_id: input.firmaId }, select: { zakljucena: true } }),
       tx.kifBook.findFirst({ where: { agencija_id: input.agencijaId, firma_id: input.firmaId, poslovna_godina_id: input.poslovnaGodinaId, mjesec: period.from.getUTCMonth() + 1, status: "OPEN", is_deleted: false }, orderBy: { created_at: "asc" }, select: { id: true } }),
       tx.posPodesavanje.findUnique({ where: { firma_id: input.firmaId }, select: { racunovodstvena_integracija: true } }),
+      input.businessUnitId
+        ? tx.poslovnaJedinica.findFirst({ where: { id: input.businessUnitId, agencija_id: input.agencijaId, firma_id: input.firmaId, aktivna: true, is_deleted: false }, select: { id: true } })
+        : null,
       tx.fiskalniIzlazniRacun.findMany({
         where: {
           agencija_id: input.agencijaId,
@@ -53,6 +57,7 @@ export async function generatePosKifBatch(input: {
           kif_status: "WAITING_PAZAR",
           nacin_placanja: { in: ["CASH", "CARD"] },
           datum_racuna: { gte: period.from, lte: period.to },
+          poslovna_jedinica_id: input.businessUnitId,
           is_deleted: false,
           pos_kif_membership: null
         },
@@ -62,12 +67,14 @@ export async function generatePosKifBatch(input: {
     ]);
     if (!year || year.zakljucena) return { ok: false as const, reason: "godina" };
     if (!settings?.racunovodstvena_integracija) return { ok: false as const, reason: "integracija" };
+    if (input.businessUnitId && !businessUnit) return { ok: false as const, reason: "jedinica" };
     if (!book) return { ok: false as const, reason: "kif" };
     if (!invoices.length) return { ok: false as const, reason: "nema_racuna" };
     const overlappingPazar = await tx.kifEntry.findFirst({
       where: {
         firma_id: input.firmaId,
         entry_kind: kifEntryKinds.pazar,
+        poslovna_jedinica_id: input.businessUnitId,
         is_deleted: false,
         NOT: { source_type: "POS_KIF_BATCH" },
         pazar_period_from: { lte: period.to },
@@ -109,7 +116,7 @@ export async function generatePosKifBatch(input: {
     const entry = await tx.kifEntry.create({ data: {
       kif_book_id: book.id, agencija_id: input.agencijaId, firma_id: input.firmaId, poslovna_godina_id: input.poslovnaGodinaId, kupac_id: customer.id,
       redni_broj: redniBroj, internal_kif_number: `KIF-${input.year}-${String(redniBroj).padStart(4, "0")}`, customer_invoice_number: `POS PAZAR ${periodLabel}`,
-      entry_kind: kifEntryKinds.pazar, pazar_period_type: input.mode, pazar_period_from: period.from, pazar_period_to: period.to, pazar_report_number: `POS ${periodLabel}`,
+      entry_kind: kifEntryKinds.pazar, poslovna_jedinica_id: input.businessUnitId, pazar_period_type: input.mode, pazar_period_from: period.from, pazar_period_to: period.to, pazar_report_number: `POS ${periodLabel}`,
       invoice_date: period.to, vat_transaction_type: "DOMESTIC", total_base: scaledToDecimal(totalBase, 2), total_output_vat: scaledToDecimal(totalTax, 2), total_gross: scaledToDecimal(totalGross, 2),
       payment_status: "PAID", posting_status: "UNPOSTED", posting_mode: "KIF_RULES", source_type: "POS_KIF_BATCH", source_id: batchId,
       note: `Automatski POS zbir: ${invoices.length} računa.`, created_by: input.userId, updated_by: input.userId,

@@ -13,6 +13,7 @@ type BrutoBilansPrintPageProps = {
     konto?: string;
     nivo?: string;
     samo_zbir?: string;
+    jedinica?: string;
   }>;
 };
 
@@ -29,6 +30,13 @@ function parseDateFilter(value?: string) {
   }
 
   return new Date(`${value}T00:00:00.000Z`);
+}
+
+function parseBusinessUnitFilter(value?: string) {
+  if (value === "NONE") return value;
+  return value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : "ALL";
 }
 
 function parseAggregationLevel(value?: string) {
@@ -61,6 +69,7 @@ export default async function BrutoBilansPrintPage({ searchParams }: BrutoBilans
   const summaryOnly = params?.samo_zbir === "1" && aggregationLevel !== null;
   const dateFrom = parseDateFilter(params?.datum_od);
   const dateTo = parseDateFilter(params?.datum_do);
+  const selectedBusinessUnit = parseBusinessUnitFilter(params?.jedinica);
 
   if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
     return (
@@ -120,6 +129,9 @@ export default async function BrutoBilansPrintPage({ searchParams }: BrutoBilans
     }),
     prisma.stavkaNaloga.findMany({
       where: {
+        ...(selectedBusinessUnit !== "ALL"
+          ? { poslovna_jedinica_id: selectedBusinessUnit === "NONE" ? null : selectedBusinessUnit }
+          : {}),
         nalog: {
           firma_id: workContext.firmaId,
           poslovna_godina_id: workContext.poslovnaGodinaId,

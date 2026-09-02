@@ -285,7 +285,7 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
   const activeFirmaId = context.firma.id;
   const activeAgencijaId = context.user.agencija_id;
 
-  const [calculations, incomeTypes, calculationTypes] = await Promise.all([
+  const [calculations, incomeTypes, calculationTypes, businessUnits] = await Promise.all([
     prisma.plateObracun.findMany({
       where: {
         agencija_id: context.user.agencija_id,
@@ -342,6 +342,16 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
       orderBy: {
         naziv: "asc"
       }
+    }),
+    prisma.poslovnaJedinica.findMany({
+      where: {
+        agencija_id: activeAgencijaId,
+        firma_id: activeFirmaId,
+        aktivna: true,
+        is_deleted: false
+      },
+      orderBy: [{ sifra: "asc" }, { naziv: "asc" }],
+      select: { id: true, sifra: true, naziv: true }
     })
   ]);
   const showNewCalculationForm = params?.novi === "1";
@@ -575,6 +585,7 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
             action={createPayrollCalculation}
             defaultMonth={defaultMonth}
             defaultYear={defaultYear}
+            businessUnits={businessUnits}
           />
         </section>
       ) : null}

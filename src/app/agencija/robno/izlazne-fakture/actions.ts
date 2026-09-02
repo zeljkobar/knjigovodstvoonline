@@ -418,6 +418,7 @@ export async function finalizeOutgoingInvoice(formData: FormData) {
         agencija_id: ctx.user.agencija_id!,
         firma_id: firmaId,
         poslovna_godina_id: ctx.year.id,
+        poslovna_jedinica_id: invoice.poslovna_jedinica_id,
         vrsta_naloga_id: journalType.id,
         broj: number,
         sifra: formatJournalCode(journalType.prefiks, ctx.year.godina, number),
@@ -441,6 +442,7 @@ export async function finalizeOutgoingInvoice(formData: FormData) {
           nalog_id: journal.id,
           konto_id: account.id,
           komitent_id: account.analitika_obavezna ? invoice.kupac_id : null,
+          poslovna_jedinica_id: invoice.poslovna_jedinica_id,
           duguje:
             line.direction === "D" ? scaledToDecimal(line.amount, 2) : "0.00",
           potrazuje:

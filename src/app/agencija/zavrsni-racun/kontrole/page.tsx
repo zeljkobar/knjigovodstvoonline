@@ -624,6 +624,18 @@ export default async function ZavrsniRacunKontrolePage() {
     .filter(([, value]) => !value?.trim())
     .map(([label]) => label);
 
+  const missingBusinessUnitLines = await prisma.stavkaNaloga.findMany({
+    where: {
+      poslovna_jedinica_id: null,
+      nalog: postedJournalWhere,
+      firma_konto: { koristi_radnu_jedinicu: true }
+    },
+    select: { firma_konto: { select: { sifra: true } } }
+  });
+  const missingBusinessUnitAccounts = Array.from(
+    new Set(missingBusinessUnitLines.map((line) => line.firma_konto.sifra))
+  ).sort();
+
   const controls: ControlItem[] = [];
   const addControl = (control: ControlItem) => controls.push(control);
 
@@ -682,6 +694,28 @@ export default async function ZavrsniRacunKontrolePage() {
           level: "success",
           title: "Nema praznih proknjiženih naloga",
           description: "Svaki proknjiženi nalog ima najmanje jednu stavku."
+        }
+  );
+
+  addControl(
+    missingBusinessUnitLines.length > 0
+      ? {
+          id: "missing-business-unit",
+          group: "Glavna knjiga",
+          level: "warning",
+          title: `${missingBusinessUnitLines.length} stavki nema poslovnu jedinicu`,
+          description:
+            `Konta ${missingBusinessUnitAccounts.slice(0, 8).join(", ")}` +
+            `${missingBusinessUnitAccounts.length > 8 ? " i druga" : ""} zahtijevaju praćenje po poslovnoj jedinici.`,
+          actionHref: "/agencija/izvjestaji/rezultat-po-jedinicama",
+          actionLabel: "Rezultat po jedinicama"
+        }
+      : {
+          id: "missing-business-unit",
+          group: "Glavna knjiga",
+          level: "success",
+          title: "Poslovne jedinice su popunjene",
+          description: "Sve proknjižene stavke na kontima koja prate radnu jedinicu imaju poslovnu jedinicu."
         }
   );
 

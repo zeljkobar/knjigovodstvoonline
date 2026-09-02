@@ -6,6 +6,7 @@ type PayrollCalculationFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   defaultMonth: number;
   defaultYear: number;
+  businessUnits: Array<{ id: string; sifra: string; naziv: string }>;
 };
 
 const payrollCategoryOptions = [
@@ -32,7 +33,8 @@ function monthBoundaryDates(year: number, month: number) {
 export function PayrollCalculationForm({
   action,
   defaultMonth,
-  defaultYear
+  defaultYear,
+  businessUnits
 }: PayrollCalculationFormProps) {
   const [month, setMonth] = useState(defaultMonth);
   const [year, setYear] = useState(defaultYear);
@@ -95,6 +97,15 @@ export function PayrollCalculationForm({
       <label>
         <span>Fond sati</span>
         <input name="fond_sati" type="number" defaultValue="176" min="1" required />
+      </label>
+      <label>
+        <span>Poslovna jedinica (opciono)</span>
+        <select name="poslovna_jedinica_id" defaultValue="">
+          <option value="">Bez poslovne jedinice</option>
+          {businessUnits.map((unit) => (
+            <option key={unit.id} value={unit.id}>{unit.sifra} — {unit.naziv}</option>
+          ))}
+        </select>
       </label>
       <label>
         <span>Napomena</span>

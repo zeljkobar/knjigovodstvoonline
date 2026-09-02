@@ -761,16 +761,45 @@ function warehouseNegativeStockValue(value: string) {
   return null;
 }
 
+async function resolveWarehouseBusinessUnit(
+  businessUnitId: string,
+  agencijaId: string,
+  firmaId: string
+) {
+  if (!businessUnitId) return null;
+
+  return prisma.poslovnaJedinica.findFirst({
+    where: {
+      id: businessUnitId,
+      agencija_id: agencijaId,
+      firma_id: firmaId,
+      aktivna: true,
+      is_deleted: false
+    },
+    select: { id: true }
+  });
+}
+
 export async function createWarehouse(formData: FormData) {
   const path = "/agencija/robno/magacini";
   const firmaId = text(formData.get("firma_id"));
   const context = await requireInventoryActionContext("create", path, firmaId);
   const sifra = normalizeInventoryCode(text(formData.get("sifra")));
   const naziv = text(formData.get("naziv"));
+  const businessUnitId = text(formData.get("poslovna_jedinica_id"));
   const salesType = text(formData.get("tip_prodaje")) === "WHOLESALE" ? "WHOLESALE" : "RETAIL";
 
   if (!sifra || !naziv) {
     inventoryRedirect(path, "magacin_obavezno");
+  }
+
+  const businessUnit = await resolveWarehouseBusinessUnit(
+    businessUnitId,
+    context.agencijaId,
+    firmaId
+  );
+  if (businessUnitId && !businessUnit) {
+    inventoryRedirect(path, "poslovna_jedinica_greska");
   }
 
   const existing = await prisma.magacin.findFirst({
@@ -795,6 +824,7 @@ export async function createWarehouse(formData: FormData) {
       firma_id: firmaId,
       sifra,
       naziv,
+      poslovna_jedinica_id: businessUnit?.id ?? null,
       tip_prodaje: salesType,
       dozvoli_negativan_lager: warehouseNegativeStockValue(
         text(formData.get("negativan_lager"))
@@ -830,10 +860,20 @@ export async function updateWarehouse(formData: FormData) {
   const context = await requireInventoryActionContext("update", path, firmaId);
   const sifra = normalizeInventoryCode(text(formData.get("sifra")));
   const naziv = text(formData.get("naziv"));
+  const businessUnitId = text(formData.get("poslovna_jedinica_id"));
   const salesType = text(formData.get("tip_prodaje")) === "WHOLESALE" ? "WHOLESALE" : "RETAIL";
 
   if (!warehouseId || !sifra || !naziv) {
     inventoryRedirect(path, "magacin_obavezno", params);
+  }
+
+  const businessUnit = await resolveWarehouseBusinessUnit(
+    businessUnitId,
+    context.agencijaId,
+    firmaId
+  );
+  if (businessUnitId && !businessUnit) {
+    inventoryRedirect(path, "poslovna_jedinica_greska", params);
   }
 
   const [existingWarehouse, duplicate] = await Promise.all([
@@ -874,6 +914,7 @@ export async function updateWarehouse(formData: FormData) {
     data: {
       sifra,
       naziv,
+      poslovna_jedinica_id: businessUnit?.id ?? null,
       tip_prodaje: salesType,
       dozvoli_negativan_lager: warehouseNegativeStockValue(
         text(formData.get("negativan_lager"))

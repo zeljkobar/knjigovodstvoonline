@@ -41,6 +41,15 @@ Direktni `/portal` ne prikazuje birače: backend automatski bira jedinu
 dozvoljenu firmu i važeću poslovnu godinu, ali ih ponovo provjerava pri svakom
 zahtjevu.
 
+Poslovna jedinica je opciona organizaciona dimenzija unutar firme. Magacin nije
+isto što i poslovna jedinica: više magacina može pripadati jednoj jedinici.
+Kalkulacija, izlazna faktura i POS račun snimaju jedinicu iz magacina; njihovi
+nalozi je nasljeđuju, čime istorijski izvještaji ostaju stabilni i kada se
+magacin kasnije preveže. Ručni KIF/KUF, izvod, obračun plate i ručni nalog mogu
+izabrati jedinicu direktno. Dimenzija se čuva i na `stavke_naloga`, jer jedan
+zbirni KIF/KUF nalog može sadržati dokumente više jedinica. Izvještaji zato
+filtriraju po `stavke_naloga.poslovna_jedinica_id`.
+
 ## Jezik i konvencije baze
 - Tabele i polja na **srpskom** (`agencije`, `firme`, `korisnici`,
   `korisnik_firma`, `komitenti`, `konta`, `nalozi`, `stavke_naloga`,

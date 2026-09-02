@@ -334,6 +334,7 @@ export async function createJournal(formData: FormData) {
   const vrstaNalogaId = value(formData, "vrsta_naloga_id");
   const datum = parseDate(formData, "datum");
   const opis = nullableValue(formData, "opis");
+  const poslovnaJedinicaId = nullableValue(formData, "poslovna_jedinica_id");
   const { user, firma, poslovnaGodina } = await getUserCompanyAccess(
     firmaId,
     poslovnaGodinaId
@@ -380,6 +381,20 @@ export async function createJournal(formData: FormData) {
 
     if (!journalType) {
       throw new Error("vrsta_nevalidna");
+    }
+
+    if (poslovnaJedinicaId) {
+      const businessUnit = await tx.poslovnaJedinica.findFirst({
+        where: {
+          id: poslovnaJedinicaId,
+          agencija_id: firma.agencija_id,
+          firma_id: firma.id,
+          aktivna: true,
+          is_deleted: false
+        },
+        select: { id: true }
+      });
+      if (!businessUnit) throw new Error("poslovna_jedinica_nevalidna");
     }
 
     if (journalType.sifra === openingBalanceJournalType) {
@@ -429,6 +444,7 @@ export async function createJournal(formData: FormData) {
         agencija_id: firma.agencija_id,
         firma_id: firma.id,
         poslovna_godina_id: poslovnaGodina.id,
+        poslovna_jedinica_id: poslovnaJedinicaId,
         vrsta_naloga_id: journalType.id,
         broj,
         sifra,
@@ -469,6 +485,7 @@ export async function createJournal(formData: FormData) {
           nalog_id: nalog.id,
           konto_id: account.id,
           komitent_id: line.partnerId,
+          poslovna_jedinica_id: poslovnaJedinicaId,
           duguje: centsToDecimal(line.debit),
           potrazuje: centsToDecimal(line.credit),
           opis: line.description || opis,
@@ -538,6 +555,7 @@ export async function updateDraftJournalLines(formData: FormData) {
       id: true,
       firma_id: true,
       status: true,
+      poslovna_jedinica_id: true,
       poslovna_godina: {
         select: {
           zakljucena: true
@@ -587,6 +605,7 @@ export async function updateDraftJournalLines(formData: FormData) {
           nalog_id: nalog.id,
           konto_id: account.id,
           komitent_id: line.partnerId,
+          poslovna_jedinica_id: nalog.poslovna_jedinica_id,
           duguje: centsToDecimal(line.debit),
           potrazuje: centsToDecimal(line.credit),
           opis: line.description,

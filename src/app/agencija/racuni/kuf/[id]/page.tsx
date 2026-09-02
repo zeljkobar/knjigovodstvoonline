@@ -206,7 +206,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
     );
   }
 
-  const [kufBook, vatRates, baseAccounts, companyOverrides] = await Promise.all([
+  const [kufBook, vatRates, baseAccounts, companyOverrides, businessUnits] = await Promise.all([
     prisma.kufBook.findFirst({
       where: {
         id,
@@ -243,6 +243,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             fiscal_datetime: true,
             fiscal_source_url: true,
             dobavljac_id: true,
+            poslovna_jedinica_id: true,
             invoice_date: true,
             receipt_date: true,
             due_date: true,
@@ -360,6 +361,16 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
         napomena: true,
         aktivan: true
       }
+    }),
+    prisma.poslovnaJedinica.findMany({
+      where: {
+        agencija_id: user.agencija_id,
+        firma_id: activeCompany.id,
+        aktivna: true,
+        is_deleted: false
+      },
+      orderBy: [{ sifra: "asc" }, { naziv: "asc" }],
+      select: { id: true, sifra: true, naziv: true }
     })
   ]);
 
@@ -666,6 +677,21 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             name="dobavljac_id"
             required
           />
+          <label>
+            <span>Poslovna jedinica (opciono)</span>
+            <select
+              name="poslovna_jedinica_id"
+              defaultValue={editingEntry?.poslovna_jedinica_id ?? ""}
+              disabled={isLocked}
+            >
+              <option value="">Bez poslovne jedinice</option>
+              {businessUnits.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.sifra} — {unit.naziv}
+                </option>
+              ))}
+            </select>
+          </label>
           <VatTransactionTypeSelect
             disabled={isLocked}
             documentType="KUF"

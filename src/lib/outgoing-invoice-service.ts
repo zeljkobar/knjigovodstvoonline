@@ -413,7 +413,7 @@ export async function createOutgoingInvoiceDraft(input: {
             aktivan: true,
             is_deleted: false
           },
-          select: { id: true }
+          select: { id: true, poslovna_jedinica_id: true }
         })
       : Promise.resolve(null)
   ]);
@@ -474,6 +474,7 @@ export async function createOutgoingInvoiceDraft(input: {
         poslovna_godina_id: year.id,
         kupac_id: buyer.id,
         magacin_id: warehouse?.id ?? null,
+        poslovna_jedinica_id: warehouse?.poslovna_jedinica_id ?? null,
         broj: number,
         interni_broj: internal,
         broj_racuna: internal,
@@ -702,6 +703,7 @@ export async function updateOutgoingInvoiceDraftHeader(input: {
   const warehouseId = formData.has("magacin_id")
     ? text(formData, "magacin_id") || null
     : current.magacin_id;
+  let businessUnitId = current.poslovna_jedinica_id;
   if (warehouseId) {
     const warehouse = await prisma.magacin.findFirst({
       where: {
@@ -711,9 +713,12 @@ export async function updateOutgoingInvoiceDraftHeader(input: {
         aktivan: true,
         is_deleted: false
       },
-      select: { id: true }
+      select: { id: true, poslovna_jedinica_id: true }
     });
     if (!warehouse) throw new OutgoingInvoiceServiceError("magacin");
+    businessUnitId = warehouse.poslovna_jedinica_id;
+  } else {
+    businessUnitId = null;
   }
 
   const requestedPayment = text(formData, "nacin_placanja");
@@ -748,6 +753,7 @@ export async function updateOutgoingInvoiceDraftHeader(input: {
         datum_valute: dueDate,
         mjesto_izdavanja: place,
         magacin_id: warehouseId,
+        poslovna_jedinica_id: businessUnitId,
         nacin_placanja: payment,
         napomena: note,
         updated_by: context.userId

@@ -230,7 +230,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
     );
   }
 
-  const [kifBook, vatRates, baseAccounts, companyOverrides] = await Promise.all([
+  const [kifBook, vatRates, baseAccounts, companyOverrides, businessUnits] = await Promise.all([
     prisma.kifBook.findFirst({
       where: {
         id,
@@ -272,6 +272,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             id: true,
             internal_kif_number: true,
             customer_invoice_number: true,
+            poslovna_jedinica_id: true,
             entry_kind: true,
             pazar_period_type: true,
             pazar_period_from: true,
@@ -390,6 +391,16 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
         napomena: true,
         aktivan: true
       }
+    }),
+    prisma.poslovnaJedinica.findMany({
+      where: {
+        agencija_id: user.agencija_id,
+        firma_id: activeCompany.id,
+        aktivna: true,
+        is_deleted: false
+      },
+      orderBy: [{ sifra: "asc" }, { naziv: "asc" }],
+      select: { id: true, sifra: true, naziv: true }
     })
   ]);
 
@@ -688,6 +699,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                       revenueAccountCode:
                         editingPazar.revenue_account?.sifra ?? defaultRevenueAccount,
                       note: editingPazar.note ?? "",
+                      businessUnitId: editingPazar.poslovna_jedinica_id ?? "",
                       taxLines: editingPazar.tax_lines
                         .filter((line) => line.vat_rate_id)
                         .map((line) => ({
@@ -711,6 +723,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                 sifra: account.sifra,
                 naziv: account.naziv
               }))}
+              businessUnits={businessUnits}
             />
             {editingPazar ? (
               <div className="form-actions">
@@ -739,6 +752,21 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             name="kupac_id"
             required
           />
+          <label>
+            <span>Poslovna jedinica (opciono)</span>
+            <select
+              name="poslovna_jedinica_id"
+              defaultValue={editingEntry?.poslovna_jedinica_id ?? ""}
+              disabled={isLocked}
+            >
+              <option value="">Bez poslovne jedinice</option>
+              {businessUnits.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.sifra} — {unit.naziv}
+                </option>
+              ))}
+            </select>
+          </label>
           <VatTransactionTypeSelect
             disabled={isLocked}
             documentType="KIF"

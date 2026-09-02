@@ -331,6 +331,15 @@ je od samodeaktivacije i samostalne rotacije.
   linkom na analitičku karticu partnera.
 - Pretraga partnera u nalozima i analitičkim karticama je **async** (ne učitava
   svih ~64k); `pg_trgm` GIN indeks na `komitenti.naziv` + btree na `pib`/`scope`.
+- Poslovne jedinice su firm-specific šifarnik pod
+  `/agencija/podesavanja/poslovne-jedinice`, sa šifrom, nazivom, tipom,
+  lokacijom, statusom i auditom. Ručni nalog, KIF/KUF račun, izvod i obračun
+  plate mogu izabrati jedinicu, dok kalkulacija, izlazna faktura i POS račun
+  nasljeđuju jedinicu iz magacina. Jedinica se čuva i na stavci naloga, pa jedan
+  zbirni KIF/KUF nalog može sadržati više jedinica bez gubitka analitike. Bruto
+  bilans i kartice konta/partnera filtriraju `POSTED` promet po jedinici ili bez
+  jedinice; štampe prenose isti filter. Izvještaj `Rezultat po poslovnim
+  jedinicama` poredi prihode klase 6, troškove klase 5 i rezultat.
 
 ### Modul 4 — Robno knjigovodstvo
 - Robni meni je grupisan na `Pregled`, `Šifarnici`, `Nabavku`, `Prodaju`,
@@ -354,6 +363,11 @@ je od samodeaktivacije i samostalne rotacije.
 - Negativan lager podešava se podrazumijevano na firmi i opciono može biti
   naslijeđen, dozvoljen ili blokiran po magacinu. Stvarno sprovođenje pravila
   slijedi sa dokumentima koji mijenjaju zalihe.
+- Magacin može biti vezan za jednu poslovnu jedinicu, dok jedna poslovna
+  jedinica može obuhvatiti više magacina. Domaća i MAPR kalkulacija automatski
+  pamte jedinicu iz izabranog magacina; promjena magacina na nacrtu osvježava
+  tu vezu, a nalog nastao završavanjem kalkulacije nasljeđuje istu jedinicu.
+  Promjena veze na magacinu ne mijenja istorijske kalkulacije i naloge.
 - Sve robne server akcije provjeravaju agenciju, firmu, dodjelu korisnika i
   `robno` pravo (`view/create/update/manage`) te upisuju audit log.
 - Implementirana je domaća kalkulacija kroz migraciju

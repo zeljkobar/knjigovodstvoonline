@@ -112,6 +112,9 @@ export default async function NalogDetailPage({
       opis: true,
       status: true,
       source_module: true,
+      poslovna_jedinica: {
+        select: { sifra: true, naziv: true }
+      },
       created_at: true,
       proknjizen_at: true,
       firma: {
@@ -309,6 +312,11 @@ const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
             <span>Datum</span>
             <strong>{formatDate(nalog.datum)}</strong>
             <small>Knjiženje: {formatDate(nalog.datum_knjizenja)}</small>
+          </div>
+          <div>
+            <span>Poslovna jedinica</span>
+            <strong>{nalog.poslovna_jedinica ? `${nalog.poslovna_jedinica.sifra} · ${nalog.poslovna_jedinica.naziv}` : "-"}</strong>
+            <small>Organizaciona pripadnost naloga</small>
           </div>
           <div>
             <span>Kreirao</span>

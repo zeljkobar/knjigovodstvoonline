@@ -92,6 +92,7 @@ export default async function CalculationDetailPage({ params, searchParams }: Pa
       include: {
         dobavljac: true,
         magacin: true,
+        poslovna_jedinica: true,
         poslovna_godina: { select: { zakljucena: true } },
         stavke: {
           include: {
@@ -113,6 +114,7 @@ export default async function CalculationDetailPage({ params, searchParams }: Pa
         aktivan: true,
         is_deleted: false
       },
+      include: { poslovna_jedinica: { select: { sifra: true, naziv: true } } },
       orderBy: [{ sifra: "asc" }, { naziv: "asc" }]
     }),
     prisma.artikal.findMany({
@@ -212,7 +214,7 @@ export default async function CalculationDetailPage({ params, searchParams }: Pa
           <input type="hidden" name="firma_id" value={firmaId} />
           <input type="hidden" name="kalkulacija_id" value={id} />
           <PartnerSearchInput disabled={!editable} initialPartner={supplier} label="Dobavljač" name="dobavljac_id" required />
-          <label><span>Magacin</span><select name="magacin_id" defaultValue={calculation.magacin_id} disabled={!editable}>{warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.sifra} · {warehouse.naziv}</option>)}</select></label>
+          <label><span>Magacin / poslovna jedinica</span><select name="magacin_id" defaultValue={calculation.magacin_id} disabled={!editable}>{warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.sifra} · {warehouse.naziv}{warehouse.poslovna_jedinica ? ` — ${warehouse.poslovna_jedinica.sifra} · ${warehouse.poslovna_jedinica.naziv}` : ""}</option>)}</select><small>Poslovna jedinica se automatski preuzima sa magacina.</small></label>
           <label><span>Broj računa dobavljača</span><input name="broj_racuna_dobavljaca" defaultValue={calculation.broj_racuna_dobavljaca} disabled={!editable} required /></label>
           <label><span>Datum računa</span><input type="date" name="datum_racuna_dobavljaca" defaultValue={inputDate(calculation.datum_racuna_dobavljaca)} disabled={!editable} required /></label>
           <label><span>Datum kalkulacije</span><input type="date" name="datum_kalkulacije" defaultValue={inputDate(calculation.datum_kalkulacije)} disabled={!editable} required /></label>

@@ -18,6 +18,7 @@ type AnalitickeKarticePageProps = {
     partner_q?: string;
     prikaz?: string;
     sva_konta?: string;
+    jedinica?: string;
   }>;
 };
 
@@ -34,6 +35,13 @@ function parseDateFilter(value?: string) {
   }
 
   return new Date(`${value}T00:00:00.000Z`);
+}
+
+function parseBusinessUnitFilter(value?: string) {
+  if (value === "NONE") return value;
+  return value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : "ALL";
 }
 
 function formatDate(date: Date) {
@@ -72,6 +80,7 @@ export default async function AnalitickeKarticePage({
   const showAllAccounts = variant === "account" && params?.sva_konta === "1";
   const dateFrom = parseDateFilter(params?.datum_od);
   const dateTo = parseDateFilter(params?.datum_do);
+  const selectedBusinessUnit = parseBusinessUnitFilter(params?.jedinica);
 
   if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
     return (
@@ -88,7 +97,7 @@ export default async function AnalitickeKarticePage({
     );
   }
 
-  const [firma, godina, accounts] = await Promise.all([
+  const [firma, godina, accounts, businessUnits] = await Promise.all([
     prisma.firma.findFirst({
       where: {
         id: workContext.firmaId,
@@ -129,11 +138,14 @@ export default async function AnalitickeKarticePage({
           : {
               stavke_naloga: {
                 some: {
+                  ...(selectedBusinessUnit !== "ALL"
+                    ? { poslovna_jedinica_id: selectedBusinessUnit === "NONE" ? null : selectedBusinessUnit }
+                    : {}),
                   nalog: {
                     firma_id: workContext.firmaId,
                     poslovna_godina_id: workContext.poslovnaGodinaId,
                     status: journalStatuses.posted,
-                    is_deleted: false
+                    is_deleted: false,
                   }
                 }
               }
@@ -165,6 +177,15 @@ export default async function AnalitickeKarticePage({
         sifra: true,
         naziv: true
       }
+    }),
+    prisma.poslovnaJedinica.findMany({
+      where: {
+        agencija_id: user.agencija_id,
+        firma_id: workContext.firmaId,
+        is_deleted: false
+      },
+      select: { id: true, sifra: true, naziv: true, aktivna: true },
+      orderBy: [{ aktivna: "desc" }, { sifra: "asc" }]
     })
   ]);
 
@@ -205,6 +226,9 @@ export default async function AnalitickeKarticePage({
   const partnerQueryDigits = selectedPartnerQuery.replace(/\D/g, "");
 
   const where: Prisma.StavkaNalogaWhereInput = {
+    ...(selectedBusinessUnit !== "ALL"
+      ? { poslovna_jedinica_id: selectedBusinessUnit === "NONE" ? null : selectedBusinessUnit }
+      : {}),
     nalog: {
       firma_id: workContext.firmaId,
       poslovna_godina_id: workContext.poslovnaGodinaId,
@@ -270,7 +294,8 @@ export default async function AnalitickeKarticePage({
             selectedPartner ||
             selectedPartnerQuery ||
             dateFrom ||
-            dateTo
+            dateTo ||
+            selectedBusinessUnit !== "ALL"
         );
 
   const lines = shouldLoadLines
@@ -360,6 +385,7 @@ export default async function AnalitickeKarticePage({
     if (selectedPartnerQuery) query.set("partner_q", selectedPartnerQuery);
     if (params?.datum_od) query.set("datum_od", params.datum_od);
     if (params?.datum_do) query.set("datum_do", params.datum_do);
+    if (selectedBusinessUnit !== "ALL") query.set("jedinica", selectedBusinessUnit);
     if (nextShowAll) query.set("sva_konta", "1");
 
     const serialized = query.toString();
@@ -373,6 +399,7 @@ export default async function AnalitickeKarticePage({
     if (selectedPartnerQuery) query.set("partner_q", selectedPartnerQuery);
     if (params?.datum_od) query.set("datum_od", params.datum_od);
     if (params?.datum_do) query.set("datum_do", params.datum_do);
+    if (selectedBusinessUnit !== "ALL") query.set("jedinica", selectedBusinessUnit);
 
     return `/stampa/kartica-konta?${query.toString()}`;
   }
@@ -426,6 +453,16 @@ export default async function AnalitickeKarticePage({
         <label>
           <span>Datum do</span>
           <input defaultValue={params?.datum_do ?? ""} name="datum_do" type="date" />
+        </label>
+        <label>
+          <span>Poslovna jedinica</span>
+          <select name="jedinica" defaultValue={selectedBusinessUnit}>
+            <option value="ALL">Sve jedinice</option>
+            <option value="NONE">Bez poslovne jedinice</option>
+            {businessUnits.map((unit) => (
+              <option key={unit.id} value={unit.id}>{unit.sifra} - {unit.naziv}{unit.aktivna ? "" : " (neaktivna)"}</option>
+            ))}
+          </select>
         </label>
       </AutoSubmitFilterForm>
     </section>
@@ -591,6 +628,7 @@ export default async function AnalitickeKarticePage({
               ) : null}
               {params?.datum_od ? <input name="datum_od" type="hidden" value={params.datum_od} /> : null}
               {params?.datum_do ? <input name="datum_do" type="hidden" value={params.datum_do} /> : null}
+              {selectedBusinessUnit !== "ALL" ? <input name="jedinica" type="hidden" value={selectedBusinessUnit} /> : null}
               {showAllAccounts ? <input name="sva_konta" type="hidden" value="1" /> : null}
               <label>
                 <span>Pretraga</span>

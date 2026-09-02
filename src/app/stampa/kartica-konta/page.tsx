@@ -12,6 +12,7 @@ type KarticaKontaPrintPageProps = {
     konto?: string;
     partner?: string;
     partner_q?: string;
+    jedinica?: string;
   }>;
 };
 
@@ -70,6 +71,7 @@ export default async function KarticaKontaPrintPage({
   const selectedPartnerQuery = params?.partner_q?.trim() ?? "";
   const dateFrom = parseDateFilter(params?.datum_od);
   const dateTo = parseDateFilter(params?.datum_do);
+  const selectedBusinessUnit = params?.jedinica ?? "ALL";
 
   if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
     return <PrintMessage>Izaberite firmu i poslovnu godinu prije štampe.</PrintMessage>;
@@ -81,6 +83,10 @@ export default async function KarticaKontaPrintPage({
 
   if (selectedPartner && selectedPartner !== "ALL" && !isUuid(selectedPartner)) {
     return <PrintMessage>Izabrani partner nije ispravan.</PrintMessage>;
+  }
+
+  if (selectedBusinessUnit !== "ALL" && selectedBusinessUnit !== "NONE" && !isUuid(selectedBusinessUnit)) {
+    return <PrintMessage>Izabrana poslovna jedinica nije ispravna.</PrintMessage>;
   }
 
   const firmaId = workContext.firmaId;
@@ -192,6 +198,9 @@ export default async function KarticaKontaPrintPage({
     return {
       konto_id: accountId,
       ...partnerFilter,
+      ...(selectedBusinessUnit !== "ALL"
+        ? { poslovna_jedinica_id: selectedBusinessUnit === "NONE" ? null : selectedBusinessUnit }
+        : {}),
       nalog: {
         firma_id: firmaId,
         poslovna_godina_id: poslovnaGodinaId,

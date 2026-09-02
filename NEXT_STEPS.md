@@ -120,8 +120,12 @@
   lokalnih podataka, uključujući fiskalne/POS zapise, je završeno. Pri svakoj
   promjeni šeme obavezni su `npm run db:check-company-purge` i ručna provjera
   podređenih FK tabela bez `firma_id`.
-- **Modul 3:** kontrole po poslovnoj jedinici; dodatni automatizovani testovi
-  za validacije, prava i konkurentne zahtjeve pri kreiranju početnog stanja.
+- **Modul 3:** kompletan tok poslovnih jedinica je implementiran kroz magacine,
+  kalkulacije, izlazne/POS račune, ručni KIF/KUF, izvode, plate i stavke naloga.
+  Postoje filteri glavne knjige, rezultat po jedinicama i završna kontrola
+  nedostajuće jedinice na kontima koja je zahtijevaju. Ostaju raspodjela jedne
+  stavke dokumenta na više jedinica ako se kasnije pokaže potrebnom i
+  automatizovani testovi za validacije, prava i konkurentne zahtjeve.
 - **Modul 5/7 Izvodi:** dodati parsere za ostale banke, dodatne uslove pravila
   po formatima banaka, split alokacije jedne uplate na više KIF/KUF računa i
   vraćanje proknjiženog izvoda u nacrt.

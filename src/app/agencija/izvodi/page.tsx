@@ -162,7 +162,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
         })
       : null;
 
-  const [bankAccounts, bankSettings, baseAccounts, companyOverrides, statements] =
+  const [bankAccounts, bankSettings, baseAccounts, companyOverrides, statements, businessUnits] =
     activeCompany && activeYear
       ? await Promise.all([
           prisma.firmaBankovniRacun.findMany({
@@ -297,9 +297,19 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                 }
               }
             }
+          }),
+          prisma.poslovnaJedinica.findMany({
+            where: {
+              agencija_id: user.agencija_id,
+              firma_id: activeCompany.id,
+              aktivna: true,
+              is_deleted: false
+            },
+            orderBy: [{ sifra: "asc" }, { naziv: "asc" }],
+            select: { id: true, sifra: true, naziv: true }
           })
         ])
-      : [[], [], [], [], []];
+      : [[], [], [], [], [], []];
 
   const accountOptions = mergeCompanyAccountPlan(baseAccounts, companyOverrides).filter(
     (account) => account.aktivan && account.tip_konta === "analiticko"
@@ -578,6 +588,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                     };
                   })}
                   defaultBankAccountId={defaultBankAccountId}
+                  businessUnits={businessUnits}
                 />
               </section>
 
