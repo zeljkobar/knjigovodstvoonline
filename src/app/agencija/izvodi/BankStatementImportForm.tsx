@@ -99,15 +99,17 @@ export function BankStatementImportForm({
         <span>Broj izvoda</span>
         <input name="statement_number" placeholder="popunjava XML ili unesite ručno" />
       </label>
-      <label>
-        <span>Poslovna jedinica (opciono)</span>
-        <select name="poslovna_jedinica_id" defaultValue="">
-          <option value="">Bez poslovne jedinice</option>
-          {businessUnits.map((unit) => (
-            <option key={unit.id} value={unit.id}>{unit.sifra} — {unit.naziv}</option>
-          ))}
-        </select>
-      </label>
+      {businessUnits.length > 0 ? (
+        <label>
+          <span>Poslovna jedinica (opciono)</span>
+          <select name="poslovna_jedinica_id" defaultValue="">
+            <option value="">Bez poslovne jedinice</option>
+            {businessUnits.map((unit) => (
+              <option key={unit.id} value={unit.id}>{unit.sifra} — {unit.naziv}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label>
         <span>Datum izvoda</span>
         <input name="statement_date" type="date" />

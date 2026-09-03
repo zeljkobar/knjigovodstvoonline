@@ -92,6 +92,13 @@ export function inventoryDocumentLabel(type: string) {
   const labels: Record<string, string> = {
     CALCULATION: "Kalkulacija",
     OUTGOING_INVOICE: "Izlazna faktura",
+    WAREHOUSE_TRANSFER_OUT: "Prenos robe — izlaz",
+    WAREHOUSE_TRANSFER_IN: "Prenos robe — ulaz",
+    STOCK_COUNT_SURPLUS: "Popis robe — višak",
+    STOCK_COUNT_SHORTAGE: "Popis robe — manjak",
+    WRITE_OFF: "Otpis robe",
+    PRICE_ADJUSTMENT_UP: "Nivelacija — povećanje",
+    PRICE_ADJUSTMENT_DOWN: "Nivelacija — smanjenje",
     POS_SALE: "POS prodaja",
     POS_RETURN: "POS storno"
   };

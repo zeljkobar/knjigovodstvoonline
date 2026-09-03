@@ -223,6 +223,34 @@ export async function ItemCardPage({
       };
     }
 
+    if (["WAREHOUSE_TRANSFER_OUT", "WAREHOUSE_TRANSFER_IN"].includes(row.tip_dokumenta)) {
+      return {
+        href: `/agencija/robno/prenos/${row.dokument_id}`,
+        label: "Otvori prenos robe"
+      };
+    }
+
+    if (["STOCK_COUNT_SURPLUS", "STOCK_COUNT_SHORTAGE"].includes(row.tip_dokumenta)) {
+      return {
+        href: `/agencija/robno/popis/${row.dokument_id}`,
+        label: "Otvori popis robe"
+      };
+    }
+
+    if (row.tip_dokumenta === "WRITE_OFF") {
+      return {
+        href: `/agencija/robno/otpis/${row.dokument_id}`,
+        label: "Otvori otpis robe"
+      };
+    }
+
+    if (["PRICE_ADJUSTMENT_UP", "PRICE_ADJUSTMENT_DOWN"].includes(row.tip_dokumenta)) {
+      return {
+        href: `/agencija/robno/nivelacija/${row.dokument_id}`,
+        label: "Otvori nivelaciju"
+      };
+    }
+
     const invoice = invoiceMap.get(row.dokument_id);
 
     if (!invoice) {
@@ -237,7 +265,6 @@ export async function ItemCardPage({
         label
       };
     }
-
     return {
       href: `/stampa/pos/racuni/${invoice.id}`,
       label

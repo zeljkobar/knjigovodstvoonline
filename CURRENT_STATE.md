@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-08-31. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-09-03. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -331,6 +331,9 @@ je od samodeaktivacije i samostalne rotacije.
   linkom na analitičku karticu partnera.
 - Pretraga partnera u nalozima i analitičkim karticama je **async** (ne učitava
   svih ~64k); `pg_trgm` GIN indeks na `komitenti.naziv` + btree na `pib`/`scope`.
+- Ruta `/agencija/nalozi/analiticke-kartice` koristi isti master-detail prikaz
+  kartice konta kao centralni izvještaj: pretraživ spisak konta lijevo, filtere,
+  promet i štampu izabranog konta desno.
 - Poslovne jedinice su firm-specific šifarnik pod
   `/agencija/podesavanja/poslovne-jedinice`, sa šifrom, nazivom, tipom,
   lokacijom, statusom i auditom. Ručni nalog, KIF/KUF račun, izvod i obračun
@@ -339,7 +342,9 @@ je od samodeaktivacije i samostalne rotacije.
   zbirni KIF/KUF nalog može sadržati više jedinica bez gubitka analitike. Bruto
   bilans i kartice konta/partnera filtriraju `POSTED` promet po jedinici ili bez
   jedinice; štampe prenose isti filter. Izvještaj `Rezultat po poslovnim
-  jedinicama` poredi prihode klase 6, troškove klase 5 i rezultat.
+  jedinicama` poredi prihode klase 6, troškove klase 5 i rezultat. Izbor
+  poslovne jedinice se na ekranima za unos ne prikazuje firmi koja nema nijednu
+  aktivnu jedinicu; postojeći istorijski podaci i izvještaji ostaju dostupni.
 
 ### Modul 4 — Robno knjigovodstvo
 - Robni meni je grupisan na `Pregled`, `Šifarnici`, `Nabavku`, `Prodaju`,
@@ -361,8 +366,8 @@ je od samodeaktivacije i samostalne rotacije.
   maloprodajna cijena sa PDV-om; artikal i početne cijene čuvaju se u istoj
   transakciji.
 - Negativan lager podešava se podrazumijevano na firmi i opciono može biti
-  naslijeđen, dozvoljen ili blokiran po magacinu. Stvarno sprovođenje pravila
-  slijedi sa dokumentima koji mijenjaju zalihe.
+  naslijeđen, dozvoljen ili blokiran po magacinu. Pravilo se sprovodi pri
+  izlaznim fakturama, POS prodaji i prenosu robe.
 - Magacin može biti vezan za jednu poslovnu jedinicu, dok jedna poslovna
   jedinica može obuhvatiti više magacina. Domaća i MAPR kalkulacija automatski
   pamte jedinicu iz izabranog magacina; promjena magacina na nacrtu osvježava
@@ -452,7 +457,55 @@ je od samodeaktivacije i samostalne rotacije.
 - Kartica artikla je implementirana nad `prometi_zaliha` na oba ista mjesta.
   Prikazuje početno stanje iz prometa prije izabranog perioda, sve ulaze i
   izlaze, tekuću količinu i nabavnu vrijednost, uz filter magacina/datuma i
-  direktne linkove na kalkulaciju, izlaznu fakturu ili POS štampu.
+  direktne linkove na kalkulaciju, izlaznu fakturu, prenos robe ili POS štampu.
+- Prenos robe je implementiran pod `Robno / Promet robe`: nacrt bira dva
+  različita magacina, datum i stavke sa količinama, ne utiče na stanje do
+  knjiženja i ima zasebnu HTML/CSS štampu. Knjiženje pod transakcijom i
+  zaključavanjem razdužuje izvorni i zadužuje odredišni magacin istom količinom
+  i nabavnom vrijednošću po prosječnoj cijeni izvora. Prenose se i pripadajuće
+  maloprodajne vrijednosti, razlika u cijeni i ukalkulisani PDV, a kartica
+  artikla dobija po jedan povezani izlazni i ulazni promet.
+- Posebna firm-specific šema u `Robno / Podešavanja` određuje dugujuće konto
+  odredišnog i potražno konto izvornog magacina. Prenos pamti obje poslovne
+  jedinice i kreira izbalansiran `DRAFT` nalog tipa `WAREHOUSE_TRANSFER`, sa
+  jedinicom na odgovarajućoj stavci naloga. Zaključana godina, nedostupna
+  konta, analitičko konto koje traži partner, nedovoljno stanje kada je minus
+  blokiran ili nedostajuća prosječna cijena zaustavljaju cijelu transakciju.
+- Popis robe je implementiran po jednom magacinu. Otvaranje nacrta snima
+  knjigovodstvenu količinu i sve vrijednosne komponente aktivnih artikala,
+  korisnik unosi stvarno stanje, a sistem računa višak ili manjak. Prazne
+  količine mogu se grupno prepisati iz knjigovodstvenog stanja, dok se pojedine
+  stavke ručno koriguju; za višak bez poznate cijene dozvoljena je ručna
+  nabavna cijena. Dostupni su lista, detalj i A4 štampa.
+- Knjiženje popisa pod serijskom transakcijom ponovo provjerava da se lager od
+  otvaranja nije promijenio. Višak pravi `STOCK_COUNT_SURPLUS` ulaz, manjak
+  `STOCK_COUNT_SHORTAGE` izlaz i proporcionalno koriguje nabavnu/maloprodajnu
+  vrijednost, razliku u cijeni i ukalkulisani PDV. Posebna šema konta kreira
+  jedan izbalansiran `DRAFT` nalog `STOCK_COUNT`; konto prihoda mora biti klasa
+  6, a konto troška klasa 5. Popis bez razlika zaključava se bez naloga i bez
+  prometa.
+- Otpis robe je implementiran pod `Robno / Promet robe`: dokument bira magacin,
+  datum i razlog, podržava nacrt sa stavkama, procijenjenu nabavnu cijenu kada
+  nema prosječne ni posljednje nabavne cijene, listu, detalj i A4 štampu.
+  Knjiženje pod serijskom transakcijom razdužuje količinu, nabavnu i
+  maloprodajnu vrijednost, razliku u cijeni i ukalkulisani PDV. Ako je negativan
+  lager blokiran ne može se otpisati više od raspoloživog stanja.
+- Posebna firm-specific šema otpisa zadužuje konto troška klase 5 i odobrava
+  konto zaliha, pa kreira izbalansiran `DRAFT` nalog `WRITE_OFF`. Dokument i
+  nalog nasljeđuju poslovnu jedinicu magacina, promet je povezan sa karticom
+  artikla, a sve izmjene i knjiženje provjeravaju prava, tenant scope i
+  zaključavanje poslovne godine te upisuju audit log.
+- Nivelacija cijena je implementirana za maloprodajne magacine. Nacrt pamti
+  količinu, nabavnu vrijednost, staru MPC, maloprodajnu vrijednost, RUC i
+  ukalkulisani PDV, a korisnik unosi novu MPC za jedan ili više artikala.
+  Obračun mijenja samo maloprodajnu vrijednost, RUC i ukalkulisani PDV; količina,
+  prosječna cijena i nabavna vrijednost ostaju nepromijenjene.
+- Pri knjiženju se lager zaključava i poredi sa snimkom iz nacrta. Povećanje i
+  smanjenje cijene automatski koriste suprotne smjerove na firm-specific kontima
+  robe, razlike u cijeni i ukalkulisanog PDV-a, kreiraju izbalansiran `DRAFT`
+  nalog `PRICE_ADJUSTMENT`, ažuriraju magacinski cjenovnik i upisuju povezani
+  promet na karticu artikla. Dostupni su lista, detalj, osvježavanje snimka i A4
+  štampa.
 
 ### Modul 6 — Računi, KIF i KUF
 - PDV stope dinamičke u podešavanjima.
@@ -843,9 +896,10 @@ je od samodeaktivacije i samostalne rotacije.
 ## Djelimično implementirano / otvoreno
 - Robno knjigovodstvo: navigacija, osnovni šifarnici, domaća kalkulacija i njena
   šema knjiženja su implementirani. Izlazne fakture, POS razduženje i osnovni
-  promet postoje, kao i lager lista i kartica artikla u Robnom i centralnim
-  Izvještajima. Otvoreni su uvozna kalkulacija, povrati, prenosi, popis, otpis,
-  nivelacija i širi robni izvještaji.
+  promet postoje, kao i prenos robe, lager lista i kartica artikla u Robnom i
+  centralnim Izvještajima. Popis sa viškom/manjkom i otpis robe su
+  implementirani. Prenos, popis, otpis i nivelacija u `Prometu robe` su
+  završeni. Otvoreni su uvozna kalkulacija, povrati i širi robni izvještaji.
 - Izvodi: prva MVP baza/stranica/import/preview/knjiženje i pregledne
   podstranice postoje. Implementirani su parseri za NLB XML/PDF, Erste HTM, CKB
   PDF, Hipotekarna PDF, Lovćen PDF i Prva banka PDF; ostaju parseri za ostale

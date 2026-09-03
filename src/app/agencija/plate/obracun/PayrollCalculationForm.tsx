@@ -98,15 +98,17 @@ export function PayrollCalculationForm({
         <span>Fond sati</span>
         <input name="fond_sati" type="number" defaultValue="176" min="1" required />
       </label>
-      <label>
-        <span>Poslovna jedinica (opciono)</span>
-        <select name="poslovna_jedinica_id" defaultValue="">
-          <option value="">Bez poslovne jedinice</option>
-          {businessUnits.map((unit) => (
-            <option key={unit.id} value={unit.id}>{unit.sifra} — {unit.naziv}</option>
-          ))}
-        </select>
-      </label>
+      {businessUnits.length > 0 ? (
+        <label>
+          <span>Poslovna jedinica (opciono)</span>
+          <select name="poslovna_jedinica_id" defaultValue="">
+            <option value="">Bez poslovne jedinice</option>
+            {businessUnits.map((unit) => (
+              <option key={unit.id} value={unit.id}>{unit.sifra} — {unit.naziv}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label>
         <span>Napomena</span>
         <textarea name="napomena" rows={3} />

@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "../.test-build",
+    "module": "CommonJS",
+    "moduleResolution": "Node"
+  },
+  "include": ["inventory-write-off.test.ts", "../src/lib/inventory-write-off.ts", "../src/lib/inventory-transfer.ts", "../src/lib/inventory-calculation.ts"]
+}

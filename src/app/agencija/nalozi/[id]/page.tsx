@@ -313,11 +313,11 @@ const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
             <strong>{formatDate(nalog.datum)}</strong>
             <small>Knjiženje: {formatDate(nalog.datum_knjizenja)}</small>
           </div>
-          <div>
+          {nalog.poslovna_jedinica ? <div>
             <span>Poslovna jedinica</span>
-            <strong>{nalog.poslovna_jedinica ? `${nalog.poslovna_jedinica.sifra} · ${nalog.poslovna_jedinica.naziv}` : "-"}</strong>
+            <strong>{nalog.poslovna_jedinica.sifra} · {nalog.poslovna_jedinica.naziv}</strong>
             <small>Organizaciona pripadnost naloga</small>
-          </div>
+          </div> : null}
           <div>
             <span>Kreirao</span>
             <strong>{nalog.kreirao_korisnik?.korisnicko_ime ?? "-"}</strong>

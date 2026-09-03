@@ -54,22 +54,12 @@ export default async function AnalitickeKarticePage({
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const workContext = await readWorkContext();
   const params = await searchParams;
-  const variant =
-    params?.prikaz === "account"
-      ? "account"
-      : params?.prikaz === "partner"
-        ? "partner"
-        : "combined";
-  const title =
-    variant === "account"
-      ? "Kartice konta"
-      : variant === "partner"
-        ? "Kartice partnera"
-        : "Analitičke kartice";
+  const variant = params?.prikaz === "partner" ? "partner" : "account";
+  const title = variant === "account" ? "Kartice konta" : "Kartice partnera";
   const basePath =
-    variant === "account"
+    params?.prikaz === "account"
       ? "/agencija/izvjestaji/kartice-konta"
-      : variant === "partner"
+      : params?.prikaz === "partner"
         ? "/agencija/izvjestaji/kartice-partnera"
         : "/agencija/nalozi/analiticke-kartice";
   const selectedAccount = params?.konto ?? "";
@@ -454,16 +444,18 @@ export default async function AnalitickeKarticePage({
           <span>Datum do</span>
           <input defaultValue={params?.datum_do ?? ""} name="datum_do" type="date" />
         </label>
-        <label>
-          <span>Poslovna jedinica</span>
-          <select name="jedinica" defaultValue={selectedBusinessUnit}>
-            <option value="ALL">Sve jedinice</option>
-            <option value="NONE">Bez poslovne jedinice</option>
-            {businessUnits.map((unit) => (
-              <option key={unit.id} value={unit.id}>{unit.sifra} - {unit.naziv}{unit.aktivna ? "" : " (neaktivna)"}</option>
-            ))}
-          </select>
-        </label>
+        {businessUnits.length > 0 ? (
+          <label>
+            <span>Poslovna jedinica</span>
+            <select name="jedinica" defaultValue={selectedBusinessUnit}>
+              <option value="ALL">Sve jedinice</option>
+              <option value="NONE">Bez poslovne jedinice</option>
+              {businessUnits.map((unit) => (
+                <option key={unit.id} value={unit.id}>{unit.sifra} - {unit.naziv}{unit.aktivna ? "" : " (neaktivna)"}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </AutoSubmitFilterForm>
     </section>
   );

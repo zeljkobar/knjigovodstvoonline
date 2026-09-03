@@ -163,10 +163,10 @@ export default async function NalogPrintPage({ params }: NalogPrintPageProps) {
             <span>Datum knjiženja</span>
             <strong>{formatDate(nalog.datum_knjizenja)}</strong>
           </div>
-          <div>
+          {nalog.poslovna_jedinica ? <div>
             <span>Poslovna jedinica</span>
-            <strong>{nalog.poslovna_jedinica ? `${nalog.poslovna_jedinica.sifra} · ${nalog.poslovna_jedinica.naziv}` : "-"}</strong>
-          </div>
+            <strong>{nalog.poslovna_jedinica.sifra} · {nalog.poslovna_jedinica.naziv}</strong>
+          </div> : null}
           <div>
             <span>Kreirao</span>
             <strong>{nalog.kreirao_korisnik?.korisnicko_ime ?? "-"}</strong>

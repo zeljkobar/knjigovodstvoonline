@@ -232,15 +232,17 @@ export function KifPazarForm({
           disabled={disabled}
         />
       </label>
-      <label>
-        <span>Poslovna jedinica (opciono)</span>
-        <select name="poslovna_jedinica_id" defaultValue={initial?.businessUnitId ?? ""} disabled={disabled}>
-          <option value="">Bez poslovne jedinice</option>
-          {businessUnits.map((unit) => (
-            <option key={unit.id} value={unit.id}>{unit.sifra} — {unit.naziv}</option>
-          ))}
-        </select>
-      </label>
+      {businessUnits.length > 0 ? (
+        <label>
+          <span>Poslovna jedinica (opciono)</span>
+          <select name="poslovna_jedinica_id" defaultValue={initial?.businessUnitId ?? ""} disabled={disabled}>
+            <option value="">Bez poslovne jedinice</option>
+            {businessUnits.map((unit) => (
+              <option key={unit.id} value={unit.id}>{unit.sifra} — {unit.naziv}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       {revenueAccountRequired ? (
         <label>

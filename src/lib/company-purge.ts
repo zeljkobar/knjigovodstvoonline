@@ -140,6 +140,22 @@ export async function purgeCompanyData(
     Prisma.sql`DELETE FROM prometi_zaliha WHERE firma_id = ${firmaId}::uuid`
   );
   await izvrsi(
+    "popisi_robe",
+    Prisma.sql`DELETE FROM popisi_robe WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "otpisi_robe",
+    Prisma.sql`DELETE FROM otpisi_robe WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "nivelacije_cijena",
+    Prisma.sql`DELETE FROM nivelacije_cijena WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "prenosi_robe",
+    Prisma.sql`DELETE FROM prenosi_robe WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
     "stanja_zaliha",
     Prisma.sql`DELETE FROM stanja_zaliha WHERE firma_id = ${firmaId}::uuid`
   );

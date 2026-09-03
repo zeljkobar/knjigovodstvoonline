@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "../.test-build",
+    "module": "CommonJS",
+    "moduleResolution": "Node"
+  },
+  "include": ["inventory-price-adjustment.test.ts", "../src/lib/inventory-price-adjustment.ts", "../src/lib/inventory-calculation.ts"]
+}

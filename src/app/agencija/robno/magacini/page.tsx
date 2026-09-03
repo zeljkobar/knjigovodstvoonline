@@ -211,19 +211,21 @@ export default async function WarehousesPage({ searchParams }: WarehousesPagePro
                 <option value="WHOLESALE">Veleprodajni — cijene bez PDV-a</option>
               </select>
             </label>
-            <label>
-              <span>Poslovna jedinica</span>
-              <select
-                defaultValue={editedWarehouse?.poslovna_jedinica_id ?? ""}
-                name="poslovna_jedinica_id"
-              >
-                <option value="">Bez poslovne jedinice</option>
-                {businessUnits.map((unit) => (
-                  <option key={unit.id} value={unit.id}>{unit.sifra} · {unit.naziv}</option>
-                ))}
-              </select>
-              <small>Magacin nasljeđuje organizacionu pripadnost ove jedinice.</small>
-            </label>
+            {businessUnits.length > 0 ? (
+              <label>
+                <span>Poslovna jedinica</span>
+                <select
+                  defaultValue={editedWarehouse?.poslovna_jedinica_id ?? ""}
+                  name="poslovna_jedinica_id"
+                >
+                  <option value="">Bez poslovne jedinice</option>
+                  {businessUnits.map((unit) => (
+                    <option key={unit.id} value={unit.id}>{unit.sifra} · {unit.naziv}</option>
+                  ))}
+                </select>
+                <small>Magacin nasljeđuje organizacionu pripadnost ove jedinice.</small>
+              </label>
+            ) : null}
             <label className="form-span-2">
               <span>Napomena</span>
               <input defaultValue={editedWarehouse?.napomena ?? ""} name="napomena" />

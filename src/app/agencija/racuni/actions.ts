@@ -3759,6 +3759,7 @@ export async function updateKufEntry(formData: FormData) {
   const receiptDate = parseDate(formData, "receipt_date");
   const dueDate = parseDate(formData, "due_date");
   const note = nullableValue(formData, "note");
+  const businessUnitFieldPresent = formData.has("poslovna_jedinica_id");
   const requestedBusinessUnitId = nullableValue(formData, "poslovna_jedinica_id");
   const invoiceTotalCents = parseMoneyToCents(value(formData, "invoice_total"));
   const expenseAccountCode = value(formData, "expense_account_code");
@@ -3868,7 +3869,8 @@ export async function updateKufEntry(formData: FormData) {
       select: {
         id: true,
         posting_status: true,
-        posting_mode: true
+        posting_mode: true,
+        poslovna_jedinica_id: true
       }
     })
   ]);
@@ -3886,12 +3888,12 @@ export async function updateKufEntry(formData: FormData) {
   ) {
     redirectKufEntry(kufBookId, "kuf_greska");
   }
-  const businessUnitId = await validBusinessUnitId(
-    requestedBusinessUnitId,
-    user.agencija_id,
-    firma.id
-  );
-  if (requestedBusinessUnitId && !businessUnitId) redirectKufEntry(kufBookId, "kuf_greska");
+  const businessUnitId = businessUnitFieldPresent
+    ? await validBusinessUnitId(requestedBusinessUnitId, user.agencija_id, firma.id)
+    : existingEntry.poslovna_jedinica_id;
+  if (businessUnitFieldPresent && requestedBusinessUnitId && !businessUnitId) {
+    redirectKufEntry(kufBookId, "kuf_greska");
+  }
 
   await requireInvoicePermission(
     user,
@@ -4930,6 +4932,7 @@ export async function updateKifPazar(formData: FormData) {
   const cashRegister = normalizedPazarCashRegister(formData);
   const revenueAccountCode = value(formData, "revenue_account_code");
   const note = nullableValue(formData, "note");
+  const businessUnitFieldPresent = formData.has("poslovna_jedinica_id");
   const requestedBusinessUnitId = nullableValue(formData, "poslovna_jedinica_id");
 
   if (
@@ -5019,7 +5022,8 @@ export async function updateKifPazar(formData: FormData) {
         },
         select: {
           id: true,
-          source_type: true
+          source_type: true,
+          poslovna_jedinica_id: true
         }
       }),
       prisma.pdvStopa.findMany({
@@ -5054,8 +5058,12 @@ export async function updateKifPazar(formData: FormData) {
   ) {
     redirectKifEntry(kifBookId, "kif_pazar_greska");
   }
-  const businessUnitId = await validBusinessUnitId(requestedBusinessUnitId, user.agencija_id, firma.id);
-  if (requestedBusinessUnitId && !businessUnitId) redirectKifEntry(kifBookId, "kif_pazar_greska");
+  const businessUnitId = businessUnitFieldPresent
+    ? await validBusinessUnitId(requestedBusinessUnitId, user.agencija_id, firma.id)
+    : existingEntry.poslovna_jedinica_id;
+  if (businessUnitFieldPresent && requestedBusinessUnitId && !businessUnitId) {
+    redirectKifEntry(kifBookId, "kif_pazar_greska");
+  }
 
   await requireInvoicePermission(
     user,
@@ -5752,6 +5760,7 @@ export async function updateKifEntry(formData: FormData) {
   const invoiceDate = parseDate(formData, "invoice_date");
   const dueDate = parseDate(formData, "due_date");
   const note = nullableValue(formData, "note");
+  const businessUnitFieldPresent = formData.has("poslovna_jedinica_id");
   const requestedBusinessUnitId = nullableValue(formData, "poslovna_jedinica_id");
   const invoiceTotalCents = parseMoneyToCents(value(formData, "invoice_total"));
   const revenueAccountCode = value(formData, "revenue_account_code");
@@ -5838,6 +5847,7 @@ export async function updateKifEntry(formData: FormData) {
         source_type: true,
         posting_status: true,
         journal_id: true,
+        poslovna_jedinica_id: true,
         fiskalni_izlazni_racun: { select: { id: true } }
       }
     })
@@ -5855,12 +5865,12 @@ export async function updateKifEntry(formData: FormData) {
   ) {
     redirectKifEntry(kifBookId, "kif_greska");
   }
-  const businessUnitId = await validBusinessUnitId(
-    requestedBusinessUnitId,
-    user.agencija_id,
-    firma.id
-  );
-  if (requestedBusinessUnitId && !businessUnitId) redirectKifEntry(kifBookId, "kif_greska");
+  const businessUnitId = businessUnitFieldPresent
+    ? await validBusinessUnitId(requestedBusinessUnitId, user.agencija_id, firma.id)
+    : existingEntry.poslovna_jedinica_id;
+  if (businessUnitFieldPresent && requestedBusinessUnitId && !businessUnitId) {
+    redirectKifEntry(kifBookId, "kif_greska");
+  }
 
   await requireInvoicePermission(
     user,

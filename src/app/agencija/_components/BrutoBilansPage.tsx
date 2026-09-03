@@ -427,16 +427,18 @@ export async function BrutoBilansPage({
             <span>Datum od</span>
             <input defaultValue={params?.datum_od ?? ""} name="datum_od" type="date" />
           </label>
-          <label>
-            <span>Poslovna jedinica</span>
-            <select name="jedinica" defaultValue={selectedBusinessUnit}>
-              <option value="ALL">Sve jedinice</option>
-              <option value="NONE">Bez poslovne jedinice</option>
-              {businessUnits.map((unit) => (
-                <option key={unit.id} value={unit.id}>{unit.sifra} - {unit.naziv}{unit.aktivna ? "" : " (neaktivna)"}</option>
-              ))}
-            </select>
-          </label>
+          {businessUnits.length > 0 ? (
+            <label>
+              <span>Poslovna jedinica</span>
+              <select name="jedinica" defaultValue={selectedBusinessUnit}>
+                <option value="ALL">Sve jedinice</option>
+                <option value="NONE">Bez poslovne jedinice</option>
+                {businessUnits.map((unit) => (
+                  <option key={unit.id} value={unit.id}>{unit.sifra} - {unit.naziv}{unit.aktivna ? "" : " (neaktivna)"}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <label>
             <span>Datum do</span>
             <input defaultValue={params?.datum_do ?? ""} name="datum_do" type="date" />

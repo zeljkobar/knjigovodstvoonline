@@ -1179,3 +1179,96 @@
   regenerisan Prisma klijent i restartovan dev server. TypeScript i ESLint su
   bez grešaka (ostaju četiri ranija upozorenja); company-purge pokriva 55/55
   direktnih tabela firme.
+
+## 2026-09-02 — Uslovni prikaz poslovnih jedinica
+
+- Izbor poslovne jedinice je sakriven na ručnom nalogu, KIF/KUF unosu, pazaru,
+  uvozu izvoda, obračunu plata, POS zbiru i magacinu kada firma nema aktivnih
+  poslovnih jedinica.
+- Filter se ne prikazuje ni na bruto bilansu i analitičkim karticama kada nema
+  dostupnih jedinica. Detalj i štampa ne prikazuju praznu organizacionu oznaku,
+  dok istorijski zapis sa stvarno dodijeljenom jedinicom ostaje vidljiv.
+- Backend veze i postojeći podaci nijesu mijenjani; migracija nije bila potrebna.
+
+## 2026-09-02 — Kartice konta pod Nalozima
+
+- `/agencija/nalozi/analiticke-kartice` više ne otvara stari kombinovani ekran
+  sa padajućim izborom konta, već isti master-detail prikaz kao
+  `/agencija/izvjestaji/kartice-konta`.
+- Ruta zadržava sopstvenu adresu tokom pretrage, izbora konta i filtriranja;
+  dostupni su isti spisak konta, filteri proknjiženog prometa i štampa kartice.
+- Stavka menija pod Nalozima preimenovana je u `Kartice konta`. Migracija baze
+  nije bila potrebna.
+
+## 2026-09-03 — Prenos robe između magacina
+
+- Placeholderi `Robno / Promet robe` i `Prenos robe` zamijenjeni su pregledom
+  sekcije, listom prenosa, unosom zaglavlja i stavki, detaljem i čistom A4
+  landscape štampom. Nacrt se može mijenjati i soft-deleteovati bez uticaja na
+  lager.
+- Knjiženje je atomarno: kontroliše prava, tenant scope, godinu, magacine,
+  količine, negativni lager, prosječnu nabavnu cijenu i konta; zatim pravi OUT
+  i IN promet, ažurira oba stanja i kreira izbalansiran DRAFT nalog tipa
+  `WAREHOUSE_TRANSFER`. Obje poslovne jedinice ostaju sačuvane na dokumentu i
+  odgovarajućim stavkama naloga.
+- Dodata je firm-specific šema konta prenosa pod `Robno / Podešavanja`, linkovi
+  sa kartice artikla, ručna migracija `20260903100000_prenosi_robe` i
+  usklađivanje company-purge toka. Migracija je primijenjena, Prisma klijent
+  regenerisan i dev server restartovan.
+- `npm run test:inventory-transfer` prolazi 3/3, `npx tsc --noEmit` i ESLint su
+  bez grešaka (ostaju četiri ranija upozorenja), a company-purge provjera
+  pokriva svih 56 tabela sa direktnim `firma_id`.
+
+## 2026-09-03 — Popis robe, višak i manjak
+
+- Implementiran je kompletan tok `/agencija/robno/popis`: otvaranje popisa po
+  magacinu, snimak knjigovodstvenog stanja, unos stvarnih količina, grupno
+  prepisivanje praznih stavki, osvježavanje snimka, lista, detalj i A4 štampa.
+- Knjiženje zaključava dokument i lager, odbija zastarjeli snimak, višak vodi
+  kao ulaz, manjak kao izlaz i koriguje količinu, nabavnu/maloprodajnu
+  vrijednost, RUC i ukalkulisani PDV. Popis bez razlika zaključuje se bez
+  prometa.
+- Dodata je firm-specific šema četiri konta i `DRAFT` nalog `STOCK_COUNT`;
+  prihod od viška je klasa 6, a trošak manjka klasa 5. Kartica artikla vodi na
+  izvorni popis, a sve bitne akcije su tenant-scoped i auditovane.
+- Ručna migracija `20260903120000_popisi_robe` je primijenjena, Prisma klijent
+  regenerisan i dev server restartovan. `npm run test:inventory-count` prolazi
+  4/4, `npx tsc --noEmit` i ESLint su bez grešaka uz četiri ranija upozorenja,
+  a company-purge pokriva svih 57 tabela sa direktnim `firma_id`.
+
+## 2026-09-03 — Otpis robe
+
+- Implementiran je kompletan tok `/agencija/robno/otpis`: lista i filteri,
+  otvaranje nacrta po magacinu, razlog i opis, dodavanje/izmjena stavki,
+  procijenjena nabavna cijena kao rezervna vrijednost, detalj i A4 štampa.
+- Knjiženje atomarno provjerava lager i pravilo dozvoljenog minusa, koristi
+  prosječnu ili rezervnu nabavnu cijenu, razdužuje količinu, nabavnu i
+  maloprodajnu vrijednost, RUC i ukalkulisani PDV te upisuje povezani
+  `WRITE_OFF` izlaz na karticu artikla.
+- Dodata je firm-specific šema koja zadužuje trošak klase 5 i odobrava zalihe,
+  te kreira izbalansiran `DRAFT` nalog sa poslovnom jedinicom magacina. Sve
+  bitne akcije provjeravaju tenant scope, prava i zaključanu godinu i upisuju
+  audit log.
+- Ručna migracija `20260903140000_otpisi_robe` je primijenjena, Prisma klijent
+  regenerisan i dev server restartovan. `npm run test:inventory-write-off`
+  prolazi 4/4, `npx tsc --noEmit` i ESLint su bez grešaka uz četiri ranija
+  upozorenja, a company-purge pokriva svih 58 tabela sa direktnim `firma_id`.
+
+## 2026-09-03 — Nivelacija cijena
+
+- Implementiran je kompletan tok `/agencija/robno/nivelacija`: lista i filteri,
+  nacrt po maloprodajnom magacinu, stavke sa starom i novom MPC, detalj,
+  osvježavanje početnog snimka i A4 štampa.
+- Obračun ne mijenja količinu, prosječnu nabavnu cijenu ni nabavnu vrijednost.
+  Iz nove MPC i PDV stope računa novu maloprodajnu vrijednost, RUC i
+  ukalkulisani PDV te njihove potpisane promjene. Knjiženje odbija promijenjen
+  ili neusklađen lager.
+- Posebna firm-specific šema koristi konta robe u maloprodaji, razlike u cijeni
+  i ukalkulisanog PDV-a. Povećanje koristi D/P/P, smanjenje automatski obrće
+  smjerove; mješoviti dokument ostaje izbalansiran. Kreira se `DRAFT` nalog
+  `PRICE_ADJUSTMENT`, ažurira magacinski cjenovnik i dodaje povezani promet na
+  karticu artikla.
+- Ručna migracija `20260903160000_nivelacije_cijena` je primijenjena, Prisma
+  klijent regenerisan i dev server restartovan. Test obračuna prolazi 4/4,
+  TypeScript i ESLint su bez novih grešaka/upozorenja, a company-purge pokriva
+  svih 59 tabela sa direktnim `firma_id`.

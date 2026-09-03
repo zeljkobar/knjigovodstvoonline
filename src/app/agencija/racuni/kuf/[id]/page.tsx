@@ -677,21 +677,23 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
             name="dobavljac_id"
             required
           />
-          <label>
-            <span>Poslovna jedinica (opciono)</span>
-            <select
-              name="poslovna_jedinica_id"
-              defaultValue={editingEntry?.poslovna_jedinica_id ?? ""}
-              disabled={isLocked}
-            >
-              <option value="">Bez poslovne jedinice</option>
-              {businessUnits.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.sifra} — {unit.naziv}
-                </option>
-              ))}
-            </select>
-          </label>
+          {businessUnits.length > 0 ? (
+            <label>
+              <span>Poslovna jedinica (opciono)</span>
+              <select
+                name="poslovna_jedinica_id"
+                defaultValue={editingEntry?.poslovna_jedinica_id ?? ""}
+                disabled={isLocked}
+              >
+                <option value="">Bez poslovne jedinice</option>
+                {businessUnits.map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.sifra} — {unit.naziv}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <VatTransactionTypeSelect
             disabled={isLocked}
             documentType="KUF"

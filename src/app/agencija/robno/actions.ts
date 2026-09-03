@@ -860,20 +860,12 @@ export async function updateWarehouse(formData: FormData) {
   const context = await requireInventoryActionContext("update", path, firmaId);
   const sifra = normalizeInventoryCode(text(formData.get("sifra")));
   const naziv = text(formData.get("naziv"));
+  const businessUnitFieldPresent = formData.has("poslovna_jedinica_id");
   const businessUnitId = text(formData.get("poslovna_jedinica_id"));
   const salesType = text(formData.get("tip_prodaje")) === "WHOLESALE" ? "WHOLESALE" : "RETAIL";
 
   if (!warehouseId || !sifra || !naziv) {
     inventoryRedirect(path, "magacin_obavezno", params);
-  }
-
-  const businessUnit = await resolveWarehouseBusinessUnit(
-    businessUnitId,
-    context.agencijaId,
-    firmaId
-  );
-  if (businessUnitId && !businessUnit) {
-    inventoryRedirect(path, "poslovna_jedinica_greska", params);
   }
 
   const [existingWarehouse, duplicate] = await Promise.all([
@@ -903,6 +895,13 @@ export async function updateWarehouse(formData: FormData) {
     inventoryRedirect(path, "magacin_greska", params);
   }
 
+  const businessUnit = businessUnitFieldPresent
+    ? await resolveWarehouseBusinessUnit(businessUnitId, context.agencijaId, firmaId)
+    : null;
+  if (businessUnitFieldPresent && businessUnitId && !businessUnit) {
+    inventoryRedirect(path, "poslovna_jedinica_greska", params);
+  }
+
   if (duplicate) {
     inventoryRedirect(path, "magacin_postoji", params);
   }
@@ -914,7 +913,9 @@ export async function updateWarehouse(formData: FormData) {
     data: {
       sifra,
       naziv,
-      poslovna_jedinica_id: businessUnit?.id ?? null,
+      poslovna_jedinica_id: businessUnitFieldPresent
+        ? businessUnit?.id ?? null
+        : existingWarehouse.poslovna_jedinica_id,
       tip_prodaje: salesType,
       dozvoli_negativan_lager: warehouseNegativeStockValue(
         text(formData.get("negativan_lager"))

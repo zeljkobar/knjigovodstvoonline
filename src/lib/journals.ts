@@ -15,7 +15,11 @@ export const standardJournalTypes = [
   ["DEPRECIATION", "Amortizacija", "AM"],
   ["FINAL_ACCOUNT", "Završni račun", "ZR"],
   ["MANUAL", "Ručni nalog", "RN"],
-  ["CORRECTION", "Korektivni nalog", "KOR"]
+  ["CORRECTION", "Korektivni nalog", "KOR"],
+  ["WAREHOUSE_TRANSFER", "Prenos robe", "PRN"],
+  ["STOCK_COUNT", "Popis robe", "POP"],
+  ["WRITE_OFF", "Otpis robe", "OTP"],
+  ["PRICE_ADJUSTMENT", "Nivelacija cijena", "NIV"]
 ] as const;
 
 export function formatJournalCode(

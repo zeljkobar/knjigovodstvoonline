@@ -75,9 +75,20 @@
   prosječnoj cijeni, kreira jedan nalog i postavlja `Čeka KIF`; KIF preuzima
   zapis kao `SOURCE_DOCUMENT` bez ponovnog knjiženja. Summa faktura je povezana
   sa Fiscal API-jem: isto dugme automatski koristi Test ili Production i čuva
-  zvanični broj, IKOF, JIKR i QR URL. Sljedeće je ručni end-to-end QA prvo u
-  Test okruženju, zatim kontrolisana produkcijska provjera, a poslije toga
-  slijede uvozna kalkulacija, povrati, prenosi, popis, otpis i nivelacija.
+  zvanični broj, IKOF, JIKR i QR URL. Prenos robe između magacina je
+  implementiran sa nacrtom, stavkama, kontrolom negativnog lagera, prosječnom
+  cijenom, poslovnim jedinicama, dva kartična prometa, DRAFT nalogom i štampom.
+  Popis sa viškom/manjkom je implementiran sa snimkom knjigovodstvenog stanja,
+  kontrolom promjene lagera, korekcijom svih robnih vrijednosti, posebnom šemom
+  konta, nalogom i štampom. Otpis robe sada ima nacrt, stavke, razloge,
+  kontrolu negativnog lagera, razduženje svih robnih vrijednosti, posebnu šemu
+  konta klase 5/zaliha, DRAFT nalog, kartični promet i A4 štampu. Sljedeće je
+  ručni end-to-end QA prenosa, popisa i otpisa na stvarnim zalihama i podešenim
+  kontima. Nivelacija je implementirana za maloprodajne magacine: pamti staru i
+  novu MPC, ne mijenja količinu ni nabavnu vrijednost, koriguje MP vrijednost,
+  RUC i ukalkulisani PDV, ažurira cjenovnik i pravi DRAFT nalog po posebnoj
+  šemi. Sljedeće je ručni end-to-end QA sva četiri dokumenta `Prometa robe`.
+  Uvozna kalkulacija i povrati ostaju odvojeni otvoreni tokovi.
 - **PDV prijava — završni QA.** Prva verzija perioda, evidencija, prijave,
   podešavanja, XML `PR_PDV_2025` i knjiženja postoji. Ostaje zaključavanje
   perioda, ručni QA XML upload-a na portalu i provjera knjiženja na kontima

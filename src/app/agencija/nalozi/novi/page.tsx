@@ -234,15 +234,17 @@ export default async function NoviNalogPage({ searchParams }: NoviNalogPageProps
                 <span>Datum naloga</span>
                 <input defaultValue={todayInputValue()} name="datum" required type="date" />
               </label>
-              <label>
-                <span>Poslovna jedinica</span>
-                <select name="poslovna_jedinica_id">
-                  <option value="">Bez poslovne jedinice</option>
-                  {businessUnits.map((unit) => (
-                    <option key={unit.id} value={unit.id}>{unit.sifra} · {unit.naziv}</option>
-                  ))}
-                </select>
-              </label>
+              {businessUnits.length > 0 ? (
+                <label>
+                  <span>Poslovna jedinica</span>
+                  <select name="poslovna_jedinica_id">
+                    <option value="">Bez poslovne jedinice</option>
+                    {businessUnits.map((unit) => (
+                      <option key={unit.id} value={unit.id}>{unit.sifra} · {unit.naziv}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <label className="form-wide">
                 <span>Opis naloga</span>
                 <input name="opis" placeholder="npr. Ručni nalog za korekciju" />
