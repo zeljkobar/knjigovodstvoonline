@@ -229,6 +229,9 @@ export default async function ZavrsniRacunObrasciPage({ searchParams }: PageProp
           </p>
         </div>
         <div className="header-actions">
+          {await hasPermission(user, { firmaId: workContext.firmaId, modul: "zavrsni_racun", akcija: "export" }) && (
+            <Link className="primary-button" href="/agencija/zavrsni-racun/xml">XML izvoz</Link>
+          )}
           <Link className="secondary-button" href="/agencija/zavrsni-racun/podesavanja">
             Podešavanja
           </Link>

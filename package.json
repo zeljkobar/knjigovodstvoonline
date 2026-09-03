@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:financial-xml": "tsc -p tests/tsconfig.financial-xml.json && node --test .test-build/tests/financial-report-xml.test.js",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

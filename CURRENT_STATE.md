@@ -8,6 +8,23 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## XML završnog računa — 2026-09-03
+
+- Dugme `XML izvoz` na pregledima obrazaca otvara `/agencija/zavrsni-racun/xml`.
+  BS/BU/SA koriste trenutni obračun, sačuvane korekcije i uporedne kolone,
+  zaokružene na cijele eure kao postojeći pregled; ovo nije izvoz arhive.
+- Koristi se korisnikova XSD šema `FinansijskiIskazi` i eksplicitno AOP mapiranje
+  uključujući 210a. Nepoznat, dupliran ili nedostajući AOP blokira izvoz.
+  Tokovi gotovine, 3a, promjene kapitala i amortizacija imaju nulte iznose uz
+  potvrdu korisnika; dodatne sekcije 1a/2a se ne uključuju.
+- Zaglavlje se provjerava prije preuzimanja; lični podaci ne ulaze u URL/audit.
+  Korisnik provjerava `MaticniBroj`. Datumi su ISO 8601; XSD ih definiše kao
+  tekst pa prihvatanje i poslovna pravila treba potvrditi probnim portal uvozom.
+- Backend provjerava view/export, scope i promjenu konteksta. Audit bilježi izvoz,
+  ne podnošenje prijave. Nema izmjena baze ili novih migracija.
+- `npm run test:financial-xml` prolazi 6/6, uključujući stvarnu XSD validaciju
+  na Windowsu. TypeScript provjera prolazi; portal QA ostaje otvoren.
+
 ## Javni domen i interni redirecti — 2026-09-03
 
 - Izbor firme/godine u agencijskom zaglavlju i izbor konteksta direktnog
@@ -934,7 +951,7 @@ je od samodeaktivacije i samostalne rotacije.
   opšti računovodstveni dashboard izvještaji.
 - Završni račun: Bilans uspjeha, Bilans stanja, Statistički aneks, trajne ručne
   korekcije po AOP/koloni, predlog zaključnog naloga za klase 5/6 i arhiva
-  snimljenih obrazaca postoje; ostaje XML/export.
+  snimljenih obrazaca postoje; XML izvoz BS/BU/SA je dodat, ostaje portal QA.
 - PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
 
 ## Zadnje provjere

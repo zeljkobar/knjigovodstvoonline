@@ -44,13 +44,14 @@ export function JournalPartnerCell({
   const [partnerId, setPartnerId] = useState(initialId);
   const [results, setResults] = useState<PartnerResult[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const latestQueryRef = useRef("");
 
   useEffect(() => {
     const cleanQuery = query.trim();
     latestQueryRef.current = cleanQuery;
 
-    if (disabled || cleanQuery.length < 2) {
+    if (disabled || !isSearchOpen || partnerId || cleanQuery.length < 2) {
       setResults([]);
       return;
     }
@@ -71,7 +72,7 @@ export function JournalPartnerCell({
 
         const data = (await response.json()) as { results?: PartnerResult[] };
 
-        if (latestQueryRef.current !== cleanQuery) {
+        if (controller.signal.aborted || latestQueryRef.current !== cleanQuery) {
           return;
         }
 
@@ -87,15 +88,18 @@ export function JournalPartnerCell({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [query, disabled]);
+  }, [query, disabled, isSearchOpen, partnerId]);
 
   function handleChange(value: string) {
+    setResults([]);
+    setIsSearchOpen(true);
     setQuery(value);
     setPartnerId("");
     onActivity?.();
   }
 
   function selectPartner(partner: PartnerResult) {
+    setIsSearchOpen(false);
     setQuery(partnerDisplay(partner.naziv, partner.pib));
     setPartnerId(partner.id);
     setResults([]);
@@ -122,6 +126,7 @@ export function JournalPartnerCell({
 
     setResults([]);
     setIsCreateOpen(true);
+    setIsSearchOpen(false);
     onActivity?.();
   }
 
@@ -130,14 +135,33 @@ export function JournalPartnerCell({
   }
 
   return (
-    <div className="journal-partner-cell">
+    <div
+      className="journal-partner-cell"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setIsSearchOpen(false);
+          setResults([]);
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && isSearchOpen) {
+          event.preventDefault();
+          event.stopPropagation();
+          setIsSearchOpen(false);
+          setResults([]);
+        }
+      }}
+    >
       <div className="partner-search-input-row">
         <input
           autoComplete="off"
           data-partner-input="true"
           disabled={disabled}
           onChange={(event) => handleChange(event.target.value)}
-          onFocus={() => onActivity?.()}
+          onFocus={() => {
+            setIsSearchOpen(true);
+            onActivity?.();
+          }}
           placeholder="Naziv ili PIB"
           value={query}
         />
@@ -151,7 +175,7 @@ export function JournalPartnerCell({
           +
         </button>
       </div>
-      {results.length > 0 || (query.trim().length >= 2 && !partnerId) ? (
+      {!disabled && isSearchOpen && !partnerId && query.trim().length >= 2 ? (
         <div className="partner-search-results">
           {results.map((partner) => (
             <button key={partner.id} type="button" onClick={() => selectPartner(partner)}>

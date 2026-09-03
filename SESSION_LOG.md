@@ -3,6 +3,20 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-09-03 — XML završnog računa
+
+- Dodat `FinansijskiIskazi` izvoz prema korisnikovom XSD-u i praznom XML primjeru.
+  Poslovni primjer druge firme nije kopiran u repozitorijum.
+- BS/BU/SA koriste postojeće kalkulatore sa korekcijama i uporednim kolonama;
+  nekorišćene sekcije su nulte uz potvrdu korisnika, bez dodatnih 1a/2a sekcija.
+- Ekran za zaglavlje, backend view/export i scope provjere, zaštita od promjene
+  konteksta i audit izvoza. Lični podaci ne ulaze u audit. Bez migracija i slanja na PU.
+- TypeScript i 6 testova prolaze, uključujući validan i nevalidan dokument
+  protiv stvarnog XSD-a na Windowsu. Portal QA ostaje otvoren.
+- Prijavljena lokalna Chrome sesija potvrdila je prikaz XML ekrana i uspješno
+  preuzimanje za aktivnu firmu; ništa nije slato Poreskoj upravi. Lint izmjena
+  je čist, planer regenerisan iz CSV izvora. Nije rađen commit/push.
+
 ## 2026-08-22 — Operativna podešavanja i responsive završetak direktnog portala
 
 - `/portal/podesavanja` više nije placeholder: vlasnik može uređivati kontakt

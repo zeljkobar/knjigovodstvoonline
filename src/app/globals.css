@@ -308,6 +308,14 @@ p {
   z-index: 20;
 }
 
+.agency-sidebar {
+  scrollbar-width: none;
+}
+
+.agency-sidebar::-webkit-scrollbar {
+  display: none;
+}
+
 .sidebar-brand {
   display: flex;
   align-items: center;

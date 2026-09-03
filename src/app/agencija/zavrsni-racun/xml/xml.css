@@ -1,0 +1,9 @@
+.final-xml-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.final-xml-fields legend { font-size: 1.15rem; font-weight: 700; margin-bottom: 1rem; }
+.final-xml-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 1rem; }
+.final-xml-grid label { display: flex; flex-direction: column; gap: .45rem; min-width: 0; font-weight: 600; }
+.final-xml-grid input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: .7rem .85rem; border: 1px solid #cbd8ec; border-radius: 8px; background: #f8fbff; color: #192740; font: inherit; }
+.final-xml-grid input:focus-visible { outline: 2px solid #385daa; outline-offset: 2px; }
+.final-xml-confirm { display: flex; align-items: flex-start; gap: .75rem; margin: 1.25rem 0; line-height: 1.5; }
+.final-xml-confirm input { width: 20px; height: 20px; flex: 0 0 20px; margin-top: .2rem; }
+.final-xml-fields:disabled { opacity: .7; }

@@ -4,6 +4,9 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Probno uvesti XML završnog računa bez podnošenja prijave: provjeriti BS/BU/SA
+  i uporedne kolone, identifikator `MaticniBroj`, ISO datume i nulte nekorišćene
+  sekcije. Izvoz i XSD test postoje. Izvoz arhiviranog snapshot-a nije dio ove faze.
 - Ručno QA provjeriti uključivanje fiskalizacije postojećoj firmi agencije, PIB
   detekciju, odbijanje zahtjeva i odobrenje transfera na testnoj firmi, kao i
   uslovno dugme **Fiskalizacija** na postojećem klijentskom dashboardu.
@@ -157,7 +160,8 @@
   obrazaca. Objedinjeni ekran kontrola spremnosti glavne knjige, pomoćnih
   evidencija, završnih knjiženja i matičnih podataka je implementiran. Uključuje
   nulti saldo izvornih konta ulaznog/izlaznog PDV-a i pravilnu prirodu salda
-  klasa 5/6, sa direktnim otvaranjem kartice spornog konta. Ostaje XML/export.
+  klasa 5/6, sa direktnim otvaranjem kartice spornog konta. XML izvoz BS/BU/SA
+  je implementiran; ostaje ručni QA uvoza na portal Poreske uprave.
 
 ## Fiskalizacija — naredni kontrolisani koraci
 

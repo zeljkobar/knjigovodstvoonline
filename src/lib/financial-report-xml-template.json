@@ -1,0 +1,2622 @@
+{
+  "BilanStanja": [
+    {
+      "RedniBroj": "",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "AKTIVA",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "001",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "A. NEUPLAĆENI UPISANI KAPITAL",
+      "GrupaRacuna": "00"
+    },
+    {
+      "RedniBroj": "002",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "B. STALNA IMOVINA (003+008+016)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "003",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "I NEMATERIJALNA ULAGANJA (004 do 007)",
+      "GrupaRacuna": "01"
+    },
+    {
+      "RedniBroj": "004",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Ulaganja u razvoj",
+      "GrupaRacuna": "010"
+    },
+    {
+      "RedniBroj": "005",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Koncesije, patenti, licence i slična prava i ostala nematerijalna ulaganja",
+      "GrupaRacuna": "011 i 014"
+    },
+    {
+      "RedniBroj": "006",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3. Goodwill",
+      "GrupaRacuna": "012"
+    },
+    {
+      "RedniBroj": "007",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "4. Avansi za nematerijalna ulaganja i nematerijalna ulaganja u priprem",
+      "GrupaRacuna": "016 i 015"
+    },
+    {
+      "RedniBroj": "008",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "II NEKRETNINE, POSTROJENJA, OPREMA I BIOLOŠKA SREDSTVA (009+010+011+015)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "009",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Zemljište i objekti",
+      "GrupaRacuna": "020 i 022"
+    },
+    {
+      "RedniBroj": "010",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Postrojenja i oprema",
+      "GrupaRacuna": "023"
+    },
+    {
+      "RedniBroj": "011",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3. Ostala ugrađena oprema, alati i oprema (012+013+014)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "012",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3.1. Investicione nekretnine",
+      "GrupaRacuna": "024"
+    },
+    {
+      "RedniBroj": "013",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3.2. Biološka sredstva",
+      "GrupaRacuna": "021 i 025"
+    },
+    {
+      "RedniBroj": "014",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3.3. Ostala nepomenuta materijalna stalna sredstva",
+      "GrupaRacuna": "026 i 029"
+    },
+    {
+      "RedniBroj": "015",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "4. Avansi za nekretnine, postrojenja, opremu i biološka sredstva i nekretnine, postrojenja, oprema i biološka sredstva u pripremi ",
+      "GrupaRacuna": "028 i 027"
+    },
+    {
+      "RedniBroj": "016",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "III DUGOROČNI FINANSIJSKI PLASMANI I DUGOROČNA POTRAŽIVANJA (017 do 023)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "017",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Učešća u kapitalu zavisnih pravnih lica",
+      "GrupaRacuna": "030, 039(dio)"
+    },
+    {
+      "RedniBroj": "018",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Dugoročni krediti matičnom i zavisnim pravnim licima",
+      "GrupaRacuna": "033(dio), 039(dio)"
+    },
+    {
+      "RedniBroj": "019",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3. Učešća u kapitalu kod pravnih lica (sem zavisnih pravnih lica)",
+      "GrupaRacuna": "031(dio), 032(dio), 039(dio)"
+    },
+    {
+      "RedniBroj": "020",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "4. Dugoročni krediti pravnim licima kod kojih postoji učešće u kapitalu (sem zavisnih pravnih lica) ",
+      "GrupaRacuna": "033(dio), 039(dio)"
+    },
+    {
+      "RedniBroj": "021",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "5. Učešća u kapitalu koja se vrednuju metodom učešća",
+      "GrupaRacuna": "031(dio), 032(dio)"
+    },
+    {
+      "RedniBroj": "022",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "6. Dugoročna finansijska ulaganja (dati krediti i hartije od vrijednosti)",
+      "GrupaRacuna": "032(dio), 034, 035, 036, 039(dio)"
+    },
+    {
+      "RedniBroj": "023",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "7. Ostali dugoročni finansijski plasmani i potraživanja",
+      "GrupaRacuna": "038, 039(dio)"
+    },
+    {
+      "RedniBroj": "024",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "C. ODLOŽENA PORESKA SREDSTVA",
+      "GrupaRacuna": "288"
+    },
+    {
+      "RedniBroj": "025",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "D. OBRTNA SREDSTVA(026+031+039+043+044)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "026",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "I. ZALIHE (027 do 030)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "027",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "I. Zalihe materijala (materijal za izradu, rezervni delovi, sitan inventar i auto gume)",
+      "GrupaRacuna": "10"
+    },
+    {
+      "RedniBroj": "028",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Nedovršena proizvodnja",
+      "GrupaRacuna": "11"
+    },
+    {
+      "RedniBroj": "029",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3. Gotovi proizvodi i roba",
+      "GrupaRacuna": "12 i 13"
+    },
+    {
+      "RedniBroj": "030",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "4. Dati avansi",
+      "GrupaRacuna": "15"
+    },
+    {
+      "RedniBroj": "031",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "II. KRATKOROČNA POTRAŽIVANJA (032 do 035)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "032",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Potraživanja od kupaca",
+      "GrupaRacuna": "202, 203, 209(dio)"
+    },
+    {
+      "RedniBroj": "033",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Potraživanja od matičnog i zavisnih pravnih lica",
+      "GrupaRacuna": "200, 209(dio)"
+    },
+    {
+      "RedniBroj": "034",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3. Potraživanja od ostalih povezanih lica",
+      "GrupaRacuna": "201, 209(dio)"
+    },
+    {
+      "RedniBroj": "035",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "4. Ostala potraživanja (036+037+038)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "036",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "4.1. Potraživanja za više plaćen porez na dobit",
+      "GrupaRacuna": "223"
+    },
+    {
+      "RedniBroj": "037",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "4.2. Potraživanja po osnovu poreza na dodatu vrijednost",
+      "GrupaRacuna": "27"
+    },
+    {
+      "RedniBroj": "038",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "4.3. Ostala nepomenuta potraživanja",
+      "GrupaRacuna": "21, 22, osim 223"
+    },
+    {
+      "RedniBroj": "039",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "III. KRATKOROČNI FINANSIJSKI PLASMANI (040 do 042)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "040",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Učešće u kapitalu zavisnih pravnih lica namijenjeno trgovanju ",
+      "GrupaRacuna": "236(dio)"
+    },
+    {
+      "RedniBroj": "041",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Otkupljene sopstvene akcije i otkupljeni sopstveni udjeli",
+      "GrupaRacuna": "237"
+    },
+    {
+      "RedniBroj": "042",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3. Ostali kratkoročni finansijski plasmani",
+      "GrupaRacuna": "23 osim 236(dio) i osim 237"
+    },
+    {
+      "RedniBroj": "043",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "IV. GOTOVINA NA RAČUNIMA I U BLAGAJNI",
+      "GrupaRacuna": "24"
+    },
+    {
+      "RedniBroj": "044",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "V. STALNA SREDSTVA NAMIJENJENA PRODAJI I SREDSTVA POSLOVANJA KOJE JE OBUSTAVLJENO",
+      "GrupaRacuna": "04"
+    },
+    {
+      "RedniBroj": "045",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "E. AKTIVNA VREMENSKA RAZGRANIČENJA",
+      "GrupaRacuna": "28 osim 288"
+    },
+    {
+      "RedniBroj": "046",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "F. UKUPNA AKTIVA (001+002+024+025+045)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "PASIVA",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "101",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "A. KAPITAL (102+103+104+105+111+116) ",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "102",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "I. OSNOVNI KAPITAL",
+      "GrupaRacuna": "30"
+    },
+    {
+      "RedniBroj": "103",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "II. NEUPLAĆENI UPISANI KAPITAL",
+      "GrupaRacuna": "31"
+    },
+    {
+      "RedniBroj": "104",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "III. EMISIONA PREMIJA",
+      "GrupaRacuna": "320"
+    },
+    {
+      "RedniBroj": "105",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "IV. REZERVE (106+107+108+109-110)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "106",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Zakonske rezerve",
+      "GrupaRacuna": "321"
+    },
+    {
+      "RedniBroj": "107",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Statutarne rezerve",
+      "GrupaRacuna": "322(dio)"
+    },
+    {
+      "RedniBroj": "108",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3. Druge rezerve",
+      "GrupaRacuna": "322(dio)"
+    },
+    {
+      "RedniBroj": "109",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "4. Pozitivne revalorizacione rezerve i nerealizovani dobici po osnovu finansijskih sredstava i drugih komponenti ostalog sveobuhvatnog rezultata",
+      "GrupaRacuna": "330 i potr. saldo rač. 331, 332, 333, 334, 335, 336 i 337"
+    },
+    {
+      "RedniBroj": "110",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "5. Negativne revalorizacione rezerve i nerealizovani gubici po osnovu finansijskih sredstava i drugih komponenti ostalog sveobuhvatnog rezultata",
+      "GrupaRacuna": "dugov. saldo rač. 331, 332, 333, 334, 335, 336, 337"
+    },
+    {
+      "RedniBroj": "111",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "VI. NERASPOREDJENI DOBITAK ILI GUBITAK (112+113-114-115)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "112",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Neraspoređeni dobitak ranijih godina",
+      "GrupaRacuna": "340"
+    },
+    {
+      "RedniBroj": "113",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Neraspoređeni dobitak tekuće godine",
+      "GrupaRacuna": "341"
+    },
+    {
+      "RedniBroj": "114",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3. Gubitak ranijih godina",
+      "GrupaRacuna": "350"
+    },
+    {
+      "RedniBroj": "115",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "4. Gubitak tekuće godine",
+      "GrupaRacuna": "351"
+    },
+    {
+      "RedniBroj": "116",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "VIII. UČEŠĆE KOJE NE OBEZBJEĐUJE KONTROLU",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "117",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "B. DUGOROČNA REZERVISANJA I DUGOROČNE OBAVEZE (118+122)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "118",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "I. DUGOROČNA REZERVISANJA (119 do 121)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "119",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Rezervisanja za naknade i druge beneficije zaposlenih ",
+      "GrupaRacuna": "404(dio)"
+    },
+    {
+      "RedniBroj": "120",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Rezervisanja za troškove u garantnom roku",
+      "GrupaRacuna": "400(dio)"
+    },
+    {
+      "RedniBroj": "121",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3. Ostala dugoročna rezervisanja",
+      "GrupaRacuna": "40, sem 400 i 404"
+    },
+    {
+      "RedniBroj": "122",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "II. DUGOROČNE OBAVEZE (123+124)",
+      "GrupaRacuna": "41"
+    },
+    {
+      "RedniBroj": "123",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Dugoročni krediti",
+      "GrupaRacuna": "414, 415"
+    },
+    {
+      "RedniBroj": "124",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Ostale dugoročne obaveze",
+      "GrupaRacuna": "41 bez 414, 415"
+    },
+    {
+      "RedniBroj": "125",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "C. ODLOŽENE PORESKE OBAVEZE",
+      "GrupaRacuna": "498"
+    },
+    {
+      "RedniBroj": "126",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "D. DUGOROČNI ODLOŽENI PRIHODI I PRIMLJENE DONACIJE ",
+      "GrupaRacuna": "495(dio)"
+    },
+    {
+      "RedniBroj": "127",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "Е. KRATKOROČNA REZERVISANJA I KRATKOROČNE OBAVEZE (128+129)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "128",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "I KRATKOROČNA REZERVISANJA",
+      "GrupaRacuna": "467"
+    },
+    {
+      "RedniBroj": "129",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "II KRATKOROČNE OBAVEZE 130 do 137)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "130",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Obaveze po osnovu kredita i zajmova od lica koja nisu kreditne institucije",
+      "GrupaRacuna": "422(dio),423(dio),424(dio),425(dio),426,429(dio)"
+    },
+    {
+      "RedniBroj": "131",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Obaveze po osnovu kredita od kreditnih institucija",
+      "GrupaRacuna": "422(dio),423(dio),424(dio),425(dio) i 429(dio)"
+    },
+    {
+      "RedniBroj": "132",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3. Primljeni avansi, depoziti i kaucije",
+      "GrupaRacuna": "430"
+    },
+    {
+      "RedniBroj": "133",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "4. Obaveze prema dobavljačima",
+      "GrupaRacuna": "433, 434, 440-449"
+    },
+    {
+      "RedniBroj": "134",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "5. Obaveze po mjenicama",
+      "GrupaRacuna": "439(dio)"
+    },
+    {
+      "RedniBroj": "135",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "6. Obaveze prema matičnom i zavisnim pravnim licima",
+      "GrupaRacuna": "420 i 431"
+    },
+    {
+      "RedniBroj": "136",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "7. Obaveze prema ostalim povezanim licima",
+      "GrupaRacuna": "421 i 432"
+    },
+    {
+      "RedniBroj": "137",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "8. Ostale obaveze iz poslovanja i ostale kratkoročne obaveze (138 do 142)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "138",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "8.1. Ostale obaveze iz poslovanja",
+      "GrupaRacuna": "439(dio)"
+    },
+    {
+      "RedniBroj": "139",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "8.2. Ostale kratkoročne obaveze",
+      "GrupaRacuna": "45 i 46"
+    },
+    {
+      "RedniBroj": "140",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "8.3. Obaveze po osnovu poreza na dodatu vrijednost i ostalih javnih prihoda ",
+      "GrupaRacuna": "47,48 osim 481"
+    },
+    {
+      "RedniBroj": "141",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "8.4. Obaveze po osnovu poreza na dobit",
+      "GrupaRacuna": "481"
+    },
+    {
+      "RedniBroj": "142",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "8.5. Obaveze po osnovu sredstava namijenjenih prodaji i sredstava poslovanja koje je obustavljeno ",
+      "GrupaRacuna": "427"
+    },
+    {
+      "RedniBroj": "143",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "F. PASIVNA VREMENSKA RAZGRANIČENJA",
+      "GrupaRacuna": "490, 491, 494, 495(dio), 496, 497 i 499"
+    },
+    {
+      "RedniBroj": "144",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Iznos3": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "G. UKUPNA PASIVA (101+117+125+126+127+143)",
+      "GrupaRacuna": ""
+    }
+  ],
+  "BilanUspjeha": [
+    {
+      "RedniBroj": "201",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Prihodi od prodaje - neto prihod",
+      "GrupaRacuna": "60 i 61"
+    },
+    {
+      "RedniBroj": "202",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Promjena vrijednosti zaliha gotovih proizvoda i nedovršene proizvodnje",
+      "GrupaRacuna": "630 i 631"
+    },
+    {
+      "RedniBroj": "203",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3. Prihodi od aktiviranja učinaka i robe",
+      "GrupaRacuna": "62"
+    },
+    {
+      "RedniBroj": "204",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "4. Ostali prihodi iz poslovanja (205 do 207)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "205",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "a) Ostali prihodi iz redovnog poslovanja",
+      "GrupaRacuna": "64 i 65"
+    },
+    {
+      "RedniBroj": "206",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "b) Ostali prihodi iz poslovanja",
+      "GrupaRacuna": "67, 691 i 692"
+    },
+    {
+      "RedniBroj": "207",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "c) Prihodi po osnovu vrijednosnog usklađivanja imovine ",
+      "GrupaRacuna": "68, sem 683 i 685"
+    },
+    {
+      "RedniBroj": "208",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "5. Troškovi poslovanja (209+210+210a)",
+      "GrupaRacuna": "208"
+    },
+    {
+      "RedniBroj": "209",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "a) Nabavna vrijednost prodate robe i troškovi materijala ",
+      "GrupaRacuna": "50 i 51"
+    },
+    {
+      "RedniBroj": "210",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "b) Ostali troškovi poslovanja (rezervisanja i ostali poslovni rashodi) ",
+      "GrupaRacuna": "53, 54 (dio) i 55"
+    },
+    {
+      "RedniBroj": "210a",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "c) Amortizacija",
+      "GrupaRacuna": "540"
+    },
+    {
+      "RedniBroj": "211",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "6. Troškovi zarada, naknada zarada i ostali lični rashodi (212+213)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "212",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "a) Neto troškovi zarada, naknada zarada i lični rashodi ",
+      "GrupaRacuna": "52 (dio)"
+    },
+    {
+      "RedniBroj": "213",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "b) Troškovi poreza i doprinosa (214 do 216)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "214",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1/ Troškovi poreza",
+      "GrupaRacuna": "52 (dio)"
+    },
+    {
+      "RedniBroj": "215",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2/ Troškovi doprinosa za penzije",
+      "GrupaRacuna": "52 (dio)"
+    },
+    {
+      "RedniBroj": "216",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3/ Troškovi doprinosa",
+      "GrupaRacuna": "52 (dio)"
+    },
+    {
+      "RedniBroj": "217",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "7. Rashodi po osnovu vrijednosnog usklađivanja imovine (osim finansijske) (218+219)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "218",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "a) Rashodi po osnovu vrijednosnog usklađivanja stalne imovine (osim finansijske)",
+      "GrupaRacuna": "580, 581, 582, 589 (dio)"
+    },
+    {
+      "RedniBroj": "219",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "b) Rashodi po osnovu vrijednosnog usklađivanja obrtne imovine (osim finansijske)",
+      "GrupaRacuna": "584, 589 (dio)"
+    },
+    {
+      "RedniBroj": "220",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "8. Ostali rashodi iz poslovanja",
+      "GrupaRacuna": "57, 591 i 592"
+    },
+    {
+      "RedniBroj": "221",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "I. Poslovni rezultat (201+202+203+204-208-211-217-220)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "222",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "9. Prihodi po osnovu učešća u kapitalu (223 do 225)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "223",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "a) Prihodi po osnovu učešća u kapitalu zavisnih pravnih lica",
+      "GrupaRacuna": "660(dio)"
+    },
+    {
+      "RedniBroj": "224",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "b) Prihodi po osnovu učešća u kapitalu ostalih povezanih pravnih lica",
+      "GrupaRacuna": "661(dio)"
+    },
+    {
+      "RedniBroj": "225",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "c) Prihodi po osnovu učešća u kapitalu nepovezanih pravnih lica",
+      "GrupaRacuna": "669(dio)"
+    },
+    {
+      "RedniBroj": "226",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "10. Prihodi od ostalih finansijskih ulaganja i zajmova (kamate, kursne razlike i efekti ugovorene zaštite) (227 do 229)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "227",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "a) Prihodi od ostalih finansijskih ulaganja i zajmova od matičnog i zavisnih pravnih lica",
+      "GrupaRacuna": "660(dio)"
+    },
+    {
+      "RedniBroj": "228",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "b) Prihodi od ostalih finansijskih ulaganja i zajmova od ostalih povezanih pravnih lica",
+      "GrupaRacuna": "661(dio)"
+    },
+    {
+      "RedniBroj": "229",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "c) Prihodi od ostalih finansijskih ulaganja i zajmova od nepovezanih pravnih lica",
+      "GrupaRacuna": "662(dio), 663(dio), 664(dio), 669(dio)"
+    },
+    {
+      "RedniBroj": "230",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "11. Ostali prihodi po osnovu kamata, kursnih razlika i drugih efekata ugovorene zaštite (231 do 233)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "231",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "a) Finansijski prihodi po osnovu tekućih potraživanja od matičnog i zavisnih pravnih lica",
+      "GrupaRacuna": "660(dio)"
+    },
+    {
+      "RedniBroj": "232",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "b) Finansijski prihodi po osnovu tekućih potraživanja od ostalih povezanih pravnih lica",
+      "GrupaRacuna": "661(dio)"
+    },
+    {
+      "RedniBroj": "233",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "c) Finansijski prihodi po osnovu tekućih potraživanja od nepovezanih pravnih lica",
+      "GrupaRacuna": "662(dio), 663(dio), 664(dio), 669(dio)"
+    },
+    {
+      "RedniBroj": "234",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "12. Vrijednosno usklađivanje kratkoročnih finansijskih sredstava i finansijskih ulaganja koji su dio obrtne imovine (235-236)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "235",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "a) Prihodi po osnovu vrijednosnog usklađivanja kratkoročnih finansijskih sredstava i finansijskih ulaganja koji su dio obrtne imovine ",
+      "GrupaRacuna": "683, 685"
+    },
+    {
+      "RedniBroj": "236",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "b) Rashodi po osnovu vrijednosnog usklađivanja kratkoročnih finansijskih sredstava i finansijskih ulaganja koji su dio obrtne imovine",
+      "GrupaRacuna": "583, 585"
+    },
+    {
+      "RedniBroj": "237",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "13. Rashodi po osnovu kamata, kursnih razlika i drugih efekata ugovorene zaštite (238 do 240)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "238",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "a) Rashodi po osnovu kamata, kursnih razlika i drugih efekata ugovorene zaštite po osnovu odnosa sa matičnim i zavisnim pravnim licima",
+      "GrupaRacuna": "560"
+    },
+    {
+      "RedniBroj": "239",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "b) Rashodi po osnovu kamata, kursnih razlika i drugih efekata ugovorene zaštite po osnovu odnosa sa drugim povezanim licima",
+      "GrupaRacuna": "561"
+    },
+    {
+      "RedniBroj": "240",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "c) Rashodi po osnovu kamata, kursnih razlika i drugih efekata ugovorene zaštite po osnovu odnosa sa nepovezanim licima",
+      "GrupaRacuna": "562, 563, 564, 569"
+    },
+    {
+      "RedniBroj": "241",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "II. Finansijski rezultat (222+226+230+234–237)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "242",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "III. Rezultat iz redovnog poslovanja prije oporezivanja (221+241)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "243",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "IV. Neto rezultat poslovanja koje je obustavljeno",
+      "GrupaRacuna": "690-590"
+    },
+    {
+      "RedniBroj": "244",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "V. Rezultat prije oporezivanja (242+243)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "245",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "14. Poreski rashod perioda (246+247)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "246",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Tekući porez na dobit",
+      "GrupaRacuna": "721"
+    },
+    {
+      "RedniBroj": "247",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Odloženi poreski rashodi ili prihodi perioda",
+      "GrupaRacuna": "722"
+    },
+    {
+      "RedniBroj": "248",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "15. Dobitak ili gubitak nakon oporezivanja (244-245)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "249",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "VI. BRUTO REZULTAT DRUGIH STAVKI REZULTATA /POVEZANIH SA KAPITALOM/ (250 do 257)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "250",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Promjene revalorizacionih rezervi po osnovu nekretnina, postrojenja, opreme, nematerijalnih ulaganja i bioloških sredstava",
+      "GrupaRacuna": "330"
+    },
+    {
+      "RedniBroj": "251",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Promjene nerealizovanih dobitaka i gubitaka po osnovu preračuna finansijskih izvještaja inostranog poslovanja",
+      "GrupaRacuna": "331"
+    },
+    {
+      "RedniBroj": "252",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "3. Promjene nerealizovanih dobitaka i gubitaka po osnovu ulaganja u vlasničke instrumente kapitala",
+      "GrupaRacuna": "332"
+    },
+    {
+      "RedniBroj": "253",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "4. Promjene aktuarskih dobitaka i gubitaka po osnovu planova definisanih naknada aktuarskih dobitaka (ili gubitaka) u vezi sa definisanim planovima penzionih naknada",
+      "GrupaRacuna": "333"
+    },
+    {
+      "RedniBroj": "254",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "5. Promjene učešća u ostalom sveobuhvatnom rezultatu pridruženog društva",
+      "GrupaRacuna": "334"
+    },
+    {
+      "RedniBroj": "255",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "6. Promjene nerealizovanih dobitaka i gubitaka po osnovu instrumenata zaštite neto ulaganja u inostrano poslovanje",
+      "GrupaRacuna": "335"
+    },
+    {
+      "RedniBroj": "256",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "7. Promjene revalorizacionih rezervi po osnovu hedžinga tokova gotovine",
+      "GrupaRacuna": "336"
+    },
+    {
+      "RedniBroj": "257",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "8. Ostale promjene nerealizovanih dobitaka i gubitaka",
+      "GrupaRacuna": "337"
+    },
+    {
+      "RedniBroj": "258",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "VII. ODLOŽENI PORESKI RASHODI ILI PRIHODI PERIODA U VEZI SA DRUGIM STAVKAMA REZULTATA /POVEZANIM SA KAPITALOM/",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "259",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "VIII. NETO REZULTAT DRUGIH STAVKI REZULTATA /POVEZANIH SA KAPITALOM/ (249+258)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "260",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "IX. NETO SVEOBUHVATNI REZULTAT ( 248-259)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "261",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "X. ZARADA PO AKCIJI",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "262",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "1. Osnovna zarada po akciji",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "263",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "2. Umanjena (razvodnjena) zarada po akciji",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "264",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "XI. NETO REZULTAT KOJI PRIPADA VLASNICIMA MATIČNOG PRAVNOG LICA",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "265",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "NapomenaBroj": "",
+      "Pozicija": "XII. NETO REZULTAT KOJI PRIPADA UČEŠĆIMA KOJI NE OBEZBEĐUJU KONTROLU ",
+      "GrupaRacuna": ""
+    }
+  ],
+  "IskazOTokovimaGotovine": [
+    {
+      "RedniBroj": "",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "A. TOKOVI GOTOVINE IZ POSLOVNIH AKTIVNOSTI"
+    },
+    {
+      "RedniBroj": "301",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "I. Prilivi gotovine iz poslovnih aktivnosti (1 do 3)"
+    },
+    {
+      "RedniBroj": "302",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "1. Prodaja i primljeni avansi"
+    },
+    {
+      "RedniBroj": "303",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "2. Primljene kamate iz poslovnih aktivnosti"
+    },
+    {
+      "RedniBroj": "304",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "3. Ostali prilivi iz redovnog poslovanja"
+    },
+    {
+      "RedniBroj": "305",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "II. Odlivi gotovine iz poslovnih aktivnosti (1 do 5)"
+    },
+    {
+      "RedniBroj": "306",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "1. Isplate dobavljačima i dati avansi"
+    },
+    {
+      "RedniBroj": "307",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "2. Zarade, naknade zarada i ostali lični rashodi"
+    },
+    {
+      "RedniBroj": "308",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "3. Plaćene kamate"
+    },
+    {
+      "RedniBroj": "309",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "4. Porez na dobit"
+    },
+    {
+      "RedniBroj": "310",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "5. Plaćanja po osnovu ostalih javnih prihoda"
+    },
+    {
+      "RedniBroj": "311",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "III. Neto tok gotovine iz poslovnih aktivnosti (I-II)"
+    },
+    {
+      "RedniBroj": "",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "B. TOKOVI GOTOVINE IZ AKTIVNOSTI INVESTIRANJA"
+    },
+    {
+      "RedniBroj": "312",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "I. Prilivi gotovine iz aktivnosti investiranja (1 do 5)"
+    },
+    {
+      "RedniBroj": "313",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "1. Prodaja akcija i udjela"
+    },
+    {
+      "RedniBroj": "314",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "2. Prodaja nematerijalnih ulaganja, nekretnina, postrojenja, opremene i bioloških sredstava"
+    },
+    {
+      "RedniBroj": "315",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "3. Ostali finansijski plasmani"
+    },
+    {
+      "RedniBroj": "316",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "4. Primljene kamate iz aktivnosti investiranja"
+    },
+    {
+      "RedniBroj": "317",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "5. Primljene dividende"
+    },
+    {
+      "RedniBroj": "318",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "II. Odlivi gotovine iz aktivnosti investiranja (1 do 3)"
+    },
+    {
+      "RedniBroj": "319",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "1. Kupovina akcija i udjela"
+    },
+    {
+      "RedniBroj": "320",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "2. Kupovina nematerijalnih ulaganja, nekretnina, postrojenja, opreme i bioloških sredstava"
+    },
+    {
+      "RedniBroj": "321",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "3. Ostali finansijski plasmani"
+    },
+    {
+      "RedniBroj": "322",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "III. Neto tok gotovine iz aktivnosti investiranja (I-II)"
+    },
+    {
+      "RedniBroj": "",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "C. TOKOVI GOTOVINE IZ AKTIVNOSTI FINANSIRANJA"
+    },
+    {
+      "RedniBroj": "323",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "I. Prilivi gotovine iz aktivnosti finansiranja (1 do 3)"
+    },
+    {
+      "RedniBroj": "324",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "1. Uvećanje osnovnog kapitala"
+    },
+    {
+      "RedniBroj": "325",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "2. Dugoročni i kratkoročni krediti"
+    },
+    {
+      "RedniBroj": "326",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "3. Ostale dugoročne i kratkoročne obaveze"
+    },
+    {
+      "RedniBroj": "327",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "II. Odlivi gotovine iz aktivnosti finansiranja (1 do 4) "
+    },
+    {
+      "RedniBroj": "328",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "1. Otkup sopstvenih akcija i udjela "
+    },
+    {
+      "RedniBroj": "329",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "2. Dugoročni i kratkoročni krediti i ostale obaveze"
+    },
+    {
+      "RedniBroj": "330",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "3. Finansijski lizing"
+    },
+    {
+      "RedniBroj": "331",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "4. Isplaćene dividende"
+    },
+    {
+      "RedniBroj": "332",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "III. Neto tok gotovine iz aktivnosti finansiranja (I-II) "
+    },
+    {
+      "RedniBroj": "333",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "D. NETO TOK GOTOVINE (311+322+332)"
+    },
+    {
+      "RedniBroj": "334",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "E. GOTOVINA NA POČETKU IZVJEŠTAJNOG PERIODA"
+    },
+    {
+      "RedniBroj": "335",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "F. POZITIVNE KURSNE RAZLIKE PO OSNOVU PRERAČUNA GOTOVINE"
+    },
+    {
+      "RedniBroj": "336",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "G. NEGATIVNE KURSNE RAZLIKE PO OSNOVU PRERAČUNA GOTOVINE"
+    },
+    {
+      "RedniBroj": "337",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "H. GOTOVINA NA KRAJU IZVJEŠTAJNOG PERIODA (333+334+335-336)"
+    }
+  ],
+  "TokoviGotovine3a": [
+    {
+      "RedniBroj": "",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "A. TOKOVI GOTOVINE IZ POSLOVNIH AKTIVNOSTI"
+    },
+    {
+      "RedniBroj": "301",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "1. Rezultat prije oporezivanja"
+    },
+    {
+      "RedniBroj": "302",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "2. Amortizacija"
+    },
+    {
+      "RedniBroj": "303",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "3. Promjena zaliha"
+    },
+    {
+      "RedniBroj": "304",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "4. Promjena potraživanja"
+    },
+    {
+      "RedniBroj": "305",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "5. Promjena obaveza prema dobavljačima"
+    },
+    {
+      "RedniBroj": "306",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "6. Promjena rezervisanja"
+    },
+    {
+      "RedniBroj": "307",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "7. Plaćene kamate"
+    },
+    {
+      "RedniBroj": "308",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "8. Porez na dobit"
+    },
+    {
+      "RedniBroj": "309",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "9. Plaćanja po osnovu ostalih javnih prihoda"
+    },
+    {
+      "RedniBroj": "310",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "10. Promjena odloženih poreza i drugih nepomenutih stavki koje imaju uticaj na tok gotovine iz poslovnih aktivnosti"
+    },
+    {
+      "RedniBroj": "311",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "I. Neto tok gotovine iz poslovnih aktivnosti (1 do 10)"
+    },
+    {
+      "RedniBroj": "",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "B. TOKOVI GOTOVINE IZ AKTIVNOSTI INVESTIRANJA"
+    },
+    {
+      "RedniBroj": "312",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "I. Prilivi gotovine iz aktivnosti investiranja (1 do 5)"
+    },
+    {
+      "RedniBroj": "313",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "1. Prodaja akcija i udjela"
+    },
+    {
+      "RedniBroj": "314",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "2. Prodaja nematerijalnih ulaganja, nekretnina, postrojenja, opremene i bioloških sredstava"
+    },
+    {
+      "RedniBroj": "315",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "3. Ostali finansijski plasmani"
+    },
+    {
+      "RedniBroj": "316",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "4. Primljene kamate iz aktivnosti investiranja"
+    },
+    {
+      "RedniBroj": "317",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "5. Primljene dividende"
+    },
+    {
+      "RedniBroj": "318",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "II. Odlivi gotovine iz aktivnosti investiranja (1 do 3)"
+    },
+    {
+      "RedniBroj": "319",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "1. Kupovina akcija i udjela"
+    },
+    {
+      "RedniBroj": "320",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "2. Kupovina nematerijalnih ulaganja, nekretnina, postrojenja, opreme i bioloških sredstava"
+    },
+    {
+      "RedniBroj": "321",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "3. Ostali finansijski plasmani"
+    },
+    {
+      "RedniBroj": "322",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "III. Neto tok gotovine iz aktivnosti investiranja (I-II)"
+    },
+    {
+      "RedniBroj": "",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "C. TOKOVI GOTOVINE IZ AKTIVNOSTI FINANSIRANJA"
+    },
+    {
+      "RedniBroj": "323",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "I. Prilivi gotovine iz aktivnosti finansiranja (1 do 3)"
+    },
+    {
+      "RedniBroj": "324",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "1. Uvećanje osnovnog kapitala"
+    },
+    {
+      "RedniBroj": "325",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "2. Dugoročni i kratkoročni krediti"
+    },
+    {
+      "RedniBroj": "326",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "3. Ostale dugoročne i kratkoročne obaveze"
+    },
+    {
+      "RedniBroj": "327",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "II. Odlivi gotovine iz aktivnosti finansiranja (1 do 4) "
+    },
+    {
+      "RedniBroj": "328",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "1. Otkup sopstvenih akcija i udjela "
+    },
+    {
+      "RedniBroj": "329",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "2. Dugoročni i kratkoročni krediti i ostale obaveze"
+    },
+    {
+      "RedniBroj": "330",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "3. Finansijski lizing"
+    },
+    {
+      "RedniBroj": "331",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "4. Isplaćene dividende"
+    },
+    {
+      "RedniBroj": "332",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "III. Neto tok gotovine iz aktivnosti finansiranja (I-II) "
+    },
+    {
+      "RedniBroj": "333",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "D. NETO TOK GOTOVINE (311+322+332)"
+    },
+    {
+      "RedniBroj": "334",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "E. GOTOVINA NA POČETKU IZVJEŠTAJNOG PERIODA"
+    },
+    {
+      "RedniBroj": "335",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "F. POZITIVNE KURSNE RAZLIKE PO OSNOVU PRERAČUNA GOTOVINE"
+    },
+    {
+      "RedniBroj": "336",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "G. NEGATIVNE KURSNE RAZLIKE PO OSNOVU PRERAČUNA GOTOVINE"
+    },
+    {
+      "RedniBroj": "337",
+      "Iznos1": "0.0",
+      "Iznos2": "0.0",
+      "Pozicija": "H. GOTOVINA NA KRAJU IZVJEŠTAJNOG PERIODA (333+334+335-336)"
+    }
+  ],
+  "IskazOPromenamaKapitala": [
+    {
+      "Pozicija": "1.",
+      "Opis": "Stanje na dan 01.01 _____ godine",
+      "RedniBr2": "401",
+      "Iznos2": "0.0",
+      "RedniBr3": "410",
+      "Iznos3": "0.0",
+      "RedniBr4": "419",
+      "Iznos4": "0.0",
+      "RedniBr5": "428",
+      "Iznos5": "0.0",
+      "RedniBr6": "437",
+      "Iznos6": "0.0",
+      "RedniBr7": "446",
+      "Iznos7": "0.0",
+      "RedniBr8": "455",
+      "Iznos8": "0.0",
+      "RedniBr9": "464",
+      "Iznos9": "0.0",
+      "RedniBr10": "473",
+      "Iznos10": "0.0",
+      "RedniBr11": "482",
+      "Iznos11": "0.0"
+    },
+    {
+      "Pozicija": "2.",
+      "Opis": "Efekti retroaktivne ispravke materijalno značajnih grešaka i promjena računovodstvenih politika",
+      "RedniBr2": "402",
+      "Iznos2": "0.0",
+      "RedniBr3": "411",
+      "Iznos3": "0.0",
+      "RedniBr4": "420",
+      "Iznos4": "0.0",
+      "RedniBr5": "429",
+      "Iznos5": "0.0",
+      "RedniBr6": "438",
+      "Iznos6": "0.0",
+      "RedniBr7": "447",
+      "Iznos7": "0.0",
+      "RedniBr8": "456",
+      "Iznos8": "0.0",
+      "RedniBr9": "465",
+      "Iznos9": "0.0",
+      "RedniBr10": "474",
+      "Iznos10": "0.0",
+      "RedniBr11": "483",
+      "Iznos11": "0.0"
+    },
+    {
+      "Pozicija": "3.",
+      "Opis": "Korigovano početno stanje na dan 01.01. _____ godine (r.br. 1+2)",
+      "RedniBr2": "403",
+      "Iznos2": "0.0",
+      "RedniBr3": "412",
+      "Iznos3": "0.0",
+      "RedniBr4": "421",
+      "Iznos4": "0.0",
+      "RedniBr5": "430",
+      "Iznos5": "0.0",
+      "RedniBr6": "439",
+      "Iznos6": "0.0",
+      "RedniBr7": "448",
+      "Iznos7": "0.0",
+      "RedniBr8": "457",
+      "Iznos8": "0.0",
+      "RedniBr9": "466",
+      "Iznos9": "0.0",
+      "RedniBr10": "475",
+      "Iznos10": "0.0",
+      "RedniBr11": "484",
+      "Iznos11": "0.0"
+    },
+    {
+      "Pozicija": "4.",
+      "Opis": "Neto promjene u _____ godini",
+      "RedniBr2": "404",
+      "Iznos2": "0.0",
+      "RedniBr3": "413",
+      "Iznos3": "0.0",
+      "RedniBr4": "422",
+      "Iznos4": "0.0",
+      "RedniBr5": "431",
+      "Iznos5": "0.0",
+      "RedniBr6": "440",
+      "Iznos6": "0.0",
+      "RedniBr7": "449",
+      "Iznos7": "0.0",
+      "RedniBr8": "458",
+      "Iznos8": "0.0",
+      "RedniBr9": "467",
+      "Iznos9": "0.0",
+      "RedniBr10": "476",
+      "Iznos10": "0.0",
+      "RedniBr11": "485",
+      "Iznos11": "0.0"
+    },
+    {
+      "Pozicija": "5.",
+      "Opis": "Stanje na dan 31.12. ___________ godine (r.b 3+4)",
+      "RedniBr2": "405",
+      "Iznos2": "0.0",
+      "RedniBr3": "414",
+      "Iznos3": "0.0",
+      "RedniBr4": "423",
+      "Iznos4": "0.0",
+      "RedniBr5": "432",
+      "Iznos5": "0.0",
+      "RedniBr6": "441",
+      "Iznos6": "0.0",
+      "RedniBr7": "450",
+      "Iznos7": "0.0",
+      "RedniBr8": "459",
+      "Iznos8": "0.0",
+      "RedniBr9": "468",
+      "Iznos9": "0.0",
+      "RedniBr10": "477",
+      "Iznos10": "0.0",
+      "RedniBr11": "486",
+      "Iznos11": "0.0"
+    },
+    {
+      "Pozicija": "6.",
+      "Opis": "Efekti retroaktivne ispravke materijalno značajnih grešaka i promjena računovodstvenih politika",
+      "RedniBr2": "406",
+      "Iznos2": "0.0",
+      "RedniBr3": "415",
+      "Iznos3": "0.0",
+      "RedniBr4": "424",
+      "Iznos4": "0.0",
+      "RedniBr5": "433",
+      "Iznos5": "0.0",
+      "RedniBr6": "442",
+      "Iznos6": "0.0",
+      "RedniBr7": "451",
+      "Iznos7": "0.0",
+      "RedniBr8": "460",
+      "Iznos8": "0.0",
+      "RedniBr9": "469",
+      "Iznos9": "0.0",
+      "RedniBr10": "478",
+      "Iznos10": "0.0",
+      "RedniBr11": "487",
+      "Iznos11": "0.0"
+    },
+    {
+      "Pozicija": "7.",
+      "Opis": "Korigovano početno stanje na dan ___________ godine (r.br. 5+6)",
+      "RedniBr2": "407",
+      "Iznos2": "0.0",
+      "RedniBr3": "416",
+      "Iznos3": "0.0",
+      "RedniBr4": "425",
+      "Iznos4": "0.0",
+      "RedniBr5": "434",
+      "Iznos5": "0.0",
+      "RedniBr6": "443",
+      "Iznos6": "0.0",
+      "RedniBr7": "452",
+      "Iznos7": "0.0",
+      "RedniBr8": "461",
+      "Iznos8": "0.0",
+      "RedniBr9": "470",
+      "Iznos9": "0.0",
+      "RedniBr10": "479",
+      "Iznos10": "0.0",
+      "RedniBr11": "488",
+      "Iznos11": "0.0"
+    },
+    {
+      "Pozicija": "8.",
+      "Opis": "Neto promjene u _____ godini",
+      "RedniBr2": "408",
+      "Iznos2": "0.0",
+      "RedniBr3": "417",
+      "Iznos3": "0.0",
+      "RedniBr4": "426",
+      "Iznos4": "0.0",
+      "RedniBr5": "435",
+      "Iznos5": "0.0",
+      "RedniBr6": "444",
+      "Iznos6": "0.0",
+      "RedniBr7": "453",
+      "Iznos7": "0.0",
+      "RedniBr8": "462",
+      "Iznos8": "0.0",
+      "RedniBr9": "471",
+      "Iznos9": "0.0",
+      "RedniBr10": "480",
+      "Iznos10": "0.0",
+      "RedniBr11": "489",
+      "Iznos11": "0.0"
+    },
+    {
+      "Pozicija": "9.",
+      "Opis": "Stanje na dan 31.12 _____ godine (r.br. 7+8)",
+      "RedniBr2": "409",
+      "Iznos2": "0.0",
+      "RedniBr3": "418",
+      "Iznos3": "0.0",
+      "RedniBr4": "427",
+      "Iznos4": "0.0",
+      "RedniBr5": "436",
+      "Iznos5": "0.0",
+      "RedniBr6": "445",
+      "Iznos6": "0.0",
+      "RedniBr7": "454",
+      "Iznos7": "0.0",
+      "RedniBr8": "463",
+      "Iznos8": "0.0",
+      "RedniBr9": "472",
+      "Iznos9": "0.0",
+      "RedniBr10": "481",
+      "Iznos10": "0.0",
+      "RedniBr11": "490",
+      "Iznos11": "0.0"
+    }
+  ],
+  "StatistickiAneks": [
+    {
+      "RedniBroj": "001",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Prosječan broj zaposlenih (ukupan broj zaposlenih krajem svakog mjeseca podijeljen sa brojem mjeseci)",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "002",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Prihodi od prodaje robe",
+      "GrupaRacuna": "60"
+    },
+    {
+      "RedniBroj": "003",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Prihodi od prodaje proizvoda i usluga",
+      "GrupaRacuna": "61"
+    },
+    {
+      "RedniBroj": "004",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Prihodi od aktiviranja učinaka i robe",
+      "GrupaRacuna": "62"
+    },
+    {
+      "RedniBroj": "005",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Prihodi od subvencija, prihodi od dotacija i prihodi od donacija",
+      "GrupaRacuna": "640"
+    },
+    {
+      "RedniBroj": "006",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Prihodi od zakupnina",
+      "GrupaRacuna": "650"
+    },
+    {
+      "RedniBroj": "007",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Dobici od prodaje materijala",
+      "GrupaRacuna": "673"
+    },
+    {
+      "RedniBroj": "008",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Nabavna vrijednost prodate robe",
+      "GrupaRacuna": "501"
+    },
+    {
+      "RedniBroj": "009",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Troškovi materijala za izradu",
+      "GrupaRacuna": "511"
+    },
+    {
+      "RedniBroj": "010",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Troškovi ostalog materijala (režijskog)",
+      "GrupaRacuna": "512"
+    },
+    {
+      "RedniBroj": "011",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Troškovi goriva i energije",
+      "GrupaRacuna": "513"
+    },
+    {
+      "RedniBroj": "012",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Troškovi zarada i naknada zarada (bruto)",
+      "GrupaRacuna": "520"
+    },
+    {
+      "RedniBroj": "013",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Naknada troškova smještaja i ishrane na službenom putu, naknade troškova prevoza na službenom putu",
+      "GrupaRacuna": "529"
+    },
+    {
+      "RedniBroj": "014",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Troškovi proizvodnih usluga",
+      "GrupaRacuna": "53"
+    },
+    {
+      "RedniBroj": "015",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Troškovi transportnih usluga i troškovi usluga održavanja",
+      "GrupaRacuna": "531 i 532"
+    },
+    {
+      "RedniBroj": "016",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Troškovi zakupnina",
+      "GrupaRacuna": "533"
+    },
+    {
+      "RedniBroj": "017",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Troškovi sajmova i troškovi reklame i propagande",
+      "GrupaRacuna": "534 i 535"
+    },
+    {
+      "RedniBroj": "018",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Troškovi istraživanja",
+      "GrupaRacuna": "536"
+    },
+    {
+      "RedniBroj": "019",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Troškovi neproizvodnih usluga i troškovi reprezentacije",
+      "GrupaRacuna": "550 i 551"
+    },
+    {
+      "RedniBroj": "020",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Troškovi premija osiguranja i troškovi platnog prometa",
+      "GrupaRacuna": "552 i 553"
+    },
+    {
+      "RedniBroj": "021",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Gubici od prodaje materijala",
+      "GrupaRacuna": "573"
+    },
+    {
+      "RedniBroj": "022",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Zalihe materijala",
+      "GrupaRacuna": "10"
+    },
+    {
+      "RedniBroj": "023",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Zalihe nedovršene proizvodnje",
+      "GrupaRacuna": "11"
+    },
+    {
+      "RedniBroj": "024",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Zalihe gotovih proizvoda",
+      "GrupaRacuna": "12"
+    },
+    {
+      "RedniBroj": "025",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Zalihe roba",
+      "GrupaRacuna": "13"
+    },
+    {
+      "RedniBroj": "",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Analitički prikaz nematerijalne imovine pravnog lica",
+      "GrupaRacuna": ""
+    },
+    {
+      "RedniBroj": "026",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Prihodi od naknade po osnovu patenata",
+      "GrupaRacuna": "652"
+    },
+    {
+      "RedniBroj": "027",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Prihodo po osnovu autorskih prava",
+      "GrupaRacuna": "652"
+    },
+    {
+      "RedniBroj": "028",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Prihodi od prodaje licenci",
+      "GrupaRacuna": "652"
+    },
+    {
+      "RedniBroj": "029",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Ulaganja u razvoj",
+      "GrupaRacuna": "010"
+    },
+    {
+      "RedniBroj": "030",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Ulaganja u razvoj tržišta, sa efektom dužim od jedne godine",
+      "GrupaRacuna": "0100"
+    },
+    {
+      "RedniBroj": "031",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Ulaganja u razvoj tehnologije, sa efektom dužim od jedne godine",
+      "GrupaRacuna": "0101"
+    },
+    {
+      "RedniBroj": "032",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Ulaganja u razvoj proizvoda, sa efektom dužim od jedne godine",
+      "GrupaRacuna": "0102"
+    },
+    {
+      "RedniBroj": "033",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Ostali izdaci za razvoj",
+      "GrupaRacuna": "0103"
+    },
+    {
+      "RedniBroj": "034",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Ispravka vrijednosti ulaganja u razvoj",
+      "GrupaRacuna": "0108"
+    },
+    {
+      "RedniBroj": "035",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Obezvređivanje vrijednosti ulaganja u razvoj",
+      "GrupaRacuna": "0109"
+    },
+    {
+      "RedniBroj": "036",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Koncesije, patenti, licence i slična prava",
+      "GrupaRacuna": "011"
+    },
+    {
+      "RedniBroj": "037",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Koncesije",
+      "GrupaRacuna": "0110"
+    },
+    {
+      "RedniBroj": "038",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Patenti",
+      "GrupaRacuna": "0111"
+    },
+    {
+      "RedniBroj": "039",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Licence",
+      "GrupaRacuna": "0112"
+    },
+    {
+      "RedniBroj": "040",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Pravo na industrijski uzorak, žig, model, zaštitni znak i sl.",
+      "GrupaRacuna": "0113"
+    },
+    {
+      "RedniBroj": "041",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Druga slična prava",
+      "GrupaRacuna": "0114"
+    },
+    {
+      "RedniBroj": "042",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Ispravka vrijednosti koncesija, patenata, licenci i sličnih prava",
+      "GrupaRacuna": "0118"
+    },
+    {
+      "RedniBroj": "043",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Obezvređivanje koncesija, patenata, licenci i sli?nih prava",
+      "GrupaRacuna": "0119"
+    },
+    {
+      "RedniBroj": "044",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Goodwill",
+      "GrupaRacuna": "012"
+    },
+    {
+      "RedniBroj": "045",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Goodwill nastao po osnovu stečene (pripojene) neto imovine drugog pravnog lica",
+      "GrupaRacuna": "0120"
+    },
+    {
+      "RedniBroj": "046",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Goodwill nastao po osnovu kupovine akcija i udjela u drugom pravnom licu",
+      "GrupaRacuna": "0121"
+    },
+    {
+      "RedniBroj": "047",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Obezvređivanje goodwill-a",
+      "GrupaRacuna": "0129"
+    },
+    {
+      "RedniBroj": "048",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Ostala nematerijalna ulaganja",
+      "GrupaRacuna": "014"
+    },
+    {
+      "RedniBroj": "049",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Računarski programi",
+      "GrupaRacuna": "0140"
+    },
+    {
+      "RedniBroj": "050",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Pravo korišćenja gradskog građevinskog zemljišta",
+      "GrupaRacuna": "0141"
+    },
+    {
+      "RedniBroj": "051",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Ulaganja u lizing",
+      "GrupaRacuna": "0142"
+    },
+    {
+      "RedniBroj": "052",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Ostala nematerijalna ulaganja",
+      "GrupaRacuna": "0145"
+    },
+    {
+      "RedniBroj": "053",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Ispravka vrijednosti ostalih nematerijalnih ulaganja",
+      "GrupaRacuna": "0148"
+    },
+    {
+      "RedniBroj": "054",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Obezvređivanje ostalih nematerijalnih ulaganja",
+      "GrupaRacuna": "0149"
+    },
+    {
+      "RedniBroj": "055",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Nematerijalna ulaganja u pripremi",
+      "GrupaRacuna": "015"
+    },
+    {
+      "RedniBroj": "056",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Ulaganja u razvoj u pripremi",
+      "GrupaRacuna": "0150"
+    },
+    {
+      "RedniBroj": "057",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Interno generisana nematerijalna ulaganja u pripremi",
+      "GrupaRacuna": "0151"
+    },
+    {
+      "RedniBroj": "058",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Druga nematerijalna ulaganja u pripremi",
+      "GrupaRacuna": "0155"
+    },
+    {
+      "RedniBroj": "059",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Obezvređenje nematerijalnih ulaganja u pripremi",
+      "GrupaRacuna": "0159"
+    },
+    {
+      "RedniBroj": "060",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Avansi za nematerijalna ulaganja",
+      "GrupaRacuna": "016"
+    },
+    {
+      "RedniBroj": "061",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Avansi za nematerijalna ulaganja u razvoj",
+      "GrupaRacuna": "0160"
+    },
+    {
+      "RedniBroj": "062",
+      "Iznos1": "0",
+      "Iznos2": "0",
+      "NapomenaBroj": "",
+      "Pozicija": "Avansi za druga nematerijalna ulaganja",
+      "GrupaRacuna": "0161"
+    }
+  ],
+  "ObracunAmortizacije": [
+    {
+      "Grupa": "I",
+      "Iznos2": "0",
+      "Iznos3": "0",
+      "Iznos4": "0",
+      "Iznos5": "0",
+      "Iznos6": "2.5",
+      "Iznos7": "0",
+      "Iznos8": "0"
+    },
+    {
+      "Grupa": "II",
+      "Iznos2": "0",
+      "Iznos3": "0",
+      "Iznos4": "0",
+      "Iznos5": "0",
+      "Iznos6": "10",
+      "Iznos7": "0",
+      "Iznos8": "0"
+    },
+    {
+      "Grupa": "III",
+      "Iznos2": "0",
+      "Iznos3": "0",
+      "Iznos4": "0",
+      "Iznos5": "0",
+      "Iznos6": "15",
+      "Iznos7": "0",
+      "Iznos8": "0"
+    },
+    {
+      "Grupa": "IV",
+      "Iznos2": "0",
+      "Iznos3": "0",
+      "Iznos4": "0",
+      "Iznos5": "0",
+      "Iznos6": "20",
+      "Iznos7": "0",
+      "Iznos8": "0"
+    },
+    {
+      "Grupa": "V",
+      "Iznos2": "0",
+      "Iznos3": "0",
+      "Iznos4": "0",
+      "Iznos5": "0",
+      "Iznos6": "30",
+      "Iznos7": "0",
+      "Iznos8": "0"
+    }
+  ]
+}

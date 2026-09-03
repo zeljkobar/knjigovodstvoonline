@@ -165,9 +165,21 @@ dodatno imaju statuse na srpskom: otvorena, djelimično knjižena, knjižena.
   šifarnicima i operativnim podešavanjima.
 - **Djelimično ili otvoreno:** potpuna primjena prava na svakom backend toku,
   testovi, zaključavanje PDV perioda, napredne alokacije izvoda, obustave i
-  storno knjiženja plata, XML završnog računa.
+  storno knjiženja plata i portal QA XML-a završnog računa.
 - **Nije implementirano:** puni standardni klijentski portal, dio naprednog
   robnog toka, dashboard podstranice i većina zbirnih izvještaja. Direktni
   fiskalni portal je implementiran u obimu
   [`../zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`](../zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md),
   uz preostali ručni live/E2E QA.
+
+## XML završnog računa
+
+`financial-report-xml.ts` koristi verzionisani šablon iz korisnikovog praznog
+XML primjera. Serializer čuva redoslijed/nazive iz XSD-a, provjerava vrijednosti
+i potpuno AOP mapiranje. BS/BU/SA dolaze iz istih kalkulatora kao pregled (POSTED
+izvor, korekcije i uporedne kolone); ostale sekcije su nulte uz potvrdu korisnika.
+XSD je u `tests/fixtures`; stvarna XSD validacija se pokreće Windows testom,
+a runtime koristi kontrolisanu strukturu i validaciju vrijednosti bez PowerShell-a.
+POST ruta provjerava ulogu, oba prava view/export, tenant i firmu/godinu iz sesije,
+odbija promijenjen kontekst i ne prihvata iznose ili naziv firme iz browsera.
+Izvoz ne mijenja dokumente/status prijave; audit ne sadrži JMBG/e-mail.
