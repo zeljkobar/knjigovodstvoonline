@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "crypto";
+import { createPublicAppUrl } from "@/lib/app-url";
 
 export function createInvitationToken() {
   const token = randomBytes(32).toString("base64url");
@@ -14,8 +15,7 @@ export function hashInvitationToken(token: string) {
 }
 
 export function createInvitationUrl(token: string) {
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
-  const url = new URL("/postavi-lozinku", appUrl);
+  const url = createPublicAppUrl("/postavi-lozinku");
   url.searchParams.set("token", token);
 
   return url.toString();

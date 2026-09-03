@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
 import {
   getDirectPortalContext,
   type DirectPortalContext
 } from "@/lib/direct-portal";
 import { resolveAuthenticatedHome } from "@/lib/auth";
+import { internalRedirect } from "@/lib/internal-redirect";
 import {
   ACTIVE_COMPANY_COOKIE,
   ACTIVE_YEAR_COOKIE,
@@ -38,27 +38,25 @@ export async function GET(request: Request) {
   const context = await getDirectPortalContext();
 
   if (context.state === "UNAUTHENTICATED") {
-    return NextResponse.redirect(new URL("/?greska=sesija", request.url));
+    return internalRedirect("/?greska=sesija");
   }
 
   if (context.state === "NOT_DIRECT") {
     const home = await resolveAuthenticatedHome(context.user.id);
-    return NextResponse.redirect(new URL(home, request.url));
+    return internalRedirect(home);
   }
 
   const url = new URL(request.url);
   const returnTo = safeReturnTo(url.searchParams.get("returnTo"));
 
   if (context.state !== "READY") {
-    const response = NextResponse.redirect(
-      new URL(stateDestination(context), request.url)
-    );
+    const response = internalRedirect(stateDestination(context));
     response.cookies.delete(ACTIVE_COMPANY_COOKIE);
     response.cookies.delete(ACTIVE_YEAR_COOKIE);
     return response;
   }
 
-  const response = NextResponse.redirect(new URL(returnTo, request.url));
+  const response = internalRedirect(returnTo);
   response.cookies.set(
     ACTIVE_COMPANY_COOKIE,
     context.firma.id,

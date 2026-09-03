@@ -12,7 +12,8 @@
   štampu. Statički i responsive QA portala je završen. Konfiguraciju sertifikata,
   ENU-a, operatera, aktivacije i suspenzije i dalje zadržava platformski admin.
 - Na produkcijskom serveru potvrditi aktivni commit i deployovati najnoviji
-  `main`. Provjeriti da li je migracija
+  `main`, uključujući zaštitu kontekstnih redirecta od internog
+  `localhost:3004`. Provjeriti da li je migracija
   `20260819170000_uskladi_kontni_plan_sa_excelom` već primijenjena, zatim
   provjeriti PM2, HTTP i Fiscal API vezu.
 

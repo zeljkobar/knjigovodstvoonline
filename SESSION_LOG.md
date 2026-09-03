@@ -1272,3 +1272,18 @@
   klijent regenerisan i dev server restartovan. Test obračuna prolazi 4/4,
   TypeScript i ESLint su bez novih grešaka/upozorenja, a company-purge pokriva
   svih 59 tabela sa direktnim `firma_id`.
+
+## 2026-09-03 — Redirecti više ne izlaze na localhost
+
+- Otklonjen je produkcijski problem pri izboru firme: ruta konteksta je
+  sastavljala apsolutni redirect iz internog reverse-proxy URL-a
+  `localhost:3004`. Agencijski i direktni portalski kontekst sada vraćaju
+  provjeren relativni `Location`, pa browser ostaje na javnom domenu.
+- Centralizovano je sastavljanje javnih URL-ova za pozivnice i fiskalna
+  obavještenja. U produkciji se loopback `APP_URL` više ne može poslati
+  korisniku; `.env.example` dokumentuje ispravan javni domen.
+- Pregledan je cijeli `src` za localhost browser navigaciju. Preostale lokalne
+  adrese pripadaju razvoju ili internom Fiscal API klijentu. TypeScript je čist,
+  ESLint nema grešaka uz ista četiri ranija upozorenja, regresioni test prolazi
+  3/3, a simulacija reverse proxy-ja vraća `location: /?greska=sesija` umjesto
+  apsolutnog localhost URL-a.

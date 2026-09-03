@@ -8,6 +8,21 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Javni domen i interni redirecti — 2026-09-03
+
+- Izbor firme/godine u agencijskom zaglavlju i izbor konteksta direktnog
+  fiskalnog portala vraćaju relativni HTTP `Location`. Reverse proxy zato više
+  ne može prebaciti browser na interni `localhost:3004`, čak ni kada je
+  `request.url` sastavljen iz internog PM2/Nginx hosta.
+- Javni URL-ovi u pozivnicama i obavještenjima prolaze kroz zajednički helper.
+  Produkcija odbacuje loopback `APP_URL` i koristi
+  `https://knjigovodstvo.summasummarum.me`; lokalni razvoj i dalje koristi
+  `http://localhost:3000`.
+- Statički pregled nije pronašao nijedan browser `href`, form action,
+  `window.location`, `window.open` ili redirect koji vodi na localhost.
+  Preostali localhost zapisi odnose se samo na lokalni razvoj i interni Fiscal
+  API servis. Regresioni test `npm run test:internal-navigation` prolazi 3/3.
+
 ## Fiskalni klijent i agencija — 2026-08-20
 
 - Platformski admin kod agencijskog klijenta bira postojeću firmu izabrane

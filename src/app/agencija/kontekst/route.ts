@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { requireAgencyWorkspaceUser } from "@/lib/auth";
+import { internalRedirect } from "@/lib/internal-redirect";
 import { prisma } from "@/lib/prisma";
 import {
   ACTIVE_COMPANY_COOKIE,
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   const user = await requireAgencyWorkspaceUser();
   const url = new URL(request.url);
   const returnTo = safeReturnTo(url.searchParams.get("returnTo"));
-  const response = NextResponse.redirect(new URL(returnTo, request.url));
+  const response = internalRedirect(returnTo);
 
   if (!user?.agencija_id) {
     return response;

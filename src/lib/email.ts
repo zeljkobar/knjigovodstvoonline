@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { createPublicAppUrl } from "@/lib/app-url";
 
 function getRequiredEnv(name: string) {
   const value = process.env[name];
@@ -85,8 +86,7 @@ export async function sendFiscalAgencyTransferRequestEmail({
   const transporter = createSmtpTransporter();
   const recipient =
     process.env.FISCAL_TRANSFER_NOTIFICATION_EMAIL ?? "zeljkodj@t-com.me";
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
-  const reviewUrl = new URL("/admin/fiskalizacija/korisnici", appUrl).toString();
+  const reviewUrl = createPublicAppUrl("/admin/fiskalizacija/korisnici").toString();
   const safeCompany = escapeHtml(companyName);
   const safePib = escapeHtml(companyPib);
   const safeAgency = escapeHtml(agencyName);
