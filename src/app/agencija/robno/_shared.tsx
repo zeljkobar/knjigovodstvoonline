@@ -1,10 +1,10 @@
 import { requireAnyRole } from "@/lib/auth";
 import { inventoryModule } from "@/lib/inventory";
-import { hasPermission, type PermissionAction } from "@/lib/permissions";
+import { hasAllPermissions, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
-export async function getInventoryContext(action: PermissionAction = "view") {
+export async function getInventoryContext(action: PermissionAction | PermissionAction[] = "view") {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const workContext = await readWorkContext();
 
@@ -50,11 +50,14 @@ export async function getInventoryContext(action: PermissionAction = "view") {
         dozvoli_negativan_lager: true
       }
     }),
-    hasPermission(user, {
-      firmaId: workContext.firmaId,
-      modul: inventoryModule,
-      akcija: action
-    })
+    hasAllPermissions(
+      user,
+      (Array.isArray(action) ? action : [action]).map((akcija) => ({
+        firmaId: workContext.firmaId,
+        modul: inventoryModule,
+        akcija
+      }))
+    )
   ]);
 
   return {

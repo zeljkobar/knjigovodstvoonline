@@ -21,6 +21,11 @@ export type SubNavigationItem = {
   label: string;
   children?: SubNavigationItem[];
   roles?: Role[];
+  permissions?: Array<{
+    modul: string;
+    akcija: string;
+  }>;
+  permissionMode?: "all" | "any";
 };
 
 const agencyRoles: Role[] = ["admin_agencije", "korisnik_agencije"];
@@ -164,7 +169,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/nalozi", label: "Pregled naloga" },
     { href: "/agencija/nalozi/novi", label: "Novi nalog" },
     { href: "/agencija/nalozi/nacrti", label: "Nacrti" },
-    { href: "/agencija/nalozi/vrste", label: "Vrste naloga" },
+    { href: "/agencija/nalozi/vrste", label: "Vrste naloga", roles: adminOnly },
     { href: "/agencija/nalozi/pocetno-stanje", label: "Početno stanje" },
     { href: "/agencija/nalozi/partneri", label: "Partneri" },
     { href: "/agencija/nalozi/bruto-bilans", label: "Bruto bilans" },
@@ -225,12 +230,28 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/robno/podesavanja", label: "Podešavanja", roles: adminOnly }
   ],
   racuni: [
-    { href: "/agencija/racuni/kif", label: "KIF" },
-    { href: "/agencija/racuni/kuf", label: "KUF" },
-    { href: "/agencija/racuni/pregled-kif", label: "Pregled KIF" },
-    { href: "/agencija/racuni/pregled-kuf", label: "Pregled KUF" },
-    { href: "/agencija/racuni/neproknjizeno", label: "Neproknjiženo" },
-    { href: "/agencija/racuni/import", label: "Import" },
+    { href: "/agencija/racuni/kif", label: "KIF", permissions: [{ modul: "izlazni_racuni", akcija: "view" }] },
+    { href: "/agencija/racuni/kuf", label: "KUF", permissions: [{ modul: "ulazni_racuni", akcija: "view" }] },
+    { href: "/agencija/racuni/pregled-kif", label: "Pregled KIF", permissions: [{ modul: "izlazni_racuni", akcija: "view" }] },
+    { href: "/agencija/racuni/pregled-kuf", label: "Pregled KUF", permissions: [{ modul: "ulazni_racuni", akcija: "view" }] },
+    {
+      href: "/agencija/racuni/neproknjizeno",
+      label: "Neproknjiženo",
+      permissions: [
+        { modul: "izlazni_racuni", akcija: "view" },
+        { modul: "ulazni_racuni", akcija: "view" }
+      ],
+      permissionMode: "any"
+    },
+    {
+      href: "/agencija/racuni/import",
+      label: "Import",
+      permissions: [
+        { modul: "izlazni_racuni", akcija: "create" },
+        { modul: "ulazni_racuni", akcija: "create" }
+      ],
+      permissionMode: "any"
+    },
     { href: "/agencija/racuni/podesavanja", label: "Podešavanja", roles: adminOnly }
   ],
   pdv: [
@@ -262,7 +283,11 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
   izvodi: [
     { href: "/agencija/izvodi", label: "Pregled izvoda" },
     { href: "/agencija/izvodi/obrada", label: "Obrada stavki" },
-    { href: "/agencija/izvodi/pravila", label: "Pravila knjiženja" },
+    {
+      href: "/agencija/izvodi/pravila",
+      label: "Pravila knjiženja",
+      permissions: [{ modul: "izvodi", akcija: "manage" }]
+    },
     { href: "/agencija/izvodi/parseri", label: "Parseri banaka" },
     { href: "/agencija/izvodi/ziro-racuni", label: "Žiro računi komitenata" },
     { href: "/agencija/izvodi/kartica-banke", label: "Kartica banke" },
@@ -353,18 +378,39 @@ export function getSectionFromPath(pathname: string) {
 
 function filterSubNavigation(
   items: SubNavigationItem[],
-  rola: Role
+  rola: Role,
+  permissionKeys: ReadonlySet<string>
 ): SubNavigationItem[] {
   return items
-    .filter((item) => !item.roles || item.roles.includes(rola))
+    .filter((item) => {
+      if (item.roles && !item.roles.includes(rola)) {
+        return false;
+      }
+
+      if (rola === "admin_agencije" || !item.permissions?.length) {
+        return true;
+      }
+
+      const checks = item.permissions.map((permission) =>
+        permissionKeys.has(permissionKey(permission.modul, permission.akcija))
+      );
+
+      return item.permissionMode === "any"
+        ? checks.some(Boolean)
+        : checks.every(Boolean);
+    })
     .map((item) => ({
       ...item,
       ...(item.children
-        ? { children: filterSubNavigation(item.children, rola) }
+        ? { children: filterSubNavigation(item.children, rola, permissionKeys) }
         : {})
     }));
 }
 
-export function getSubNavigation(section: string, rola: Role): SubNavigationItem[] {
-  return filterSubNavigation(subNavigation[section] ?? [], rola);
+export function getSubNavigation(
+  section: string,
+  rola: Role,
+  permissionKeys: ReadonlySet<string> = new Set()
+): SubNavigationItem[] {
+  return filterSubNavigation(subNavigation[section] ?? [], rola, permissionKeys);
 }

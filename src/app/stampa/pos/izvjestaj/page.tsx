@@ -7,7 +7,7 @@ import { loadPosReport, posMoney, posPaymentLabels, posQuantity, posReportDates 
 
 export default async function PosReportPrintPage({ searchParams }: { searchParams: Promise<{ od?: string; do?: string; kasa?: string; format?: string }> }) {
   const params = await searchParams;
-  const ctx = await getPosContext("view");
+  const ctx = await getPosContext(["view", "export"]);
   if (!ctx.firma || !ctx.year || !ctx.allowed || !ctx.user.agencija_id) return null;
   const dates = posReportDates(ctx.year.godina, params.od, params.do);
   const register = params.kasa ? await prisma.posRegister.findFirst({ where: { id: params.kasa, agencija_id: ctx.user.agencija_id, firma_id: ctx.firma.id, is_deleted: false }, select: { id: true, naziv: true, fiscal_device_code: true, cash_deposit_amount: true } }) : null;

@@ -37,7 +37,7 @@ function detail(id: string, message: string): never {
   redirect(`/agencija/robno/izlazne-fakture/${id}?poruka=${message}`);
 }
 
-async function context(action: "create" | "update", firmaId: string) {
+async function context(action: "create" | "update" | "post", firmaId: string) {
   const [ctx, work] = await Promise.all([
     getInventoryContext(action),
     readWorkContext()
@@ -139,7 +139,7 @@ export async function updateOutgoingInvoiceHeader(formData: FormData) {
 export async function fiscalizeOutgoingInvoice(formData: FormData) {
   const id = text(formData.get("faktura_id"));
   const firmaId = text(formData.get("firma_id"));
-  const ctx = await context("update", firmaId);
+  const ctx = await context("post", firmaId);
   try {
     const result = await fiscalizeOutgoingInvoiceDocument({
       context: serviceContext(ctx),
@@ -195,7 +195,7 @@ async function resolveAccount(
 export async function finalizeOutgoingInvoice(formData: FormData) {
   const id = text(formData.get("faktura_id"));
   const firmaId = text(formData.get("firma_id"));
-  const ctx = await context("update", firmaId);
+  const ctx = await context("post", firmaId);
   const result = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw(
       Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`outgoing-invoice:${id}`}))`

@@ -25,7 +25,7 @@ const messages: Record<string, string> = {
 
 export default async function PravilaIzvodaPage({ searchParams }: PravilaIzvodaPageProps) {
   const params = await searchParams;
-  const { user, firma, godina } = await getIzvodiContext();
+  const { user, firma, godina } = await getIzvodiContext("manage");
 
   if (!user.agencija_id || !firma || !godina) {
     return <MissingContext title="Pravila knjiženja" />;

@@ -4,6 +4,7 @@ import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
 import { BalanceLevelCheckboxes } from "@/components/BalanceLevelCheckboxes";
 import { requireAnyRole } from "@/lib/auth";
 import { standardJournalTypes } from "@/lib/journals";
+import { hasAllPermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -19,6 +20,7 @@ type BrutoBilansPageProps = {
   }>;
   basePath?: string;
   accountCardPath?: string;
+  permissionModules?: string[];
 };
 
 function money(value: number) {
@@ -118,6 +120,7 @@ const openingBalanceType = standardJournalTypes[0][0];
 export async function BrutoBilansPage({
   basePath = "/agencija/nalozi/bruto-bilans",
   accountCardPath = "/agencija/nalozi/analiticke-kartice",
+  permissionModules = ["nalozi"],
   searchParams
 }: BrutoBilansPageProps) {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
@@ -144,6 +147,19 @@ export async function BrutoBilansPage({
         </section>
       </div>
     );
+  }
+
+  const allowed = await hasAllPermissions(
+    user,
+    permissionModules.map((modul) => ({
+      firmaId: workContext.firmaId,
+      modul,
+      akcija: "view" as const
+    }))
+  );
+
+  if (!allowed) {
+    return <p className="admin-message">Nemate pravo pregleda ovog izvještaja.</p>;
   }
 
   const [firma, godina, accounts, businessUnits, stavke] = await Promise.all([

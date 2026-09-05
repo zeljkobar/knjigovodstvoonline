@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { searchIrmsByPib } from "@/lib/irms";
+import { hasAnyPermission } from "@/lib/permissions";
+import { readWorkContext } from "@/lib/work-context";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -11,6 +13,22 @@ export async function POST(request: Request) {
 
   if (isDirectFiscalTenantUser(user)) {
     return NextResponse.json({ message: "Ruta nije dostupna u direktnom portalu." }, { status: 403 });
+  }
+
+  const workContext = await readWorkContext();
+  if (
+    !["admin", "admin_agencije"].includes(user.rola) &&
+    (!workContext.firmaId ||
+    !(await hasAnyPermission(user, [
+      { firmaId: workContext.firmaId, modul: "nalozi", akcija: "create" },
+      { firmaId: workContext.firmaId, modul: "ulazni_racuni", akcija: "create" },
+      { firmaId: workContext.firmaId, modul: "izlazni_racuni", akcija: "create" },
+      { firmaId: workContext.firmaId, modul: "robno", akcija: "create" },
+      { firmaId: workContext.firmaId, modul: "kalkulacije", akcija: "create" },
+      { firmaId: workContext.firmaId, modul: "pos", akcija: "create" }
+    ])))
+  ) {
+    return NextResponse.json({ message: "Nemate pravo pretrage registra." }, { status: 403 });
   }
 
   try {

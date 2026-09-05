@@ -21,6 +21,7 @@ import {
 } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
+import { requirePermissionForUser } from "@/lib/permissions";
 import {
   kifEntryKinds,
   pazarPaymentLabel,
@@ -175,6 +176,14 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
   const message =
     baseMessage && query?.detalj ? `${baseMessage} ${query.detalj}` : baseMessage;
   const workContext = await readWorkContext();
+
+  if (workContext.firmaId) {
+    await requirePermissionForUser(user, {
+      firmaId: workContext.firmaId,
+      modul: "izlazni_racuni",
+      akcija: "view"
+    });
+  }
 
   if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
     return (

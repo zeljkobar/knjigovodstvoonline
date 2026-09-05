@@ -4,6 +4,7 @@ import Link from "next/link";
 import QRCode from "qrcode";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
+import { hasAllPermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 type Snapshot = Record<string, string | null | undefined>;
@@ -48,6 +49,11 @@ export default async function OutgoingInvoicePrintPage({ params }: { params: Pro
     }
   });
   if (!invoice) notFound();
+  const permissionModule = invoice.sales_channel === "POS" ? "pos" : "robno";
+  if (!(await hasAllPermissions(user, [
+    { firmaId: invoice.firma_id, modul: permissionModule, akcija: "view" },
+    { firmaId: invoice.firma_id, modul: permissionModule, akcija: "export" }
+  ]))) notFound();
 
   const storedIssuer = snapshot(invoice.issuer_snapshot);
   const storedBuyer = snapshot(invoice.buyer_snapshot);

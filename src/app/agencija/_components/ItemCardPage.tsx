@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
+import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import {
   decimalToInventoryScaled,
@@ -21,6 +22,7 @@ type ItemCardPageProps = {
   basePath: string;
   lagerPath: string;
   sectionLabel: string;
+  requireReportsPermission?: boolean;
   searchParams?: Promise<{
     artikal?: string;
     datum_do?: string;
@@ -38,6 +40,7 @@ export async function ItemCardPage({
   basePath,
   lagerPath,
   sectionLabel,
+  requireReportsPermission = false,
   searchParams
 }: ItemCardPageProps) {
   const [context, params] = await Promise.all([
@@ -50,6 +53,17 @@ export async function ItemCardPage({
   }
 
   if (!context.allowed) {
+    return <InventoryAccessDenied title="Kartica artikla" />;
+  }
+
+  if (
+    requireReportsPermission &&
+    !(await hasPermission(context.user, {
+      firmaId: context.firma.id,
+      modul: "izvjestaji",
+      akcija: "view"
+    }))
+  ) {
     return <InventoryAccessDenied title="Kartica artikla" />;
   }
 

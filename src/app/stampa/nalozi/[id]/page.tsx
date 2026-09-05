@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
 import { formatJournalCode, journalStatusLabel } from "@/lib/journals";
+import { hasAllPermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 type NalogPrintPageProps = {
@@ -67,6 +68,7 @@ export default async function NalogPrintPage({ params }: NalogPrintPageProps) {
       },
       firma: {
         select: {
+          id: true,
           naziv: true,
           pib: true
         }
@@ -118,6 +120,15 @@ export default async function NalogPrintPage({ params }: NalogPrintPageProps) {
   });
 
   if (!nalog) {
+    notFound();
+  }
+
+  if (
+    !(await hasAllPermissions(user, [
+      { firmaId: nalog.firma.id, modul: "nalozi", akcija: "view" },
+      { firmaId: nalog.firma.id, modul: "nalozi", akcija: "export" }
+    ]))
+  ) {
     notFound();
   }
 

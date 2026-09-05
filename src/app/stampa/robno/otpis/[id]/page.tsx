@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
 import { inventoryWriteOffReasonLabel, inventoryWriteOffStatusLabel } from "@/lib/inventory-write-off";
+import { hasAllPermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 function number(value: { toString(): string } | null, digits = 2) {
@@ -16,6 +17,10 @@ export default async function InventoryWriteOffPrintPage({ params }: { params: P
   if (!user.agencija_id) notFound();
   const writeOff = await prisma.otpisRobe.findFirst({ where: { id, agencija_id: user.agencija_id, is_deleted: false, ...(user.rola === "admin_agencije" ? {} : { firma: { korisnici: { some: { korisnik_id: user.id, is_deleted: false } } } }) }, include: { firma: true, poslovna_godina: { select: { godina: true } }, magacin: true, poslovna_jedinica: true, nalog: { select: { sifra: true } }, stavke: { include: { artikal: { include: { jedinica_mjere: true } } }, orderBy: { redni_broj: "asc" } } } });
   if (!writeOff) notFound();
+  if (!(await hasAllPermissions(user, [
+    { firmaId: writeOff.firma_id, modul: "robno", akcija: "view" },
+    { firmaId: writeOff.firma_id, modul: "robno", akcija: "export" }
+  ]))) notFound();
   const draftCost = writeOff.stavke.reduce((sum, line) => sum + Number(line.nabavna_vrijednost), 0);
   const totalCost = writeOff.status === "POSTED" ? number(writeOff.ukupna_nabavna_vrijednost) : draftCost.toLocaleString("sr-Latn-ME", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

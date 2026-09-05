@@ -10,8 +10,8 @@ const errors: Record<string, string> = {
 function dateValue(date: Date) { return date.toISOString().slice(0, 10); }
 
 export default async function PosBatchPage({ searchParams }: { searchParams: Promise<{ poruka?: string; uspjeh?: string }> }) {
-  const [query, ctx] = await Promise.all([searchParams, getPosContext("manage")]);
-  if (!ctx.firma || !ctx.year || !ctx.allowed) return <section className="admin-panel"><p>Nemate pravo upravljanja POS obradom.</p></section>;
+  const [query, ctx] = await Promise.all([searchParams, getPosContext("post")]);
+  if (!ctx.firma || !ctx.year || !ctx.allowed) return <section className="admin-panel"><p>Nemate pravo knjiženja POS obrade.</p></section>;
   const [settings, batches, businessUnits] = await Promise.all([
     prisma.posPodesavanje.findUnique({ where: { firma_id: ctx.firma.id } }),
     prisma.posKifBatch.findMany({ where: { firma_id: ctx.firma.id, poslovna_godina_id: ctx.year.id }, include: { kif_entry: { select: { kif_book_id: true, internal_kif_number: true, posting_status: true } }, accounting_batch: { select: { status: true, journal_id: true } } }, orderBy: { period_from: "desc" }, take: 50 }),

@@ -4,6 +4,7 @@ import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
 import { PartnerFilterSelect } from "@/components/PartnerFilterSelect";
 import { requireAnyRole } from "@/lib/auth";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
+import { hasAllPermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -55,6 +56,9 @@ export default async function AnalitickeKarticePage({
   const workContext = await readWorkContext();
   const params = await searchParams;
   const variant = params?.prikaz === "partner" ? "partner" : "account";
+  const permissionModules = params?.prikaz
+    ? ["izvjestaji", "nalozi"]
+    : ["nalozi"];
   const title = variant === "account" ? "Kartice konta" : "Kartice partnera";
   const basePath =
     params?.prikaz === "account"
@@ -85,6 +89,19 @@ export default async function AnalitickeKarticePage({
         </section>
       </div>
     );
+  }
+
+  const allowed = await hasAllPermissions(
+    user,
+    permissionModules.map((modul) => ({
+      firmaId: workContext.firmaId,
+      modul,
+      akcija: "view" as const
+    }))
+  );
+
+  if (!allowed) {
+    return <p className="admin-message">Nemate pravo pregleda kartica.</p>;
   }
 
   const [firma, godina, accounts, businessUnits] = await Promise.all([

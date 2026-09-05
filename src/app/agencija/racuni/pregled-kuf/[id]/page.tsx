@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAnyRole } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
+import { requirePermissionForUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -76,6 +77,14 @@ export default async function PregledKufDetailPage({ params }: PregledKufDetailP
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const { id } = await params;
   const workContext = await readWorkContext();
+
+  if (workContext.firmaId) {
+    await requirePermissionForUser(user, {
+      firmaId: workContext.firmaId,
+      modul: "ulazni_racuni",
+      akcija: "view"
+    });
+  }
 
   if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
     return (

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
+import { hasAllPermissions } from "@/lib/permissions";
 import {
   buildIoppdMonthData,
   buildIoppdReportLines,
@@ -75,11 +75,10 @@ export default async function IoppdPrintPage({ searchParams }: PageProps) {
     );
   }
 
-  const allowed = await hasPermission(user, {
-    firmaId: workContext.firmaId,
-    modul: "plate",
-    akcija: "view"
-  });
+  const allowed = await hasAllPermissions(user, [
+    { firmaId: workContext.firmaId, modul: "plate", akcija: "view" },
+    { firmaId: workContext.firmaId, modul: "plate", akcija: "export" }
+  ]);
 
   if (!allowed) {
     return (

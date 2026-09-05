@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
+import { hasAllPermissions } from "@/lib/permissions";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { kifEntryKinds } from "@/lib/kif-pazar";
 import { prisma } from "@/lib/prisma";
@@ -89,6 +90,15 @@ export default async function KifPrintPage({ searchParams }: KifPrintPageProps) 
         </section>
       </main>
     );
+  }
+
+  if (
+    !(await hasAllPermissions(user, [
+      { firmaId: workContext.firmaId, modul: "izlazni_racuni", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "izlazni_racuni", akcija: "export" }
+    ]))
+  ) {
+    return <main className="print-page"><p>Nemate pravo štampe KIF-a.</p></main>;
   }
 
   const [firma, godina, books] = await Promise.all([

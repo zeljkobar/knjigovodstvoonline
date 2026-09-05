@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
 import { journalStatuses } from "@/lib/journals";
+import { requirePermissionForUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -63,6 +64,14 @@ export default async function BilansiPage({ searchParams }: BilansiPageProps) {
           select: { id: true, godina: true, zakljucena: true }
         })
       : null;
+
+  if (activeCompany) {
+    await requirePermissionForUser(user, {
+      firmaId: activeCompany.id,
+      modul: "nalozi",
+      akcija: "view"
+    });
+  }
 
   const baseWhere = {
     firma_id: activeCompany?.id ?? "",

@@ -17,6 +17,7 @@ import { VatTransactionTypeSelect } from "@/components/VatTransactionTypeSelect"
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
+import { requirePermissionForUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { vatTransactionLabels } from "@/lib/vat-transaction";
 import { readWorkContext } from "@/lib/work-context";
@@ -151,6 +152,14 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
   const message =
     baseMessage && query?.detalj ? `${baseMessage} ${query.detalj}` : baseMessage;
   const workContext = await readWorkContext();
+
+  if (workContext.firmaId) {
+    await requirePermissionForUser(user, {
+      firmaId: workContext.firmaId,
+      modul: "ulazni_racuni",
+      akcija: "view"
+    });
+  }
 
   if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
     return (

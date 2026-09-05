@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auditLog } from "@/lib/audit";
 import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
+import { hasAnyPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -101,6 +102,20 @@ export async function POST(request: Request) {
 
   if (!firma) {
     return NextResponse.json({ message: "Firma nije dostupna." }, { status: 403 });
+  }
+
+  const allowed = await hasAnyPermission(user, [
+    { firmaId: firma.id, modul: "nalozi", akcija: "create" },
+    { firmaId: firma.id, modul: "ulazni_racuni", akcija: "create" },
+    { firmaId: firma.id, modul: "izlazni_racuni", akcija: "create" },
+    { firmaId: firma.id, modul: "robno", akcija: "create" },
+    { firmaId: firma.id, modul: "kalkulacije", akcija: "create" },
+    { firmaId: firma.id, modul: "pos", akcija: "create" },
+    { firmaId: firma.id, modul: "izvodi", akcija: "update" }
+  ]);
+
+  if (!allowed) {
+    return NextResponse.json({ message: "Nemate pravo unosa partnera." }, { status: 403 });
   }
 
   const partner = await prisma.$transaction(async (tx) => {

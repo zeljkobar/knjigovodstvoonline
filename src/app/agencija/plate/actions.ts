@@ -33,6 +33,7 @@ import {
 } from "@/lib/payroll-posting";
 import { getM4Data } from "@/lib/payroll-m4";
 import { prisma } from "@/lib/prisma";
+import type { PermissionAction } from "@/lib/permissions";
 import { getPlateContext } from "./_shared";
 
 function text(value: FormDataEntryValue | null) {
@@ -123,8 +124,11 @@ function automaticPayrollPeriodAndHours({
   };
 }
 
-async function requirePlateManageContext(returnPath: string) {
-  const context = await getPlateContext("manage");
+async function requirePlateActionContext(
+  action: PermissionAction,
+  returnPath: string
+) {
+  const context = await getPlateContext(action);
 
   if (!context.firma || !context.godina || !context.user.agencija_id) {
     redirect(`${returnPath}?poruka=kontekst`);
@@ -519,7 +523,7 @@ async function effectiveIncomeType(
 }
 
 function payrollEmployeeEligibilityWhere(
-  context: Awaited<ReturnType<typeof requirePlateManageContext>>,
+  context: Awaited<ReturnType<typeof requirePlateActionContext>>,
   calculation: Pick<PlateObracun, "kategorija" | "datum_od" | "datum_do">,
   employeeId?: string
 ): Prisma.PlateRadnikWhereInput {
@@ -570,7 +574,7 @@ async function effectiveCalculationType(calculationTypeId?: string | null) {
 
 export async function savePayrollBasisRule(formData: FormData) {
   await requireRole("admin_agencije");
-  const context = await requirePlateManageContext("/agencija/plate/podesavanja");
+  const context = await requirePlateActionContext("manage", "/agencija/plate/podesavanja");
   const basisId = text(formData.get("osnova_id"));
   const ruleId = text(formData.get("pravilo_id"));
   const name = text(formData.get("naziv"));
@@ -709,7 +713,7 @@ export async function savePayrollBasisRule(formData: FormData) {
 export async function savePayrollPostingSettings(formData: FormData) {
   await requireRole("admin_agencije");
   const returnPath = "/agencija/plate/podesavanja";
-  const context = await requirePlateManageContext(returnPath);
+  const context = await requirePlateActionContext("manage", returnPath);
   const category = text(formData.get("kategorija"));
   const journalTypeId = text(formData.get("vrsta_naloga_id"));
 
@@ -1211,7 +1215,7 @@ export async function postPayrollCalculation(formData: FormData) {
 }
 
 export async function saveM4MonthlyPayment(formData: FormData) {
-  const context = await requirePlateManageContext("/agencija/plate/obrasci/m4");
+  const context = await requirePlateActionContext("update", "/agencija/plate/obrasci/m4");
   const month = numberValue(formData.get("mjesec"));
   const paymentMode = text(formData.get("nacin"));
   let moneyFields = {
@@ -1308,7 +1312,7 @@ export async function saveM4MonthlyPayment(formData: FormData) {
 }
 
 export async function createPayrollEmployee(formData: FormData) {
-  const context = await requirePlateManageContext("/agencija/plate");
+  const context = await requirePlateActionContext("create", "/agencija/plate");
   const ime = text(formData.get("ime"));
   const prezime = text(formData.get("prezime"));
   const neto = parseMoneyToCents(formData.get("neto_iznos"));
@@ -1371,7 +1375,7 @@ export async function createPayrollEmployee(formData: FormData) {
 }
 
 export async function updatePayrollEmployee(formData: FormData) {
-  const context = await requirePlateManageContext("/agencija/plate");
+  const context = await requirePlateActionContext("update", "/agencija/plate");
   const employeeId = text(formData.get("radnik_id"));
   const ime = text(formData.get("ime"));
   const prezime = text(formData.get("prezime"));
@@ -1454,7 +1458,7 @@ export async function updatePayrollEmployee(formData: FormData) {
 }
 
 export async function deactivatePayrollEmployee(formData: FormData) {
-  const context = await requirePlateManageContext("/agencija/plate");
+  const context = await requirePlateActionContext("delete", "/agencija/plate");
   const employeeId = text(formData.get("radnik_id"));
   const endDate = dateValue(formData.get("datum_prestanka"));
   const reason = text(formData.get("razlog_prestanka"));
@@ -1513,7 +1517,7 @@ export async function deactivatePayrollEmployee(formData: FormData) {
 }
 
 export async function reactivatePayrollEmployee(formData: FormData) {
-  const context = await requirePlateManageContext("/agencija/plate");
+  const context = await requirePlateActionContext("update", "/agencija/plate");
   const employeeId = text(formData.get("radnik_id"));
 
   if (!employeeId) {
@@ -1570,7 +1574,7 @@ export async function reactivatePayrollEmployee(formData: FormData) {
 }
 
 export async function createPayrollCalculation(formData: FormData) {
-  const context = await requirePlateManageContext("/agencija/plate/obracun");
+  const context = await requirePlateActionContext("create", "/agencija/plate/obracun");
   const category = text(formData.get("kategorija")) || payrollCategories.regularWork;
   const month = numberValue(formData.get("mjesec"));
   const year = numberValue(formData.get("godina"), context.godina.godina);
@@ -1660,7 +1664,7 @@ export async function createPayrollCalculation(formData: FormData) {
 
 export async function deletePayrollCalculation(formData: FormData) {
   const calculationId = text(formData.get("obracun_id"));
-  const context = await requirePlateManageContext("/agencija/plate/obracun");
+  const context = await requirePlateActionContext("delete", "/agencija/plate/obracun");
 
   if (!calculationId) {
     redirect("/agencija/plate/obracun?poruka=obracun_obavezan");
@@ -1705,7 +1709,7 @@ export async function deletePayrollCalculation(formData: FormData) {
   redirect("/agencija/plate/obracun?poruka=obracun_obrisan");
 }
 
-async function getEditableCalculation(calculationId: string, context: Awaited<ReturnType<typeof requirePlateManageContext>>) {
+async function getEditableCalculation(calculationId: string, context: Awaited<ReturnType<typeof requirePlateActionContext>>) {
   const calculation = await prisma.plateObracun.findFirst({
     where: {
       id: calculationId,
@@ -1854,7 +1858,7 @@ async function createCalculationWorkerWithDefaultLine({
   tx: Prisma.TransactionClient;
   calculation: PlateObracun;
   employee: PlateRadnik | null;
-  context: Awaited<ReturnType<typeof requirePlateManageContext>>;
+  context: Awaited<ReturnType<typeof requirePlateActionContext>>;
   redniBroj: number;
 }) {
   if (!employee) {
@@ -1962,7 +1966,7 @@ async function createCalculationWorkerWithDefaultLine({
   };
 }
 
-async function preparePayrollLines(calculationId: string, context: Awaited<ReturnType<typeof requirePlateManageContext>>) {
+async function preparePayrollLines(calculationId: string, context: Awaited<ReturnType<typeof requirePlateActionContext>>) {
   const calculation = await getEditableCalculation(calculationId, context);
 
   if (!calculation) {
@@ -2041,7 +2045,7 @@ async function preparePayrollLines(calculationId: string, context: Awaited<Retur
 
 export async function preparePayrollCalculation(formData: FormData) {
   const calculationId = text(formData.get("obracun_id"));
-  const context = await requirePlateManageContext("/agencija/plate/obracun");
+  const context = await requirePlateActionContext("update", "/agencija/plate/obracun");
 
   if (!calculationId) {
     redirect("/agencija/plate/obracun?poruka=obracun_obavezan");
@@ -2077,7 +2081,7 @@ export async function preparePayrollCalculation(formData: FormData) {
 export async function addPayrollWorkerToCalculation(formData: FormData) {
   const calculationId = text(formData.get("obracun_id"));
   const employeeId = text(formData.get("radnik_id"));
-  const context = await requirePlateManageContext("/agencija/plate/obracun");
+  const context = await requirePlateActionContext("create", "/agencija/plate/obracun");
 
   if (!calculationId || !employeeId) {
     redirect(`/agencija/plate/obracun?obracun=${calculationId}&poruka=radnik_nevalidan`);
@@ -2174,7 +2178,7 @@ export async function addPayrollWorkerToCalculation(formData: FormData) {
 export async function removePayrollWorkerFromCalculation(formData: FormData) {
   const calculationId = text(formData.get("obracun_id"));
   const employeeId = text(formData.get("radnik_id"));
-  const context = await requirePlateManageContext("/agencija/plate/obracun");
+  const context = await requirePlateActionContext("delete", "/agencija/plate/obracun");
 
   if (!calculationId || !employeeId) {
     redirect(`/agencija/plate/obracun?obracun=${calculationId}&poruka=radnik_nevalidan`);
@@ -2251,7 +2255,7 @@ export async function removePayrollWorkerFromCalculation(formData: FormData) {
 export async function updatePayrollCalculationLine(formData: FormData) {
   const lineId = text(formData.get("stavka_id"));
   const calculationId = text(formData.get("obracun_id"));
-  const context = await requirePlateManageContext("/agencija/plate/obracun");
+  const context = await requirePlateActionContext("update", "/agencija/plate/obracun");
   const neto = parseMoneyToCents(formData.get("input_neto"));
   const bruto = parseMoneyToCents(formData.get("input_bruto"));
   const fiksniDio = parseMoneyToCents(formData.get("fiksni_dio"));
@@ -2437,7 +2441,7 @@ export async function updatePayrollCalculationLine(formData: FormData) {
 export async function addPayrollCalculationLine(formData: FormData) {
   const calculationId = text(formData.get("obracun_id"));
   const workerId = text(formData.get("radnik_id"));
-  const context = await requirePlateManageContext("/agencija/plate/obracun");
+  const context = await requirePlateActionContext("create", "/agencija/plate/obracun");
   const neto = parseMoneyToCents(formData.get("input_neto"));
   const bruto = parseMoneyToCents(formData.get("input_bruto"));
   const fiksniDio = parseMoneyToCents(formData.get("fiksni_dio"));
@@ -2586,7 +2590,7 @@ export async function addPayrollCalculationLine(formData: FormData) {
 
 export async function calculatePayrollCalculation(formData: FormData) {
   const calculationId = text(formData.get("obracun_id"));
-  const context = await requirePlateManageContext("/agencija/plate/obracun");
+  const context = await requirePlateActionContext("update", "/agencija/plate/obracun");
 
   if (!calculationId) {
     redirect("/agencija/plate/obracun?poruka=obracun_obavezan");

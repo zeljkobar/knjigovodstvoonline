@@ -2,6 +2,7 @@ import { KifBookForm } from "@/components/KifBookForm";
 import { invoicePostingDocumentTypes } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { ensureDefaultInvoiceBookTypes } from "@/lib/invoice-books";
+import { requirePermissionForUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -24,6 +25,14 @@ export default async function KifPage({ searchParams }: KifPageProps) {
   const params = await searchParams;
   const message = params?.poruka ? poruke[params.poruka] : null;
   const workContext = await readWorkContext();
+
+  if (workContext.firmaId) {
+    await requirePermissionForUser(user, {
+      firmaId: workContext.firmaId,
+      modul: "izlazni_racuni",
+      akcija: "view"
+    });
+  }
 
   if (!user.agencija_id) {
     return null;

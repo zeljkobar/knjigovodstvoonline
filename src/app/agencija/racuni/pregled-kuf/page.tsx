@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { invoicePostingDocumentTypes } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
+import { requirePermissionForUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 import { deleteKufBook } from "../actions";
@@ -111,6 +112,14 @@ function hrefWithDateFilters(basePath: string, params?: { datum_do?: string; dat
 export default async function PregledKufPage({ searchParams }: PregledKufPageProps) {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const workContext = await readWorkContext();
+
+  if (workContext.firmaId) {
+    await requirePermissionForUser(user, {
+      firmaId: workContext.firmaId,
+      modul: "ulazni_racuni",
+      akcija: "view"
+    });
+  }
   const params = await searchParams;
   const dateFrom = parseDateFilter(params?.datum_od);
   const dateTo = parseDateFilter(params?.datum_do);

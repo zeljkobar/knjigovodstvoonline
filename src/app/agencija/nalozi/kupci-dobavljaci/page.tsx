@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
 import { requireAnyRole } from "@/lib/auth";
+import { requirePermissionForUser } from "@/lib/permissions";
 import { journalStatuses } from "@/lib/journals";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
@@ -82,6 +83,12 @@ export default async function KupciDobavljaciPage({
       </div>
     );
   }
+
+  await requirePermissionForUser(user, {
+    firmaId: workContext.firmaId,
+    modul: "nalozi",
+    akcija: "view"
+  });
 
   const [firma, godina, accounts, lines] = await Promise.all([
     prisma.firma.findFirst({

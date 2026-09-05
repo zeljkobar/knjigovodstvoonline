@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
+import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import {
   decimalToInventoryScaled,
@@ -18,6 +19,7 @@ type LagerListPageProps = {
   basePath: string;
   itemCardPath: string;
   sectionLabel: string;
+  requireReportsPermission?: boolean;
   searchParams?: Promise<{
     grupa?: string;
     magacin?: string;
@@ -32,6 +34,7 @@ export async function LagerListPage({
   basePath,
   itemCardPath,
   sectionLabel,
+  requireReportsPermission = false,
   searchParams
 }: LagerListPageProps) {
   const [context, params] = await Promise.all([
@@ -44,6 +47,17 @@ export async function LagerListPage({
   }
 
   if (!context.allowed) {
+    return <InventoryAccessDenied title="Lager lista" />;
+  }
+
+  if (
+    requireReportsPermission &&
+    !(await hasPermission(context.user, {
+      firmaId: context.firma.id,
+      modul: "izvjestaji",
+      akcija: "view"
+    }))
+  ) {
     return <InventoryAccessDenied title="Lager lista" />;
   }
 

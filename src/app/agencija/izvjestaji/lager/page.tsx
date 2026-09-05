@@ -14,6 +14,7 @@ export default function ReportsLagerPage({ searchParams }: PageProps) {
     <LagerListPage
       basePath="/agencija/izvjestaji/lager"
       itemCardPath="/agencija/izvjestaji/kartica-artikla"
+      requireReportsPermission
       sectionLabel="Izvještaji / Robno"
       searchParams={searchParams}
     />

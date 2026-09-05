@@ -9,6 +9,7 @@ import { BankStatementImportForm } from "./BankStatementImportForm";
 import { PartnerSearchInput } from "@/components/PartnerSearchInput";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
+import { requirePermissionForUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -161,6 +162,14 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
           }
         })
       : null;
+
+  if (activeCompany) {
+    await requirePermissionForUser(user, {
+      firmaId: activeCompany.id,
+      modul: "izvodi",
+      akcija: "view"
+    });
+  }
 
   const [bankAccounts, bankSettings, baseAccounts, companyOverrides, statements, businessUnits] =
     activeCompany && activeYear

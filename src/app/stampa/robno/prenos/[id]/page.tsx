@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
 import { inventoryTransferStatusLabel } from "@/lib/inventory-transfer";
+import { hasAllPermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 function number(value: { toString(): string }, digits = 2) {
@@ -18,6 +19,10 @@ export default async function InventoryTransferPrintPage({ params }: { params: P
     include: { firma: true, poslovna_godina: { select: { godina: true } }, izvorni_magacin: true, odredisni_magacin: true, izvorna_poslovna_jedinica: true, odredisna_poslovna_jedinica: true, nalog: { select: { sifra: true } }, stavke: { include: { artikal: { include: { jedinica_mjere: true } } }, orderBy: { redni_broj: "asc" } } }
   });
   if (!transfer) notFound();
+  if (!(await hasAllPermissions(user, [
+    { firmaId: transfer.firma_id, modul: "robno", akcija: "view" },
+    { firmaId: transfer.firma_id, modul: "robno", akcija: "export" }
+  ]))) notFound();
   return <main className="print-page"><div className="print-toolbar"><Link className="print-button print-back-button" href={`/agencija/robno/prenos/${transfer.id}`}>Nazad</Link><PrintButton label="Štampaj prenos" /></div><article className="calculation-print-document">
     <header className="calculation-print-header"><div><strong>{transfer.firma.naziv}</strong><span>{[transfer.firma.adresa, transfer.firma.grad].filter(Boolean).join(", ")}</span><span>PIB: {transfer.firma.pib ?? "-"}</span></div><div className="calculation-print-title"><p>Robno knjigovodstvo</p><h1>PRENOS ROBE</h1><strong>{transfer.interni_broj}</strong></div><div className="calculation-print-status"><span>Status</span><strong>{inventoryTransferStatusLabel(transfer.status)}</strong><span>Godina {transfer.poslovna_godina.godina}</span></div></header>
     <section className="calculation-print-meta"><div><span>Iz magacina</span><strong>{transfer.izvorni_magacin.sifra} · {transfer.izvorni_magacin.naziv}</strong><small>{transfer.izvorna_poslovna_jedinica ? `Poslovna jedinica: ${transfer.izvorna_poslovna_jedinica.sifra} · ${transfer.izvorna_poslovna_jedinica.naziv}` : "Bez poslovne jedinice"}</small></div><div><span>U magacin</span><strong>{transfer.odredisni_magacin.sifra} · {transfer.odredisni_magacin.naziv}</strong><small>{transfer.odredisna_poslovna_jedinica ? `Poslovna jedinica: ${transfer.odredisna_poslovna_jedinica.sifra} · ${transfer.odredisna_poslovna_jedinica.naziv}` : "Bez poslovne jedinice"}</small></div><div><span>Datum prenosa</span><strong>{transfer.datum.toLocaleDateString("sr-Latn-ME")}</strong><small>Nalog: {transfer.nalog?.sifra ?? "-"}</small></div><div><span>Napomena</span><strong>{transfer.napomena ?? "-"}</strong></div></section>

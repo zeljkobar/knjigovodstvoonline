@@ -1,9 +1,9 @@
 import { requireAnyRole } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
+import { hasPermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
-export async function getPlateContext(action: "view" | "create" | "update" | "delete" | "post" | "manage" = "view") {
+export async function getPlateContext(action: PermissionAction = "view") {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const workContext = await readWorkContext();
 

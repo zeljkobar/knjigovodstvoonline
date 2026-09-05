@@ -1,0 +1,2 @@
+Modul,Status,Implementirano,Otvoreno,Napomena
+Korisnici i prava,Operativni audit završen,"Backend prava po akciji proširena su na KIF/KUF, izvode, plate, POS, robno, izvještaje, pomoćne API rute i poslovnu štampu. Podmeniji prate prava aktivne firme, a print traži view i export.","Uz svaku novu rutu dodati permission regresioni test; nastaviti audit pokriće događaja i završiti pretplate/limite.","TypeScript, osam test paketa, runtime radnički scenario i diff provjera prolaze; ESLint nema grešaka i zadržava četiri ranija upozorenja."

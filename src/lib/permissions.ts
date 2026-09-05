@@ -5,11 +5,40 @@ import type { PermissionAction } from "./permission-policy";
 
 export type { PermissionAction } from "./permission-policy";
 
-type PermissionCheck = {
+export type PermissionCheck = {
   firmaId?: string | null;
   modul: string;
   akcija: PermissionAction;
 };
+
+export async function hasAnyPermission(
+  user: Awaited<ReturnType<typeof getCurrentUser>>,
+  checks: PermissionCheck[]
+) {
+  const results = await Promise.all(checks.map((check) => hasPermission(user, check)));
+
+  return results.some(Boolean);
+}
+
+export async function hasAllPermissions(
+  user: Awaited<ReturnType<typeof getCurrentUser>>,
+  checks: PermissionCheck[]
+) {
+  const results = await Promise.all(checks.map((check) => hasPermission(user, check)));
+
+  return results.every(Boolean);
+}
+
+export async function hasAnyPermissionSet(
+  user: Awaited<ReturnType<typeof getCurrentUser>>,
+  sets: PermissionCheck[][]
+) {
+  const results = await Promise.all(
+    sets.map((checks) => hasAllPermissions(user, checks))
+  );
+
+  return results.some(Boolean);
+}
 
 export async function requireAgencyUser() {
   const user = await getCurrentUser();
@@ -120,6 +149,18 @@ export async function requirePermission(check: PermissionCheck) {
 
   if (!allowed) {
     redirect("/?greska=prava");
+  }
+
+  return user;
+}
+
+export async function requirePermissionForUser(
+  user: Awaited<ReturnType<typeof getCurrentUser>>,
+  check: PermissionCheck,
+  fallback = "/?greska=prava"
+) {
+  if (!(await hasPermission(user, check))) {
+    redirect(fallback);
   }
 
   return user;

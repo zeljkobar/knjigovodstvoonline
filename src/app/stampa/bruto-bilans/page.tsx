@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
+import { hasAnyPermissionSet } from "@/lib/permissions";
 import { standardJournalTypes } from "@/lib/journals";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
@@ -80,6 +81,25 @@ export default async function BrutoBilansPrintPage({ searchParams }: BrutoBilans
         </section>
       </main>
     );
+  }
+
+  const printAllowed = await hasAnyPermissionSet(user, [
+    [
+      { firmaId: workContext.firmaId, modul: "nalozi", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "nalozi", akcija: "export" }
+    ],
+    [
+      { firmaId: workContext.firmaId, modul: "izvjestaji", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "izvjestaji", akcija: "export" }
+    ],
+    [
+      { firmaId: workContext.firmaId, modul: "zavrsni_racun", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "zavrsni_racun", akcija: "export" }
+    ]
+  ]);
+
+  if (!printAllowed) {
+    return <main className="print-page"><p>Nemate pravo štampe bruto bilansa.</p></main>;
   }
 
   const [firma, godina, accounts, stavke] = await Promise.all([

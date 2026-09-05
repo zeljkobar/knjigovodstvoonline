@@ -1,7 +1,7 @@
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
 import { calculateStatisticalAnnex } from "@/lib/financial-reports";
-import { hasPermission } from "@/lib/permissions";
+import { hasAllPermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -36,11 +36,10 @@ export default async function StatistickiAneksPrintPage() {
     );
   }
 
-  const allowed = await hasPermission(user, {
-    firmaId: workContext.firmaId,
-    modul: "zavrsni_racun",
-    akcija: "view"
-  });
+  const allowed = await hasAllPermissions(user, [
+    { firmaId: workContext.firmaId, modul: "zavrsni_racun", akcija: "view" },
+    { firmaId: workContext.firmaId, modul: "zavrsni_racun", akcija: "export" }
+  ]);
 
   if (!allowed) {
     return (

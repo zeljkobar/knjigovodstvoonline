@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAnyRole } from "@/lib/auth";
 import { journalStatuses } from "@/lib/journals";
+import { hasAllPermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -32,6 +33,15 @@ export default async function ResultByBusinessUnitPage({ searchParams }: PagePro
 
   if (!user.agencija_id || !context.firmaId || !context.poslovnaGodinaId) {
     return <p className="admin-message">Izaberite firmu i poslovnu godinu.</p>;
+  }
+
+  if (
+    !(await hasAllPermissions(user, [
+      { firmaId: context.firmaId, modul: "izvjestaji", akcija: "view" },
+      { firmaId: context.firmaId, modul: "nalozi", akcija: "view" }
+    ]))
+  ) {
+    return <p className="admin-message">Nemate pravo pregleda ovog izvještaja.</p>;
   }
 
   const dateFrom = dateValue(query?.od);

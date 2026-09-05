@@ -6,7 +6,7 @@ import { generatePosKifBatch } from "@/lib/pos-batches";
 import { posModule, requirePosContext } from "@/lib/pos";
 
 export async function createPosBatch(formData: FormData) {
-  const ctx = await requirePosContext("manage");
+  const ctx = await requirePosContext("post");
   const mode = String(formData.get("mode") ?? "").trim();
   const rawDate = String(formData.get("period_date") ?? "").trim();
   const rawBusinessUnitId = String(formData.get("poslovna_jedinica_id") ?? "").trim();

@@ -15,6 +15,7 @@ export default function ZavrsniRacunBrutoBilansPage({ searchParams }: BrutoBilan
   return (
     <BrutoBilansView
       basePath="/agencija/zavrsni-racun/bruto-bilans"
+      permissionModules={["zavrsni_racun"]}
       searchParams={searchParams}
     />
   );

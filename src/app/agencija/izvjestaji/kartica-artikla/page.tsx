@@ -14,6 +14,7 @@ export default function ReportsItemCardPage({ searchParams }: PageProps) {
     <ItemCardPage
       basePath="/agencija/izvjestaji/kartica-artikla"
       lagerPath="/agencija/izvjestaji/lager"
+      requireReportsPermission
       sectionLabel="Izvještaji / Robno"
       searchParams={searchParams}
     />

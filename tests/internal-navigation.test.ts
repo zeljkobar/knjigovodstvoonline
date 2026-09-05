@@ -76,6 +76,44 @@ test("radnik ne vidi podešavanja unutar poslovnih modula", () => {
   }
 });
 
+test("KIF/KUF podmeni prati odvojena prava pregleda i unosa", () => {
+  const items = getSubNavigation(
+    "racuni",
+    "korisnik_agencije",
+    new Set(["izlazni_racuni:view", "ulazni_racuni:create"])
+  );
+  const hrefs = items.map((item) => item.href);
+
+  assert.equal(hrefs.includes("/agencija/racuni/kif"), true);
+  assert.equal(hrefs.includes("/agencija/racuni/pregled-kif"), true);
+  assert.equal(hrefs.includes("/agencija/racuni/kuf"), false);
+  assert.equal(hrefs.includes("/agencija/racuni/pregled-kuf"), false);
+  assert.equal(hrefs.includes("/agencija/racuni/neproknjizeno"), true);
+  assert.equal(hrefs.includes("/agencija/racuni/import"), true);
+});
+
+test("pravila knjiženja izvoda traže pravo administracije modula", () => {
+  const withoutManage = getSubNavigation(
+    "izvodi",
+    "korisnik_agencije",
+    new Set(["izvodi:view"])
+  );
+  const withManage = getSubNavigation(
+    "izvodi",
+    "korisnik_agencije",
+    new Set(["izvodi:view", "izvodi:manage"])
+  );
+
+  assert.equal(
+    withoutManage.some((item) => item.href === "/agencija/izvodi/pravila"),
+    false
+  );
+  assert.equal(
+    withManage.some((item) => item.href === "/agencija/izvodi/pravila"),
+    true
+  );
+});
+
 test("statistika aktivnosti radnika je samo u admin podmeniju", () => {
   const workerItems = getSubNavigation("dashboard", "korisnik_agencije");
   const adminItems = getSubNavigation("dashboard", "admin_agencije");

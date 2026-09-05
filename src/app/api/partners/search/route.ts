@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
-import { hasPermission } from "@/lib/permissions";
+import { hasAnyPermission, hasPermission } from "@/lib/permissions";
 
 function normalizeSearch(value: unknown) {
   return String(value ?? "").trim();
@@ -66,6 +66,22 @@ export async function GET(request: Request) {
   }
   if (user.rola === "klijent" && !(await hasPermission(user, { firmaId: workContext.firmaId, modul: "pos", akcija: "create" }))) {
     return NextResponse.json({ message: "Nemate pravo POS prodaje." }, { status: 403 });
+  }
+
+  if (
+    user.rola !== "klijent" &&
+    !(await hasAnyPermission(user, [
+      { firmaId: workContext.firmaId, modul: "nalozi", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "ulazni_racuni", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "izlazni_racuni", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "robno", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "kalkulacije", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "pos", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "izvodi", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "izvjestaji", akcija: "view" }
+    ]))
+  ) {
+    return NextResponse.json({ message: "Nemate pravo pregleda partnera." }, { status: 403 });
   }
 
   const url = new URL(request.url);

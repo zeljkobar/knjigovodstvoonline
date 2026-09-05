@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createPartner, updatePartner } from "../actions";
 import { PartnerForm } from "@/components/PartnerForm";
 import { requireAnyRole } from "@/lib/auth";
+import { requirePermissionForUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -39,6 +40,14 @@ export default async function PartneriPage({ searchParams }: PartneriPageProps) 
   const message = params?.poruka ? poruke[params.poruka] : null;
   const editPartnerId = params?.partner ?? "";
   const workContext = await readWorkContext();
+
+  if (workContext.firmaId) {
+    await requirePermissionForUser(user, {
+      firmaId: workContext.firmaId,
+      modul: "nalozi",
+      akcija: "view"
+    });
+  }
 
   if (!user.agencija_id) {
     return null;

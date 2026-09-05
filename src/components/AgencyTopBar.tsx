@@ -20,6 +20,7 @@ type AgencyTopBarProps = {
     pib: string | null;
   }>;
   navigation: NavigationItem[];
+  permissionKeys: string[];
   userName: string;
   userRole: SessionUser["rola"];
   years: Array<{
@@ -36,6 +37,7 @@ export function AgencyTopBar({
   currentYear,
   firms,
   navigation,
+  permissionKeys,
   userName,
   userRole,
   years
@@ -43,7 +45,9 @@ export function AgencyTopBar({
   const pathname = usePathname();
   const section = getSectionFromPath(pathname);
   const currentSection = navigation.find((item) => item.section === section);
-  const subItems = currentSection ? getSubNavigation(section, userRole) : [];
+  const subItems = currentSection
+    ? getSubNavigation(section, userRole, new Set(permissionKeys))
+    : [];
   const activeSubItem = subItems.find(
     (item) =>
       pathname === item.href ||

@@ -25,7 +25,7 @@ export default async function PosReceiptPrintPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ sirina?: string }>;
 }) {
-  const ctx = await getPosContext("view");
+  const ctx = await getPosContext(["view", "export"]);
   const { id } = await params;
   const query = await searchParams;
   if (!ctx.firma || !ctx.year || !ctx.allowed || !ctx.user.agencija_id)

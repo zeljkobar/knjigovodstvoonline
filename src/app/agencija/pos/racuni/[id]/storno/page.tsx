@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { createAndFiscalizePosStorno } from "../../../actions";
 
 export default async function PosStornoPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ poruka?: string }> }) {
-  const [{ id }, query, ctx] = await Promise.all([params, searchParams, getPosContext("manage")]);
+  const [{ id }, query, ctx] = await Promise.all([params, searchParams, getPosContext("cancel")]);
   if (!ctx.firma || !ctx.year || !ctx.allowed) return <section className="admin-panel"><p>Nemate pravo storniranja POS računa.</p></section>;
   const invoice = await prisma.fiskalniIzlazniRacun.findFirst({ where: { id, agencija_id: ctx.user.agencija_id!, firma_id: ctx.firma.id, poslovna_godina_id: ctx.year.id, sales_channel: "POS", document_type: "POS_RECEIPT", is_deleted: false }, include: { stavke: { orderBy: { redni_broj: "asc" } }, corrective_invoices: { where: { is_deleted: false }, select: { id: true } } } });
   if (!invoice) notFound();

@@ -93,7 +93,7 @@ async function preserveConfirmedPosActionResult(input: {
 }
 
 export async function createAndFiscalizePosSale(formData: FormData) {
-  const ctx = await requirePosContext("create");
+  const ctx = await requirePosContext(["create", "post"]);
   let result;
 
   try {
@@ -134,7 +134,7 @@ export async function createAndFiscalizePosSale(formData: FormData) {
 }
 
 export async function createAndFiscalizePosStorno(formData: FormData) {
-  const ctx = await requirePosContext("manage");
+  const ctx = await requirePosContext("cancel");
   const originalId = input(formData, "invoice_id");
   try {
     const result = await createPosStornoWithContext({
@@ -153,7 +153,7 @@ export async function createAndFiscalizePosStorno(formData: FormData) {
 }
 
 export async function retryPosFiscalization(formData: FormData) {
-  const ctx = await requirePosContext("create");
+  const ctx = await requirePosContext("post");
   const invoiceId = input(formData, "invoice_id");
   const settings = await prisma.posPodesavanje.findUnique({ where: { firma_id: ctx.firma.id }, select: { racunovodstvena_integracija: true } });
   const link = ctx.firma.fiscalCompanyLink;
@@ -265,7 +265,7 @@ export async function retryPosFiscalization(formData: FormData) {
 }
 
 export async function completePosTransferAccounting(formData: FormData) {
-  const ctx = await requirePosContext("create");
+  const ctx = await requirePosContext("post");
   const invoiceId = input(formData, "invoice_id");
   const result = await finishTransferAccounting({ invoiceId, paymentMethod: "BANK_TRANSFER", enabled: true, ctx });
   await auditLog({ korisnikId: ctx.user.id, agencijaId: ctx.user.agencija_id, firmaId: ctx.firma.id, modul: posModule, akcija: result?.ok ? "pos_transfer_accounting_completed" : "pos_transfer_accounting_failed", tipEntiteta: "FiskalniIzlazniRacun", entitetId: invoiceId, novaVrijednost: result });

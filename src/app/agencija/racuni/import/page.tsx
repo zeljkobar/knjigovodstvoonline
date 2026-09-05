@@ -1,8 +1,10 @@
 import { InvoiceImportClient } from "@/components/InvoiceImportClient";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
+import { redirect } from "next/navigation";
 
 const months = [
   "Januar",
@@ -89,8 +91,25 @@ export default async function RacuniImportPage() {
     );
   }
 
+  const [canCreateKuf, canCreateKif] = await Promise.all([
+    hasPermission(user, {
+      firmaId: activeCompany.id,
+      modul: "ulazni_racuni",
+      akcija: "create"
+    }),
+    hasPermission(user, {
+      firmaId: activeCompany.id,
+      modul: "izlazni_racuni",
+      akcija: "create"
+    })
+  ]);
+
+  if (!canCreateKuf && !canCreateKif) {
+    redirect("/agencija?poruka=prava");
+  }
+
   const [kufBooks, kifBooks, baseAccounts, companyOverrides] = await Promise.all([
-    prisma.kufBook.findMany({
+    canCreateKuf ? prisma.kufBook.findMany({
       where: {
         agencija_id: user.agencija_id,
         firma_id: activeCompany.id,
@@ -121,8 +140,8 @@ export default async function RacuniImportPage() {
           }
         }
       }
-    }),
-    prisma.kifBook.findMany({
+    }) : Promise.resolve([]),
+    canCreateKif ? prisma.kifBook.findMany({
       where: {
         agencija_id: user.agencija_id,
         firma_id: activeCompany.id,
@@ -153,7 +172,7 @@ export default async function RacuniImportPage() {
           }
         }
       }
-    }),
+    }) : Promise.resolve([]),
     prisma.konto.findMany({
       where: {
         aktivan: true,

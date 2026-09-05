@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
+import { hasAllPermissions } from "@/lib/permissions";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
@@ -75,6 +76,15 @@ export default async function KufPrintPage({ searchParams }: KufPrintPageProps) 
         </section>
       </main>
     );
+  }
+
+  if (
+    !(await hasAllPermissions(user, [
+      { firmaId: workContext.firmaId, modul: "ulazni_racuni", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "ulazni_racuni", akcija: "export" }
+    ]))
+  ) {
+    return <main className="print-page"><p>Nemate pravo štampe KUF-a.</p></main>;
   }
 
   const [firma, godina, books] = await Promise.all([

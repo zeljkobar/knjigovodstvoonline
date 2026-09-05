@@ -124,12 +124,13 @@
   `PAYROLL` naloga i print/export obračuna. M-4 je završen u dogovorenom obimu.
 
 ## Otvoreno po modulima
-- **Modul 1:** nastaviti audit preostalih ruta/server actions da svaka operacija
-  koristi `KorisnikPravo`; legacy `moze_da_*` sistem je uklonjen, glavni meni je
-  vezan za pravo pregleda, a kompletan tok ručnih naloga je zaključan po
-  akcijama. Administrativna podešavanja svih poslovnih modula skrivena su i
-  backendom zaključana za radnike. Ostaju pretplate i limiti agencija,
-  audit pokriće preostalih poslovnih akcija i ozbiljniji permission testovi.
+- **Modul 1:** sigurnosni audit postojećih operativnih ruta je završen za
+  KIF/KUF, izvode, plate, POS, robno, izvještaje, pomoćne API-je i štampu;
+  `KorisnikPravo` se provjerava i pri direktnom otvaranju URL-a. Legacy
+  `moze_da_*` sistem je uklonjen, glavni meni i podmeniji prate aktivnu matricu,
+  a administrativna podešavanja su backendom zaključana za radnike. Dalje treba
+  održavati permission regresione testove pri svakoj novoj ruti, proširivati
+  audit pokriće poslovnih akcija i završiti pretplate i limite agencija.
 - **Modul 2:** proširiti postojeću evidenciju odgovornih lica sa izvršnog
   direktora na vlasnike, ovlašćena i kontakt lica;
   dopuniti nedostajuće žiro račune za prirez kada bude dostupan noviji zvanični

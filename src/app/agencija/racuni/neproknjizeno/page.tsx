@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { postInvoiceBook } from "../actions";
 import {
   invoicePostingAccountSources,
@@ -6,6 +7,7 @@ import {
   invoicePostingFields
 } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 import { journalStatuses } from "@/lib/journals";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
@@ -365,8 +367,25 @@ export default async function NeproknjizenoPage({ searchParams }: NeproknjizenoP
     );
   }
 
+  const [canViewKuf, canViewKif] = await Promise.all([
+    hasPermission(user, {
+      firmaId: activeCompany.id,
+      modul: "ulazni_racuni",
+      akcija: "view"
+    }),
+    hasPermission(user, {
+      firmaId: activeCompany.id,
+      modul: "izlazni_racuni",
+      akcija: "view"
+    })
+  ]);
+
+  if (!canViewKuf && !canViewKif) {
+    redirect("/agencija?poruka=prava");
+  }
+
   const [kufBooks, kifBooks, vatRates] = await Promise.all([
-    prisma.kufBook.findMany({
+    canViewKuf ? prisma.kufBook.findMany({
       where: {
         agencija_id: user.agencija_id,
         firma_id: activeCompany.id,
@@ -443,8 +462,8 @@ export default async function NeproknjizenoPage({ searchParams }: NeproknjizenoP
           }
         }
       }
-    }),
-    prisma.kifBook.findMany({
+    }) : Promise.resolve([]),
+    canViewKif ? prisma.kifBook.findMany({
       where: {
         agencija_id: user.agencija_id,
         firma_id: activeCompany.id,
@@ -512,7 +531,7 @@ export default async function NeproknjizenoPage({ searchParams }: NeproknjizenoP
           }
         }
       }
-    }),
+    }) : Promise.resolve([]),
     prisma.pdvStopa.findMany({
       where: {
         agencija_id: user.agencija_id,

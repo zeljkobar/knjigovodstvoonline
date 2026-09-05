@@ -1348,3 +1348,24 @@
 - Ruta i dashboard kartica dostupne su samo `admin_agencije`; duplirana mrtva
   stavka iz podmenija Korisnici je uklonjena. TypeScript, ESLint, navigacioni
   testovi i `git diff --check` prolaze uz četiri ranija lint upozorenja.
+
+## 2026-09-06 — Sigurnosni audit matrice prava
+
+- Dopunjene su obavezne backend provjere prava na KIF/KUF pregledima, importu i
+  neproknjiženim dokumentima, svim ekranima i akcijama izvoda, platama, POS
+  obradi i stornu, završavanju/fiskalizaciji izlaznih računa, centralnim
+  izvještajima, pomoćnim pretragama/API rutama i legacy bilansu.
+- Operativne akcije više ne koriste široko `manage` pravo: plate razlikuju
+  create/update/delete/post, POS obrada i ponovni pokušaj koriste `post`, storno
+  koristi `cancel`, a završavanje izlazne fakture koristi `post`. Administrativna
+  pravila knjiženja izvoda ostaju pod `izvodi:manage`.
+- Sve poslovne print rute provjeravaju pripadnost firmi i odgovarajuća prava;
+  štampa traži i `view` i `export`. Centralni izvještaji traže `izvjestaji:view`
+  zajedno sa pravom izvornog modula kada kombinuju podatke glavne knjige.
+- Podmeni KIF/KUF sada odvaja ulazna i izlazna prava, a import se prikazuje samo
+  uz pravo unosa najmanje jedne knjige. Pravila izvoda nijesu vidljiva bez
+  administracije modula.
+- `npx tsc --noEmit`, svih osam postojećih test paketa i `git diff --check`
+  prolaze. ESLint nema grešaka i zadržava četiri ranija upozorenja. Runtime test
+  sa stvarnim radnikom potvrdio je zabranu KUF-a, admin podešavanja i print ruta
+  bez odgovarajućeg prava.

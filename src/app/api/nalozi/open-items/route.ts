@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { journalStatuses } from "@/lib/journals";
+import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -86,6 +87,10 @@ export async function GET(request: Request) {
 
   if (!company) {
     return NextResponse.json({ message: "Firma nije dostupna." }, { status: 403 });
+  }
+
+  if (!(await hasPermission(user, { firmaId: company.id, modul: "nalozi", akcija: "view" }))) {
+    return NextResponse.json({ message: "Nemate pravo pregleda naloga." }, { status: 403 });
   }
 
   const account = await prisma.firmaKonto.findFirst({

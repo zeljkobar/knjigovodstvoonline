@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
+import { hasAnyPermission } from "@/lib/permissions";
+import { readWorkContext } from "@/lib/work-context";
 
 function fiscalSearchParams(qrUrl: string) {
   let url: URL;
@@ -36,6 +38,18 @@ export async function POST(req: NextRequest) {
 
   if (isDirectFiscalTenantUser(user)) {
     return NextResponse.json({ success: false, message: "Ruta nije dostupna u direktnom portalu." }, { status: 403 });
+  }
+
+  const workContext = await readWorkContext();
+  if (
+    !workContext.firmaId ||
+    !(await hasAnyPermission(user, [
+      { firmaId: workContext.firmaId, modul: "ulazni_racuni", akcija: "create" },
+      { firmaId: workContext.firmaId, modul: "kalkulacije", akcija: "create" },
+      { firmaId: workContext.firmaId, modul: "robno", akcija: "create" }
+    ]))
+  ) {
+    return NextResponse.json({ success: false, message: "Nemate pravo uvoza računa." }, { status: 403 });
   }
 
   let qrUrl: string;

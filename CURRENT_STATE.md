@@ -318,6 +318,12 @@ je od samodeaktivacije i samostalne rotacije.
   izvoz i administraciju. Nalozi provjeravaju relevantno pravo i na backendu za
   kreiranje, izmjenu nacrta, knjiženje, vraćanje i brisanje, a UI skriva
   nedozvoljene akcije. Audit osnova postoji.
+- Dodatni sigurnosni audit operativnih ruta proširio je backend provjere na
+  KIF/KUF ekrane i import, izvode, plate, POS obradu/storno, robne izlazne
+  račune, centralne izvještaje, pomoćne API rute i sve poslovne print stranice.
+  Direktna print ruta sada traži i `view` i `export`, a pravila knjiženja izvoda
+  traže `izvodi:manage`. Podmeni KIF/KUF prati odvojena prava za ulazne i izlazne
+  račune, pa skriveni modul nije dostupan ni ručnim unosom URL-a.
 - Postojeća dashboard ruta `/agencija/aktivnosti` implementirana je kao
   admin-only statistika rada. Čita `aktivnost_dogadjaji`, podržava period,
   radnika, firmu, modul i akciju, prikazuje zbir po vrstama rada i firmama,

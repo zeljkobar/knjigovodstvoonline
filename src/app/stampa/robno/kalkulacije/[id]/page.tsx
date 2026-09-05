@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
 import { calculationStatusLabel } from "@/lib/inventory-calculation";
+import { hasAllPermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -55,6 +56,10 @@ export default async function CalculationPrintPage({ params }: PageProps) {
     }
   });
   if (!calculation) notFound();
+  if (!(await hasAllPermissions(user, [
+    { firmaId: calculation.firma_id, modul: "robno", akcija: "view" },
+    { firmaId: calculation.firma_id, modul: "robno", akcija: "export" }
+  ]))) notFound();
 
   const vatRecap = new Map<
     string,

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
 import { inventoryPriceAdjustmentStatusLabel } from "@/lib/inventory-price-adjustment";
+import { hasAllPermissions } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 function number(value: { toString(): string }, digits = 2) {
@@ -19,6 +20,10 @@ export default async function InventoryPriceAdjustmentPrintPage({ params }: { pa
   if (!user.agencija_id) notFound();
   const adjustment = await prisma.nivelacijaCijena.findFirst({ where: { id, agencija_id: user.agencija_id, is_deleted: false, ...(user.rola === "admin_agencije" ? {} : { firma: { korisnici: { some: { korisnik_id: user.id, is_deleted: false } } } }) }, include: { firma: true, poslovna_godina: { select: { godina: true } }, magacin: true, poslovna_jedinica: true, nalog: { select: { sifra: true } }, stavke: { include: { artikal: { include: { jedinica_mjere: true } } }, orderBy: { redni_broj: "asc" } } } });
   if (!adjustment) notFound();
+  if (!(await hasAllPermissions(user, [
+    { firmaId: adjustment.firma_id, modul: "robno", akcija: "view" },
+    { firmaId: adjustment.firma_id, modul: "robno", akcija: "export" }
+  ]))) notFound();
   const draftRetail = adjustment.stavke.reduce((sum, line) => sum + Number(line.promjena_maloprodajne_vrijednosti), 0);
   const draftMargin = adjustment.stavke.reduce((sum, line) => sum + Number(line.promjena_razlike_u_cijeni), 0);
   const draftVat = adjustment.stavke.reduce((sum, line) => sum + Number(line.promjena_ukalkulisanog_pdv), 0);

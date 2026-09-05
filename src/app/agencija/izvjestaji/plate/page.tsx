@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getPlateContext, MissingPlateContext } from "../../plate/_shared";
+import { hasPermission } from "@/lib/permissions";
 
 const payrollReports = [
   {
@@ -43,6 +44,20 @@ export default async function ReportsPayrollPage() {
     return (
       <section className="admin-panel">
         <p className="empty-state">Nemate pravo za pregled izvještaja plata.</p>
+      </section>
+    );
+  }
+
+  if (
+    !(await hasPermission(context.user, {
+      firmaId: context.firma.id,
+      modul: "izvjestaji",
+      akcija: "view"
+    }))
+  ) {
+    return (
+      <section className="admin-panel">
+        <p className="empty-state">Nemate pravo za pregled izvještaja.</p>
       </section>
     );
   }

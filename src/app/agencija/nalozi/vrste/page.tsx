@@ -1,5 +1,5 @@
 import { createJournalType } from "../actions";
-import { requireAnyRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 type VrsteNalogaPageProps = {
@@ -16,10 +16,10 @@ const poruke: Record<string, string> = {
 };
 
 export default async function VrsteNalogaPage({ searchParams }: VrsteNalogaPageProps) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const params = await searchParams;
   const message = params?.poruka ? poruke[params.poruka] : null;
-  const canManage = user.rola === "admin_agencije";
+  const canManage = true;
 
   if (!user.agencija_id) {
     return null;

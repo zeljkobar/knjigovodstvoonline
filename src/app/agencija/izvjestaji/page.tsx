@@ -17,6 +17,7 @@ export default function IzvjestajiPage({ searchParams }: IzvjestajiPageProps) {
     <BrutoBilansView
       accountCardPath="/agencija/izvjestaji/kartice-konta"
       basePath="/agencija/izvjestaji"
+      permissionModules={["izvjestaji", "nalozi"]}
       searchParams={searchParams}
     />
   );

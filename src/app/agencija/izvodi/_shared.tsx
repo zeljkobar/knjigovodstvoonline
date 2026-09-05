@@ -1,6 +1,8 @@
 import { requireAnyRole } from "@/lib/auth";
+import { hasPermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
+import { redirect } from "next/navigation";
 
 export const bankStatementStatuses = {
   imported: "IMPORTED",
@@ -61,7 +63,7 @@ export function statementBalanceOk(statement: {
   return opening + inflow - outflow === closing;
 }
 
-export async function getIzvodiContext() {
+export async function getIzvodiContext(action: PermissionAction = "view") {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const workContext = await readWorkContext();
 
@@ -108,6 +110,17 @@ export async function getIzvodiContext() {
       }
     })
   ]);
+
+  if (
+    firma &&
+    !(await hasPermission(user, {
+      firmaId: firma.id,
+      modul: "izvodi",
+      akcija: action
+    }))
+  ) {
+    redirect("/agencija?poruka=prava");
+  }
 
   return {
     user,

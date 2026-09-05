@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
 import { findMunicipalitySurtax } from "@/lib/municipalities";
-import { hasPermission } from "@/lib/permissions";
+import { hasAllPermissions } from "@/lib/permissions";
 import { formatM4Date, formatM4Money, getM4Data, type M4MonthRow, type M4WorkerRow } from "@/lib/payroll-m4";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
@@ -280,7 +280,10 @@ export default async function M4PrintPage({ searchParams }: PageProps) {
     return <main className="print-page"><p>Izaberite firmu i poslovnu godinu prije pregleda M-4.</p></main>;
   }
 
-  const allowed = await hasPermission(user, { firmaId: workContext.firmaId, modul: "plate", akcija: "view" });
+  const allowed = await hasAllPermissions(user, [
+    { firmaId: workContext.firmaId, modul: "plate", akcija: "view" },
+    { firmaId: workContext.firmaId, modul: "plate", akcija: "export" }
+  ]);
 
   if (!allowed) {
     return <main className="print-page"><p>Nemate pravo za štampu M-4 evidencije.</p></main>;

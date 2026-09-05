@@ -7,6 +7,7 @@ import { auditLog } from "@/lib/audit";
 import { accountOverrideTypes } from "@/lib/account-plan";
 import { requireAnyRole, requireRole } from "@/lib/auth";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
+import { hasPermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -1938,7 +1939,7 @@ function shouldLearnSpecificBankRule(descriptionContains: string | null, payment
     ["M02", "D30", "Z12"].includes(normalizePaymentCode(paymentCode));
 }
 
-async function getActiveContext() {
+async function getActiveContext(action: PermissionAction) {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const workContext = await readWorkContext();
 
@@ -1987,6 +1988,17 @@ async function getActiveContext() {
         }
       })
     : null;
+
+  if (
+    firma &&
+    !(await hasPermission(user, {
+      firmaId: firma.id,
+      modul: "izvodi",
+      akcija: action
+    }))
+  ) {
+    redirectStatements("prava");
+  }
 
   return {
     user,
@@ -2211,7 +2223,7 @@ async function resolveStatementLineStatus(
 }
 
 export async function importBankStatement(formData: FormData) {
-  const { user, firma, poslovnaGodina } = await getActiveContext();
+  const { user, firma, poslovnaGodina } = await getActiveContext("create");
   const companyBankAccountId = value(formData, "company_bank_account_id");
   const bankAccountKontoCode = nullableValue(formData, "bank_account_konto_code");
   const requestedBusinessUnitId = nullableValue(formData, "poslovna_jedinica_id");
@@ -2589,7 +2601,7 @@ export async function importBankStatement(formData: FormData) {
 }
 
 export async function updateBankStatementLines(formData: FormData) {
-  const { user, firma, poslovnaGodina } = await getActiveContext();
+  const { user, firma, poslovnaGodina } = await getActiveContext("update");
   const statementId = value(formData, "statement_id");
 
   if (!user.agencija_id || !firma || !poslovnaGodina || !statementId) {
@@ -3079,7 +3091,7 @@ export async function updateBankStatementLines(formData: FormData) {
 }
 
 export async function deleteBankStatement(formData: FormData) {
-  const { user, firma, poslovnaGodina } = await getActiveContext();
+  const { user, firma, poslovnaGodina } = await getActiveContext("delete");
   const statementId = value(formData, "statement_id");
 
   if (!user.agencija_id || !firma || !poslovnaGodina || !statementId) {
@@ -3160,7 +3172,7 @@ export async function deleteBankStatement(formData: FormData) {
 
 export async function saveBankStatementAccountSettings(formData: FormData) {
   await requireRole("admin_agencije");
-  const { user, firma, poslovnaGodina } = await getActiveContext();
+  const { user, firma, poslovnaGodina } = await getActiveContext("manage");
   const companyBankAccountIds = formData.getAll("company_bank_account_id").map((item) => String(item));
   const bankAccountKontoCodes = formData.getAll("bank_account_konto_code").map((item) => String(item).trim() || null);
   const journalTypeIds = formData.getAll("journal_type_id").map((item) => String(item).trim() || null);
@@ -3264,7 +3276,7 @@ export async function saveBankStatementAccountSettings(formData: FormData) {
 }
 
 export async function createBankPostingRule(formData: FormData) {
-  const { user, firma, poslovnaGodina } = await getActiveContext();
+  const { user, firma, poslovnaGodina } = await getActiveContext("manage");
   const ruleId = nullableValue(formData, "rule_id");
   const scope = value(formData, "scope") === "AGENCY" ? "AGENCY" : "FIRM";
   const accountNumber = nullableValue(formData, "counterparty_account_number");
@@ -3421,7 +3433,7 @@ export async function createBankPostingRule(formData: FormData) {
 }
 
 export async function deleteBankPostingRule(formData: FormData) {
-  const { user, firma, poslovnaGodina } = await getActiveContext();
+  const { user, firma, poslovnaGodina } = await getActiveContext("manage");
   const ruleId = value(formData, "rule_id");
 
   if (!user.agencija_id || !firma || !poslovnaGodina || !ruleId) {
@@ -3494,7 +3506,7 @@ export async function deleteBankPostingRule(formData: FormData) {
 }
 
 export async function postSelectedBankStatements(formData: FormData) {
-  const { user, firma, poslovnaGodina } = await getActiveContext();
+  const { user, firma, poslovnaGodina } = await getActiveContext("post");
   const statementIds = formData.getAll("statement_id").map((item) => String(item));
 
   if (!user.agencija_id || !firma || !poslovnaGodina || statementIds.length === 0) {
@@ -3789,7 +3801,7 @@ export async function postSelectedBankStatements(formData: FormData) {
 }
 
 export async function postReadyBankStatements() {
-  const { user, firma, poslovnaGodina } = await getActiveContext();
+  const { user, firma, poslovnaGodina } = await getActiveContext("post");
 
   if (!user.agencija_id || !firma || !poslovnaGodina) {
     redirectStatements("nema_spremnih_izvoda");

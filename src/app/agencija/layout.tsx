@@ -110,6 +110,7 @@ export default async function AgencijaLayout({
           currentYear={activeYear?.godina ?? new Date().getFullYear()}
           firms={firme}
           navigation={navigation}
+          permissionKeys={[...permissionKeys]}
           years={poslovneGodine}
           userName={user.korisnicko_ime}
           userRole={user.rola}

@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { PrintButton } from "@/components/PrintButton";
 import { requireAnyRole } from "@/lib/auth";
+import { hasAnyPermissionSet } from "@/lib/permissions";
 import { formatJournalCode } from "@/lib/journals";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
@@ -75,6 +76,21 @@ export default async function KarticaKontaPrintPage({
 
   if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
     return <PrintMessage>Izaberite firmu i poslovnu godinu prije štampe.</PrintMessage>;
+  }
+
+  const printAllowed = await hasAnyPermissionSet(user, [
+    [
+      { firmaId: workContext.firmaId, modul: "nalozi", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "nalozi", akcija: "export" }
+    ],
+    [
+      { firmaId: workContext.firmaId, modul: "izvjestaji", akcija: "view" },
+      { firmaId: workContext.firmaId, modul: "izvjestaji", akcija: "export" }
+    ]
+  ]);
+
+  if (!printAllowed) {
+    return <PrintMessage>Nemate pravo štampe kartice konta.</PrintMessage>;
   }
 
   if (!isUuid(selectedAccount)) {
