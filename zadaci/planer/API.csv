@@ -10,7 +10,7 @@ API-005,POST,/api/agencies/:id/deactivate,Deaktivacija agencije.,Korisnici i pra
 API-006,GET,/api/agencies/:id/subscription,Pregled pretplate agencije.,Korisnici i prava,Zaključeno,F-003,Ne,,,,,,,,,,,,,,,,,,
 API-007,PUT,/api/agencies/:id/subscription,Ažuriranje pretplate agencije.,Korisnici i prava,Zaključeno,F-003,Ne,,,,,,,,,,,,,,,,,,
 API-008,POST,/api/agency-users,Kreiranje radnika/klijenta agencije.,Korisnici i prava,Implementirano,"F-005,F-006",Djelimicno,Kreiranje radnika/klijenata postoji kao server action.,,,,,,,,,,,,,,,,,
-API-009,PUT,/api/users/:id/permissions,Ažuriranje prava korisnika.,Korisnici i prava,Implementirano djelimicno,F-008,Djelimicno,Matrica prava se cuva; enforcement treba dodatno zakljucati.,,,,,,,,,,,,,,,,,
+API-009,PUT,/api/users/:id/permissions,Ažuriranje prava korisnika.,Korisnici i prava,Implementirano,F-008,Djelimicno,"Matrica je jedini izvor prava i upravlja glavnim menijem; audit backend provjera preostalih poslovnih ruta ostaje zaseban stabilizacioni zadatak.",,,,,,,,,,,,,,,,,
 API-010,GET,/api/reports/staff-activity,Statistika rada radnika.,Korisnici i prava,Zaključeno,F-009,Ne,,,,,,,,,,,,,,,,,,
 API-011,GET,/api/audit-logs,Pregled audit loga.,Korisnici i prava,Zaključeno,F-010,Ne,,,,,,,,,,,,,,,,,,
 API-012,GET,/api/companies,Lista firmi.,Firme i kontni plan,Implementirano,F-012,Djelimicno,Lista firmi postoji kao server-rendered stranica.,,,,,,,,,,,,,,,,,

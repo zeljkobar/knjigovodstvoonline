@@ -32,16 +32,9 @@ import {
   ACTIVE_COMPANY_COOKIE,
   ACTIVE_YEAR_COOKIE
 } from "@/lib/work-context";
+import { configurablePermissionActions } from "@/lib/permission-policy";
 
-const validActions = [
-  "view",
-  "create",
-  "update",
-  "delete",
-  "post",
-  "export",
-  "manage"
-];
+const validActions: readonly string[] = configurablePermissionActions;
 
 const allowedSubjectTypes = [
   "DOO",
@@ -1294,6 +1287,11 @@ export async function saveCompanyAccountOverride(formData: FormData) {
       },
       data: {
         naziv,
+        override_type: stariKonto.konto_id
+          ? stariKonto.override_type === accountOverrideTypes.modified
+            ? accountOverrideTypes.modified
+            : accountOverrideTypes.renamed
+          : accountOverrideTypes.custom,
         napomena: nullableValue(formData, "napomena"),
         aktivan: true
       },
@@ -2172,10 +2170,6 @@ export async function assignCompanyAccess(formData: FormData) {
   const data =
     korisnik.rola === "klijent"
       ? {
-          moze_da_gleda: true,
-          moze_da_unosi: false,
-          moze_da_mijenja: false,
-          moze_da_brise: false,
           glavni_radnik: false,
           access_type: "client",
           is_deleted: false,
@@ -2185,10 +2179,6 @@ export async function assignCompanyAccess(formData: FormData) {
           updated_by: admin.id
         }
       : {
-          moze_da_gleda: true,
-          moze_da_unosi: false,
-          moze_da_mijenja: false,
-          moze_da_brise: false,
           glavni_radnik: glavniRadnik,
           access_type: glavniRadnik ? "primary" : "assistant",
           is_deleted: false,
@@ -2499,10 +2489,6 @@ export async function assignCompanyToUser(formData: FormData) {
   const data =
     korisnik.rola === "klijent"
       ? {
-          moze_da_gleda: true,
-          moze_da_unosi: false,
-          moze_da_mijenja: false,
-          moze_da_brise: false,
           glavni_radnik: false,
           access_type: "client",
           is_deleted: false,
@@ -2512,10 +2498,6 @@ export async function assignCompanyToUser(formData: FormData) {
           updated_by: admin.id
         }
       : {
-          moze_da_gleda: true,
-          moze_da_unosi: false,
-          moze_da_mijenja: false,
-          moze_da_brise: false,
           glavni_radnik: glavniRadnik,
           access_type: glavniRadnik ? "primary" : "assistant",
           is_deleted: false,
@@ -2543,10 +2525,6 @@ export async function assignCompanyToUser(formData: FormData) {
       id: true,
       korisnik_id: true,
       firma_id: true,
-      moze_da_gleda: true,
-      moze_da_unosi: true,
-      moze_da_mijenja: true,
-      moze_da_brise: true,
       glavni_radnik: true
     }
   });

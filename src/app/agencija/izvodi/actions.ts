@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { auditLog } from "@/lib/audit";
 import { accountOverrideTypes } from "@/lib/account-plan";
-import { requireAnyRole } from "@/lib/auth";
+import { requireAnyRole, requireRole } from "@/lib/auth";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
@@ -3159,6 +3159,7 @@ export async function deleteBankStatement(formData: FormData) {
 }
 
 export async function saveBankStatementAccountSettings(formData: FormData) {
+  await requireRole("admin_agencije");
   const { user, firma, poslovnaGodina } = await getActiveContext();
   const companyBankAccountIds = formData.getAll("company_bank_account_id").map((item) => String(item));
   const bankAccountKontoCodes = formData.getAll("bank_account_konto_code").map((item) => String(item).trim() || null);

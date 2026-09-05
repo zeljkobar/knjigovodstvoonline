@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getPlateContext, MissingPlateContext } from "../_shared";
 import { savePayrollBasisRule, savePayrollPostingSettings } from "../actions";
 import { mergeCompanyAccountPlan, type CombinedAccount } from "@/lib/account-plan";
+import { requireRole } from "@/lib/auth";
 import {
   isPayrollCategory,
   payrollCategories,
@@ -69,6 +70,7 @@ function AccountSelect({
 }
 
 export default async function PayrollSettingsPage({ searchParams }: PageProps) {
+  await requireRole("admin_agencije");
   const params = await searchParams;
   const context = await getPlateContext("view");
   const activeSection =

@@ -7,7 +7,7 @@ import {
   updateCompany
 } from "../../actions";
 import { DeleteCompanyForm } from "@/components/DeleteCompanyForm";
-import { requireAnyRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 type FirmaDetaljPageProps = {
@@ -81,7 +81,7 @@ export default async function FirmaDetaljPage({
   params,
   searchParams
 }: FirmaDetaljPageProps) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
   const message = resolvedSearchParams?.poruka

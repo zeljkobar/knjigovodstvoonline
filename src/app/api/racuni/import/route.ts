@@ -8,6 +8,7 @@ import {
 } from "@/lib/account-plan";
 import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
+import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { vatTransactionTypes } from "@/lib/vat-transaction";
 import { readWorkContext } from "@/lib/work-context";
@@ -989,7 +990,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Izaberite knjigu i unesite linkove." }, { status: 400 });
   }
 
-  const [firma, godina, selectedBook] = await Promise.all([
+  const [firma, godina, selectedBook, allowed] = await Promise.all([
     prisma.firma.findFirst({
       where: {
         id: workContext.firmaId,
@@ -1002,8 +1003,7 @@ export async function POST(req: NextRequest) {
               korisnici: {
                 some: {
                   korisnik_id: user.id,
-                  is_deleted: false,
-                  moze_da_mijenja: true
+                  is_deleted: false
                 }
               }
             })
@@ -1050,8 +1050,20 @@ export async function POST(req: NextRequest) {
           select: {
             id: true
           }
-        })
+        }),
+    hasPermission(user, {
+      firmaId: workContext.firmaId,
+      modul:
+        documentType === invoicePostingDocumentTypes.kuf
+          ? "ulazni_racuni"
+          : "izlazni_racuni",
+      akcija: "create"
+    })
   ]);
+
+  if (!allowed) {
+    return NextResponse.json({ message: "Nemate pravo za import računa." }, { status: 403 });
+  }
 
   if (!firma || !godina || godina.zakljucena || !selectedBook) {
     return NextResponse.json({ message: "Knjiga nije otvorena za import." }, { status: 400 });

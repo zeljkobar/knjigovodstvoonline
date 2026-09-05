@@ -4,6 +4,7 @@ type BrutoBilansPageProps = {
   searchParams?: Promise<{
     datum_do?: string;
     datum_od?: string;
+    jedinica?: string;
     klasa?: string;
     konto?: string;
     nivo?: string;

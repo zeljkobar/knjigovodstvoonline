@@ -1,4 +1,5 @@
 import type { SessionUser } from "./session";
+import { permissionKey } from "./permission-policy";
 
 type Role = SessionUser["rola"];
 
@@ -8,12 +9,18 @@ export type NavigationItem = {
   label: string;
   roles: Role[];
   section: string;
+  permissions?: Array<{
+    modul: string;
+    akcija: string;
+  }>;
+  permissionMode?: "all" | "any";
 };
 
 export type SubNavigationItem = {
   href: string;
   label: string;
   children?: SubNavigationItem[];
+  roles?: Role[];
 };
 
 const agencyRoles: Role[] = ["admin_agencije", "korisnik_agencije"];
@@ -32,7 +39,7 @@ export const agencyNavigation: NavigationItem[] = [
     href: "/agencija/firme",
     icon: "▣",
     label: "Firme",
-    roles: agencyRoles,
+    roles: adminOnly,
     section: "firme"
   },
   {
@@ -40,63 +47,76 @@ export const agencyNavigation: NavigationItem[] = [
     icon: "▤",
     label: "Nalozi",
     roles: agencyRoles,
-    section: "nalozi"
+    section: "nalozi",
+    permissions: [{ modul: "nalozi", akcija: "view" }]
   },
   {
     href: "/agencija/racuni",
     icon: "▥",
     label: "KIF/KUF",
     roles: agencyRoles,
-    section: "racuni"
+    section: "racuni",
+    permissions: [
+      { modul: "izlazni_racuni", akcija: "view" },
+      { modul: "ulazni_racuni", akcija: "view" }
+    ],
+    permissionMode: "any"
   },
   {
     href: "/agencija/pdv",
     icon: "◇",
     label: "PDV",
     roles: agencyRoles,
-    section: "pdv"
+    section: "pdv",
+    permissions: [{ modul: "pdv", akcija: "view" }]
   },
   {
     href: "/agencija/izvodi",
     icon: "≋",
     label: "Izvodi",
     roles: agencyRoles,
-    section: "izvodi"
+    section: "izvodi",
+    permissions: [{ modul: "izvodi", akcija: "view" }]
   },
   {
     href: "/agencija/pos",
     icon: "▦",
     label: "POS / Kasa",
     roles: posRoles,
-    section: "pos"
+    section: "pos",
+    permissions: [{ modul: "pos", akcija: "view" }]
   },
   {
     href: "/agencija/robno",
     icon: "▧",
     label: "Robno",
     roles: agencyRoles,
-    section: "robno"
+    section: "robno",
+    permissions: [{ modul: "robno", akcija: "view" }]
   },
   {
     href: "/agencija/plate",
     icon: "◫",
     label: "Plate",
     roles: agencyRoles,
-    section: "plate"
+    section: "plate",
+    permissions: [{ modul: "plate", akcija: "view" }]
   },
   {
     href: "/agencija/zavrsni-racun",
     icon: "▨",
     label: "Završni račun",
     roles: agencyRoles,
-    section: "zavrsni-racun"
+    section: "zavrsni-racun",
+    permissions: [{ modul: "zavrsni_racun", akcija: "view" }]
   },
   {
     href: "/agencija/izvjestaji",
     icon: "◈",
     label: "Izvještaji",
     roles: agencyRoles,
-    section: "izvjestaji"
+    section: "izvjestaji",
+    permissions: [{ modul: "izvjestaji", akcija: "view" }]
   },
   {
     href: "/agencija/korisnici",
@@ -119,13 +139,13 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/pos", label: "Prodaja" },
     { href: "/agencija/pos/racuni", label: "Fiskalni računi" },
     { href: "/agencija/pos/izvjestaji", label: "Izvještaji" },
-    { href: "/agencija/pos/podesavanja", label: "Podešavanja" }
+    { href: "/agencija/pos/podesavanja", label: "Podešavanja", roles: adminOnly }
   ],
   dashboard: [
     { href: "/agencija", label: "Pregled" },
     { href: "/agencija/rokovi", label: "Rokovi" },
     { href: "/agencija/dokumenta-za-obradu", label: "Dokumenta za obradu" },
-    { href: "/agencija/aktivnosti", label: "Aktivnosti radnika" },
+    { href: "/agencija/aktivnosti", label: "Aktivnosti radnika", roles: adminOnly },
     { href: "/agencija/upozorenja", label: "Upozorenja" },
     { href: "/agencija/statistika", label: "Statistika" }
   ],
@@ -202,7 +222,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
         { href: "/agencija/robno/kontrole", label: "Kontrole" }
       ]
     },
-    { href: "/agencija/robno/podesavanja", label: "Podešavanja" }
+    { href: "/agencija/robno/podesavanja", label: "Podešavanja", roles: adminOnly }
   ],
   racuni: [
     { href: "/agencija/racuni/kif", label: "KIF" },
@@ -211,7 +231,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/racuni/pregled-kuf", label: "Pregled KUF" },
     { href: "/agencija/racuni/neproknjizeno", label: "Neproknjiženo" },
     { href: "/agencija/racuni/import", label: "Import" },
-    { href: "/agencija/racuni/podesavanja", label: "Podešavanja" }
+    { href: "/agencija/racuni/podesavanja", label: "Podešavanja", roles: adminOnly }
   ],
   pdv: [
     { href: "/agencija/pdv", label: "PDV pregled" },
@@ -220,7 +240,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/pdv/prijava", label: "PDV prijava" },
     { href: "/agencija/pdv/kontrole", label: "Kontrole" },
     { href: "/agencija/pdv/arhiva", label: "Arhiva prijava" },
-    { href: "/agencija/pdv/podesavanja", label: "Podešavanja PDV-a" }
+    { href: "/agencija/pdv/podesavanja", label: "Podešavanja PDV-a", roles: adminOnly }
   ],
   plate: [
     { href: "/agencija/plate", label: "Zaposleni" },
@@ -237,7 +257,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     },
     { href: "/agencija/plate/obustave", label: "Obustave" },
     { href: "/agencija/plate/arhiva", label: "Arhiva obračuna" },
-    { href: "/agencija/plate/podesavanja", label: "Podešavanja plata" }
+    { href: "/agencija/plate/podesavanja", label: "Podešavanja plata", roles: adminOnly }
   ],
   izvodi: [
     { href: "/agencija/izvodi", label: "Pregled izvoda" },
@@ -247,7 +267,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/izvodi/ziro-racuni", label: "Žiro računi komitenata" },
     { href: "/agencija/izvodi/kartica-banke", label: "Kartica banke" },
     { href: "/agencija/izvodi/kontrole", label: "Kontrole" },
-    { href: "/agencija/izvodi/podesavanja", label: "Podešavanja" }
+    { href: "/agencija/izvodi/podesavanja", label: "Podešavanja", roles: adminOnly }
   ],
   "zavrsni-racun": [
     { href: "/agencija/zavrsni-racun", label: "Priprema" },
@@ -255,7 +275,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/zavrsni-racun/bruto-bilans", label: "Bruto bilans" },
     { href: "/agencija/zavrsni-racun/zakljucna-knjizenja", label: "Zaključna knjiženja" },
     { href: "/agencija/zavrsni-racun/obrasci", label: "Obrasci" },
-    { href: "/agencija/zavrsni-racun/podesavanja", label: "Podešavanja" },
+    { href: "/agencija/zavrsni-racun/podesavanja", label: "Podešavanja", roles: adminOnly },
     { href: "/agencija/zavrsni-racun/xml", label: "XML / izvoz" },
     { href: "/agencija/zavrsni-racun/arhiva", label: "Arhiva završnih računa" }
   ],
@@ -277,7 +297,6 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/korisnici?tip=klijenti", label: "Klijenti" },
     { href: "/agencija/korisnici/uloge", label: "Uloge" },
     { href: "/agencija/korisnici/prava", label: "Prava pristupa" },
-    { href: "/agencija/korisnici/aktivnosti", label: "Aktivnosti radnika" },
     { href: "/agencija/korisnici/audit-log", label: "Audit log" }
   ],
   podesavanja: [
@@ -295,8 +314,33 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
   ]
 };
 
-export function getAgencyNavigation(rola: Role) {
-  return agencyNavigation.filter((item) => item.roles.includes(rola));
+export function canAccessAgencyNavigationItem(
+  item: NavigationItem,
+  permissionKeys: ReadonlySet<string>
+) {
+  if (!item.permissions?.length) {
+    return true;
+  }
+
+  const checks = item.permissions.map((permission) =>
+    permissionKeys.has(permissionKey(permission.modul, permission.akcija))
+  );
+
+  return item.permissionMode === "any"
+    ? checks.some(Boolean)
+    : checks.every(Boolean);
+}
+
+export function getAgencyNavigation(
+  rola: Role,
+  permissionKeys: ReadonlySet<string> = new Set()
+) {
+  return agencyNavigation.filter(
+    (item) =>
+      item.roles.includes(rola) &&
+      (rola === "admin_agencije" ||
+        canAccessAgencyNavigationItem(item, permissionKeys))
+  );
 }
 
 export function getSectionFromPath(pathname: string) {
@@ -307,6 +351,20 @@ export function getSectionFromPath(pathname: string) {
   return match?.section ?? "dashboard";
 }
 
-export function getSubNavigation(section: string) {
-  return subNavigation[section] ?? [];
+function filterSubNavigation(
+  items: SubNavigationItem[],
+  rola: Role
+): SubNavigationItem[] {
+  return items
+    .filter((item) => !item.roles || item.roles.includes(rola))
+    .map((item) => ({
+      ...item,
+      ...(item.children
+        ? { children: filterSubNavigation(item.children, rola) }
+        : {})
+    }));
+}
+
+export function getSubNavigation(section: string, rola: Role): SubNavigationItem[] {
+  return filterSubNavigation(subNavigation[section] ?? [], rola);
 }

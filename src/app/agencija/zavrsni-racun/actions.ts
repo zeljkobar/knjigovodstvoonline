@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { auditLog } from "@/lib/audit";
 import { accountOverrideTypes } from "@/lib/account-plan";
-import { requireAnyRole } from "@/lib/auth";
+import { requireAnyRole, requireRole } from "@/lib/auth";
 import {
   calculateBalanceSheet,
   calculateIncomeStatement,
@@ -275,6 +275,7 @@ async function saveFinancialReportSettings({
   redirectPath: string;
   revalidatePaths: string[];
 }) {
+  await requireRole("admin_agencije");
   const context = await requireFinalAccountManageContext();
   const rbrValues = formData.getAll("rbr");
   const aopValues = formData.getAll("aop");

@@ -4,7 +4,7 @@ import {
   setPrimaryCompanyBankAccount,
   toggleCompanyBankAccount
 } from "../../actions";
-import { requireAnyRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 type BankovniRacuniPageProps = {
@@ -30,7 +30,7 @@ const valute = ["EUR", "USD", "GBP", "RSD"];
 export default async function BankovniRacuniPage({
   searchParams
 }: BankovniRacuniPageProps) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const params = await searchParams;
   const message = params?.poruka ? poruke[params.poruka] : null;
   const selectedCompanyId = params?.firma ?? "";

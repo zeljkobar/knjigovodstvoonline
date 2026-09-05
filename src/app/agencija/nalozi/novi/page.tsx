@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createJournal } from "../actions";
 import { JournalEntryForm } from "@/components/JournalEntryForm";
 import { JournalLinesEditor } from "@/components/JournalLinesEditor";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -25,7 +27,8 @@ const poruke: Record<string, string> = {
   konto_nevalidno: "Konto ne postoji ili je deaktivirano za firmu.",
   partner_obavezan: "Za analiticko konto morate izabrati partnera.",
   poslovna_jedinica_nevalidna: "Poslovna jedinica nije dostupna u izabranoj firmi.",
-  nalog_greska: "Nalog nije sacuvan."
+  nalog_greska: "Nalog nije sacuvan.",
+  prava: "Nemate pravo za kreiranje naloga ove firme."
 };
 
 function todayInputValue() {
@@ -72,6 +75,17 @@ export default async function NoviNalogPage({ searchParams }: NoviNalogPageProps
         }
       })
     : null;
+
+  if (
+    activeCompany &&
+    !(await hasPermission(user, {
+      firmaId: activeCompany.id,
+      modul: "nalozi",
+      akcija: "create"
+    }))
+  ) {
+    redirect("/agencija?greska=prava");
+  }
 
   const activeYear =
     activeCompany && workContext.poslovnaGodinaId

@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-09-03. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-09-04. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -301,7 +301,28 @@ je od samodeaktivacije i samostalne rotacije.
 ### Modul 1 — Korisnici, agencije, prava
 - Autentifikacija, admin/agencijski korisnici.
 - Pregled i kreiranje radnika/klijenata; dodjela firmi korisnicima.
-- Matrica prava po firmi, modulu i akciji. Audit osnova postoji.
+- `KorisnikPravo` matrica po firmi, modulu i akciji jedini je izvor operativnih
+  dozvola. Stara zbirna polja `moze_da_*` uklonjena su iz `korisnik_firma`, koji
+  ostaje samo veza korisnika sa firmom i nosilac vrste/glavnog radnika/važenja.
+  Backfill čuva stare dozvole samo za dodjele na kojima matrica nikad nije bila
+  podešena; postojeća matrica uvijek ima prednost.
+- `Pregled` u matrici određuje prikaz glavnog modula za aktivnu firmu. KIF/KUF se
+  vidi sa pregledom ulaznih ili izlaznih računa. Radniku ostaju Dashboard i
+  izbor dodijeljene firme u gornjoj traci, dok su Firme, Korisnici i prava i
+  Podešavanja u glavnom meniju dostupni samo adminu agencije.
+- Podešavanja unutar poslovnih modula KIF/KUF, PDV, Robno, POS, Izvodi, Plate i
+  Završni račun takođe su dostupna samo adminu agencije. Radniku se te kartice
+  ne prikazuju, a njihove stranice i server actions imaju obaveznu backend
+  provjeru uloge; operativne akcije modula i dalje određuje matrica prava.
+- Matrica podržava pregled, unos, izmjenu, brisanje, knjiženje, storniranje,
+  izvoz i administraciju. Nalozi provjeravaju relevantno pravo i na backendu za
+  kreiranje, izmjenu nacrta, knjiženje, vraćanje i brisanje, a UI skriva
+  nedozvoljene akcije. Audit osnova postoji.
+- Postojeća dashboard ruta `/agencija/aktivnosti` implementirana je kao
+  admin-only statistika rada. Čita `aktivnost_dogadjaji`, podržava period,
+  radnika, firmu, modul i akciju, prikazuje zbir po vrstama rada i firmama,
+  učinak po radniku, dnevni trend, module i posljednjih 100 događaja. Admin
+  agencije se uključuje u statistiku jer se i njegov operativni rad evidentira.
 
 ### Modul 2 — Firme, poslovne godine, kontni plan, partneri
 - Lista i dodavanje firmi, IRMS pretraga; aktivna firma/godina.
@@ -908,6 +929,14 @@ je od samodeaktivacije i samostalne rotacije.
   u nacrt kroz opštu akciju naloga.
 
 ### Modul 11 — Izvještaji i dashboard
+- Dashboard kartica `Aktivnosti radnika` više nije placeholder i vidljiva je
+  samo adminu agencije; radnik je ne vidi u podmeniju i direktna ruta zahtijeva
+  ulogu `admin_agencije`.
+- Centralna ruta `/agencija/izvjestaji` više nije placeholder: koristi isti
+  obračun Bruto bilansa kao `Nalozi / Bruto bilans`, sa filterima po klasi,
+  kontu, periodu i poslovnoj jedinici, nivoima zbira i postojećom A4 štampom.
+  Klik na konto iz centralnog izvještaja otvara centralnu karticu konta i
+  zadržava izabrani period i poslovnu jedinicu.
 - Centralne rute `/agencija/izvjestaji/kartice-konta` i
   `/agencija/izvjestaji/kartice-partnera` koriste postojeću analitičku karticu
   glavne knjige. Kartica konta dozvoljava izbor svakog aktivnog konta koje ima

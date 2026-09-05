@@ -49,7 +49,7 @@ export async function POST(request: Request) {
           ? {}
           : {
               korisnici: {
-                some: { korisnik_id: user.id, is_deleted: false, moze_da_mijenja: true }
+                some: { korisnik_id: user.id, is_deleted: false }
               }
             })
       },

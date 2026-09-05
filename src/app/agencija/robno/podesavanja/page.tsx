@@ -1,4 +1,5 @@
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
+import { requireRole } from "@/lib/auth";
 import {
   calculationPostingFields,
   calculationPostingScope
@@ -35,6 +36,7 @@ const messages: Record<string, string> = {
 };
 
 export default async function InventorySettingsPage({ searchParams }: PageProps) {
+  await requireRole("admin_agencije");
   const [{ poruka }, context] = await Promise.all([searchParams, getInventoryContext("manage")]);
   if (!context.firma) return <MissingInventoryContext title="Podešavanja robnog" />;
   if (!context.allowed) return <InventoryAccessDenied title="Podešavanja robnog" />;

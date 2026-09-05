@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { accountOverrideTypes } from "@/lib/account-plan";
 import { auditLog } from "@/lib/audit";
+import { requireRole } from "@/lib/auth";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
 import {
   calculatePdvReturn,
@@ -388,6 +389,7 @@ export async function savePdvReturn(formData: FormData) {
 }
 
 export async function savePdvSettings(formData: FormData) {
+  await requireRole("admin_agencije");
   const context = await requirePdvContext("manage");
   const fieldCodes = formData.getAll("polje_sifra").map((item) => String(item));
   const fieldNames = formData.getAll("polje_naziv").map((item) => String(item));

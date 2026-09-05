@@ -721,8 +721,7 @@ export async function createFiscalClient(formData: FormData) {
         agencija_id: agencija.id, created_by: admin.id, updated_by: admin.id
       }, select: { id: true, korisnicko_ime: true, email: true } });
       await tx.korisnikFirma.create({ data: {
-        korisnik_id: user.id, firma_id: firma.id, moze_da_gleda: true, moze_da_unosi: true,
-        moze_da_mijenja: clientType === "DIRECT",
+        korisnik_id: user.id, firma_id: firma.id,
         access_type: "FISCAL_CLIENT", created_by: admin.id, updated_by: admin.id
       }});
       const ownerPermissions = clientType === "DIRECT"
@@ -805,8 +804,6 @@ export async function createFiscalUser(formData: FormData) {
       }, select: { id: true, korisnicko_ime: true, email: true } });
       await tx.korisnikFirma.create({ data: {
         korisnik_id: created.id, firma_id: firma.id,
-        moze_da_gleda: true, moze_da_unosi: enabled.has("create"),
-        moze_da_mijenja: false, moze_da_brise: false,
         access_type: "FISCAL_OPERATOR", created_by: admin.id, updated_by: admin.id
       }});
       const permissionRows = [

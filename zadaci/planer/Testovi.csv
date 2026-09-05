@@ -23,7 +23,7 @@ T-018,Nalozi,Nacrt neizbalansiran,"Nacrt se može snimiti, ali ne ulazi u bruto 
 T-019,Nalozi,Proknjiži neizbalansiran ručni nalog,Sistem odbija knjiženje.,"F-029,R-033",Djelimicno testirano,Codex,2026-06-19,Server action odbija proknjizavanje ako duguje nije jednako potrazuje; treba rucni QA.,,,,,,,,,,,,,,,,,
 T-020,Nalozi,Proknjiži izbalansiran nalog,Status POSTED i ulazi u bruto bilans.,"F-029,R-036",Djelimicno testirano,Codex,2026-06-19,Server action proknjizava samo izbalansiran nalog; treba rucni QA.,,,,,,,,,,,,,,,,,
 T-021,Nalozi,Direktna izmjena proknjiženog naloga,Sistem ne dozvoljava direktnu izmjenu.,"F-030,R-037",Nije poceto,,,Izmjena proknjizenog naloga nije implementirana; postoji samo vracanje u nacrt.,,,,,,,,,,,,,,,,,
-T-022,Nalozi,Vrati nalog u nacrt bez prava,Pristup odbijen.,"F-030,R-038",Nije poceto,,,Detaljna prava za reopen jos nisu implementirana.,,,,,,,,,,,,,,,,,
+T-022,Nalozi,Vrati nalog u nacrt bez prava,Pristup odbijen.,"F-030,R-038",Djelimicno testirano,Codex,2026-09-05,Server action provjerava pravo nalozi:update; potreban je jos integracioni test sa radnikom bez tog prava.,,,,,,,,,,,,,,,,,
 T-023,Nalozi,Soft delete naloga,Nalog dobija DELETED i ne ulazi u izvještaje.,"F-031,R-039",Djelimicno testirano,Codex,2026-06-19,Soft delete action implementiran; treba rucni QA i arhiva.,,,,,,,,,,,,,,,,,
 T-024,Nalozi,Jedan nalog sa više dokumenata,Veze se čuvaju u journal_document_links.,"F-032,R-042",Nije poceto,,,Veze dokument-nalog jos nisu implementirane.,,,,,,,,,,,,,,,,,
 T-025,Nalozi,Izmjena dokumenta poslije knjiženja,Povezani nalog dobija NEEDS_REVIEW/SOURCE_CHANGED.,"F-033,R-043",Nije poceto,,,Status uskladjenosti sa izvornim dokumentom jos nije povezan sa dokumentima.,,,,,,,,,,,,,,,,,

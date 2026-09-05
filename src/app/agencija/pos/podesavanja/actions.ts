@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auditLog } from "@/lib/audit";
+import { requireRole } from "@/lib/auth";
 import { fiscalAdminApi, FiscalAdminApiError } from "@/lib/fiscal-admin-api";
 import { posModule, requirePosContext } from "@/lib/pos";
 import { prisma } from "@/lib/prisma";
@@ -19,6 +20,7 @@ function parseDeposit(value: string) {
 }
 
 export async function configureDefaultPosRegister() {
+  await requireRole("admin_agencije");
   const ctx = await requirePosContext("manage");
   const link = ctx.firma.fiscalCompanyLink;
   if (!link?.fiscal_api_company_id || link.is_suspended) redirect("/agencija/pos/podesavanja?poruka=fiskalizacija");
@@ -59,6 +61,7 @@ export async function configureDefaultPosRegister() {
 }
 
 export async function updatePosRegisterWarehouse(formData: FormData) {
+  await requireRole("admin_agencije");
   const ctx = await requirePosContext("manage");
   const registerId = text(formData, "register_id");
   const warehouseId = text(formData, "magacin_id") || null;
@@ -92,6 +95,7 @@ export async function updatePosRegisterWarehouse(formData: FormData) {
 }
 
 export async function updatePosAccountingIntegration(formData: FormData) {
+  await requireRole("admin_agencije");
   const ctx = await requirePosContext("manage");
   const enabled = formData.get("accounting_integration") === "on";
   const kifMode = String(formData.get("kif_mode") ?? "DAILY") === "MONTHLY" ? "MONTHLY" : "DAILY";
@@ -153,6 +157,7 @@ export async function updatePosAccountingIntegration(formData: FormData) {
 }
 
 export async function updatePosNegativeStockPolicy(formData: FormData) {
+  await requireRole("admin_agencije");
   const ctx = await requirePosContext("manage");
   const registerId = text(formData, "register_id");
   const policy = text(formData, "negative_stock_policy");
@@ -170,6 +175,7 @@ export async function updatePosNegativeStockPolicy(formData: FormData) {
 }
 
 export async function registerInitialCashDeposit(formData: FormData) {
+  await requireRole("admin_agencije");
   const ctx = await requirePosContext("manage");
   const registerId = text(formData, "register_id");
   const amount = parseDeposit(text(formData, "cash_amount"));

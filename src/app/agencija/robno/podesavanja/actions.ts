@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auditLog } from "@/lib/audit";
+import { requireRole } from "@/lib/auth";
 import { accountOverrideTypes } from "@/lib/account-plan";
 import {
   calculationPostingFields,
@@ -34,6 +35,7 @@ function text(value: FormDataEntryValue | null) {
 }
 
 export async function saveCalculationPostingSettings(formData: FormData) {
+  await requireRole("admin_agencije");
   const returnPath = "/agencija/robno/podesavanja";
   const context = await getInventoryContext("manage");
   const firmaId = text(formData.get("firma_id"));
@@ -149,6 +151,7 @@ export async function saveCalculationPostingSettings(formData: FormData) {
 }
 
 export async function saveOutgoingInvoicePostingSettings(formData: FormData) {
+  await requireRole("admin_agencije");
   const returnPath = "/agencija/robno/podesavanja";
   const context = await getInventoryContext("manage");
   const firmaId = text(formData.get("firma_id"));
@@ -167,6 +170,7 @@ export async function saveOutgoingInvoicePostingSettings(formData: FormData) {
 }
 
 export async function saveInventoryTransferPostingSettings(formData: FormData) {
+  await requireRole("admin_agencije");
   const returnPath = "/agencija/robno/podesavanja";
   const context = await getInventoryContext("manage");
   const firmaId = text(formData.get("firma_id"));
@@ -192,6 +196,7 @@ export async function saveInventoryTransferPostingSettings(formData: FormData) {
 }
 
 export async function saveInventoryCountPostingSettings(formData: FormData) {
+  await requireRole("admin_agencije");
   const returnPath = "/agencija/robno/podesavanja";
   const context = await getInventoryContext("manage");
   const firmaId = text(formData.get("firma_id"));
@@ -219,6 +224,7 @@ export async function saveInventoryCountPostingSettings(formData: FormData) {
 }
 
 export async function saveInventoryWriteOffPostingSettings(formData: FormData) {
+  await requireRole("admin_agencije");
   const returnPath = "/agencija/robno/podesavanja";
   const context = await getInventoryContext("manage");
   const firmaId = text(formData.get("firma_id"));
@@ -246,6 +252,7 @@ export async function saveInventoryWriteOffPostingSettings(formData: FormData) {
 }
 
 export async function saveInventoryPriceAdjustmentPostingSettings(formData: FormData) {
+  await requireRole("admin_agencije");
   const returnPath = "/agencija/robno/podesavanja";
   const context = await getInventoryContext("manage");
   const firmaId = text(formData.get("firma_id"));

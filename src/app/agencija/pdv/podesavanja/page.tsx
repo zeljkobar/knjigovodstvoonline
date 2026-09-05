@@ -1,5 +1,6 @@
 import { savePdvSettings } from "../actions";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
+import { requireRole } from "@/lib/auth";
 import { buildPdvPostingFields } from "@/lib/pdv";
 import { prisma } from "@/lib/prisma";
 import { requirePdvContext } from "@/lib/pdv-service";
@@ -15,6 +16,7 @@ type PageProps = {
 };
 
 export default async function PdvPodesavanjaPage({ searchParams }: PageProps) {
+  await requireRole("admin_agencije");
   const params = await searchParams;
   const context = await requirePdvContext("manage");
   const [settings, journalTypes, baseAccounts, companyAccounts, vatRates] = await Promise.all([

@@ -1301,3 +1301,50 @@
   ESLint nema grešaka uz ista četiri ranija upozorenja, regresioni test prolazi
   3/3, a simulacija reverse proxy-ja vraća `location: /?greska=sesija` umjesto
   apsolutnog localhost URL-a.
+
+## 2026-09-04 — Bruto bilans u centralnim Izvještajima
+
+- Ruta `/agencija/izvjestaji` više nije placeholder nego koristi postojeću
+  serversku komponentu Bruto bilansa iz Naloga, bez dupliranja obračuna.
+- Centralni prikaz zadržava sve filtere, nivoe zbira, poslovne jedinice i A4
+  štampu. Klik na konto vodi na `/agencija/izvjestaji/kartice-konta` uz prenesen
+  period i poslovnu jedinicu; prikaz u Nalozima i dalje vodi na svoju analitiku.
+- Nije mijenjana baza. `npx tsc --noEmit`, ESLint i `git diff --check` prolaze;
+  ostaju četiri ranija lint upozorenja izvan ove izmjene.
+
+## 2026-09-04 — Jedinstvena matrica prava i meni po modulima
+
+- Uklonjen je paralelni legacy sistem `moze_da_gleda/unosi/mijenja/brise` iz
+  `korisnik_firma`; `KorisnikPravo` je sada jedini izvor dozvola po firmi,
+  modulu i akciji. Poseban backfill prenosi stara prava samo za dodjele na
+  kojima matrica nikada nije podešena, pa ne može ponovo uključiti pravo koje je
+  administrator u matrici namjerno ostavio isključeno.
+- Glavni agencijski meni za radnika koristi `view` pravo aktivne firme. KIF/KUF
+  se prikazuje ako postoji pregled makar jedne knjige. Radnik firmu bira među
+  dodijeljenim firmama u gornjoj traci, ali su stavke Firme, Korisnici i prava i
+  Podešavanja dostupne isključivo adminu agencije.
+- Matrica je proširena akcijom `cancel` za stvarno storniranje u POS/fiskalnim
+  tokovima. Ručni nalozi sada na backendu provjeravaju create/update/post/delete,
+  uključujući vraćanje u nacrt, a UI skriva nedozvoljene komande.
+- Administrativne kartice Podešavanja uklonjene su iz podmenija radnika u
+  KIF/KUF, PDV, Robnom, POS-u, Izvodima, Platama i Završnom računu. Iste rute i
+  njihove akcije čuvanja šema/konta imaju server-side `admin_agencije` zaštitu,
+  dok operativni unos, pregled, izmjena, brisanje i knjiženje ostaju pod matricom.
+- Primijenjene su migracije `20260904165000_backfill_legacy_company_permissions`
+  i `20260904170000_remove_legacy_company_permissions`, regenerisan Prisma
+  klijent i restartovan dev server. TypeScript, permission/navigation testovi,
+  portal testovi i company-purge provjera prolaze; ESLint nema grešaka i zadržava
+  četiri ranija upozorenja.
+
+## 2026-09-04 — Statistika aktivnosti radnika
+
+- Implementirana je postojeća ruta `/agencija/aktivnosti`; nije dodavana nova
+  stavka glavnog menija. Stranica koristi već postojeće agregirane događaje iz
+  `aktivnost_dogadjaji` i prikazuje samo stvarno auditirane poslovne akcije.
+- Dodati su brzi periodi i filteri od–do, radnik, firma, modul i akcija, zbirne
+  kartice, tabela učinka po radniku, dnevni grafikon, presjek po modulima i
+  hronologija posljednjih 100 događaja. Filter radnika i stvarni lokalni podaci
+  provjereni su u browseru.
+- Ruta i dashboard kartica dostupne su samo `admin_agencije`; duplirana mrtva
+  stavka iz podmenija Korisnici je uklonjena. TypeScript, ESLint, navigacioni
+  testovi i `git diff --check` prolaze uz četiri ranija lint upozorenja.

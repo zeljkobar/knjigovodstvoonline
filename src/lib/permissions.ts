@@ -1,17 +1,9 @@
 import { redirect } from "next/navigation";
 import { prisma } from "./prisma";
 import { getCurrentUser, isDirectFiscalTenantUser } from "./auth";
+import type { PermissionAction } from "./permission-policy";
 
-export type PermissionAction =
-  | "view"
-  | "create"
-  | "update"
-  | "delete"
-  | "post"
-  | "cancel"
-  | "export"
-  | "approve"
-  | "manage";
+export type { PermissionAction } from "./permission-policy";
 
 type PermissionCheck = {
   firmaId?: string | null;

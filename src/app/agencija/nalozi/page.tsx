@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
 import { Pagination } from "@/components/Pagination";
 import { requireAnyRole } from "@/lib/auth";
 import { formatJournalCode, journalStatusLabel, journalStatuses } from "@/lib/journals";
+import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 import { deleteJournal, postJournal } from "./actions";
@@ -26,7 +28,8 @@ const poruke: Record<string, string> = {
   nalog_obrisan: "Nalog je obrisan.",
   nalog_kalkulacija: "Nalog kalkulacije se ne briše odvojeno od robnog dokumenta.",
   nalog_greska: "Nalog nije pronađen ili akcija nije dozvoljena.",
-  nalog_proknjizen: "Nalog je proknjižen."
+  nalog_proknjizen: "Nalog je proknjižen.",
+  prava: "Nemate pravo za ovu akciju nad nalozima."
 };
 
 function formatDate(date: Date) {
@@ -89,6 +92,19 @@ export default async function NaloziPage({ searchParams }: NaloziPageProps) {
         }
       })
     : null;
+
+  const [canView, canCreate, canPost, canDelete] = activeCompany
+    ? await Promise.all([
+        hasPermission(user, { firmaId: activeCompany.id, modul: "nalozi", akcija: "view" }),
+        hasPermission(user, { firmaId: activeCompany.id, modul: "nalozi", akcija: "create" }),
+        hasPermission(user, { firmaId: activeCompany.id, modul: "nalozi", akcija: "post" }),
+        hasPermission(user, { firmaId: activeCompany.id, modul: "nalozi", akcija: "delete" })
+      ])
+    : [false, false, false, false];
+
+  if (activeCompany && !canView) {
+    redirect("/agencija?greska=prava");
+  }
 
   const activeYear =
     activeCompany && workContext.poslovnaGodinaId
@@ -246,7 +262,7 @@ export default async function NaloziPage({ searchParams }: NaloziPageProps) {
         <div>
           <h2>Nalozi za knjiženje</h2>
         </div>
-        {activeCompany && activeYear && !activeYear.zakljucena ? (
+        {activeCompany && activeYear && !activeYear.zakljucena && canCreate ? (
           <Link className="primary-link" href="/agencija/nalozi/novi">
             Novi nalog
           </Link>
@@ -385,25 +401,32 @@ export default async function NaloziPage({ searchParams }: NaloziPageProps) {
                               </Link>
                               {nalog.status === journalStatuses.draft && !activeYear.zakljucena ? (
                                 <>
-                                  <form action={postJournal}>
-                                    <input name="nalog_id" type="hidden" value={nalog.id} />
-                                    <input name="return_to" type="hidden" value="drafts" />
-                                    <button className="table-button" type="submit">
-                                      Proknjiži
-                                    </button>
-                                  </form>
-                                  <form action={deleteJournal}>
-                                    <input name="nalog_id" type="hidden" value={nalog.id} />
-                                    <input name="return_to" type="hidden" value="drafts" />
-                                    <input
-                                      name="delete_reason"
-                                      type="hidden"
-                                      value="Trajno brisanje nacrta iz pregleda naloga"
-                                    />
-                                    <button className="table-button table-button-danger" type="submit">
-                                      Izbriši
-                                    </button>
-                                  </form>
+                                  {canPost ? (
+                                    <form action={postJournal}>
+                                      <input name="nalog_id" type="hidden" value={nalog.id} />
+                                      <input name="return_to" type="hidden" value="drafts" />
+                                      <button className="table-button" type="submit">
+                                        Proknjiži
+                                      </button>
+                                    </form>
+                                  ) : null}
+                                  {canDelete ? (
+                                    <form action={deleteJournal}>
+                                      <input name="nalog_id" type="hidden" value={nalog.id} />
+                                      <input name="return_to" type="hidden" value="drafts" />
+                                      <input
+                                        name="delete_reason"
+                                        type="hidden"
+                                        value="Trajno brisanje nacrta iz pregleda naloga"
+                                      />
+                                      <button
+                                        className="table-button table-button-danger"
+                                        type="submit"
+                                      >
+                                        Izbriši
+                                      </button>
+                                    </form>
+                                  ) : null}
                                 </>
                               ) : null}
                             </div>

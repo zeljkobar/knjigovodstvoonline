@@ -61,7 +61,6 @@ export async function getDirectPortalContext() {
     where: {
       korisnik_id: user.id,
       is_deleted: false,
-      moze_da_gleda: true,
       access_type: {
         in: [...DIRECT_PORTAL_ACCESS_TYPES]
       },

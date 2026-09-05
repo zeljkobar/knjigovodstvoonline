@@ -7,6 +7,7 @@ import {
   getSubNavigation,
   type NavigationItem
 } from "@/lib/navigation";
+import type { SessionUser } from "@/lib/session";
 
 type AgencyTopBarProps = {
   activeFirmId: string;
@@ -20,6 +21,7 @@ type AgencyTopBarProps = {
   }>;
   navigation: NavigationItem[];
   userName: string;
+  userRole: SessionUser["rola"];
   years: Array<{
     id: string;
     godina: number;
@@ -35,12 +37,13 @@ export function AgencyTopBar({
   firms,
   navigation,
   userName,
+  userRole,
   years
 }: AgencyTopBarProps) {
   const pathname = usePathname();
   const section = getSectionFromPath(pathname);
-  const subItems = getSubNavigation(section);
   const currentSection = navigation.find((item) => item.section === section);
+  const subItems = currentSection ? getSubNavigation(section, userRole) : [];
   const activeSubItem = subItems.find(
     (item) =>
       pathname === item.href ||

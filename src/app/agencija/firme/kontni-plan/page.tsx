@@ -10,7 +10,7 @@ import {
   defaultAccountPurposes,
   mergeCompanyAccountPlan
 } from "@/lib/account-plan";
-import { requireAnyRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 type KontniPlanPageProps = {
@@ -40,7 +40,7 @@ function accountTypeLabel(tip: string) {
 }
 
 export default async function KontniPlanPage({ searchParams }: KontniPlanPageProps) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const params = await searchParams;
   const message = params?.poruka ? poruke[params.poruka] : null;
   const selectedCompanyId = params?.firma ?? "";

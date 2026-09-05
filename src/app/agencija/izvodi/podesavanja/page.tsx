@@ -1,6 +1,7 @@
 import { saveBankStatementAccountSettings } from "../actions";
 import { getIzvodiContext, MissingContext } from "../_shared";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
+import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 type PodesavanjaIzvodaPageProps = {
@@ -18,6 +19,7 @@ const messages: Record<string, string> = {
 export default async function PodesavanjaIzvodaPage({
   searchParams
 }: PodesavanjaIzvodaPageProps) {
+  await requireRole("admin_agencije");
   const { user, firma, godina } = await getIzvodiContext();
   const params = await searchParams;
 

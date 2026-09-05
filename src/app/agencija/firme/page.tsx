@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Pagination } from "@/components/Pagination";
-import { requireAnyRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const PAGE_SIZE = 25;
@@ -20,7 +20,7 @@ const poruke: Record<string, string> = {
 };
 
 export default async function FirmePage({ searchParams }: FirmePageProps) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const params = await searchParams;
   const message = params?.poruka ? poruke[params.poruka] : null;
   const currentPage = Math.max(1, parseInt(params?.stranica ?? "1"));

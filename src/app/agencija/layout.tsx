@@ -3,6 +3,7 @@ import { AgencyTopBar } from "@/components/AgencyTopBar";
 import { AgencyWorkspaceShell } from "@/components/AgencyWorkspaceShell";
 import { requireAgencyWorkspaceUser } from "@/lib/auth";
 import { getAgencyNavigation } from "@/lib/navigation";
+import { permissionKey } from "@/lib/permission-policy";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -12,7 +13,6 @@ export default async function AgencijaLayout({
   children: React.ReactNode;
 }>) {
   const user = await requireAgencyWorkspaceUser();
-  const navigation = getAgencyNavigation(user.rola);
   const workContext = await readWorkContext();
   const [agencija, firme] = user.agencija_id
     ? await Promise.all([
@@ -56,21 +56,41 @@ export default async function AgencijaLayout({
     : [null, []];
   const activeFirm =
     firme.find((firma) => firma.id === workContext.firmaId) ?? null;
-  const poslovneGodine = activeFirm
-    ? await prisma.poslovnaGodina.findMany({
-        where: {
-          firma_id: activeFirm.id
-        },
-        orderBy: {
-          godina: "desc"
-        },
-        select: {
-          id: true,
-          godina: true,
-          zakljucena: true
-        }
-      })
-    : [];
+  const [poslovneGodine, prava] = activeFirm
+    ? await Promise.all([
+        prisma.poslovnaGodina.findMany({
+          where: {
+            firma_id: activeFirm.id
+          },
+          orderBy: {
+            godina: "desc"
+          },
+          select: {
+            id: true,
+            godina: true,
+            zakljucena: true
+          }
+        }),
+        user.rola === "admin_agencije"
+          ? Promise.resolve([])
+          : prisma.korisnikPravo.findMany({
+              where: {
+                agencija_id: user.agencija_id!,
+                korisnik_id: user.id,
+                firma_id: activeFirm.id,
+                dozvoljeno: true
+              },
+              select: {
+                modul: true,
+                akcija: true
+              }
+            })
+      ])
+    : [[], []];
+  const permissionKeys = new Set(
+    prava.map((pravo) => permissionKey(pravo.modul, pravo.akcija))
+  );
+  const navigation = getAgencyNavigation(user.rola, permissionKeys);
   const activeYear =
     poslovneGodine.find((godina) => godina.id === workContext.poslovnaGodinaId) ??
     poslovneGodine[0] ??
@@ -92,6 +112,7 @@ export default async function AgencijaLayout({
           navigation={navigation}
           years={poslovneGodine}
           userName={user.korisnicko_ime}
+          userRole={user.rola}
         />
         {children}
       </>

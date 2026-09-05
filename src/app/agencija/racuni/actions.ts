@@ -15,7 +15,7 @@ import {
   invoicePostingDefaultScope,
   mergeCompanyAccountPlan
 } from "@/lib/account-plan";
-import { requireAnyRole } from "@/lib/auth";
+import { requireAnyRole, requireRole } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { ensureDefaultInvoiceBookTypes } from "@/lib/invoice-books";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
@@ -332,7 +332,7 @@ function lastDayOfMonth(year: number, month: number) {
 }
 
 export async function createInvoiceBookType(formData: FormData) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const workContext = await readWorkContext();
 
   if (!user.agencija_id || !workContext.firmaId) {
@@ -367,8 +367,7 @@ export async function createInvoiceBookType(formData: FormData) {
             korisnici: {
               some: {
                 korisnik_id: user.id,
-                is_deleted: false,
-                moze_da_mijenja: true
+                is_deleted: false
               }
             }
           })
@@ -433,7 +432,7 @@ export async function createInvoiceBookType(formData: FormData) {
 }
 
 export async function saveInvoicePostingRules(formData: FormData) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const workContext = await readWorkContext();
 
   if (!user.agencija_id || !workContext.firmaId) {
@@ -464,8 +463,7 @@ export async function saveInvoicePostingRules(formData: FormData) {
               korisnici: {
                 some: {
                   korisnik_id: user.id,
-                  is_deleted: false,
-                  moze_da_mijenja: true
+                  is_deleted: false
                 }
               }
             }
@@ -684,7 +682,7 @@ export async function saveInvoicePostingRules(formData: FormData) {
 }
 
 export async function saveImportPostingScheme(formData: FormData) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const workContext = await readWorkContext();
 
   if (!user.agencija_id || !workContext.firmaId) {
@@ -703,8 +701,7 @@ export async function saveImportPostingScheme(formData: FormData) {
             korisnici: {
               some: {
                 korisnik_id: user.id,
-                is_deleted: false,
-                moze_da_mijenja: true
+                is_deleted: false
               }
             }
           })
@@ -864,7 +861,7 @@ export async function saveImportPostingScheme(formData: FormData) {
 }
 
 export async function savePazarPostingScheme(formData: FormData) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const workContext = await readWorkContext();
 
   if (!user.agencija_id || !workContext.firmaId) {
@@ -883,8 +880,7 @@ export async function savePazarPostingScheme(formData: FormData) {
             korisnici: {
               some: {
                 korisnik_id: user.id,
-                is_deleted: false,
-                moze_da_mijenja: true
+                is_deleted: false
               }
             }
           })
@@ -1059,7 +1055,7 @@ async function resolveCopiedJournalTypeId(
 }
 
 export async function importInvoiceSettingsFromCompany(formData: FormData) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const workContext = await readWorkContext();
 
   if (!user.agencija_id || !workContext.firmaId) {
@@ -1085,8 +1081,7 @@ export async function importInvoiceSettingsFromCompany(formData: FormData) {
               korisnici: {
                 some: {
                   korisnik_id: user.id,
-                  is_deleted: false,
-                  moze_da_mijenja: true
+                  is_deleted: false
                 }
               }
             })
@@ -1582,8 +1577,7 @@ export async function postInvoiceBook(formData: FormData) {
               korisnici: {
                 some: {
                   korisnik_id: user.id,
-                  is_deleted: false,
-                  moze_da_mijenja: true
+                  is_deleted: false
                 }
               }
             })

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Prisma, type PlateObracun, type PlateRadnik } from "@prisma/client";
 import { accountOverrideTypes } from "@/lib/account-plan";
 import { auditLog } from "@/lib/audit";
+import { requireRole } from "@/lib/auth";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
 import {
   calculatePayrollLine,
@@ -568,6 +569,7 @@ async function effectiveCalculationType(calculationTypeId?: string | null) {
 }
 
 export async function savePayrollBasisRule(formData: FormData) {
+  await requireRole("admin_agencije");
   const context = await requirePlateManageContext("/agencija/plate/podesavanja");
   const basisId = text(formData.get("osnova_id"));
   const ruleId = text(formData.get("pravilo_id"));
@@ -705,6 +707,7 @@ export async function savePayrollBasisRule(formData: FormData) {
 }
 
 export async function savePayrollPostingSettings(formData: FormData) {
+  await requireRole("admin_agencije");
   const returnPath = "/agencija/plate/podesavanja";
   const context = await requirePlateManageContext(returnPath);
   const category = text(formData.get("kategorija"));

@@ -38,7 +38,7 @@ async function requireAdjustmentContext(action: PermissionAction, firmaId: strin
   const work = await readWorkContext();
   if (!user.agencija_id || !work.firmaId || !work.poslovnaGodinaId || work.firmaId !== firmaId) go(returnPath, "prava");
   const [firma, godina, allowed] = await Promise.all([
-    prisma.firma.findFirst({ where: { id: firmaId, agencija_id: user.agencija_id, aktivan: true, is_deleted: false, ...(user.rola === "admin_agencije" ? {} : { korisnici: { some: { korisnik_id: user.id, is_deleted: false, moze_da_mijenja: true } } }) }, select: { id: true, naziv: true } }),
+    prisma.firma.findFirst({ where: { id: firmaId, agencija_id: user.agencija_id, aktivan: true, is_deleted: false, ...(user.rola === "admin_agencije" ? {} : { korisnici: { some: { korisnik_id: user.id, is_deleted: false } } }) }, select: { id: true, naziv: true } }),
     prisma.poslovnaGodina.findFirst({ where: { id: work.poslovnaGodinaId, firma_id: firmaId }, select: { id: true, godina: true, datum_od: true, datum_do: true, zakljucena: true } }),
     hasPermission(user, { firmaId, modul: inventoryModule, akcija: action })
   ]);

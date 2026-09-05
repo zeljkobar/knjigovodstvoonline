@@ -9,6 +9,7 @@ import { requireAnyRole } from "@/lib/auth";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
 import { openingBalanceJournalType } from "@/lib/opening-balance";
 import { pdvReturnStatuses } from "@/lib/pdv";
+import { hasPermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 function value(formData: FormData, key: string) {
@@ -247,6 +248,18 @@ async function getUserCompanyAccess(firmaId: string, poslovnaGodinaId?: string) 
   };
 }
 
+async function canUseJournals(
+  user: Awaited<ReturnType<typeof requireAnyRole>>,
+  firmaId: string,
+  akcija: PermissionAction
+) {
+  return hasPermission(user, {
+    firmaId,
+    modul: "nalozi",
+    akcija
+  });
+}
+
 async function resolveCompanyAccount(
   tx: Prisma.TransactionClient,
   firmaId: string,
@@ -342,6 +355,10 @@ export async function createJournal(formData: FormData) {
 
   if (!firma || !poslovnaGodina || !vrstaNalogaId || !datum) {
     redirectNewJournal("nalog_obavezno");
+  }
+
+  if (!(await canUseJournals(user, firma.id, "create"))) {
+    redirectNewJournal("prava");
   }
 
   if (poslovnaGodina.zakljucena) {
@@ -568,6 +585,10 @@ export async function updateDraftJournalLines(formData: FormData) {
     redirectJournals("nalog_greska");
   }
 
+  if (!(await canUseJournals(user, nalog.firma_id, "update"))) {
+    redirectJournalDetail(nalog.id, "prava");
+  }
+
   if (nalog.poslovna_godina.zakljucena) {
     redirectJournalDetail(nalog.id, "godina_zakljucena");
   }
@@ -701,6 +722,10 @@ export async function postJournal(formData: FormData) {
     redirectJournals("nalog_greska");
   }
 
+  if (!(await canUseJournals(user, nalog.firma_id, "post"))) {
+    redirectJournalDetail(nalog.id, "prava");
+  }
+
   if (nalog.poslovna_godina.zakljucena) {
     redirectJournalDetail(nalog.id, "godina_zakljucena");
   }
@@ -803,6 +828,10 @@ export async function reopenJournal(formData: FormData) {
     redirectJournals("nalog_greska");
   }
 
+  if (!(await canUseJournals(user, nalog.firma_id, "update"))) {
+    redirectJournalDetail(nalog.id, "prava");
+  }
+
   if (nalog.poslovna_godina.zakljucena) {
     redirectJournalDetail(nalog.id, "godina_zakljucena");
   }
@@ -884,6 +913,10 @@ export async function deleteJournal(formData: FormData) {
 
   if (!nalog || nalog.poslovna_godina.zakljucena) {
     redirectJournals("nalog_greska");
+  }
+
+  if (!(await canUseJournals(user, nalog.firma_id, "delete"))) {
+    redirectJournals("prava");
   }
 
   if (nalog.status !== journalStatuses.draft) {
@@ -1098,6 +1131,10 @@ export async function createPartner(formData: FormData) {
     redirect("/agencija/nalozi/partneri?poruka=partner_greska");
   }
 
+  if (!(await canUseJournals(user, firma.id, "create"))) {
+    redirect("/agencija/nalozi/partneri?poruka=prava");
+  }
+
   const partner = await prisma.$transaction(async (tx) => {
     const existingPartner = pib
       ? await tx.komitent.findFirst({
@@ -1242,6 +1279,10 @@ export async function updatePartner(formData: FormData) {
 
   if (!firma) {
     redirect("/agencija/nalozi/partneri?poruka=partner_greska");
+  }
+
+  if (!(await canUseJournals(user, firma.id, "update"))) {
+    redirect("/agencija/nalozi/partneri?poruka=prava");
   }
 
   const existing = await prisma.komitent.findFirst({

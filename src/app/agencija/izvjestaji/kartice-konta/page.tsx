@@ -4,6 +4,7 @@ type PageProps = {
   searchParams?: Promise<{
     datum_do?: string;
     datum_od?: string;
+    jedinica?: string;
     konto?: string;
     konto_q?: string;
     konto_prefix?: string;

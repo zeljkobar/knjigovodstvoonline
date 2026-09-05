@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   postJournal,
   reopenJournal,
@@ -13,6 +13,7 @@ import {
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { formatJournalCode, journalStatusLabel, journalStatuses } from "@/lib/journals";
+import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 type NalogDetailPageProps = {
@@ -38,7 +39,8 @@ const poruke: Record<string, string> = {
   stavke_nevalidne: "Provjerite konta i iznose na stavkama.",
   stavka_iznos: "Jedna stavka mora imati samo duguje ili samo potrazuje.",
   konto_nevalidno: "Konto ne postoji ili je deaktivirano za firmu.",
-  partner_obavezan: "Za analiticko konto morate izabrati partnera."
+  partner_obavezan: "Za analiticko konto morate izabrati partnera.",
+  prava: "Nemate pravo za ovu akciju nad nalogom."
 };
 
 function formatDate(date: Date | null) {
@@ -175,6 +177,16 @@ export default async function NalogDetailPage({
     notFound();
   }
 
+  const [canView, canUpdate, canPost] = await Promise.all([
+    hasPermission(user, { firmaId: nalog.firma_id, modul: "nalozi", akcija: "view" }),
+    hasPermission(user, { firmaId: nalog.firma_id, modul: "nalozi", akcija: "update" }),
+    hasPermission(user, { firmaId: nalog.firma_id, modul: "nalozi", akcija: "post" })
+  ]);
+
+  if (!canView) {
+    redirect("/agencija?greska=prava");
+  }
+
   const totalDebit = nalog.stavke.reduce(
     (sum, line) => sum + Number(line.duguje),
     0
@@ -188,7 +200,7 @@ export default async function NalogDetailPage({
     nalog.sifra ||
     formatJournalCode(nalog.vrsta_naloga.prefiks, nalog.poslovna_godina.godina, nalog.broj);
   const [baseAccounts, companyOverrides] =
-    nalog.status === journalStatuses.draft && !nalog.poslovna_godina.zakljucena
+    canUpdate && nalog.status === journalStatuses.draft && !nalog.poslovna_godina.zakljucena
       ? await Promise.all([
           prisma.konto.findMany({
             where: {
@@ -241,7 +253,7 @@ export default async function NalogDetailPage({
   const requiredAnalyticsAccounts = accounts
     .filter((account) => account.analitika_obavezna)
     .map((account) => account.sifra);
-const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
+  const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
     accountCode: stavka.firma_konto.sifra,
     credit: Number(stavka.potrazuje) > 0 ? Number(stavka.potrazuje).toFixed(2) : "",
     debit: Number(stavka.duguje) > 0 ? Number(stavka.duguje).toFixed(2) : "",
@@ -376,7 +388,7 @@ const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
         </div>
       </section>
 
-      {nalog.status === journalStatuses.draft && !nalog.poslovna_godina.zakljucena ? (
+      {canUpdate && nalog.status === journalStatuses.draft && !nalog.poslovna_godina.zakljucena ? (
         <section className="admin-panel">
           <div className="panel-header">
             <h3>Izmijeni stavke</h3>
@@ -410,13 +422,13 @@ const initialLines: JournalLineInitialValue[] = nalog.stavke.map((stavka) => ({
             <span>Zaključana godina blokira izmjene</span>
           </div>
           <div className="journal-actions">
-            {nalog.status === journalStatuses.draft ? (
+            {canPost && nalog.status === journalStatuses.draft ? (
               <form action={postJournal} data-journal-post-form="true">
                 <input name="nalog_id" type="hidden" value={nalog.id} />
                 <button type="submit">Proknjiži nalog (F9)</button>
               </form>
             ) : null}
-            {nalog.status === journalStatuses.posted &&
+            {canUpdate && nalog.status === journalStatuses.posted &&
             nalog.source_module !== "PLATE" ? (
               <form action={reopenJournal}>
                 <input name="nalog_id" type="hidden" value={nalog.id} />

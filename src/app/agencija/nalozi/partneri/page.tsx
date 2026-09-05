@@ -17,7 +17,8 @@ const poruke: Record<string, string> = {
   partner_izmijenjen: "Dodatni partner je izmijenjen.",
   partner_obavezno: "Naziv partnera i aktivna firma su obavezni.",
   partner_dupli: "Partner sa tim PIB-om je vec dostupan.",
-  partner_greska: "Partner nije sacuvan. Provjerite podatke."
+  partner_greska: "Partner nije sacuvan. Provjerite podatke.",
+  prava: "Nemate pravo za ovu akciju nad partnerima."
 };
 
 function scopeLabel(scope: string) {

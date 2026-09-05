@@ -7,6 +7,7 @@ import {
 } from "../actions";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
+import { configurablePermissionActions } from "@/lib/permission-policy";
 import { prisma } from "@/lib/prisma";
 
 type KorisniciPageProps = {
@@ -46,7 +47,7 @@ const moduli = [
   "izvjestaji"
 ];
 
-const akcije = ["view", "create", "update", "delete", "post", "export", "manage"];
+const akcije = configurablePermissionActions;
 
 function roleLabel(rola: string) {
   if (rola === "korisnik_agencije") {
@@ -67,6 +68,7 @@ function actionLabel(akcija: string) {
     update: "Izmjena",
     delete: "Brisanje",
     post: "Knjiženje",
+    cancel: "Storniranje",
     export: "Izvoz",
     manage: "Administracija"
   };
@@ -394,6 +396,12 @@ export default async function AgencijskiKorisniciPage({
             </div>
             <span>{selectedUser.prava.filter((pravo) => pravo.firma_id === selectedFirmaId).length} prava</span>
           </div>
+
+          <p className="admin-note">
+            Pravo <strong>Pregled</strong> određuje da li radnik vidi modul u
+            glavnom meniju za izabranu firmu. KIF/KUF se prikazuje kada radnik
+            ima pregled ulaznih ili izlaznih računa.
+          </p>
 
           <form className="compact-form" action={saveUserPermissionMatrix}>
             <input name="korisnik_id" type="hidden" value={selectedUser.id} />

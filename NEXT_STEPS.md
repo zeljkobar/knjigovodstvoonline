@@ -124,8 +124,12 @@
   `PAYROLL` naloga i print/export obračuna. M-4 je završen u dogovorenom obimu.
 
 ## Otvoreno po modulima
-- **Modul 1:** kompletan backend enforcement prava kroz sve rute/server actions;
-  pretplate i limiti agencija; statistika rada radnika; ozbiljniji testovi.
+- **Modul 1:** nastaviti audit preostalih ruta/server actions da svaka operacija
+  koristi `KorisnikPravo`; legacy `moze_da_*` sistem je uklonjen, glavni meni je
+  vezan za pravo pregleda, a kompletan tok ručnih naloga je zaključan po
+  akcijama. Administrativna podešavanja svih poslovnih modula skrivena su i
+  backendom zaključana za radnike. Ostaju pretplate i limiti agencija,
+  audit pokriće preostalih poslovnih akcija i ozbiljniji permission testovi.
 - **Modul 2:** proširiti postojeću evidenciju odgovornih lica sa izvršnog
   direktora na vlasnike, ovlašćena i kontakt lica;
   dopuniti nedostajuće žiro račune za prirez kada bude dostupan noviji zvanični

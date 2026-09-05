@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { saveCompanyContract } from "../../actions";
-import { requireAnyRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 type UgovoriPageProps = {
@@ -42,7 +42,7 @@ function currencyValue(value: { toString: () => string } | null, currency: strin
 }
 
 export default async function UgovoriPage({ searchParams }: UgovoriPageProps) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const params = await searchParams;
   const message = params?.poruka ? poruke[params.poruka] : null;
   const selectedCompanyId = params?.firma ?? "";

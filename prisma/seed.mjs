@@ -3,6 +3,47 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+const permissionModules = [
+  "pos",
+  "nalozi",
+  "robno",
+  "kalkulacije",
+  "izlazni_racuni",
+  "ulazni_racuni",
+  "izvodi",
+  "plate",
+  "pdv",
+  "zavrsni_racun",
+  "izvjestaji"
+];
+
+async function seedPermissionsIfMissing({ agencijaId, korisnikId, firmaId, actions }) {
+  const existing = await prisma.korisnikPravo.count({
+    where: {
+      agencija_id: agencijaId,
+      korisnik_id: korisnikId,
+      firma_id: firmaId
+    }
+  });
+
+  if (existing > 0) {
+    return;
+  }
+
+  await prisma.korisnikPravo.createMany({
+    data: permissionModules.flatMap((modul) =>
+      actions.map((akcija) => ({
+        agencija_id: agencijaId,
+        korisnik_id: korisnikId,
+        firma_id: firmaId,
+        modul,
+        akcija,
+        dozvoljeno: true
+      }))
+    )
+  });
+}
+
 async function main() {
   const lozinkaHash = await bcrypt.hash("test1234", 12);
 
@@ -106,19 +147,10 @@ async function main() {
         firma_id: firma.id
       }
     },
-    update: {
-      moze_da_gleda: true,
-      moze_da_unosi: true,
-      moze_da_mijenja: true,
-      moze_da_brise: false
-    },
+    update: {},
     create: {
       korisnik_id: agencijskiKorisnik.id,
-      firma_id: firma.id,
-      moze_da_gleda: true,
-      moze_da_unosi: true,
-      moze_da_mijenja: true,
-      moze_da_brise: false
+      firma_id: firma.id
     }
   });
 
@@ -129,19 +161,10 @@ async function main() {
         firma_id: firma.id
       }
     },
-    update: {
-      moze_da_gleda: true,
-      moze_da_unosi: true,
-      moze_da_mijenja: true,
-      moze_da_brise: false
-    },
+    update: {},
     create: {
       korisnik_id: radnikAgencije.id,
-      firma_id: firma.id,
-      moze_da_gleda: true,
-      moze_da_unosi: true,
-      moze_da_mijenja: true,
-      moze_da_brise: false
+      firma_id: firma.id
     }
   });
 
@@ -152,20 +175,25 @@ async function main() {
         firma_id: firma.id
       }
     },
-    update: {
-      moze_da_gleda: true,
-      moze_da_unosi: false,
-      moze_da_mijenja: false,
-      moze_da_brise: false
-    },
+    update: {},
     create: {
       korisnik_id: klijent.id,
-      firma_id: firma.id,
-      moze_da_gleda: true,
-      moze_da_unosi: false,
-      moze_da_mijenja: false,
-      moze_da_brise: false
+      firma_id: firma.id
     }
+  });
+
+  await seedPermissionsIfMissing({
+    agencijaId: agencija.id,
+    korisnikId: radnikAgencije.id,
+    firmaId: firma.id,
+    actions: ["view", "create", "update"]
+  });
+
+  await seedPermissionsIfMissing({
+    agencijaId: agencija.id,
+    korisnikId: klijent.id,
+    firmaId: firma.id,
+    actions: ["view"]
   });
 
   console.log("Seed korisnici su spremni:");

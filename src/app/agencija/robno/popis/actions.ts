@@ -61,7 +61,7 @@ async function requireCountContext(action: PermissionAction, firmaId: string, re
         agencija_id: user.agencija_id,
         aktivan: true,
         is_deleted: false,
-        ...(user.rola === "admin_agencije" ? {} : { korisnici: { some: { korisnik_id: user.id, is_deleted: false, moze_da_mijenja: true } } })
+        ...(user.rola === "admin_agencije" ? {} : { korisnici: { some: { korisnik_id: user.id, is_deleted: false } } })
       },
       select: { id: true, naziv: true }
     }),

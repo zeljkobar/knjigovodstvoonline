@@ -358,10 +358,6 @@ model KorisnikFirma {
   korisnik        Korisnik  @relation(fields: [korisnik_id], references: [id])
   firma_id        String    @db.Uuid
   firma           Firma     @relation(fields: [firma_id], references: [id])
-  moze_da_gleda   Boolean   @default(true)
-  moze_da_unosi   Boolean   @default(false)
-  moze_da_mijenja Boolean   @default(false)
-  moze_da_brise   Boolean   @default(false)
   access_type     String?
   glavni_radnik   Boolean   @default(false)
   valid_from      DateTime?

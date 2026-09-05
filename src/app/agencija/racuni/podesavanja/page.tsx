@@ -14,7 +14,7 @@ import {
   importPostingSchemeFields,
   mergeCompanyAccountPlan
 } from "@/lib/account-plan";
-import { requireAnyRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { ensureDefaultInvoiceBookTypes } from "@/lib/invoice-books";
 import { pazarPostingSchemeFields, pazarPostingSubtype } from "@/lib/kif-pazar";
 import { prisma } from "@/lib/prisma";
@@ -62,7 +62,7 @@ function percentText(value: { toString(): string }) {
 export default async function RacuniPodesavanjaPage({
   searchParams
 }: RacuniPodesavanjaPageProps) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const params = await searchParams;
   const message = params?.poruka ? poruke[params.poruka] : null;
   const workContext = await readWorkContext();

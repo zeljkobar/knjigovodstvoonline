@@ -5941,6 +5941,149 @@ td small {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.activity-filter-form {
+  align-items: end;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.activity-quick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.activity-quick-filters a {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--primary-strong);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 11px;
+  text-decoration: none;
+}
+
+.activity-quick-filters a:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.activity-filter-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.activity-filter-actions > * {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.activity-filter-actions .secondary-button {
+  flex: 1;
+}
+
+.activity-metric-grid .metric strong {
+  font-size: 34px;
+}
+
+.activity-insights-grid {
+  align-items: start;
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.75fr);
+  gap: 16px;
+}
+
+.activity-bars,
+.activity-module-list {
+  display: grid;
+  gap: 10px;
+}
+
+.activity-bar-row {
+  align-items: center;
+  display: grid;
+  grid-template-columns: 96px minmax(120px, 1fr) 48px;
+  gap: 10px;
+}
+
+.activity-bar-row time {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.activity-bar-row > strong {
+  text-align: right;
+}
+
+.activity-bar-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8f1f9;
+}
+
+.activity-bar-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+
+.activity-module-list a {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
+  padding: 8px 2px;
+  text-decoration: none;
+}
+
+.activity-module-list a:last-child {
+  border-bottom: 0;
+}
+
+.activity-module-list a:hover span {
+  color: var(--primary);
+}
+
+.activity-table-note {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+@media (max-width: 1050px) {
+  .activity-insights-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .activity-filter-form {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-filter-actions,
+  .activity-filter-actions > * {
+    width: 100%;
+  }
+
+  .activity-filter-actions {
+    flex-direction: column;
+  }
+
+  .activity-bar-row {
+    grid-template-columns: 82px minmax(80px, 1fr) 38px;
+  }
+}
+
 .assignment-row {
   display: flex;
   align-items: center;

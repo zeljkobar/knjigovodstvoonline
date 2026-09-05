@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAnyRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
@@ -31,7 +31,7 @@ const typeLabels: Record<string, string> = {
 
 export default async function BusinessUnitsPage({ searchParams }: PageProps) {
   const [user, workContext, params] = await Promise.all([
-    requireAnyRole(["admin_agencije", "korisnik_agencije"]),
+    requireRole("admin_agencije"),
     readWorkContext(),
     searchParams
   ]);

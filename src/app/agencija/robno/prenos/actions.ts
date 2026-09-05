@@ -79,7 +79,6 @@ async function requireTransferContext(
                 some: {
                   korisnik_id: user.id,
                   is_deleted: false,
-                  moze_da_mijenja: true
                 }
               }
             })

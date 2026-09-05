@@ -18,6 +18,7 @@ type BrutoBilansPageProps = {
     jedinica?: string;
   }>;
   basePath?: string;
+  accountCardPath?: string;
 };
 
 function money(value: number) {
@@ -44,7 +45,8 @@ function parseBusinessUnitFilter(value?: string) {
 
 function analyticsHref(
   accountPrefix: string,
-  params?: Awaited<BrutoBilansPageProps["searchParams"]>
+  params: Awaited<BrutoBilansPageProps["searchParams"]> | undefined,
+  accountCardPath: string
 ) {
   const query = new URLSearchParams({
     konto_prefix: accountPrefix
@@ -62,7 +64,7 @@ function analyticsHref(
     query.set("jedinica", params.jedinica);
   }
 
-  return `/agencija/nalozi/analiticke-kartice?${query.toString()}`;
+  return `${accountCardPath}?${query.toString()}`;
 }
 
 function printHref(params?: Awaited<BrutoBilansPageProps["searchParams"]>) {
@@ -115,6 +117,7 @@ const openingBalanceType = standardJournalTypes[0][0];
 
 export async function BrutoBilansPage({
   basePath = "/agencija/nalozi/bruto-bilans",
+  accountCardPath = "/agencija/nalozi/analiticke-kartice",
   searchParams
 }: BrutoBilansPageProps) {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
@@ -487,12 +490,18 @@ export async function BrutoBilansPage({
                     key={`${row.kind}-${row.sifra}`}
                   >
                     <td>
-                      <Link className="table-link" href={analyticsHref(row.sifra, params)}>
+                      <Link
+                        className="table-link"
+                        href={analyticsHref(row.sifra, params, accountCardPath)}
+                      >
                         {row.sifra}
                       </Link>
                     </td>
                     <td>
-                      <Link className="table-link" href={analyticsHref(row.sifra, params)}>
+                      <Link
+                        className="table-link"
+                        href={analyticsHref(row.sifra, params, accountCardPath)}
+                      >
                         {row.naziv}
                       </Link>
                     </td>

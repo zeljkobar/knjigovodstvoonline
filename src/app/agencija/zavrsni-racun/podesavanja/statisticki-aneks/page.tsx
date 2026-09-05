@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { saveStatisticalAnnexSettings } from "../../actions";
-import { requireAnyRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { getStatisticalAnnexSettings } from "@/lib/financial-reports";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -22,7 +22,7 @@ const messages: Record<string, string> = {
 
 export default async function StatistickiAneksPodesavanjaPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const workContext = await readWorkContext();
 
   if (!user.agencija_id || !workContext.firmaId) {

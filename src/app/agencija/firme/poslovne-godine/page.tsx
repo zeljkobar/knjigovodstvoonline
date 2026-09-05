@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createBusinessYear, toggleBusinessYear } from "../../actions";
-import { requireAnyRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 type PoslovneGodinePageProps = {
@@ -24,7 +24,7 @@ function formatDate(date: Date) {
 export default async function PoslovneGodinePage({
   searchParams
 }: PoslovneGodinePageProps) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const params = await searchParams;
   const message = params?.poruka ? poruke[params.poruka] : null;
   const currentYear = new Date().getFullYear();

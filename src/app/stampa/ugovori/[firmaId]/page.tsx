@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/PrintButton";
-import { requireAnyRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 type StampaUgovoraPageProps = {
@@ -30,7 +30,7 @@ function moneyLabel(value: { toString: () => string } | null, currency: string) 
 }
 
 export default async function StampaUgovoraPage({ params }: StampaUgovoraPageProps) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const { firmaId } = await params;
 
   if (!user.agencija_id) {

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auditLog } from "@/lib/audit";
-import { requireAnyRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { hasPermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
@@ -24,7 +24,7 @@ function go(poruka: string, params?: Record<string, string>) : never {
 }
 
 async function requireContext(action: PermissionAction, firmaId: string) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const user = await requireRole("admin_agencije");
   const workContext = await readWorkContext();
 
   if (!user.agencija_id || !firmaId || workContext.firmaId !== firmaId) {

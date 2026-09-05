@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireRole } from "@/lib/auth";
 import { getPosContext } from "@/lib/pos";
 import { warehouseSalesTypeLabel } from "@/lib/pos-pricing";
 import { prisma } from "@/lib/prisma";
@@ -20,6 +21,7 @@ function messageText(message: string, code?: string) {
 }
 
 export default async function PosSettingsPage({ searchParams }: { searchParams: Promise<{ poruka?: string; kod?: string }> }) {
+  await requireRole("admin_agencije");
   const [{ poruka, kod }, ctx] = await Promise.all([searchParams, getPosContext("manage")]);
   if (!ctx.firma || !ctx.allowed) return <section className="admin-panel"><p>Nemate pravo upravljanja POS podešavanjima.</p></section>;
   const firma = ctx.firma;
