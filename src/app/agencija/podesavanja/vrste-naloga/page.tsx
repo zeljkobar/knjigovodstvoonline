@@ -1,18 +1,20 @@
 import { JournalTypesManager } from "@/components/JournalTypesManager";
 
-type JournalTypesPageProps = {
+type SettingsJournalTypesPageProps = {
   searchParams?: Promise<{
     poruka?: string;
   }>;
 };
 
-export default async function JournalTypesPage({ searchParams }: JournalTypesPageProps) {
+export default async function SettingsJournalTypesPage({
+  searchParams
+}: SettingsJournalTypesPageProps) {
   const params = await searchParams;
 
   return (
     <JournalTypesManager
       messageKey={params?.poruka}
-      returnPath="/agencija/nalozi/vrste"
+      returnPath="/agencija/podesavanja/vrste-naloga"
     />
   );
 }

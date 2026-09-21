@@ -8,16 +8,17 @@ export const accountOverrideTypes = {
 
 export const defaultAccountPurposes = [
   ["DEFAULT_CUSTOMER_ACCOUNT", "Kupci"],
-  ["DEFAULT_SUPPLIER_ACCOUNT", "Dobavljaci"],
-  ["DEFAULT_INPUT_VAT_ACCOUNT", "Ulazni PDV"],
-  ["DEFAULT_OUTPUT_VAT_ACCOUNT", "Izlazni PDV"],
-  ["DEFAULT_BANK_ACCOUNT", "Banka"],
-  ["DEFAULT_CASH_ACCOUNT", "Blagajna"],
-  ["DEFAULT_REVENUE_ACCOUNT", "Prihod"],
-  ["DEFAULT_EXPENSE_ACCOUNT", "Trosak"],
-  ["DEFAULT_GOODS_ACCOUNT", "Roba"],
-  ["DEFAULT_PAYROLL_ACCOUNT", "Plate"]
+  ["DEFAULT_FOREIGN_CUSTOMER_ACCOUNT", "Ino kupci"],
+  ["DEFAULT_SUPPLIER_ACCOUNT", "Dobavljači"],
+  ["DEFAULT_FOREIGN_SUPPLIER_ACCOUNT", "Ino dobavljači"]
 ] as const;
+
+export const partnerReportAccountPurposes = {
+  customers: "DEFAULT_CUSTOMER_ACCOUNT",
+  foreignCustomers: "DEFAULT_FOREIGN_CUSTOMER_ACCOUNT",
+  suppliers: "DEFAULT_SUPPLIER_ACCOUNT",
+  foreignSuppliers: "DEFAULT_FOREIGN_SUPPLIER_ACCOUNT"
+} as const;
 
 export const invoicePostingAccountPurposes = {
   kufSupplier: "KUF_SUPPLIER_ACCOUNT",

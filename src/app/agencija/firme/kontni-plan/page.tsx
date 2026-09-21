@@ -3,13 +3,9 @@ import {
   createCompanyCustomAccount,
   deactivateCompanyAccount,
   restoreCompanyAccount,
-  saveCompanyAccountOverride,
-  saveDefaultCompanyAccount
+  saveCompanyAccountOverride
 } from "../../actions";
-import {
-  defaultAccountPurposes,
-  mergeCompanyAccountPlan
-} from "@/lib/account-plan";
+import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -29,10 +25,7 @@ const poruke: Record<string, string> = {
   konto_obavezno: "Sifra i naziv konta su obavezni.",
   konto_postoji: "Konto sa ovom sifrom vec postoji. Za osnovno konto koristite izmjenu naziva.",
   konto_tip_nevalidan: "Tip konta nije validan.",
-  konto_greska: "Kontni plan nije sacuvan. Provjerite podatke.",
-  default_sacuvan: "Podrazumijevano konto je sacuvano.",
-  default_konto_nevalidan: "Izabrano konto nije aktivno u kontnom planu firme.",
-  default_greska: "Podrazumijevano konto nije sacuvano."
+  konto_greska: "Kontni plan nije sacuvan. Provjerite podatke."
 };
 
 function accountTypeLabel(tip: string) {
@@ -78,7 +71,7 @@ export default async function KontniPlanPage({ searchParams }: KontniPlanPagePro
   });
   const selectedCompany = firme.find((firma) => firma.id === selectedCompanyId) ?? firme[0];
 
-  const [baseAccounts, companyOverrides, defaultAccounts] = selectedCompany
+  const [baseAccounts, companyOverrides] = selectedCompany
     ? await Promise.all([
         prisma.konto.findMany({
           where: {
@@ -121,20 +114,9 @@ export default async function KontniPlanPage({ searchParams }: KontniPlanPagePro
             napomena: true,
             aktivan: true
           }
-        }),
-        prisma.firmaPodrazumijevanoKonto.findMany({
-          where: {
-            firma_id: selectedCompany.id
-          },
-          select: {
-            id: true,
-            namjena: true,
-            sifra_konta: true,
-            napomena: true
-          }
         })
       ])
-    : [[], [], []];
+    : [[], []];
 
   const combinedAccounts = mergeCompanyAccountPlan(baseAccounts, companyOverrides);
   const filteredAccounts = query
@@ -144,10 +126,6 @@ export default async function KontniPlanPage({ searchParams }: KontniPlanPagePro
           account.naziv.toLowerCase().includes(query)
       )
     : combinedAccounts;
-  const activeAccounts = combinedAccounts.filter((account) => account.aktivan);
-  const defaultAccountByPurpose = new Map(
-    defaultAccounts.map((account) => [account.namjena, account])
-  );
 
   return (
     <div className="admin-stack">
@@ -233,55 +211,6 @@ export default async function KontniPlanPage({ searchParams }: KontniPlanPagePro
             </label>
             <button type="submit">Dodaj konto</button>
           </form>
-        </section>
-      ) : null}
-
-      {selectedCompany ? (
-        <section className="admin-panel">
-          <div className="panel-header">
-            <h3>Podrazumijevana konta</h3>
-            <span>{defaultAccounts.length} podeseno</span>
-          </div>
-
-          {canManage ? (
-            <div className="default-account-grid">
-              {defaultAccountPurposes.map(([purpose, label]) => {
-                const selected = defaultAccountByPurpose.get(purpose);
-
-                return (
-                  <form key={purpose} className="default-account-card" action={saveDefaultCompanyAccount}>
-                    <input name="firma_id" type="hidden" value={selectedCompany.id} />
-                    <input name="namjena" type="hidden" value={purpose} />
-                    <label>
-                      <span>{label}</span>
-                      <select name="sifra_konta" defaultValue={selected?.sifra_konta ?? ""} required>
-                        <option value="">Izaberite konto</option>
-                        {activeAccounts.map((account) => (
-                          <option key={`${purpose}-${account.sifra}`} value={account.sifra}>
-                            {account.sifra} - {account.naziv}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <button type="submit">Sacuvaj</button>
-                  </form>
-                );
-              })}
-            </div>
-          ) : (
-            <dl className="detail-list">
-              {defaultAccountPurposes.map(([purpose, label]) => {
-                const selected = defaultAccountByPurpose.get(purpose);
-
-                return (
-                  <div key={purpose}>
-                    <dt>{label}</dt>
-                    <dd>{selected?.sifra_konta ?? "-"}</dd>
-                  </div>
-                );
-              })}
-            </dl>
-          )}
         </section>
       ) : null}
 

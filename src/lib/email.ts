@@ -1,6 +1,9 @@
 import nodemailer from "nodemailer";
 import { createPublicAppUrl } from "@/lib/app-url";
 
+export const SYSTEM_EMAIL_FROM_ADDRESS = "admin@summasummarum.me";
+export const SYSTEM_EMAIL_FROM = `Summa Summarum <${SYSTEM_EMAIL_FROM_ADDRESS}>`;
+
 function getRequiredEnv(name: string) {
   const value = process.env[name];
 
@@ -35,16 +38,19 @@ function escapeHtml(value: string) {
 export async function sendInvitationEmail({
   to,
   korisnickoIme,
-  inviteUrl
+  inviteUrl,
+  replyTo
 }: {
   to: string;
   korisnickoIme: string;
   inviteUrl: string;
+  replyTo?: string | null;
 }) {
   const transporter = createSmtpTransporter();
 
   await transporter.sendMail({
-    from: getRequiredEnv("SMTP_FROM"),
+    from: SYSTEM_EMAIL_FROM,
+    replyTo: replyTo || undefined,
     to,
     subject: "Pozivnica za Summa Summarum",
     text: [
@@ -72,6 +78,38 @@ export async function sendInvitationEmail({
   });
 }
 
+export async function sendAgencyEmailTest({
+  to,
+  agencyName
+}: {
+  to: string;
+  agencyName: string;
+}) {
+  const transporter = createSmtpTransporter();
+  const safeAgencyName = escapeHtml(agencyName);
+
+  await transporter.sendMail({
+    from: SYSTEM_EMAIL_FROM,
+    replyTo: to,
+    to,
+    subject: "Proba email podešavanja — Summa Summarum",
+    text: [
+      `Pozdrav, ${agencyName}.`,
+      "",
+      "Ovo je probna poruka iz računovodstvenog programa Summa Summarum.",
+      `Poruka je poslata sa ${SYSTEM_EMAIL_FROM_ADDRESS}, a odgovori idu na ${to}.`,
+      "",
+      "Summa Summarum"
+    ].join("\n"),
+    html: `
+      <p>Pozdrav, <strong>${safeAgencyName}</strong>.</p>
+      <p>Ovo je probna poruka iz računovodstvenog programa Summa Summarum.</p>
+      <p>Poruka je poslata sa <strong>${SYSTEM_EMAIL_FROM_ADDRESS}</strong>, a odgovori idu na <strong>${escapeHtml(to)}</strong>.</p>
+      <p>Summa Summarum</p>
+    `
+  });
+}
+
 export async function sendFiscalAgencyTransferRequestEmail({
   companyName,
   companyPib,
@@ -94,7 +132,7 @@ export async function sendFiscalAgencyTransferRequestEmail({
   const safeReviewUrl = escapeHtml(reviewUrl);
 
   await transporter.sendMail({
-    from: getRequiredEnv("SMTP_FROM"),
+    from: SYSTEM_EMAIL_FROM,
     to: recipient,
     subject: `Zahtjev za povezivanje firme ${companyName} sa agencijom`,
     text: [

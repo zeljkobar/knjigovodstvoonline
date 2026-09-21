@@ -160,6 +160,18 @@ function redirectCompanyAccountPlan(message: string, firmaId?: string): never {
   redirect(`/agencija/firme/kontni-plan?${params.toString()}`);
 }
 
+function redirectDefaultAccountSettings(message: string, firmaId?: string): never {
+  const params = new URLSearchParams({
+    poruka: message
+  });
+
+  if (firmaId) {
+    params.set("firma", firmaId);
+  }
+
+  redirect(`/agencija/podesavanja/podrazumijevana-konta?${params.toString()}`);
+}
+
 function redirectGlobalAccountPlan(message: string, q?: string): never {
   const params = new URLSearchParams({
     poruka: message
@@ -1632,18 +1644,18 @@ export async function saveDefaultCompanyAccount(formData: FormData) {
   const sifraKonta = value(formData, "sifra_konta");
 
   if (!admin.agencija_id || !firmaId || !namjena || !sifraKonta) {
-    redirectCompanyAccountPlan("default_greska");
+    redirectDefaultAccountSettings("default_greska");
   }
 
   if (!isDefaultAccountPurpose(namjena)) {
-    redirectCompanyAccountPlan("default_greska", firmaId);
+    redirectDefaultAccountSettings("default_greska", firmaId);
   }
 
   const agencijaId = admin.agencija_id;
   const firma = await findAgencyCompanyForAccountPlan(agencijaId, firmaId);
 
   if (!firma) {
-    redirectCompanyAccountPlan("default_greska");
+    redirectDefaultAccountSettings("default_greska");
   }
 
   const [baseAccounts, companyOverrides] = await Promise.all([
@@ -1690,7 +1702,7 @@ export async function saveDefaultCompanyAccount(formData: FormData) {
   );
 
   if (!account) {
-    redirectCompanyAccountPlan("default_konto_nevalidan", firmaId);
+    redirectDefaultAccountSettings("default_konto_nevalidan", firmaId);
   }
 
   const defaultAccount = await prisma.firmaPodrazumijevanoKonto.upsert({
@@ -1739,7 +1751,10 @@ export async function saveDefaultCompanyAccount(formData: FormData) {
   });
 
   revalidatePath("/agencija/firme/kontni-plan");
-  redirectCompanyAccountPlan("default_sacuvan", firmaId);
+  revalidatePath("/agencija/podesavanja/podrazumijevana-konta");
+  revalidatePath("/agencija/izvjestaji/kupci");
+  revalidatePath("/agencija/izvjestaji/dobavljaci");
+  redirectDefaultAccountSettings("default_sacuvan", firmaId);
 }
 
 export async function createGlobalAccount(formData: FormData) {
@@ -2372,10 +2387,16 @@ export async function createAgencyUser(formData: FormData) {
   });
 
   try {
+    const agencyEmailSettings = await prisma.agencija.findUnique({
+      where: { id: agencijaId },
+      select: { email_reply_to: true }
+    });
+
     await sendInvitationEmail({
       to: korisnik.email ?? email,
       korisnickoIme: korisnik.korisnicko_ime,
-      inviteUrl
+      inviteUrl,
+      replyTo: agencyEmailSettings?.email_reply_to
     });
   } catch {
     redirectUsers("email_greska");

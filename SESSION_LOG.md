@@ -1369,3 +1369,50 @@
   prolaze. ESLint nema grešaka i zadržava četiri ranija upozorenja. Runtime test
   sa stvarnim radnikom potvrdio je zabranu KUF-a, admin podešavanja i print ruta
   bez odgovarajućeg prava.
+
+## 2026-09-17 — Izvještaj vrijednosti zaliha
+
+- Implementirana je ruta `/agencija/robno/vrijednost-zaliha` nad aktuelnim
+  `stanja_zaliha` aktivne firme i poslovne godine, uz postojeću backend provjeru
+  `robno:view` prava i izolaciju agencije/firme.
+- Dodati su filteri po poslovnoj jedinici, magacinu, grupi, artiklu i stanju,
+  zbirne kartice, presjeci vrijednosti po magacinu i grupi te detaljna tabela sa
+  količinom, prosječnom nabavnom cijenom i linkom na karticu artikla.
+- Posebno su prikazane nabavna i maloprodajna vrijednost, razlika u cijeni i
+  ukalkulisani PDV. Količine različitih jedinica mjere nijesu sabirane.
+- Raspored je dodatno zbijen i ograničen na širinu sadržaja: zbirne kartice i
+  filteri su responzivni, a zbirne i detaljna tabela staju u panel. Naslovi
+  detaljnih kolona se prelamaju bez horizontalnog skrola cijele tabele.
+- Nije mijenjana baza. TypeScript, ESLint i `git diff --check` prolaze; ostaju
+  četiri ranija lint upozorenja izvan ove izmjene.
+
+## 2026-09-18 — vrste naloga u centralnim podešavanjima
+
+- Ruta `/agencija/podesavanja/vrste-naloga` povezana je na postojeći ekran za
+  vrste naloga. Kreiranje ostaje na ruti sa koje je forma otvorena, uz strogo
+  dozvoljen povrat samo na postojeći ekran u Nalozima ili Podešavanjima.
+
+## 2026-09-18 — podrazumijevana konta i izvještaji partnera
+
+- Uklonjen je stari blok deset opštih podrazumijevanih konta iz Kontnog plana
+  firme. Nova admin-only stranica u Podešavanjima čuva samo konta kupaca, ino
+  kupaca, dobavljača i ino dobavljača, uz tačan brojač četiri svrhe.
+- Dodati su centralni izvještaji Kupci i Dobavljači iz `POSTED` stavki glavne
+  knjige. Tabovi odvajaju domaće, ino i sve partnere, filter pretražuje naziv,
+  PIB ili ino poreski broj, period se filtrira datumima, a red partnera otvara
+  postojeću karticu.
+- Ova četiri konta služe samo kao filter izvještaja; detaljne šeme KIF/KUF,
+  PDV-a, izvoda, robnog i plata nijesu mijenjane. Nije potrebna migracija baze.
+- `npx tsc --noEmit` i ESLint prolaze; ESLint zadržava četiri ranija upozorenja.
+
+## 2026-09-21 — centralni email pošiljalac i Reply-To agencije
+
+- Implementirana je admin-only ruta `/agencija/podesavanja/email` za jednu
+  Reply-To adresu po agenciji, sa backend validacijom, auditom i probnim
+  slanjem.
+- Email servis uvijek koristi `Summa Summarum <admin@summasummarum.me>` kao
+  pošiljaoca. Pozivnice koje kreira administrator agencije koriste podešenu
+  adresu agencije kao `Reply-To`; agencijske lozinke se ne čuvaju.
+- Dodata i lokalno primijenjena migracija
+  `20260921120000_agency_email_reply_to`; Prisma klijent je regenerisan.
+- TypeScript i ESLint prolaze; ESLint zadržava četiri ranija upozorenja.

@@ -1028,13 +1028,17 @@ export async function deleteJournal(formData: FormData) {
 
 export async function createJournalType(formData: FormData) {
   const user = await requireAnyRole(["admin_agencije"]);
+  const returnPath =
+    value(formData, "return_to") === "/agencija/podesavanja/vrste-naloga"
+      ? "/agencija/podesavanja/vrste-naloga"
+      : "/agencija/nalozi/vrste";
   const sifra = value(formData, "sifra").toUpperCase().replace(/\s+/g, "_");
   const naziv = value(formData, "naziv");
   const prefiks = value(formData, "prefiks").toUpperCase();
   const firmaId = nullableValue(formData, "firma_id");
 
   if (!user.agencija_id || !sifra || !naziv || !prefiks) {
-    redirect("/agencija/nalozi/vrste?poruka=vrsta_obavezno");
+    redirect(`${returnPath}?poruka=vrsta_obavezno`);
   }
 
   if (firmaId) {
@@ -1050,7 +1054,7 @@ export async function createJournalType(formData: FormData) {
     });
 
     if (!firma) {
-      redirect("/agencija/nalozi/vrste?poruka=vrsta_greska");
+      redirect(`${returnPath}?poruka=vrsta_greska`);
     }
   }
 
@@ -1075,7 +1079,7 @@ export async function createJournalType(formData: FormData) {
   }).catch(() => null);
 
   if (!vrsta) {
-    redirect("/agencija/nalozi/vrste?poruka=vrsta_postoji");
+    redirect(`${returnPath}?poruka=vrsta_postoji`);
   }
 
   await auditLog({
@@ -1090,7 +1094,8 @@ export async function createJournalType(formData: FormData) {
   });
 
   revalidatePath("/agencija/nalozi/vrste");
-  redirect("/agencija/nalozi/vrste?poruka=vrsta_kreirana");
+  revalidatePath("/agencija/podesavanja/vrste-naloga");
+  redirect(`${returnPath}?poruka=vrsta_kreirana`);
 }
 
 export async function createPartner(formData: FormData) {

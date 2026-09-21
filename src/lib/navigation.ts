@@ -329,7 +329,6 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/podesavanja/podrazumijevana-konta", label: "Podrazumijevana konta" },
     { href: "/agencija/podesavanja/pdv-stope", label: "PDV stope" },
     { href: "/agencija/podesavanja/vrste-naloga", label: "Vrste naloga" },
-    { href: "/agencija/podesavanja/numeracije", label: "Numeracije" },
     { href: "/agencija/podesavanja/sifarnici", label: "Šifarnici" },
     { href: "/agencija/podesavanja/poslovne-jedinice", label: "Poslovne jedinice" },
     { href: "/agencija/podesavanja/magacini", label: "Magacini" },

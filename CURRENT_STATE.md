@@ -1,12 +1,40 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-09-04. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-09-21. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Email podešavanja agencije — 2026-09-21
+
+- Admin-only ruta `/agencija/podesavanja/email` čuva jednu Reply-To adresu po
+  agenciji. Agencijske SMTP/Gmail lozinke se ne čuvaju u aplikaciji.
+- Sve poruke koriste centralnog pošiljaoca `admin@summasummarum.me`; SMTP nalog
+  okruženja mora biti ovlašćen da šalje sa te adrese. Pozivnice koje kreira
+  admin agencije postavljaju sačuvanu adresu agencije u `Reply-To`, pa odgovor
+  prima agencija.
+- Ekran podržava probno slanje na sačuvanu Reply-To adresu. Izmjena i probno
+  slanje su auditirani i backend je ograničen na administratora agencije.
+- Migracija `20260921120000_agency_email_reply_to` dodaje podešavanje agenciji i
+  lokalno je primijenjena.
+
+## Izvještaji kupaca i dobavljača — 2026-09-18
+
+- Podešavanje konta partnera premješteno je sa kontnog plana firme na admin-only
+  rutu `/agencija/podesavanja/podrazumijevana-konta` i svedeno na četiri svrhe:
+  kupci, ino kupci, dobavljači i ino dobavljači. Ova konta služe isključivo za
+  izbor prometa u izvještajima i ne ulaze u šeme automatskog knjiženja.
+- Centralne rute `/agencija/izvjestaji/kupci` i
+  `/agencija/izvjestaji/dobavljaci` prikazuju otvoreni saldo iz `POSTED` naloga
+  po podešenom domaćem ili ino kontu. Tabovi odvajaju domaće, ino i sve
+  partnere, a filteri perioda i partnera su zajednički; svaki red vodi na
+  postojeću karticu partnera.
+- Podešavanja su dostupna samo adminu agencije, dok izvještaji ponovo provjeravaju
+  `izvjestaji:view` i `nalozi:view`, aktivnu firmu, godinu i tenant scope. Nije
+  mijenjana baza niti logika postojećih KIF/KUF i robnih šema knjiženja.
 
 ## XML završnog računa — 2026-09-03
 
@@ -365,6 +393,8 @@ je od samodeaktivacije i samostalne rotacije.
 
 ### Modul 3 — Nalozi za knjiženje
 - Vrste naloga, numeracija, nacrt i proknjižen status.
+- Upravljanje vrstama naloga dostupno je i kroz centralna Podešavanja; oba ulaza
+  koriste isti ekran, podatke, administratorsku zaštitu i server action.
 - Proknjiženi nalog se sa detalja može samo vratiti u nacrt; direktno brisanje
   je uklonjeno. U pregledu nacrta postoje brze akcije `Proknjiži` i `Izbriši`;
   brisanje nacrta je fizičko i oslobađa broj naloga.
@@ -513,6 +543,12 @@ je od samodeaktivacije i samostalne rotacije.
   godinu. Dostupna je i pod `Robno / Zalihe` i u centralnim `Izvještajima`, uz
   zajedničku serversku komponentu, filtere po magacinu, grupi, artiklu i znaku
   stanja te zbir nabavne/maloprodajne vrijednosti, RUC-a i ukalkulisanog PDV-a.
+- Izvještaj `Robno / Zalihe / Vrijednost zaliha` je implementiran nad trenutnim
+  stanjem u `stanja_zaliha`. Podržava pretragu artikla i filtere po poslovnoj
+  jedinici, magacinu, grupi i znaku stanja, prikazuje zbirne vrijednosti te
+  presjek po magacinima i grupama sa detaljem artikala i linkom na karticu.
+  Izvještaj ne sabira količine različitih jedinica mjere i jasno odvaja
+  nabavnu od maloprodajne vrijednosti, RUC-a i ukalkulisanog PDV-a.
 - Kartica artikla je implementirana nad `prometi_zaliha` na oba ista mjesta.
   Prikazuje početno stanje iz prometa prije izabranog perioda, sve ulaze i
   izlaze, tekuću količinu i nabavnu vrijednost, uz filter magacina/datuma i
@@ -959,6 +995,10 @@ je od samodeaktivacije i samostalne rotacije.
 - `/agencija/izvjestaji/plate` je centralni pregled postojećih izvještaja plata
   i vodi na obračune, M-4, OPP-ND i IOPPD. Sve rute koriste postojeće backend
   provjere konteksta i prava; nije dodata paralelna računica niti nova baza.
+- `/agencija/izvjestaji/kupci` i `/agencija/izvjestaji/dobavljaci` prikazuju
+  otvorene salde partnera sa domaćih i ino konta podešenih po firmi. Tabovi nude
+  domaće, ino i sve partnere, uz pretragu po nazivu/poreskom broju, period i link
+  na karticu partnera nad istim `POSTED` izvorom glavne knjige.
 
 ## Djelimično implementirano / otvoreno
 - Robno knjigovodstvo: navigacija, osnovni šifarnici, domaća kalkulacija i njena

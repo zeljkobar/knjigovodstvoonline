@@ -4,6 +4,10 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Na produkciji primijeniti migraciju
+  `20260921120000_agency_email_reply_to`, potvrditi da je centralni SMTP nalog
+  ovlašćen za slanje sa `admin@summasummarum.me` i izvršiti probno slanje sa
+  agencijske stranice Email podešavanja.
 - Probno uvesti XML završnog računa bez podnošenja prijave: provjeriti BS/BU/SA
   i uporedne kolone, identifikator `MaticniBroj`, ISO datume i nulte nekorišćene
   sekcije. Izvoz i XSD test postoje. Izvoz arhiviranog snapshot-a nije dio ove faze.
@@ -69,10 +73,12 @@
   pregledom svih stavki, povezivanjem postojećih i kreiranjem novih artikala.
   Završavanje kalkulacije zadužuje lager i kreira njen nalog, dok se KUF zapis
   naknadno preuzima iz mjesečne KUF knjige i ne knjiži ponovo po KUF šemi.
-  Lager lista i kartica artikla sada postoje nad stanjem/prometom aktivne firme
-  i godine, i u Robnom i u centralnim Izvještajima. Sljedeće uraditi ručni
-  end-to-end QA MAPR pregleda, završavanja i preuzimanja u KUF na firmi sa
-  podešenom robnom šemom, kao i live QA lagera/kartice sa stvarnim prometima.
+  Lager lista, kartica artikla i izvještaj vrijednosti zaliha sada postoje nad
+  stanjem/prometom aktivne firme i godine; lager i kartica dostupni su i u
+  centralnim Izvještajima. Sljedeće uraditi ručni end-to-end QA MAPR pregleda,
+  završavanja i preuzimanja u KUF na firmi sa podešenom robnom šemom, kao i live
+  QA robnih izvještaja sa stvarnim prometima. Stranica robnih kontrola ostaje
+  otvorena za narednu fazu.
   Izlazne fakture sada imaju pregled, otvaranje nacrta, brzi tabelarni unos,
   šemu knjiženja i kontrolisano završavanje za firme koje koriste drugi ili
   nijedan fiskalni sistem. Završavanje provjerava lager, razdužuje robu po
@@ -198,8 +204,8 @@
 
 ## Nije implementirano
 - Potpuniji standardni klijentski portal i preostali opšti dashboard izvještaji;
-  centralne kartice konta/partnera, PDV, plate, lager i kartica artikla već koriste
-  postojeće funkcionalne prikaze.
+  centralne kartice konta/partnera, kupci/dobavljači, PDV, plate, lager i kartica
+  artikla već koriste postojeće funkcionalne prikaze.
 - Produkcijski početni depozit, reprint audit agencijskog POS-a, lokalni POS
   Agent i djelimični povrat prije odgovarajuće podrške Fiscal API-ja.
 

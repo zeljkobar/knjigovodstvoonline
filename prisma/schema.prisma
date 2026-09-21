@@ -41,6 +41,7 @@ model Agencija {
   grad                       String?
   telefon                    String?
   email                      String?
+  email_reply_to             String?
   aktivan                    Boolean                @default(true)
   is_fiscal_direct_container Boolean                @default(false)
   is_deleted                 Boolean                @default(false)
