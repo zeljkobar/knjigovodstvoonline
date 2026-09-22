@@ -30,6 +30,8 @@ import {
   normalizePayrollPeriod,
   payrollDateInputValue
 } from "@/lib/payroll-hours";
+import { hasAllPermissions } from "@/lib/permissions";
+import { payrollDocumentStatuses } from "@/lib/payroll-documents";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -551,6 +553,17 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
       trosak: 0
     }
   );
+  const canExportDocuments = selected
+    ? await hasAllPermissions(context.user, [
+        { firmaId: context.firma.id, modul: "plate", akcija: "view" },
+        { firmaId: context.firma.id, modul: "plate", akcija: "export" }
+      ])
+    : false;
+  const documentsAvailable = Boolean(
+    selected &&
+      lines.length > 0 &&
+      payrollDocumentStatuses.includes(selected.status as never)
+  );
   const defaultMonth = new Date().getUTCMonth() + 1;
   const defaultYear = context.godina.godina;
 
@@ -784,6 +797,64 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
             )}
           </section>
 
+          <section className="embedded-panel payroll-documents-panel">
+            <div className="panel-header compact-panel-header">
+              <div>
+                <h4>Dokumenti obračuna</h4>
+                <span>
+                  Platne liste, rekapitulacija, nalozi za plaćanje i mjesečni IOPPD.
+                </span>
+              </div>
+              {!documentsAvailable ? (
+                <span className="status-pill status-pill--warning">Prvo obradite obračun</span>
+              ) : null}
+            </div>
+            <div className="button-row payroll-document-actions">
+              {documentsAvailable && canExportDocuments ? (
+                <>
+                  <a
+                    className="secondary-button"
+                    href={`/stampa/plate/rekapitulacija?obracun=${selected.id}`}
+                    target="_blank"
+                  >
+                    Rekapitulacija
+                  </a>
+                  <a
+                    className="secondary-button"
+                    href={`/stampa/plate/platne-liste?obracun=${selected.id}`}
+                    target="_blank"
+                  >
+                    Sve platne liste
+                  </a>
+                  <a
+                    className="secondary-button"
+                    href={`/agencija/plate/obracun/nalozi-za-placanje?obracun=${selected.id}`}
+                  >
+                    Virmani / nalozi za plaćanje
+                  </a>
+                  <a
+                    className="secondary-button"
+                    href="/agencija/plate/obrasci/ioppd"
+                  >
+                    IOPPD za mjesec
+                  </a>
+                </>
+              ) : (
+                <p className="empty-state">
+                  {!documentsAvailable
+                    ? "Dokumenti će biti dostupni kada obračun dobije status Obračunat."
+                    : "Nemate pravo za izvoz i štampu dokumenata obračuna."}
+                </p>
+              )}
+            </div>
+            {documentsAvailable &&
+            ![payrollStatuses.posted, payrollStatuses.locked].includes(selected.status as never) ? (
+              <small className="compact-note">
+                Do knjiženja ili zaključavanja platne liste i virmani nose oznaku NACRT.
+              </small>
+            ) : null}
+          </section>
+
           {lines.length === 0 ? (
             <div className="embedded-panel payroll-manage-workers-panel">
               <p className="empty-state">
@@ -869,6 +940,15 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                     <h4>{selectedWorker ? `${selectedWorker.prezime} ${selectedWorker.ime}` : "Radnik"}</h4>
                     <span>{selectedWorker?.radno_mjesto ?? selectedWorker?.jmbg ?? "Mjesečne stavke"}</span>
                   </div>
+                  {selectedWorkerId && documentsAvailable && canExportDocuments ? (
+                    <a
+                      className="secondary-button"
+                      href={`/stampa/plate/platne-liste?obracun=${selected.id}&radnik=${selectedWorkerId}`}
+                      target="_blank"
+                    >
+                      Platna lista
+                    </a>
+                  ) : null}
                 </div>
 
                 <div className="payroll-line-stack">

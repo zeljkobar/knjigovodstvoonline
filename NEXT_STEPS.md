@@ -125,9 +125,11 @@
   auditiranu ručnu korekciju; priprema obuhvata i radnike koji počnu i/ili
   završe radni odnos tokom mjeseca. Za kasniju fazu ostaje kalendar praznika i
   nestandardnih smjena umjesto osnovnog proporcionalnog modela ponedjeljak–petak.
-  Sljedeće: obustave, opisna pravila koja traže ručne parametre, ručni QA IOPPD
-  XML upload-a na portalu, uplatnice, namjenski storno/vraćanje automatskog
-  `PAYROLL` naloga i print/export obračuna. M-4 je završen u dogovorenom obimu.
+  Dodati su pojedinačne/zbirne platne liste, rekapitulacija obračuna i pregled
+  virmana koji štampa samo ispravne naloge. Sljedeće: obustave, opisna pravila
+  koja traže ručne parametre, ručni QA IOPPD XML upload-a na portalu, podešavanje
+  računa sindikata i Privredne komore za potpunu automatizaciju virmana i namjenski
+  storno/vraćanje automatskog `PAYROLL` naloga. M-4 je završen u dogovorenom obimu.
 
 ## Otvoreno po modulima
 - **Modul 1:** sigurnosni audit postojećih operativnih ruta je završen za
@@ -160,9 +162,11 @@
 - **Modul 8:** ručni QA postojećeg IRMS XML-a, zaključavanje/otključavanje PDV perioda,
   štampa prijave i testovi knjiženja PDV prijave.
 - **Modul 9 Plate:** doraditi obustave, opisna pravila osnova koja traže ručne
-  parametre, ručni QA IOPPD XML upload-a na portalu, uplatnice, posebna pravila minulog rada po
+  parametre, ručni QA IOPPD XML upload-a na portalu, račune sindikata i Privredne
+  komore za kompletne virmane, posebna pravila minulog rada po
   kolektivnim/granskim ugovorima, namjenski storno/vraćanje proknjiženog
-  `PAYROLL` naloga, te print/export obračuna. M-4 je završen u
+  `PAYROLL` naloga i arhivu finalnih dokumenata. Platne liste, rekapitulacija i
+  validirani nalozi za plaćanje imaju HTML/CSS štampu. M-4 je završen u
   dogovorenom obimu; dodatne napredne evidencije nijesu dio trenutnog zadatka.
 - **Modul 10 Završni račun:** Bilans uspjeha, Bilans stanja i Statistički aneks
   imaju prvu implementaciju iz POSTED naloga, podesivu šemu po firmi i trajne

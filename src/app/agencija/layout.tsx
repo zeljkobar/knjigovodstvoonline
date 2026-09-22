@@ -1,6 +1,7 @@
 import { logout } from "@/app/actions";
 import { AgencyTopBar } from "@/components/AgencyTopBar";
 import { AgencyWorkspaceShell } from "@/components/AgencyWorkspaceShell";
+import { cookies } from "next/headers";
 import { requireAgencyWorkspaceUser } from "@/lib/auth";
 import { getAgencyNavigation } from "@/lib/navigation";
 import { permissionKey } from "@/lib/permission-policy";
@@ -13,7 +14,14 @@ export default async function AgencijaLayout({
   children: React.ReactNode;
 }>) {
   const user = await requireAgencyWorkspaceUser();
-  const workContext = await readWorkContext();
+  const [workContext, cookieStore] = await Promise.all([
+    readWorkContext(),
+    cookies()
+  ]);
+  const collapsedCookie = cookieStore.get("agency-sidebar-collapsed");
+  const initialSidebarCollapsed = collapsedCookie
+    ? collapsedCookie.value === "true"
+    : null;
   const [agencija, firme] = user.agencija_id
     ? await Promise.all([
         prisma.agencija.findUnique({
@@ -98,6 +106,7 @@ export default async function AgencijaLayout({
 
   return (
     <AgencyWorkspaceShell
+      initialCollapsed={initialSidebarCollapsed}
       logoutAction={logout}
       navigation={navigation}
       userName={user.korisnicko_ime}

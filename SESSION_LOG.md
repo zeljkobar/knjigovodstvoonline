@@ -1416,3 +1416,17 @@
 - Dodata i lokalno primijenjena migracija
   `20260921120000_agency_email_reply_to`; Prisma klijent je regenerisan.
 - TypeScript i ESLint prolaze; ESLint zadržava četiri ranija upozorenja.
+
+## 2026-09-22 — dokumenti obračuna plata
+
+- Na detalju obračuna dodata je zajednička sekcija za rekapitulaciju,
+  pojedinačne i zbirne platne liste, virmane i postojeći mjesečni IOPPD.
+- Dodate su čiste A4 HTML/CSS štampe platnih lista i rekapitulacije. Obračunati
+  i revidirani dokumenti imaju oznaku `NACRT`, a proknjiženi/zaključani su finalni.
+- Pregled naloga za plaćanje pravi neto naloge po radniku, zbirni nalog poreza,
+  PIO, nezaposlenosti i Fonda rada na `820-30000-74`, te poseban prirez po
+  opštinskom šifarniku. Sindikat i Privredna komora imaju zasebne zbirne naloge;
+  njihovi nepoznati računi ostaju označeni za dopunu umjesto nagađanja podataka.
+- Sve nove rute provjeravaju aktivnu agenciju, firmu, godinu i prava
+  `plate/view` + `plate/export`. TypeScript i ESLint prolaze; ESLint zadržava
+  četiri ranija upozorenja.

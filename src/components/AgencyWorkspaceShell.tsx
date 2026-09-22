@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import type { NavigationItem } from "@/lib/navigation";
 
 const sidebarStorageKey = "agency-sidebar-collapsed";
+const sidebarCookieKey = "agency-sidebar-collapsed";
+const sidebarPreferenceMaxAge = 60 * 60 * 24 * 365;
 
 function AgencyNavigationIcon({ section }: { section: string }) {
   const paths: Record<string, ReactNode> = {
@@ -99,6 +101,7 @@ function AgencyNavigationIcon({ section }: { section: string }) {
 
 type AgencyWorkspaceShellProps = {
   children: ReactNode;
+  initialCollapsed: boolean | null;
   logoutAction: () => Promise<void>;
   navigation: NavigationItem[];
   userName: string;
@@ -106,17 +109,26 @@ type AgencyWorkspaceShellProps = {
 
 export function AgencyWorkspaceShell({
   children,
+  initialCollapsed,
   logoutAction,
   navigation,
   userName
 }: AgencyWorkspaceShellProps) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(initialCollapsed ?? false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    setCollapsed(window.localStorage.getItem(sidebarStorageKey) === "true");
-  }, []);
+  useLayoutEffect(() => {
+    if (initialCollapsed !== null) {
+      return;
+    }
+
+    const storedCollapsed =
+      window.localStorage.getItem(sidebarStorageKey) === "true";
+
+    setCollapsed(storedCollapsed);
+    document.cookie = `${sidebarCookieKey}=${storedCollapsed}; path=/; max-age=${sidebarPreferenceMaxAge}; samesite=lax`;
+  }, [initialCollapsed]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -147,6 +159,7 @@ export function AgencyWorkspaceShell({
     setCollapsed((current) => {
       const next = !current;
       window.localStorage.setItem(sidebarStorageKey, String(next));
+      document.cookie = `${sidebarCookieKey}=${next}; path=/; max-age=${sidebarPreferenceMaxAge}; samesite=lax`;
       return next;
     });
   }

@@ -969,6 +969,15 @@ je od samodeaktivacije i samostalne rotacije.
   izbalansiran `POSTED` nalog izvora `PAYROLL/PLATE` i obračun povezuje sa tim
   nalogom. Ponovno knjiženje je blokirano, a automatski nalog se ne može vratiti
   u nacrt kroz opštu akciju naloga.
+- Detalj obračuna ima centralnu sekciju `Dokumenti obračuna`: pojedinačnu ili
+  zbirnu A4 platnu listu, A4 rekapitulaciju, pregled virmana i vezu na mjesečni
+  IOPPD. Dokumenti su tenant-aware i zahtijevaju `plate/view` + `plate/export`;
+  obračunati/revidirani dokumenti nose oznaku `NACRT`, a proknjiženi/zaključani
+  su finalni. Pregled virmana pravi neto naloge po radniku, jedan zbirni nalog
+  poreza, PIO, nezaposlenosti i Fonda rada na `820-30000-74`, zaseban prirez po
+  opštinskom šifarniku te zbirne naloge sindikata i Privredne komore kada imaju
+  iznos. Gotovinske isplate se izdvajaju, a štampaju se samo nalozi sa svim
+  obaveznim podacima; računi sindikata i Komore se ne nagađaju.
 
 ### Modul 11 — Izvještaji i dashboard
 - Dashboard kartica `Aktivnosti radnika` više nije placeholder i vidljiva je
@@ -1017,8 +1026,9 @@ je od samodeaktivacije i samostalne rotacije.
   štampu; M-4, Tabela 1, Tabela 2 i OPP-ND završeni su u dogovorenom obimu. Detaljna
   pravila osnova su povezana za linearne obračune poput ugovora/zakupa, a
   podešavanja kontiranja i automatski `PAYROLL` nalog postoje po kategoriji.
-  Ostaju obustave, uplatnice, storno/namjensko vraćanje knjiženja,
-  arhiva/finalni print/export i dodatna opisna pravila koja traže ručne parametre.
+  Ostaju obustave, računi primalaca i potpuna automatizacija svih virmana,
+  storno/namjensko vraćanje knjiženja, arhiva dokumenata i dodatna opisna pravila
+  koja traže ručne parametre.
 - Standardni klijentski portal je ograničen na postojeći dashboard i uslovni
   ulaz u fiskalizaciju. Poseban `/portal` je implementiran sa backend guardovima,
   POS-om, bezgotovinskim fakturama, računima, izvještajima, šifarnicima i
