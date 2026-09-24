@@ -32,6 +32,11 @@ function fullName(person: { ime: string; prezime: string }) {
   return `${person.prezime} ${person.ime}`.trim();
 }
 
+function paymentOrderPlace(value: string | null | undefined) {
+  const place = value?.split(",")[0]?.trim();
+  return place ? place.toLocaleUpperCase("sr-Latn-ME") : null;
+}
+
 export async function getPayrollDocumentData({
   agencijaId,
   firmaId,
@@ -261,20 +266,25 @@ export type PayrollPaymentOrder = {
   type: string;
   typeLabel: string;
   payerName: string;
+  payerLocation: string | null;
   payerAccount: string | null;
   purpose: string;
   recipientName: string;
+  recipientLocation: string | null;
   recipientAccount: string | null;
   amountCent: number;
   paymentCode: string | null;
+  debitReferenceModel: string | null;
   debitReference: string | null;
+  creditReferenceModel: string | null;
   creditReference: string | null;
   paymentDate: Date | null;
-  municipality: string | null;
   errors: string[];
 };
 
 const TAX_AND_CONTRIBUTIONS_ACCOUNT = "820-30000-74";
+const CHAMBER_ACCOUNT = "520-939100-43";
+const UNION_ACCOUNT = "510-105-16";
 
 function paymentOrder({
   data,
@@ -283,11 +293,14 @@ function paymentOrder({
   typeLabel,
   purpose,
   recipientName,
+  recipientLocation = null,
   recipientAccount,
   amountCent,
   paymentCode = null,
+  debitReferenceModel = null,
+  debitReference = null,
+  creditReferenceModel = null,
   creditReference = null,
-  municipality = null,
   extraErrors = []
 }: {
   data: PayrollDocumentData;
@@ -296,11 +309,14 @@ function paymentOrder({
   typeLabel: string;
   purpose: string;
   recipientName: string;
+  recipientLocation?: string | null;
   recipientAccount: string | null;
   amountCent: number;
   paymentCode?: string | null;
+  debitReferenceModel?: string | null;
+  debitReference?: string | null;
+  creditReferenceModel?: string | null;
   creditReference?: string | null;
-  municipality?: string | null;
   extraErrors?: string[];
 }): PayrollPaymentOrder {
   const payerAccount = data.firma.bankovni_racuni[0]?.broj_racuna ?? null;
@@ -315,24 +331,39 @@ function paymentOrder({
     type,
     typeLabel,
     payerName: data.firma.naziv,
+    payerLocation: paymentOrderPlace(data.firma.opstina ?? data.firma.grad),
     payerAccount,
     purpose,
     recipientName,
+    recipientLocation,
     recipientAccount,
     amountCent,
     paymentCode,
-    debitReference: null,
+    debitReferenceModel,
+    debitReference,
+    creditReferenceModel,
     creditReference,
     paymentDate,
-    municipality,
     errors
   };
 }
 
 export async function buildPayrollPaymentOrders(data: PayrollDocumentData) {
   const orders: PayrollPaymentOrder[] = [];
+  const surtaxOrders: PayrollPaymentOrder[] = [];
+  const netOrders: PayrollPaymentOrder[] = [];
   const cashWorkers: string[] = [];
-  const period = `${String(data.obracun.mjesec).padStart(2, "0")}/${data.obracun.godina}`;
+  const month = String(data.obracun.mjesec).padStart(2, "0");
+  const period = `${month}.${data.obracun.godina}`;
+  const debitReference = `${month}/${data.obracun.godina}    ${data.workers.length}`;
+  const companyLocation = paymentOrderPlace(data.firma.opstina ?? data.firma.grad);
+  const companyMunicipalitySetting = await findMunicipalitySurtax(
+    data.firma.opstina ?? data.firma.grad,
+    data.obracun.datum_isplate ?? data.obracun.datum_obracuna
+  );
+  const companyCreditReference = companyMunicipalitySetting?.djp_sifra
+    ? `${data.firma.pib}-${companyMunicipalitySetting.djp_sifra}`
+    : data.firma.pib;
 
   for (const worker of data.workers) {
     if (worker.totals.netoZaIsplatuCent <= 0) continue;
@@ -342,16 +373,18 @@ export async function buildPayrollPaymentOrders(data: PayrollDocumentData) {
       continue;
     }
 
-    orders.push(
+    netOrders.push(
       paymentOrder({
         data,
         id: `neto-${worker.employee.id}`,
         type: "NET_SALARY",
         typeLabel: "Neto zarada",
-        purpose: `Isplata zarade za ${period}`,
+        purpose: `Neto zarada za ${period}`,
         recipientName: worker.name,
         recipientAccount: worker.employee.tekuciRacun,
-        amountCent: worker.totals.netoZaIsplatuCent
+        amountCent: worker.totals.netoZaIsplatuCent,
+        paymentCode: "151",
+        creditReference: worker.employee.jmbg
       })
     );
   }
@@ -385,7 +418,7 @@ export async function buildPayrollPaymentOrders(data: PayrollDocumentData) {
     );
     const missingMunicipality = setting ? [] : ["Opština nije pronađena u šifarniku prireza."];
 
-    orders.push(
+    surtaxOrders.push(
       paymentOrder({
         data,
         id: `prirez-${key || "bez-opstine"}`,
@@ -397,9 +430,14 @@ export async function buildPayrollPaymentOrders(data: PayrollDocumentData) {
           : "Opština – prirez porezu na dohodak",
         recipientAccount: setting?.prirez_ziro_racun ?? null,
         amountCent: group.surtaxCent,
-        paymentCode: setting?.prirez_sifra_placanja ?? null,
-        creditReference: data.firma.pib,
-        municipality: (setting?.opstina ?? group.municipality) || null,
+        paymentCode: setting?.prirez_sifra_placanja ?? "140",
+        debitReferenceModel: "00",
+        debitReference,
+        creditReferenceModel: "18",
+        creditReference: setting?.djp_sifra
+          ? `${data.firma.pib}-${setting.djp_sifra}`
+          : data.firma.pib,
+        recipientLocation: (setting?.opstina ?? group.municipality) || null,
         extraErrors: missingMunicipality
       })
     );
@@ -420,21 +458,32 @@ export async function buildPayrollPaymentOrders(data: PayrollDocumentData) {
         id: "tax-and-contributions",
         type: "TAX_AND_CONTRIBUTIONS",
         typeLabel: "Porez i doprinosi",
-        purpose: `Porez i doprinosi na zarade za ${period}`,
-        recipientName: "Jedinstveni račun poreza i doprinosa",
+        purpose: `Porez i doprinosi - zbirno ${period}`,
+        recipientName: "Porez i doprinosi - zbirno",
+        recipientLocation: companyLocation,
         recipientAccount: TAX_AND_CONTRIBUTIONS_ACCOUNT,
         amountCent: taxAndContributionsCent,
-        creditReference: data.firma.pib
+        paymentCode: "140",
+        debitReferenceModel: "00",
+        debitReference,
+        creditReferenceModel: "18",
+        creditReference: companyCreditReference
       })
     );
   }
 
   const otherOrders = [
-    ["UNION", "Sindikat", data.totals.sindikatCent],
-    ["CHAMBER", "Privredna komora", data.totals.privrednaKomoraCent]
+    [
+      "CHAMBER",
+      "Privredna komora",
+      "Privredna komora Crne Gore",
+      CHAMBER_ACCOUNT,
+      data.totals.privrednaKomoraCent
+    ],
+    ["UNION", "Sindikat", "SSSCG", UNION_ACCOUNT, data.totals.sindikatCent]
   ] as const;
 
-  for (const [type, label, amountCent] of otherOrders) {
+  for (const [type, label, recipientName, recipientAccount, amountCent] of otherOrders) {
     if (amountCent <= 0) continue;
     orders.push(
       paymentOrder({
@@ -442,14 +491,22 @@ export async function buildPayrollPaymentOrders(data: PayrollDocumentData) {
         id: type.toLocaleLowerCase("en"),
         type,
         typeLabel: label,
-        purpose: `${label} za ${period}`,
-        recipientName: label,
-        recipientAccount: null,
+        purpose: `Doprinosi na LP ${period}`,
+        recipientName,
+        recipientLocation: companyLocation,
+        recipientAccount,
         amountCent,
-        extraErrors: ["Račun za ovu vrstu obaveze još nije podešen u aplikaciji."]
+        paymentCode: "140",
+        debitReferenceModel: "00",
+        debitReference,
+        creditReferenceModel: "18",
+        creditReference: companyCreditReference
       })
     );
   }
+
+  orders.push(...surtaxOrders);
+  orders.push(...netOrders);
 
   return {
     orders,

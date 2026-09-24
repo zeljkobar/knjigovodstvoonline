@@ -6,6 +6,10 @@ import type { Prisma } from "@prisma/client";
 import { auditLog } from "@/lib/audit";
 import { accountOverrideTypes } from "@/lib/account-plan";
 import { requireAnyRole, requireRole } from "@/lib/auth";
+import {
+  bestBankStatementRuleForLine,
+  normalizeBankPaymentCode
+} from "@/lib/bank-statement-rules";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
 import { hasPermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -276,45 +280,6 @@ async function resolveCompanyAccount(
 
 function normalizeAccountNumber(input: string | null | undefined) {
   return String(input ?? "").replace(/\D/g, "");
-}
-
-function containsText(source: string | null | undefined, needle: string | null | undefined) {
-  const cleanNeedle = String(needle ?? "").trim().toLowerCase();
-
-  if (!cleanNeedle) {
-    return true;
-  }
-
-  return String(source ?? "").toLowerCase().includes(cleanNeedle);
-}
-
-function normalizePaymentCode(input: string | null | undefined) {
-  const clean = String(input ?? "").toUpperCase().replace(/\s+/g, "").trim();
-
-  if (!clean) {
-    return "";
-  }
-
-  return clean.match(/[A-Z]\d{2}/)?.[0] ?? clean.match(/\d{3}/)?.[0] ?? clean.match(/\d{2}/)?.[0] ?? clean;
-}
-
-function comparablePaymentCode(input: string | null | undefined) {
-  return normalizePaymentCode(input).replace(/^[A-Z](\d{2})$/, "$1");
-}
-
-function paymentCodesMatch(ruleCode: string | null | undefined, lineCode: string | null | undefined) {
-  const normalizedRuleCode = normalizePaymentCode(ruleCode);
-
-  if (!normalizedRuleCode) {
-    return true;
-  }
-
-  const normalizedLineCode = normalizePaymentCode(lineCode);
-
-  return (
-    normalizedLineCode === normalizedRuleCode ||
-    comparablePaymentCode(normalizedLineCode) === comparablePaymentCode(normalizedRuleCode)
-  );
 }
 
 function amountTextToCents(input: string) {
@@ -1813,91 +1778,11 @@ function parseStatement(text: string, bankName?: string | null, pdfRows?: PdfTex
   return parseStatementText(text);
 }
 
-type BankPostingRuleForMatch = Prisma.BankPostingRuleGetPayload<{
-  include: {
-    account: {
-      select: {
-        id: true;
-        sifra: true;
-        analitika_obavezna: true;
-      };
-    };
-  };
-}>;
-
-function ruleMatchesLine(
-  rule: BankPostingRuleForMatch,
-  direction: string,
-  line: ParsedStatementLine
-) {
-  if (rule.direction !== direction || !rule.auto_apply) {
-    return false;
-  }
-
-  if (
-    rule.counterparty_account_number_normalized &&
-    rule.counterparty_account_number_normalized !== line.normalizedAccountNumber
-  ) {
-    return false;
-  }
-
-  if (!containsText(line.description, rule.description_contains)) {
-    return false;
-  }
-
-  if (!containsText(line.referenceNumber, rule.reference_contains)) {
-    return false;
-  }
-
-  if (!paymentCodesMatch(rule.payment_code, line.paymentCode)) {
-    return false;
-  }
-
-  return true;
-}
-
-function ruleSpecificity(rule: BankPostingRuleForMatch) {
-  return (
-    (rule.counterparty_account_number_normalized ? 20 : 0) +
-    (rule.description_contains ? 30 : 0) +
-    (rule.payment_code ? 25 : 0) +
-    (rule.reference_contains ? 20 : 0)
-  );
-}
-
-function bestRuleForLine(
-  rules: BankPostingRuleForMatch[],
-  direction: string,
-  line: ParsedStatementLine,
-  firmaId: string
-) {
-  return rules
-    .filter((rule) => ruleMatchesLine(rule, direction, line))
-    .sort((left, right) => {
-      const scopeDiff = Number(right.firma_id === firmaId) - Number(left.firma_id === firmaId);
-
-      if (scopeDiff !== 0) {
-        return scopeDiff;
-      }
-
-      const priorityDiff = right.priority - left.priority;
-
-      if (priorityDiff !== 0) {
-        return priorityDiff;
-      }
-
-      const specificityDiff = ruleSpecificity(right) - ruleSpecificity(left);
-
-      if (specificityDiff !== 0) {
-        return specificityDiff;
-      }
-
-      return right.times_used - left.times_used;
-    })[0] ?? null;
-}
-
 function learnedDescriptionCondition(description: string | null | undefined) {
-  const cleanDescription = String(description ?? "").replace(/\s+/g, " ").trim();
+  const cleanDescription = String(description ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\d+\s*-\s*/, "");
   const parts = cleanDescription
     .split("·")
     .map((part) => part.trim())
@@ -1932,11 +1817,6 @@ function learnedDescriptionCondition(description: string | null | undefined) {
   }
 
   return usefulPart || null;
-}
-
-function shouldLearnSpecificBankRule(descriptionContains: string | null, paymentCode: string | null) {
-  return Boolean(descriptionContains && /UPLATA|PAZAR|NAKNADA|PROVIZ|KARTIC|POS|ATM/i.test(descriptionContains)) ||
-    ["M02", "D30", "Z12"].includes(normalizePaymentCode(paymentCode));
 }
 
 async function getActiveContext(action: PermissionAction) {
@@ -2451,7 +2331,9 @@ export async function importBankStatement(formData: FormData) {
       const ownTransferAccount = ownCounterpartyAccount
         ? ownBankSettingByAccountId.get(ownCounterpartyAccount.id) ?? null
         : null;
-      const rule = ownTransferAccount ? null : bestRuleForLine(rules, direction, line, firma.id);
+      const rule = ownTransferAccount
+        ? null
+        : bestBankStatementRuleForLine(rules, direction, line, firma.id);
       const ruleAccount = rule
         ? await resolveCompanyAccount(prisma, firma.id, rule.account_code ?? rule.account.sifra)
         : null;
@@ -2911,19 +2793,16 @@ export async function updateBankStatementLines(formData: FormData) {
             }
           }
 
-          const descriptionContains = learnedDescriptionCondition(savedLine.description);
-          const paymentCode = savedLine.payment_code ?? null;
-          const learnSpecificRule = shouldLearnSpecificBankRule(descriptionContains, paymentCode);
           const existingRule = await tx.bankPostingRule.findFirst({
             where: {
               agencija_id: agencijaId,
               firma_id: firma.id,
-              rule_type: learnSpecificRule ? "ADVANCED" : "BANK_ACCOUNT",
+              rule_type: "BANK_ACCOUNT",
               direction: lineDirection,
               counterparty_account_number_normalized: normalizedAccount,
-              description_contains: learnSpecificRule ? descriptionContains : null,
+              description_contains: null,
               reference_contains: null,
-              payment_code: learnSpecificRule ? paymentCode : null
+              payment_code: null
             },
             select: {
               id: true
@@ -2953,13 +2832,13 @@ export async function updateBankStatementLines(formData: FormData) {
               data: {
                 agencija_id: agencijaId,
                 firma_id: firma.id,
-                rule_type: learnSpecificRule ? "ADVANCED" : "BANK_ACCOUNT",
+                rule_type: "BANK_ACCOUNT",
                 direction: lineDirection,
                 counterparty_account_number: savedLine.counterparty_account_number ?? normalizedAccount,
                 counterparty_account_number_normalized: normalizedAccount,
-                description_contains: learnSpecificRule ? descriptionContains : null,
+                description_contains: null,
                 reference_contains: null,
-                payment_code: learnSpecificRule ? paymentCode : null,
+                payment_code: null,
                 account_id: selectedAccount.id,
                 account_code: selectedAccount.sifra,
                 partner_id: partnerId,
@@ -2972,8 +2851,12 @@ export async function updateBankStatementLines(formData: FormData) {
             });
           }
         } else if (savedLine) {
-          const descriptionContains = learnedDescriptionCondition(savedLine.description);
-          const paymentCode = savedLine.payment_code ?? null;
+          const paymentCode = normalizeBankPaymentCode(savedLine.payment_code) || null;
+          const paymentCodeDefinesAccount = paymentCode === "M02";
+          const descriptionContains = paymentCodeDefinesAccount
+            ? null
+            : learnedDescriptionCondition(savedLine.description);
+          const learnedPartnerId = paymentCodeDefinesAccount ? null : partnerId;
 
           if (descriptionContains || paymentCode) {
             const existingRule = await tx.bankPostingRule.findFirst({
@@ -2998,7 +2881,7 @@ export async function updateBankStatementLines(formData: FormData) {
                   id: existingRule.id
                 },
                 data: {
-                  partner_id: partnerId,
+                  partner_id: learnedPartnerId,
                   account_id: selectedAccount.id,
                   account_code: selectedAccount.sifra,
                   times_used: {
@@ -3025,7 +2908,7 @@ export async function updateBankStatementLines(formData: FormData) {
                   payment_code: paymentCode,
                   account_id: selectedAccount.id,
                   account_code: selectedAccount.sifra,
-                  partner_id: partnerId,
+                  partner_id: learnedPartnerId,
                   priority: 10,
                   times_used: 1,
                   last_used_at: new Date(),
@@ -3088,6 +2971,214 @@ export async function updateBankStatementLines(formData: FormData) {
 
   revalidatePath("/agencija/izvodi");
   redirectStatements("stavke_sacuvane", statement.id);
+}
+
+export async function reapplyBankStatementRules(formData: FormData) {
+  const { user, firma, poslovnaGodina } = await getActiveContext("update");
+  const statementId = value(formData, "statement_id");
+
+  if (!user.agencija_id || !firma || !poslovnaGodina || !statementId) {
+    redirectStatements("izvod_greska");
+  }
+
+  if (poslovnaGodina.zakljucena) {
+    redirectStatements("godina_zakljucena", statementId);
+  }
+
+  const agencijaId = user.agencija_id;
+  const statement = await prisma.bankStatement.findFirst({
+    where: {
+      id: statementId,
+      agencija_id: agencijaId,
+      firma_id: firma.id,
+      poslovna_godina_id: poslovnaGodina.id,
+      is_deleted: false,
+      journal_id: null,
+      status: {
+        not: bankStatementStatuses.posted
+      }
+    },
+    include: {
+      lines: {
+        orderBy: {
+          line_number: "asc"
+        },
+        include: {
+          debit_account: {
+            select: {
+              id: true,
+              sifra: true,
+              analitika_obavezna: true
+            }
+          },
+          credit_account: {
+            select: {
+              id: true,
+              sifra: true,
+              analitika_obavezna: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (!statement) {
+    redirectStatements("izvod_greska", statementId);
+  }
+
+  const rules = await prisma.bankPostingRule.findMany({
+    where: {
+      agencija_id: agencijaId,
+      active: true,
+      auto_apply: true,
+      OR: [
+        {
+          firma_id: firma.id
+        },
+        {
+          firma_id: {
+            equals: null
+          }
+        }
+      ]
+    },
+    include: {
+      account: {
+        select: {
+          id: true,
+          sifra: true,
+          analitika_obavezna: true
+        }
+      }
+    }
+  });
+
+  const appliedCount = await prisma.$transaction(async (tx) => {
+    let applied = 0;
+
+    for (const line of statement.lines) {
+      if (line.posting_status !== lineStatuses.needsReview) {
+        continue;
+      }
+
+      const rule = bestBankStatementRuleForLine(
+        rules,
+        line.direction,
+        {
+          description: line.description,
+          normalizedAccountNumber: line.counterparty_account_number_normalized,
+          referenceNumber: line.reference_number,
+          paymentCode: line.payment_code
+        },
+        firma.id
+      );
+
+      if (!rule || rule.requires_review) {
+        continue;
+      }
+
+      const currentAccount = line.direction === "INFLOW" ? line.credit_account : line.debit_account;
+      const resolvedRuleAccount = currentAccount
+        ? null
+        : await resolveCompanyAccount(tx, firma.id, rule.account_code ?? rule.account.sifra);
+      const selectedAccount = currentAccount ?? resolvedRuleAccount;
+      const partnerId = line.partner_id ?? rule.partner_id ?? null;
+
+      if (!selectedAccount || (selectedAccount.analitika_obavezna && !partnerId)) {
+        continue;
+      }
+
+      await tx.bankStatementLine.update({
+        where: {
+          id: line.id
+        },
+        data: {
+          partner_id: partnerId,
+          debit_account_id: line.direction === "OUTFLOW" ? selectedAccount.id : null,
+          credit_account_id: line.direction === "INFLOW" ? selectedAccount.id : null,
+          match_status: partnerId ? lineStatuses.matchedPartner : lineStatuses.unmatched,
+          posting_status: lineStatuses.ready,
+          confidence_score: 95,
+          updated_by: user.id
+        }
+      });
+
+      await tx.bankPostingRule.update({
+        where: {
+          id: rule.id
+        },
+        data: {
+          times_used: {
+            increment: 1
+          },
+          last_used_at: new Date(),
+          updated_by: user.id
+        }
+      });
+
+      applied += 1;
+    }
+
+    const lineStates = await tx.bankStatementLine.findMany({
+      where: {
+        bank_statement_id: statement.id
+      },
+      select: {
+        posting_status: true
+      }
+    });
+    const balanceOk =
+      decimalToCents(statement.opening_balance) +
+        decimalToCents(statement.total_inflow) -
+        decimalToCents(statement.total_outflow) ===
+      decimalToCents(statement.closing_balance);
+    const allLinesReady = lineStates.every((line) =>
+      [lineStatuses.ready, lineStatuses.ignored].includes(
+        line.posting_status as typeof lineStatuses.ready
+      )
+    );
+
+    await tx.bankStatement.update({
+      where: {
+        id: statement.id
+      },
+      data: {
+        status: balanceOk
+          ? allLinesReady
+            ? bankStatementStatuses.ready
+            : bankStatementStatuses.needsReview
+          : bankStatementStatuses.imported,
+        updated_by: user.id
+      }
+    });
+
+    return applied;
+  });
+
+  await auditLog({
+    korisnikId: user.id,
+    agencijaId,
+    firmaId: firma.id,
+    modul: "agencija.izvodi",
+    akcija: "reapply_posting_rules",
+    tipEntiteta: "BankStatement",
+    entitetId: statement.id,
+    novaVrijednost: {
+      applied_lines: appliedCount
+    }
+  });
+
+  revalidatePath("/agencija/izvodi");
+  revalidatePath("/agencija/izvodi/obrada");
+
+  const params = new URLSearchParams({
+    izvod: statement.id,
+    tab: "nalog",
+    poruka: appliedCount > 0 ? "pravila_primijenjena" : "pravila_bez_promjene"
+  });
+
+  redirect(`/agencija/izvodi?${params.toString()}`);
 }
 
 export async function deleteBankStatement(formData: FormData) {
@@ -3284,7 +3375,7 @@ export async function createBankPostingRule(formData: FormData) {
   const accountCode = nullableValue(formData, "account_code");
   const descriptionContains = nullableValue(formData, "description_contains");
   const referenceContains = nullableValue(formData, "reference_contains");
-  const paymentCode = normalizePaymentCode(nullableValue(formData, "payment_code")) || null;
+  const paymentCode = normalizeBankPaymentCode(nullableValue(formData, "payment_code")) || null;
   const priority = Number(value(formData, "priority") || "10");
   const normalizedAccount = normalizeAccountNumber(accountNumber);
 

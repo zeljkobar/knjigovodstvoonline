@@ -88,6 +88,7 @@ model Agencija {
   posKifBatches              PosKifBatch[]
   posAccountingBatches       PosAccountingBatch[]
   posSmjene                  PosSmjena[]
+  virmani                    Virman[]
 
   @@map("agencije")
 }
@@ -220,6 +221,7 @@ model Firma {
   posPodesavanje                PosPodesavanje?
   posSmjene                     PosSmjena[]
   transferZahtjevi              FirmaAgencyTransferRequest[]
+  virmani                       Virman[]
 
   @@unique([agencija_id, pib])
   @@map("firme")
@@ -324,6 +326,45 @@ model FirmaBankovniRacun {
   @@unique([firma_id, broj_racuna])
   @@index([agencija_id, firma_id])
   @@map("firma_bankovni_racuni")
+}
+
+model Virman {
+  id                        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id               String           @db.Uuid
+  agencija                  Agencija         @relation(fields: [agencija_id], references: [id])
+  firma_id                  String           @db.Uuid
+  firma                     Firma            @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id        String?          @db.Uuid
+  poslovna_godina           PoslovnaGodina?  @relation(fields: [poslovna_godina_id], references: [id])
+  status                    String           @default("DRAFT")
+  naziv_sablona             String?
+  nalogodavac_naziv         String
+  nalogodavac_mjesto        String?
+  nalogodavac_racun         String?
+  svrha_placanja            String
+  primalac_naziv            String
+  primalac_mjesto           String?
+  primalac_racun            String?
+  iznos                     Decimal          @default(0) @db.Decimal(14, 2)
+  sifra_placanja            String?
+  model_zaduzenja           String?
+  poziv_na_broj_zaduzenja   String?
+  model_odobrenja           String?
+  poziv_na_broj_odobrenja   String?
+  datum_valute              DateTime?        @db.Date
+  odstampan_at              DateTime?
+  is_deleted                Boolean          @default(false)
+  deleted_at                DateTime?
+  deleted_by                String?          @db.Uuid
+  delete_reason             String?
+  created_at                DateTime         @default(now())
+  created_by                String?          @db.Uuid
+  updated_at                DateTime         @updatedAt
+  updated_by                String?          @db.Uuid
+
+  @@index([agencija_id, firma_id, poslovna_godina_id, status, is_deleted])
+  @@index([firma_id, datum_valute])
+  @@map("virmani")
 }
 
 model FirmaUgovor {
@@ -476,6 +517,7 @@ model PoslovnaGodina {
   nivelacijeCijena              NivelacijaCijena[]
   stanjaZaliha                  StanjeZaliha[]
   prometiZaliha                 PrometZaliha[]
+  virmani                       Virman[]
 
   @@unique([firma_id, godina])
   @@map("poslovne_godine")

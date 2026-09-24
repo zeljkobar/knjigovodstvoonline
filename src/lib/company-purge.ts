@@ -327,6 +327,11 @@ export async function purgeCompanyData(
     Prisma.sql`DELETE FROM plate_sifre_primanja WHERE firma_id = ${firmaId}::uuid`
   );
 
+  await izvrsi(
+    "virmani",
+    Prisma.sql`DELETE FROM virmani WHERE firma_id = ${firmaId}::uuid`
+  );
+
   // Stavke naloga moraju biti obrisane prije samih naloga i konta firme.
   await izvrsi(
     "stavke_naloga",

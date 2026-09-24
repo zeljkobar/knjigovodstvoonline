@@ -41,6 +41,7 @@ const moduli = [
   "izlazni_racuni",
   "ulazni_racuni",
   "izvodi",
+  "virmani",
   "plate",
   "pdv",
   "zavrsni_racun",

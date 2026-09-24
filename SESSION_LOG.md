@@ -3,6 +3,50 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-09-24 — blokade i ponovno primjenjivanje pravila izvoda
+
+- Preview izvoda sada prikazuje konkretne razloge koji blokiraju knjiženje i
+  označava sporne stavke, uključujući nedostajuće konto, obaveznog partnera na
+  analitičkom kontu, nesnimljenu izmjenu i neispravnu kontrolu stanja.
+- Neproknjiženi izvod dobio je ručnu radnju `Ponovo primijeni pravila`; ona
+  obrađuje samo neriješene stavke, koristi trenutno najbolje pravilo i ne
+  prepisuje ručno izabrano konto. Stari proknjiženi izvodi ostaju netaknuti.
+- Dodato je pet regresionih testova za `M02`, fallback po žiro računu,
+  firm-specific prioritet i validaciju partnera na analitičkom kontu. TypeScript,
+  testovi i lint prolaze; u browseru je potvrđen prikaz tačnog razloga blokade.
+
+## 2026-09-24 — fallback pravila izvoda bez rednog broja
+
+- Ispravljeno je automatsko učenje pravila iz ručno riješenih stavki izvoda:
+  kada postoji kontra žiro račun, pamti se jedno fallback pravilo po računu i
+  smjeru, bez opisa, rednog broja stavke i šifre plaćanja.
+- Precizni uslovi po opisu, šifri i pozivu ostaju dostupni samo kroz namjerno
+  podešavanje na stranici pravila i imaju prednost nad fallbackom.
+- Lokalna pravila su jednokratno očišćena bez produkcijske data-migracije, jer
+  produkcijska baza još nema snimljenih pravila. Za KIPS je potvrđeno jedno
+  aktivno pravilo `INFLOW → 2020`, a broj aktivnih pravila čiji opis počinje
+  rednim brojem stavke je nula.
+- Lovćen kartične stavke bez kontra žiro računa sada za šifru `M02` uče samo
+  opšte pravilo po smjeru i šifri, bez uslova po nazivu prodavnice ili partneru.
+  Postojeći uvezeni izvodi nijesu mijenjani; pravilo važi za buduće importe.
+
+## 2026-09-23 — opšti virmani sa Dashboarda
+
+- Dodata je ruta `/agencija/virmani` sa novim virmanom, nacrtima, istorijom
+  štampe i šablonima. Podaci nalogodavca se predlažu iz aktivne firme i njenog
+  glavnog računa; nalog se može urediti prije čuvanja i štampe.
+- Više nacrta ili ranije odštampanih naloga može se pripremiti za zajedničku
+  štampu. `/stampa/virmani` koristi postojeći precizni raspored tri virmana na
+  A4 i iste korekcije gornje/lijeve margine i vertikalnog razmaka.
+- Dodata je tabela `virmani`, soft delete, audit, zaključavanje izmjena uz
+  zaključanu godinu i zasebna prava `virmani` u matrici. Modul je namjerno
+  odvojen od naloga za knjiženje i izvoda.
+- Migracija `20260923120000_opsti_virmani` je lokalno primijenjena; Prisma je
+  regenerisan, purge provjera pokriva svih 60 tabela sa `firma_id`, TypeScript
+  prolazi, a lint nema grešaka (ostaju četiri ranija upozorenja). Dev server je
+  restartovan. Stranica je prikazana u browseru; sesija je zatim istekla pa
+  mutacioni UI tok ostaje za kratku provjeru poslije ponovne prijave.
+
 ## 2026-09-03 — XML završnog računa
 
 - Dodat `FinansijskiIskazi` izvoz prema korisnikovom XSD-u i praznom XML primjeru.
@@ -1430,3 +1474,24 @@
 - Sve nove rute provjeravaju aktivnu agenciju, firmu, godinu i prava
   `plate/view` + `plate/export`. TypeScript i ESLint prolaze; ESLint zadržava
   četiri ranija upozorenja.
+- Štampa virmana je zatim usklađena sa `zadaci/plate/virmani.pdf`: A4 je bez
+  nacrtanih okvira, sadrži po tri obrasca i koristi izmjerene pozicije polja.
+  Gornja/lijeva margina i vertikalni razmak mogu se korigovati prije štampe, a
+  vrijednosti se pamte lokalno za konkretni browser i štampač.
+- Pregled virmana sada prikazuje modele, pozive na broj, šifre, račune, datum i
+  oba reda nalogodavca/primaoca. Dodati su dokumentovani računi Komore
+  `520-939100-43` i sindikata `510-105-16`, zbirni porez i doprinosi ostaju na
+  `820-30000-74`, a neto nalozi koriste šifru `151`.
+- Poziv na broj zaduženja zbirnih virmana koristi format
+  `MM/GGGG    broj radnika`; posljednji broj je broj radnika u obračunu, a ne
+  redni broj obračuna.
+- Široka tabela pregleda virmana zamijenjena je kompaktnim karticama bez
+  horizontalnog skrola. Sva polja koja ulaze u štampu mogu se korigovati prije
+  otvaranja štampe; korekcije se čuvaju samo lokalno u browseru po obračunu i ne
+  mijenjaju podatke obračuna u bazi.
+- Štampa učitava lokalno korigovane podatke i ponovo provjerava obavezna polja,
+  pa nalog dopunjen na pregledu odmah postaje spreman za štampu. Dodata je akcija
+  za vraćanje izvornih podataka obračuna.
+- Kartice pripreme virmana su vizuelno presložene prema referentnom
+  `zadaci/plate/pojedinacni virman.png`: lijeva strana prati nalogodavca, svrhu
+  i primaoca, a desna račune, modele, pozive na broj, iznos, šifru i datum.

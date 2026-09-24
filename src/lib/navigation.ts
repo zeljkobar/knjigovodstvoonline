@@ -148,6 +148,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
   ],
   dashboard: [
     { href: "/agencija", label: "Pregled" },
+    { href: "/agencija/virmani", label: "Virmani", permissions: [{ modul: "virmani", akcija: "view" }] },
     { href: "/agencija/rokovi", label: "Rokovi" },
     { href: "/agencija/dokumenta-za-obradu", label: "Dokumenta za obradu" },
     { href: "/agencija/aktivnosti", label: "Aktivnosti radnika", roles: adminOnly },

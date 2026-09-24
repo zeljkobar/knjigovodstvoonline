@@ -3,12 +3,14 @@ import {
   deleteBankStatement,
   postReadyBankStatements,
   postSelectedBankStatements,
+  reapplyBankStatementRules,
   updateBankStatementLines
 } from "./actions";
 import { BankStatementImportForm } from "./BankStatementImportForm";
 import { PartnerSearchInput } from "@/components/PartnerSearchInput";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
+import { bankStatementLineBlockers } from "@/lib/bank-statement-rules";
 import { requirePermissionForUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
@@ -35,6 +37,8 @@ const messages: Record<string, string> = {
   izvodi_uvezeni_djelimicno: "Dio izvoda je uvezen; duplikati ili neispravni fajlovi su preskočeni.",
   izvod_obrisan: "Izvod je obrisan. Možete ga ponovo uvesti.",
   stavke_sacuvane: "Stavke izvoda su sačuvane.",
+  pravila_primijenjena: "Pravila su ponovo primijenjena na neriješene stavke.",
+  pravila_bez_promjene: "Nijedna neriješena stavka nije mogla biti dopunjena postojećim pravilima.",
   izvod_greska: "Izvod nije pronađen ili nije moguće mijenjati ga.",
   izvod_nije_izabran: "Izaberite bar jedan izvod za knjiženje.",
   izvod_broj_naloga_greska: "Broj izvoda nije validan broj naloga.",
@@ -371,14 +375,16 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                   select: {
                     id: true,
                     sifra: true,
-                    naziv: true
+                    naziv: true,
+                    analitika_obavezna: true
                   }
                 },
                 credit_account: {
                   select: {
                     id: true,
                     sifra: true,
-                    naziv: true
+                    naziv: true,
+                    analitika_obavezna: true
                   }
                 },
                 allocations: {
@@ -420,6 +426,29 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
   const selectedStatementCanBeDeleted = selectedStatement
     ? effectiveStatementStatus(selectedStatement) !== "POSTED" && !statementHasValidJournal(selectedStatement)
     : false;
+  const selectedLineBlockers = new Map(
+    selectedStatement?.lines.map((line) => {
+      const account = line.direction === "INFLOW" ? line.credit_account : line.debit_account;
+
+      return [
+        line.id,
+        bankStatementLineBlockers({
+          lineNumber: line.line_number,
+          ignored: line.posting_status === "IGNORED",
+          postingStatus: line.posting_status,
+          accountCode: account?.sifra ?? null,
+          accountRequiresPartner: Boolean(account?.analitika_obavezna),
+          partnerId: line.partner_id
+        })
+      ] as const;
+    }) ?? []
+  );
+  const selectedStatementBlockers = [
+    ...(selectedStatement && !selectedBalanceOk
+      ? ["Kontrola stanja nije ispravna: početno stanje + priliv - odliv mora biti jednako tekućem stanju."]
+      : []),
+    ...Array.from(selectedLineBlockers.values()).flat()
+  ];
   const activePreviewLines =
     selectedStatement?.lines.filter((line) => line.posting_status !== "IGNORED") ?? [];
   const totalInflowPreview = activePreviewLines.reduce(
@@ -725,6 +754,14 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                   <Link className="secondary-button compact-action" href="/agencija/izvodi">
                     Povrat na spisak izvoda
                   </Link>
+                  {effectiveStatementStatus(selectedStatement) !== "POSTED" && !selectedStatement.journal ? (
+                    <form action={reapplyBankStatementRules}>
+                      <input name="statement_id" type="hidden" value={selectedStatement.id} />
+                      <button className="secondary-button compact-action" type="submit">
+                        Ponovo primijeni pravila
+                      </button>
+                    </form>
+                  ) : null}
                   {selectedStatement.journal ? (
                     <Link className="table-link" href={`/agencija/nalozi/${selectedStatement.journal.id}`}>
                       Otvori nalog {selectedStatement.journal.sifra}
@@ -740,6 +777,17 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                   ) : null}
                 </div>
               </div>
+
+              {selectedStatementBlockers.length > 0 ? (
+                <div className="status-banner error statement-blockers">
+                  <strong>Knjiženje je blokirano:</strong>
+                  <ul>
+                    {selectedStatementBlockers.map((blocker) => (
+                      <li key={blocker}>{blocker}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
 
               <div className="tabs-row">
                 <Link
@@ -774,46 +822,60 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedStatement.lines.map((line) => (
-                        <tr key={line.id}>
-                          <td>{line.line_number}</td>
-                          <td>{displayDate(line.posting_date)}</td>
-                          <td>
-                            <strong>{line.description}</strong>
-                            {line.raw_text ? <small>{line.raw_text}</small> : null}
-                          </td>
-                          <td>{line.payment_code ?? "-"}</td>
-                          <td>{line.counterparty_account_number ?? "-"}</td>
-                          <td>
-                            {line.partner ? (
-                              <>
-                                <strong>{line.partner.naziv}</strong>
-                                <small>{line.partner.pib}</small>
-                              </>
-                            ) : (
-                              "-"
-                            )}
-                          </td>
-                          <td>
-                            {line.allocations.length > 0 ? (
-                              line.allocations.map((allocation) => (
-                                <small key={allocation.id}>
-                                  {allocation.document_type}{" "}
-                                  {allocation.kif_entry?.customer_invoice_number ??
-                                    allocation.kuf_entry?.supplier_invoice_number ??
-                                    "-"}{" "}
-                                  · {money(Number(allocation.amount))}
+                      {selectedStatement.lines.map((line) => {
+                        const lineBlockers = selectedLineBlockers.get(line.id) ?? [];
+
+                        return (
+                          <tr
+                            className={lineBlockers.length > 0 ? "statement-row-blocked" : undefined}
+                            key={line.id}
+                          >
+                            <td>{line.line_number}</td>
+                            <td>{displayDate(line.posting_date)}</td>
+                            <td>
+                              <strong>{line.description}</strong>
+                              {line.raw_text ? <small>{line.raw_text}</small> : null}
+                            </td>
+                            <td>{line.payment_code ?? "-"}</td>
+                            <td>{line.counterparty_account_number ?? "-"}</td>
+                            <td>
+                              {line.partner ? (
+                                <>
+                                  <strong>{line.partner.naziv}</strong>
+                                  <small>{line.partner.pib}</small>
+                                </>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            <td>
+                              {line.allocations.length > 0 ? (
+                                line.allocations.map((allocation) => (
+                                  <small key={allocation.id}>
+                                    {allocation.document_type}{" "}
+                                    {allocation.kif_entry?.customer_invoice_number ??
+                                      allocation.kuf_entry?.supplier_invoice_number ??
+                                      "-"}{" "}
+                                    · {money(Number(allocation.amount))}
+                                  </small>
+                                ))
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            <td>{money(Number(line.outflow_amount))}</td>
+                            <td>{money(Number(line.inflow_amount))}</td>
+                            <td>
+                              {lineStatusLabels[line.posting_status] ?? line.posting_status}
+                              {lineBlockers.map((blocker) => (
+                                <small className="control-issue" key={blocker}>
+                                  {blocker}
                                 </small>
-                              ))
-                            ) : (
-                              "-"
-                            )}
-                          </td>
-                          <td>{money(Number(line.outflow_amount))}</td>
-                          <td>{money(Number(line.inflow_amount))}</td>
-                          <td>{lineStatusLabels[line.posting_status] ?? line.posting_status}</td>
-                        </tr>
-                      ))}
+                              ))}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -886,9 +948,10 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                               ? kifCandidatesByPartner.get(line.partner_id) ?? []
                               : kufCandidatesByPartner.get(line.partner_id) ?? []
                             : [];
+                          const lineBlockers = selectedLineBlockers.get(line.id) ?? [];
 
                           return (
-                            <tr key={line.id}>
+                            <tr className={lineBlockers.length > 0 ? "statement-row-blocked" : undefined} key={line.id}>
                               <td className="statement-col-number">{line.line_number}</td>
                               <td className="statement-col-description">
                                 <strong>{line.description}</strong>
@@ -896,6 +959,13 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                                   {line.direction === "INFLOW" ? "Priliv" : "Odliv"} ·{" "}
                                   {line.counterparty_account_number ?? "bez računa"}
                                 </small>
+                                {lineBlockers.length > 0 ? (
+                                  <div className="control-issues">
+                                    {lineBlockers.map((blocker) => (
+                                      <small className="control-issue" key={blocker}>{blocker}</small>
+                                    ))}
+                                  </div>
+                                ) : null}
                                 <input name="line_id" type="hidden" value={line.id} />
                                 <input name="line_direction" type="hidden" value={line.direction} />
                               </td>

@@ -1,11 +1,12 @@
-import Link from "next/link";
 import { getPlateContext, MissingPlateContext } from "../../_shared";
+import { PayrollPaymentOrdersEditor } from "@/components/PayrollPaymentOrdersEditor";
 import { hasAllPermissions } from "@/lib/permissions";
 import {
   buildPayrollPaymentOrders,
   getPayrollDocumentData
 } from "@/lib/payroll-documents";
-import { money, payrollStatusLabel } from "@/lib/payroll";
+import { serializePayrollPaymentOrder } from "@/lib/payroll-payment-order-print";
+import { payrollStatusLabel } from "@/lib/payroll";
 
 type PageProps = {
   searchParams?: Promise<{ obracun?: string }>;
@@ -72,23 +73,6 @@ export default async function PayrollPaymentOrdersPage({ searchParams }: PagePro
             Obračun {data.obracun.broj} / {data.obracun.godina} · {data.firma.naziv}
           </p>
         </div>
-        <div className="button-row">
-          {canExport && data.isPrintable && paymentOrders.readyOrders.length > 0 ? (
-            <Link
-              className="primary-button"
-              href={`/stampa/plate/virmani?obracun=${data.obracun.id}`}
-              target="_blank"
-            >
-              Štampaj ispravne naloge
-            </Link>
-          ) : null}
-          <Link
-            className="secondary-button"
-            href={`/agencija/plate/obracun?obracun=${data.obracun.id}`}
-          >
-            Nazad na obračun
-          </Link>
-        </div>
       </header>
 
       {!data.isPrintable ? (
@@ -103,14 +87,6 @@ export default async function PayrollPaymentOrdersPage({ searchParams }: PagePro
         <div className="stat-card">
           <span>Datum naloga</span>
           <strong>{displayDate(data.obracun.datum_isplate ?? data.obracun.datum_obracuna)}</strong>
-        </div>
-        <div className="stat-card">
-          <span>Spremni nalozi</span>
-          <strong>{paymentOrders.readyOrders.length}</strong>
-        </div>
-        <div className="stat-card">
-          <span>Za dopunu</span>
-          <strong>{paymentOrders.invalidOrders.length}</strong>
         </div>
       </section>
 
@@ -129,8 +105,8 @@ export default async function PayrollPaymentOrdersPage({ searchParams }: PagePro
       <p className="compact-note">
         Neto zarada se priprema po radniku. Porez, PIO, nezaposlenost i Fond rada
         sabiraju se na zbirni račun 820-30000-74, dok se prirez priprema odvojeno po
-        opštini. Sindikat i Privredna komora imaju zasebne zbirne naloge kada postoji
-        obračunati iznos.
+        opštini. Privredna komora i sindikat imaju zasebne zbirne naloge kada postoji
+        obračunati iznos. Štampa je prilagođena obrascu sa tri virmana na A4 strani.
       </p>
 
       {paymentOrders.cashWorkers.length > 0 ? (
@@ -142,56 +118,13 @@ export default async function PayrollPaymentOrdersPage({ searchParams }: PagePro
         </section>
       ) : null}
 
-      <section className="admin-panel">
-        <div className="panel-header">
-          <div>
-            <h3>Pregled naloga</h3>
-            <span>Štampaju se samo redovi bez otvorenih grešaka.</span>
-          </div>
-          <strong>{paymentOrders.orders.length} ukupno</strong>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Vrsta</th>
-                <th>Primalac</th>
-                <th>Račun primaoca</th>
-                <th>Svrha</th>
-                <th>Iznos</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paymentOrders.orders.map((order) => (
-                <tr key={order.id}>
-                  <td>{order.typeLabel}</td>
-                  <td>{order.recipientName}</td>
-                  <td>{order.recipientAccount ?? "—"}</td>
-                  <td>{order.purpose}</td>
-                  <td>{money(order.amountCent)}</td>
-                  <td>
-                    {order.errors.length === 0 ? (
-                      <span className="status-pill status-pill--success">Spremno</span>
-                    ) : (
-                      <div className="control-issues">
-                        {order.errors.map((error) => (
-                          <small key={error}>{error}</small>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {paymentOrders.orders.length === 0 ? (
-                <tr>
-                  <td colSpan={6}>Obračun nema iznose za naloge plaćanja.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <PayrollPaymentOrdersEditor
+        backUrl={`/agencija/plate/obracun?obracun=${data.obracun.id}`}
+        calculationId={data.obracun.id}
+        canEdit={canExport && data.isPrintable}
+        initialOrders={paymentOrders.orders.map(serializePayrollPaymentOrder)}
+        printUrl={`/stampa/plate/virmani?obracun=${data.obracun.id}`}
+      />
     </div>
   );
 }

@@ -50,6 +50,10 @@ stavke, import sesiju, kontrole, povezivanje sa fakturama i generiše jedan nalo
     konfliktu firm-specific pravilo ima prednost,
   - pravila čuvaju šifru konta (`account_code`), pa se zajedničko pravilo može
     primijeniti na drugu firmu automatskim povezivanjem na `firma_konta`,
+  - postojeći neproknjiženi izvod može ručno ponovo primijeniti trenutno važeća
+    pravila bez ponovnog uvoza fajla; ručno izabrano konto se ne prepisuje,
+  - preview prikazuje tačan razlog za svaku blokiranu stavku i zbirnu listu
+    razloga zbog kojih izvod još nije spreman za knjiženje,
   - izmjena zajedničkog pravila može se sačuvati kao override za aktivnu firmu,
     bez mijenjanja zajedničkog šablona,
   - ručno povezivanje partnera pamti žiro račun kao agencijski zajednički račun
@@ -174,6 +178,21 @@ Korisnik može iz preview-a ručno riješenu stavku zapamtiti kao fallback pravi
 po žiro računu, a na stranici pravila može ručno dodati preciznije pravilo koje
 ima veći prioritet (npr. isti žiro račun + opis sadrži `ATM`).
 
+Automatski naučeno fallback pravilo po žiro računu ne čuva redni broj stavke iz
+bankarskog opisa, opis ni šifru plaćanja. Ti dodatni uslovi postoje samo na
+preciznom pravilu koje korisnik namjerno podesi na stranici pravila.
+
+Izuzetak su Lovćen kartične stavke sa šifrom `M02`, koje nemaju kontra žiro
+račun. Kada se takva stavka ručno kontira, automatski naučeno pravilo koristi
+samo smjer i šifru `M02`; ne veže se za naziv prodavnice, opis ni partnera. Tako
+se isto konto primjenjuje na svaku buduću `M02` stavku u obuhvatu pravila.
+
+Automatska pravila se primjenjuju pri uvozu. Za ranije uvezen, neproknjižen
+izvod korisnik može izabrati `Ponovo primijeni pravila`. Ta radnja obrađuje samo
+stavke koje su još `NEEDS_REVIEW`, ne prepisuje ručno izabrano konto i može
+dopuniti konto ili partnera iz trenutno najboljeg pravila. Proknjiženi izvodi se
+ne mijenjaju ovim postupkom.
+
 Zajednička pravila agencije služe kao šablon za sve firme. Ako konkretna firma
 ima drugačiji tretman istog žiro računa ili istog opisa, na stranici pravila se
 ispravi postojeće pravilo i sačuva kao “samo aktivna firma”; tada firm-specific
@@ -197,6 +216,9 @@ pravila (`bank_statement_imports`, `bank_statement_import_lines`,
 - Kontrola početnog/krajnjeg stanja mora proći prije knjiženja.
 - Stavka ne može imati istovremeno priliv i odliv.
 - Stavka mora biti riješena prije knjiženja.
+- Preview mora prikazati konkretan razlog blokade: nedostajuće konto, obavezan
+  partner za analitičko konto, nesnimljenu izmjenu ili neispravnu kontrolu
+  početnog i krajnjeg stanja.
 - Alokacije ne smiju preći iznos stavke osim ako se svjesno vodi preplata.
 - Zaključana poslovna godina blokira izmjene i knjiženje.
 

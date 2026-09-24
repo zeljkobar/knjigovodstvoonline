@@ -4,6 +4,11 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Na produkciji primijeniti migraciju `20260923120000_opsti_virmani`, dodijeliti
+  radnicima potrebna prava za novi modul i uraditi probnu štampu tri opšta
+  virmana na stvarnom obrascu. Lokalni ekran je statički provjeren; puna browser
+  provjera čuvanja/štampe ostaje nakon ponovne prijave jer je sesija istekla pri
+  restartu razvojnog servera.
 - Na produkciji primijeniti migraciju
   `20260921120000_agency_email_reply_to`, potvrditi da je centralni SMTP nalog
   ovlašćen za slanje sa `admin@summasummarum.me` i izvršiti probno slanje sa
@@ -126,10 +131,12 @@
   završe radni odnos tokom mjeseca. Za kasniju fazu ostaje kalendar praznika i
   nestandardnih smjena umjesto osnovnog proporcionalnog modela ponedjeljak–petak.
   Dodati su pojedinačne/zbirne platne liste, rekapitulacija obračuna i pregled
-  virmana koji štampa samo ispravne naloge. Sljedeće: obustave, opisna pravila
-  koja traže ručne parametre, ručni QA IOPPD XML upload-a na portalu, podešavanje
-  računa sindikata i Privredne komore za potpunu automatizaciju virmana i namjenski
-  storno/vraćanje automatskog `PAYROLL` naloga. M-4 je završen u dogovorenom obimu.
+  virmana koji štampa samo ispravne naloge, tri po A4 strani prema referentnom
+  PDF-u, uz podesive margine za štampač i kompaktno uređivanje svih podataka
+  virmana neposredno prije štampe. Sljedeće: obustave, opisna pravila koja
+  traže ručne parametre, ručni QA IOPPD XML upload-a na portalu, probna štampa
+  virmana na stvarnom obrascu i namjenski storno/vraćanje automatskog `PAYROLL`
+  naloga. M-4 je završen u dogovorenom obimu.
 
 ## Otvoreno po modulima
 - **Modul 1:** sigurnosni audit postojećih operativnih ruta je završen za
@@ -162,8 +169,8 @@
 - **Modul 8:** ručni QA postojećeg IRMS XML-a, zaključavanje/otključavanje PDV perioda,
   štampa prijave i testovi knjiženja PDV prijave.
 - **Modul 9 Plate:** doraditi obustave, opisna pravila osnova koja traže ručne
-  parametre, ručni QA IOPPD XML upload-a na portalu, račune sindikata i Privredne
-  komore za kompletne virmane, posebna pravila minulog rada po
+  parametre, ručni QA IOPPD XML upload-a na portalu, probnu štampu virmana na
+  stvarnom obrascu, posebna pravila minulog rada po
   kolektivnim/granskim ugovorima, namjenski storno/vraćanje proknjiženog
   `PAYROLL` naloga i arhivu finalnih dokumenata. Platne liste, rekapitulacija i
   validirani nalozi za plaćanje imaju HTML/CSS štampu. M-4 je završen u

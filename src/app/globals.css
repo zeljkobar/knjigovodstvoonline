@@ -2993,6 +2993,15 @@ td small {
   margin-top: 0;
 }
 
+.statement-blockers {
+  margin-top: 16px;
+}
+
+.statement-blockers ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
 .statement-preview-table table {
   table-layout: fixed;
   width: 100%;
@@ -3065,6 +3074,22 @@ td small {
 .statement-bank-row {
   background: #f8fcff;
   font-weight: 700;
+}
+
+.statement-row-blocked {
+  background: #fffafa;
+}
+
+.statement-preview-table .control-issues {
+  margin-top: 6px;
+  max-width: none;
+}
+
+.control-issue {
+  color: #b42318;
+  display: block;
+  font-weight: 700;
+  margin-top: 4px;
 }
 
 .control-issues {
@@ -4534,6 +4559,520 @@ td small {
   color: #92400e;
   font-size: 12px;
   font-weight: 700;
+}
+
+.payroll-payment-orders-editor {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.payroll-payment-orders-editor-toolbar,
+.payroll-payment-order-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.payroll-payment-orders-editor-toolbar h3,
+.payroll-payment-orders-editor-toolbar p {
+  margin: 0;
+}
+
+.payroll-payment-orders-editor-toolbar p {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.payroll-payment-orders-editor-toolbar .button-row {
+  justify-content: flex-start;
+}
+
+.payroll-payment-orders-editor-note {
+  margin: 14px 0;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  padding: 10px 12px;
+}
+
+.payroll-payment-order-cards {
+  display: grid;
+  gap: 12px;
+}
+
+.payroll-payment-order-card {
+  min-width: 0;
+  border: 1px solid #cfe0f2;
+  border-radius: 10px;
+  background: #fbfdff;
+  padding: 14px;
+}
+
+.payroll-payment-order-card > header {
+  margin-bottom: 12px;
+}
+
+.payroll-payment-order-card > header > div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.payroll-payment-order-card > header > div > span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.payroll-payment-order-card > header strong {
+  color: #0f3157;
+  font-size: 17px;
+}
+
+.payroll-payment-order-form {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.1fr);
+  grid-template-areas:
+    "title empty"
+    "payer payer-account"
+    "purpose debit"
+    "purpose amount"
+    "recipient recipient-account"
+    "recipient credit"
+    "empty-two date";
+  gap: 8px 16px;
+  min-width: 0;
+  border: 1px solid #b8c8d9;
+  border-radius: 8px;
+  background: #fff7cf;
+  padding: 12px;
+}
+
+.payroll-payment-order-form-title {
+  grid-area: title;
+  align-self: end;
+  text-align: center;
+  color: #0f3157;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.payroll-payment-order-form label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.payroll-payment-order-form label > span {
+  min-height: 14px;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.payroll-payment-order-form input,
+.payroll-payment-order-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid #67b8c5;
+  border-radius: 3px;
+  background: #e0f7fa;
+  color: #132b48;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.payroll-payment-order-form textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.payroll-payment-order-form input:focus,
+.payroll-payment-order-form textarea:focus {
+  outline: 2px solid rgba(8, 145, 178, 0.2);
+  border-color: #0e7490;
+}
+
+.payroll-payment-order-form input:disabled,
+.payroll-payment-order-form textarea:disabled {
+  background: #eef2f7;
+  color: #64748b;
+}
+
+.payroll-payment-order-form-group {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.payroll-payment-order-form-row {
+  display: grid;
+  grid-template-columns: minmax(58px, 0.26fr) minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+}
+
+.payroll-payment-order-form-payer {
+  grid-area: payer;
+}
+
+.payroll-payment-order-form-payer-account {
+  grid-area: payer-account;
+  align-self: start;
+}
+
+.payroll-payment-order-form-purpose {
+  grid-area: purpose;
+}
+
+.payroll-payment-order-form-debit {
+  grid-area: debit;
+}
+
+.payroll-payment-order-form-amount {
+  grid-area: amount;
+  grid-template-columns: minmax(0, 1fr) minmax(76px, 0.28fr);
+}
+
+.payroll-payment-order-form-recipient {
+  grid-area: recipient;
+}
+
+.payroll-payment-order-form-recipient-account {
+  grid-area: recipient-account;
+}
+
+.payroll-payment-order-form-credit {
+  grid-area: credit;
+}
+
+.payroll-payment-order-form-date {
+  grid-area: date;
+  justify-self: end;
+  width: min(220px, 100%);
+}
+
+.payroll-payment-order-card .control-issues {
+  margin-top: 10px;
+}
+
+.manual-payment-orders-page {
+  min-width: 0;
+}
+
+.manual-payment-order-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  border: 1px solid #cfe0f2;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.manual-payment-order-tabs a {
+  border-radius: 999px;
+  color: #174a80;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 10px 16px;
+  text-decoration: none;
+}
+
+.manual-payment-order-tabs a:hover,
+.manual-payment-order-tabs a.active {
+  background: #1368b7;
+  color: #ffffff;
+}
+
+.manual-payment-order-editor {
+  width: min(1040px, 100%);
+  min-width: 0;
+}
+
+.manual-payment-order-editor-header {
+  margin-bottom: 12px;
+}
+
+.manual-payment-order-template-name {
+  display: grid;
+  gap: 5px;
+  width: min(430px, 100%);
+  margin-bottom: 12px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.manual-payment-order-template-name input {
+  box-sizing: border-box;
+  min-height: 40px;
+  border: 1px solid #c3d8ed;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #132b48;
+  font: inherit;
+  padding: 8px 10px;
+}
+
+.manual-payment-order-actions,
+.manual-payment-order-list-actions {
+  justify-content: flex-start;
+  margin-top: 14px;
+}
+
+.manual-payment-order-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.manual-payment-order-list article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid #d7e5f3;
+  border-radius: 9px;
+  background: #fbfdff;
+  padding: 11px 12px;
+}
+
+.manual-payment-order-list article > div:first-of-type {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.manual-payment-order-list article strong,
+.manual-payment-order-list article span,
+.manual-payment-order-list article small {
+  overflow-wrap: anywhere;
+}
+
+.manual-payment-order-list article span,
+.manual-payment-order-list article small {
+  color: #64748b;
+}
+
+.manual-payment-order-select {
+  display: grid;
+  place-items: center;
+}
+
+.manual-payment-order-select input {
+  width: 18px;
+  height: 18px;
+}
+
+@media (max-width: 720px) {
+  .manual-payment-order-list article {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .manual-payment-order-list article > .button-row {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+}
+
+.payroll-virman-print-page {
+  --virman-margin-top: 7mm;
+  --virman-margin-left: 7mm;
+  --virman-slot-two: 101.21mm;
+  --virman-slot-three: 202.42mm;
+  display: grid;
+  gap: 16px;
+}
+
+.payroll-virman-toolbar {
+  align-items: flex-end;
+  flex-wrap: wrap;
+  width: min(1200px, 100%);
+}
+
+.payroll-virman-toolbar label {
+  display: grid;
+  gap: 4px;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.payroll-virman-toolbar input {
+  box-sizing: border-box;
+  width: 118px;
+  min-height: 34px;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+  padding: 6px 8px;
+}
+
+.payroll-virman-print-note {
+  box-sizing: border-box;
+  width: min(210mm, 100%);
+  margin: -6px auto 0;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1e3a5f;
+  font-size: 12px;
+  padding: 10px 12px;
+}
+
+.payroll-virman-empty {
+  box-sizing: border-box;
+  width: min(210mm, 100%);
+  margin: 0 auto;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 24px;
+}
+
+.payroll-virman-empty h1,
+.payroll-virman-empty p {
+  margin: 0;
+}
+
+.payroll-virman-empty p {
+  margin-top: 6px;
+  color: #64748b;
+}
+
+.payroll-virman-sheet {
+  box-sizing: border-box;
+  width: min(210mm, 100%);
+  height: 297mm;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 18px 55px rgba(15, 23, 42, 0.18);
+  color: #000000;
+}
+
+.payroll-virman-slot {
+  box-sizing: border-box;
+  position: absolute;
+  left: var(--virman-margin-left);
+  top: var(--virman-margin-top);
+  width: calc(210mm - var(--virman-margin-left));
+  height: 101.21mm;
+  border-bottom: 1px dashed #dbe4ee;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 8pt;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.payroll-virman-slot[data-slot="1"] {
+  top: calc(var(--virman-margin-top) + var(--virman-slot-two));
+}
+
+.payroll-virman-slot[data-slot="2"] {
+  top: calc(var(--virman-margin-top) + var(--virman-slot-three));
+}
+
+.payroll-virman-field {
+  position: absolute;
+  display: block;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.payroll-virman-field > span {
+  display: block;
+  min-height: 4.05mm;
+}
+
+.payroll-virman-payer-account {
+  left: 137.64mm;
+  top: 8.17mm;
+}
+
+.payroll-virman-payer {
+  left: 5.77mm;
+  top: 16.53mm;
+  text-transform: uppercase;
+}
+
+.payroll-virman-debit-model {
+  left: 109.35mm;
+  top: 19.88mm;
+}
+
+.payroll-virman-debit-reference {
+  left: 149.74mm;
+  top: 19.71mm;
+}
+
+.payroll-virman-amount {
+  left: 134.61mm;
+  top: 33.01mm;
+}
+
+.payroll-virman-payment-code {
+  left: 179.97mm;
+  top: 32.83mm;
+}
+
+.payroll-virman-purpose {
+  left: 5.77mm;
+  top: 39.95mm;
+  width: 118mm;
+  white-space: normal;
+}
+
+.payroll-virman-recipient-account {
+  left: 137.64mm;
+  top: 45.6mm;
+}
+
+.payroll-virman-recipient {
+  left: 5.77mm;
+  top: 58.58mm;
+}
+
+.payroll-virman-uppercase {
+  text-transform: uppercase;
+}
+
+.payroll-virman-credit-model {
+  left: 109.35mm;
+  top: 58.83mm;
+}
+
+.payroll-virman-credit-reference {
+  left: 147.41mm;
+  top: 59.04mm;
+}
+
+.payroll-virman-watermark {
+  position: absolute;
+  left: 72mm;
+  top: 35mm;
+  z-index: 2;
+  transform: rotate(-18deg);
+  color: rgba(185, 28, 28, 0.11);
+  font-size: 34pt;
+  font-weight: 900;
+  letter-spacing: 4px;
 }
 
 .payroll-line-form {
@@ -10093,6 +10632,10 @@ td small {
     min-height: auto;
     padding: 24px;
   }
+
+  .payroll-payment-order-form {
+    grid-template-columns: minmax(230px, 0.9fr) minmax(300px, 1.1fr);
+  }
 }
 
 @media (max-width: 620px) {
@@ -10118,6 +10661,26 @@ td small {
   .payroll-slip-company > div:last-child,
   .payroll-recap-header > div:last-child {
     text-align: left;
+  }
+
+  .payroll-payment-order-form {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "title"
+      "payer"
+      "payer-account"
+      "debit"
+      "amount"
+      "purpose"
+      "recipient-account"
+      "credit"
+      "recipient"
+      "date";
+  }
+
+  .payroll-payment-order-form-date {
+    justify-self: stretch;
+    width: 100%;
   }
 }
 
@@ -10164,5 +10727,43 @@ td small {
 
   .payroll-payment-order-omitted {
     display: none;
+  }
+}
+
+@page payroll-virman {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  .payroll-virman-print-page {
+    display: block;
+    min-height: auto;
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+  }
+
+  .payroll-virman-print-note {
+    display: none;
+  }
+
+  .payroll-virman-sheet {
+    page: payroll-virman;
+    width: 210mm;
+    height: 297mm;
+    margin: 0;
+    break-after: page;
+    page-break-after: always;
+    box-shadow: none;
+  }
+
+  .payroll-virman-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .payroll-virman-slot {
+    border: 0;
   }
 }

@@ -1,12 +1,27 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-09-21. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-09-24. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Opšti virmani — 2026-09-23
+
+- Dashboard podmeni ima novu rutu `/agencija/virmani` za platne naloge koji
+  nijesu vezani za obračun plata. Aktivna firma automatski daje nalogodavca,
+  mjesto i glavni aktivni bankovni račun; sva polja ostaju izmjenjiva.
+- Virmani se čuvaju kao nacrti, istorija odštampanih naloga ili višekratni
+  šabloni. Moguće je označiti i zajedno štampati više naloga, po tri na A4,
+  koristeći isti provjereni raspored i podešavanje margina kao kod plata.
+- Modul ima zasebnu matricu prava `virmani` za pregled, unos, izmjenu, brisanje
+  i izvoz. Sve serverske radnje ponovo provjeravaju agenciju, firmu, poslovnu
+  godinu i pravo; mutacije se auditiraju. Modul ne knjiži promet i ne mijenja
+  bankovne izvode.
+- Lokalno je primijenjena migracija `20260923120000_opsti_virmani`, Prisma
+  klijent je regenerisan, a trajno brisanje firme prošireno na novu tabelu.
 
 ## Email podešavanja agencije — 2026-09-21
 
@@ -694,6 +709,23 @@ je od samodeaktivacije i samostalne rotacije.
   `partner_bank_accounts` i postojeće `komitent_ziro_racuni`.
 - Pravila knjiženja izvoda podržavaju fallback po žiro računu i preciznija
   pravila po smjeru, opisu, šifri plaćanja, pozivu na broj i prioritetu.
+- Automatsko učenje stavke sa kontra žiro računom čuva samo fallback po računu
+  i smjeru; redni broj stavke iz bankarskog opisa, opis i šifra plaćanja ne
+  ulaze u automatski uslov. Precizne uslove korisnik dodaje namjerno na stranici
+  pravila. Lokalni duplikati nastali ranijim učenjem rednog broja su očišćeni;
+  produkcijska baza ih nema i zato data-migracija nije potrebna.
+- Lovćen kartična stavka sa šifrom `M02` i bez kontra žiro računa automatski uči
+  pravilo samo po smjeru i šifri plaćanja, bez naziva prodavnice ili partnera,
+  pa buduće `M02` stavke koriste isto podešeno konto (npr. `2422`).
+- Preview izvoda sada prikazuje zbirne i redne razloge blokade knjiženja:
+  nedostajuće konto, obaveznog partnera za analitičko konto, nesnimljenu izmjenu
+  ili neispravnu kontrolu stanja. Blokirane stavke su vizuelno označene.
+- Na neproknjiženom izvodu postoji ručna radnja `Ponovo primijeni pravila` koja
+  obrađuje samo neriješene stavke prema trenutno aktivnim pravilima, ne dira
+  ručno izabrano konto i ne mijenja istorijske proknjižene izvode.
+- Dodati su regresioni testovi za opšte `M02` pravilo bez kontra žiro računa,
+  fallback po žiro računu nezavisno od rednog broja/opisa/šifre, prednost
+  firm-specific pravila i obaveznog partnera na analitičkom kontu.
 - Pravila knjiženja izvoda mogu biti zajednička za agenciju (`firma_id = null`)
   ili specifična za firmu; firm-specific pravilo ima prednost nad zajedničkim.
   Pravilo čuva i šifru konta (`account_code`) da se isti konto automatski
@@ -977,7 +1009,15 @@ je od samodeaktivacije i samostalne rotacije.
   poreza, PIO, nezaposlenosti i Fonda rada na `820-30000-74`, zaseban prirez po
   opštinskom šifarniku te zbirne naloge sindikata i Privredne komore kada imaju
   iznos. Gotovinske isplate se izdvajaju, a štampaju se samo nalozi sa svim
-  obaveznim podacima; računi sindikata i Komore se ne nagađaju.
+  obaveznim podacima. Račun Komore `520-939100-43`, račun sindikata
+  `510-105-16`, šifre, modeli i pozivi na broj preuzeti su iz starog pregleda
+  virmana. Štampa prati referentni `zadaci/plate/virmani.pdf`: tri obrasca po A4
+  strani, bez štampanja pozadine obrasca, uz lokalno pamtivu korekciju gornje i
+  lijeve margine te razmaka između virmana za konkretni štampač. Pregled prije
+  štampe je kompaktan i bez horizontalnog skrola; sva polja virmana mogu se
+  privremeno korigovati, a korekcije se lokalno pamte po obračunu i koriste samo
+  za štampu, bez izmjene obračuna ili podataka u bazi. Raspored polja u svakoj
+  kartici prati dostavljeni `zadaci/plate/pojedinacni virman.png`.
 
 ### Modul 11 — Izvještaji i dashboard
 - Dashboard kartica `Aktivnosti radnika` više nije placeholder i vidljiva je
@@ -1026,7 +1066,7 @@ je od samodeaktivacije i samostalne rotacije.
   štampu; M-4, Tabela 1, Tabela 2 i OPP-ND završeni su u dogovorenom obimu. Detaljna
   pravila osnova su povezana za linearne obračune poput ugovora/zakupa, a
   podešavanja kontiranja i automatski `PAYROLL` nalog postoje po kategoriji.
-  Ostaju obustave, računi primalaca i potpuna automatizacija svih virmana,
+  Ostaju obustave, ručni QA štampe virmana na stvarnom obrascu,
   storno/namjensko vraćanje knjiženja, arhiva dokumenata i dodatna opisna pravila
   koja traže ručne parametre.
 - Standardni klijentski portal je ograničen na postojeći dashboard i uslovni
@@ -1072,8 +1112,9 @@ je od samodeaktivacije i samostalne rotacije.
   `_prev` u `src/app/admin/actions.ts`.
 - `npx tsc --noEmit --incremental false` prolazi.
 - `npx prisma validate` potvrđuje da je Prisma šema validna.
-- Automatizovani testovi trenutno pokrivaju pravila direktnog fiskalnog portala
-  i računanje pojedinačnog perioda/sati radnika u obračunu plata.
+- Automatizovani testovi trenutno pokrivaju pravila direktnog fiskalnog portala,
+  računanje pojedinačnog perioda/sati radnika u obračunu plata i ključne
+  regresije pravila bankovnih izvoda.
 - `npx prisma migrate deploy` primijenio je migracije
   `20260724120000_plate_kontiranje_podesavanja` i
   `20260724130000_plate_obracun_nalog_veza`;
