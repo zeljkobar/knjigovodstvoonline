@@ -4975,7 +4975,7 @@ td small {
   height: 101.21mm;
   border-bottom: 1px dashed #dbe4ee;
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 8pt;
+  font-size: 10pt;
   font-weight: 700;
   line-height: 1.05;
 }
@@ -4998,7 +4998,7 @@ td small {
 
 .payroll-virman-field > span {
   display: block;
-  min-height: 4.05mm;
+  min-height: 4.6mm;
 }
 
 .payroll-virman-payer-account {
@@ -5024,12 +5024,12 @@ td small {
 
 .payroll-virman-amount {
   left: 134.61mm;
-  top: 33.01mm;
+  top: 36.1mm;
 }
 
 .payroll-virman-payment-code {
   left: 179.97mm;
-  top: 32.83mm;
+  top: 35.9mm;
 }
 
 .payroll-virman-purpose {
@@ -5041,12 +5041,12 @@ td small {
 
 .payroll-virman-recipient-account {
   left: 137.64mm;
-  top: 45.6mm;
+  top: 48.7mm;
 }
 
 .payroll-virman-recipient {
   left: 5.77mm;
-  top: 58.58mm;
+  top: 61.7mm;
 }
 
 .payroll-virman-uppercase {
@@ -5055,12 +5055,12 @@ td small {
 
 .payroll-virman-credit-model {
   left: 109.35mm;
-  top: 58.83mm;
+  top: 61.95mm;
 }
 
 .payroll-virman-credit-reference {
   left: 147.41mm;
-  top: 59.04mm;
+  top: 62.15mm;
 }
 
 .payroll-virman-watermark {
