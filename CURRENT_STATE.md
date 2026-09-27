@@ -1,12 +1,81 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-09-24. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-09-27. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Uvoz izvoda iz maila — 2026-09-27
+
+- Mailovi imaju dugme „Uvezi nove izvode iz maila“ za aktivnu firmu/godinu.
+  Obrađuje sve filtrirane izvore, po jednu poruku u zahtjevu, sa progresom i
+  zaustavljanjem poslije tekuće poruke. Ne radi u pozadini niti knjiži naloge.
+- PDF/XML/HTM prilozi koriste isti parser i postupak obrade kao ručni uvoz.
+  Račun mora biti prepoznat u sadržaju i pripadati firmi; konto se uzima iz
+  podešavanja tog računa, datum mora pripadati aktivnoj otvorenoj godini.
+- Duplikati se provjeravaju po SHA-256 priloga i postojećem identitetu izvoda
+  (firma/godina/račun/broj), uključujući ranije ručne uvoze. Premještanje maila
+  ne uzrokuje novi izvod. Konflikt iznosa/datuma zahtijeva provjeru.
+- `mail_izvod_obrade` čuva status po prilogu i vezu ka izvodu, bez binarnog
+  priloga. Prikazuju se Uvezen / Već postoji / Potrebna provjera / Greška /
+  Preskočen. Neobrađena poruka ima oznaku Za uvoz. Ponovni pokušaj je moguć.
+- Migracija `20260927120000_mail_izvod_obrade` je lokalno primijenjena, Prisma
+  regenerisana i server restartovan. Purge pokriva 62 tabele; evidencija se
+  briše prije izvoda, a brisanje nacrta izvoda odvaja evidenciju preko SET NULL.
+- Transakcijski regresioni test na privremenoj firmi provjerava uvoz/stavke,
+  ponavljanje/premještanje, raniji ručni uvoz, pogrešan račun/godinu/kontekst,
+  prava, zaključavanje, brisanje/reimport i purge uz potpuni rollback.
+
+## Mail podešavanja po firmi — 2026-09-26
+
+- Izvodi → Podešavanja sadrži zasebnu sekciju za folder firme, podfoldere,
+  uključivanje INBOX-a i do 20 pravila. Sve tri kolone su opcione: pošiljalac
+  (tačna adresa), subject sadrži i naziv priloga sadrži. Popunjeni uslovi su
+  AND; redovi pravila su OR. Prazni redovi se ignorišu, bez ijednog uslova
+  prikazuju se poruke iz foldera firme; INBOX se preskače.
+- Mailovi koriste aktivnu firmu i sačuvane izvore/pravila. Bez podešavanja ili
+  kada su isključena ne prikazuju sanduče. Folder i INBOX se pregledaju zajedno,
+  bez promjena mail oznaka; pregled primjenjuje isključivo pravila izabrane firme.
+  INBOX se preskače bez bar jednog popunjenog uslova, i kada je uključen.
+- Detalj i download ponovo provjeravaju aktivnu firmu, folder, UIDVALIDITY i
+  uslove poruke. Promjena firme u drugom tabu blokira stari link. Konfiguracija
+  veze/lozinka ostaju u `.env`, a pravila su u `firma_mail_podesavanja`.
+- Migracija `20260926140000_firma_mail_podesavanja` lokalno je primijenjena,
+  Prisma regenerisana i dev server restartovan. Purge pokriva novu tabelu;
+  transakcijski test kreiranja/čitanja i purge-a testne firme je prošao uz
+  rollback. Nova tabela nema podređene tabele.
+- 22/22 IMAP testova prolazi. Read-only live provjera pronašla je dvije poruke
+  u testiranom folderu, potvrdila detalj/download i odbijanje neodgovarajućeg
+  pravila. UI učitava 134 foldera. Pravila korisnikovih firmi nijesu unaprijed
+  popunjavana. Uvoz na klik opisan je iznad; zakazani uvoz i knjiženje ostaju buduća faza.
+
+## IMAP osnova — 2026-09-26 (proširena pravilima iznad)
+
+- `/agencija/izvodi/imap` je dostupan kroz Izvodi → Mailovi samo adminu
+  agencije vezane preko `IMAP_AGENCY_ID` u `.env`. Stranica i server action
+  provjeravaju ulogu, agenciju i `izvodi:manage`; audit bilježi agenciju.
+  Stari platformski ekran je uklonjen. Konfiguracija i lozinka ostaju u `.env`.
+- ImapFlow koristi obavezni TLS na portu 993, provjeru sertifikata/hostname-a,
+  read-only `EXAMINE INBOX`, broj poruka i zatvaranje veze. Test konekcije
+  i dalje ne preuzima sadržaj. Pregled mailova učitava po 25 zaglavlja, detalj
+  poruke kao običan tekst i omogućava ručno preuzimanje priloga.
+- Čitanje koristi BODY.PEEK i UID/UIDVALIDITY; ne mijenja oznake. HTML se ne
+  renderuje, nema spoljnih slika, poruke se ne čuvaju u bazi niti uvoze u izvode.
+  Ograničenje poruke je 10 MB, prikaza teksta 200.000 znakova. Pregled ima rok
+  30 sekundi i do tri paralelne veze po procesu; prilozi se šalju kao download
+  uz no-store/nosniff. Audit čitanja/preuzimanja ne sadrži sadržaj ni naslove.
+- Parametri su u IMAP varijablama `.env`; `.env.example` ima samo primjere.
+  Lozinka se ne prikazuje ni auditira. Audit bilježi samo ishod testa.
+- Ukupan test ima rok 25 sekundi, bez automatskih ponovnih prijava; paralelni
+  pokušaji i narednih 15 sekundi blokirani su u okviru Node procesa.
+- `npm run imap:check` pokreće lokalni test istog backend klijenta.
+  Stvarni TLS handshake je potvrđen (TLS 1.3); prijava je uspješna i
+  read-only INBOX je vratio 2.459 poruka. `npm run test:imap` prolazi 22/22,
+  TypeScript je čist, lint nema grešaka (četiri ranija upozorenja). U browseru
+  su potvrđeni spisak, detalj i očuvana oznaka nepročitane poruke.
 
 ## Opšti virmani — 2026-09-23
 

@@ -23,13 +23,18 @@
     "planer:dump": "node scripts/planer.mjs dump",
     "planer:build": "node scripts/planer.mjs build",
     "db:check-company-purge": "node scripts/check-company-purge-coverage.mjs",
-    "db:seed": "node prisma/seed.mjs"
+    "db:seed": "node prisma/seed.mjs",
+    "test:imap": "tsc -p tests/tsconfig.imap.json && node --conditions=react-server --test .test-build/tests/imap-connection.test.js .test-build/tests/imap-mail.test.js .test-build/tests/company-mail-rules.test.js .test-build/tests/mail-import-policy.test.js",
+    "imap:check": "tsc -p tests/tsconfig.imap.json && node --conditions=react-server scripts/check-imap.cjs",
+    "test:mail-import-db": "node --conditions=react-server scripts/check-mail-import.cjs"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
     "@types/qrcode": "^1.5.6",
     "@zxing/browser": "^0.2.1",
     "bcryptjs": "^3.0.3",
+    "imapflow": "^2.0.7",
+    "mailparser": "^3.9.28",
     "mysql2": "^3.22.5",
     "next": "^15.0.0",
     "nodemailer": "^8.0.10",
@@ -37,10 +42,12 @@
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "server-only": "^0.0.1",
     "utif": "^3.1.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/mailparser": "^3.4.6",
     "@types/node": "^20.0.0",
     "@types/nodemailer": "^8.0.0",
     "@types/react": "^19.0.0",

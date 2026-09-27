@@ -4,6 +4,13 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Na produkciji primijeniti `20260926140000_firma_mail_podesavanja` i
+  `20260927120000_mail_izvod_obrade`, regenerisati Prisma klijent i restartovati
+  aplikaciju. Podesiti `IMAP_AGENCY_ID` za odgovarajuću agenciju.
+- Uvoz filtriranih mail priloga na klik, statusi i zaštita od ponavljanja/
+  premještanja su implementirani. Sljedeće: korisnička provjera uvoza za banke,
+  zatim zasebno dogovoriti zakazani rad i automatsko knjiženje spremnih izvoda.
+  Šifrovana konfiguracija više sandučića ostaje buduća faza.
 - Na produkciji primijeniti migraciju `20260923120000_opsti_virmani`, dodijeliti
   radnicima potrebna prava za novi modul i uraditi probnu štampu tri opšta
   virmana na stvarnom obrascu. Lokalni ekran je statički provjeren; puna browser

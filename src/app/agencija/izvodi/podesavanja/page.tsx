@@ -3,6 +3,10 @@ import { getIzvodiContext, MissingContext } from "../_shared";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import MailSettingsForm from "./MailSettingsForm";
+import { canAccessAgencyImap } from "@/lib/imap-access-policy";
+import { parseMailRules } from "@/lib/company-mail-rules";
+import styles from "./settings.module.css";
 
 type PodesavanjaIzvodaPageProps = {
   searchParams?: Promise<{
@@ -11,6 +15,7 @@ type PodesavanjaIzvodaPageProps = {
 };
 
 const messages: Record<string, string> = {
+  mail_sacuvana: "Mail podešavanja su sačuvana. Otvorite Mailovi za pregled filtriranih poruka.",
   godina_zakljucena: "Poslovna godina je zaključena.",
   podesavanja_greska: "Podešavanja nije moguće sačuvati.",
   podesavanja_sacuvana: "Podešavanja izvoda su sačuvana."
@@ -27,6 +32,10 @@ export default async function PodesavanjaIzvodaPage({
     return <MissingContext title="Podešavanja izvoda" />;
   }
 
+  const mailEnabled = canAccessAgencyImap(user, process.env.IMAP_AGENCY_ID);
+  const mailSettings = mailEnabled ? await prisma.firmaMailPodesavanje.findFirst({
+    where: { firma_id: firma.id, agencija_id: user.agencija_id, is_deleted: false }
+  }) : null;
   const [bankAccounts, settings, baseAccounts, companyOverrides, journalTypes] =
     await Promise.all([
       prisma.firmaBankovniRacun.findMany({
@@ -146,7 +155,7 @@ export default async function PodesavanjaIzvodaPage({
   );
 
   return (
-    <div className="admin-stack">
+    <div className={`admin-stack ${styles.page}`}>
       <header className="admin-header">
         <div>
           <h2>Podešavanja izvoda</h2>
@@ -156,13 +165,14 @@ export default async function PodesavanjaIzvodaPage({
 
       {params?.poruka ? <p className="admin-message">{messages[params.poruka] ?? params.poruka}</p> : null}
 
-      <section className="admin-panel">
+      <section className={`admin-panel ${styles.panel}`}>
         {bankAccounts.length === 0 ? (
           <p className="empty-state">Firma nema aktivnih bankovnih računa.</p>
         ) : (
           <form action={saveBankStatementAccountSettings}>
-            <div className="responsive-table">
-              <table>
+            <div>
+              <table className={styles.table}>
+                <colgroup><col className={styles.bankColumn} /><col className={styles.accountColumn} /><col className={styles.typeColumn} /></colgroup>
                 <thead>
                   <tr>
                     <th>Bankovni račun</th>
@@ -176,7 +186,7 @@ export default async function PodesavanjaIzvodaPage({
 
                     return (
                       <tr key={bankAccount.id}>
-                        <td>
+                        <td data-label="Bankovni račun">
                           <strong>{bankAccount.naziv_banke}</strong>
                           <small>
                             {bankAccount.broj_racuna}
@@ -184,8 +194,9 @@ export default async function PodesavanjaIzvodaPage({
                           </small>
                           <input name="company_bank_account_id" type="hidden" value={bankAccount.id} />
                         </td>
-                        <td>
+                        <td data-label="Konto banke">
                           <select
+                            aria-label={`Konto banke za ${bankAccount.broj_racuna}`}
                             defaultValue={setting?.bank_account_konto?.sifra ?? ""}
                             name="bank_account_konto_code"
                           >
@@ -197,8 +208,8 @@ export default async function PodesavanjaIzvodaPage({
                             ))}
                           </select>
                         </td>
-                        <td>
-                          <select defaultValue={setting?.journal_type?.id ?? ""} name="journal_type_id">
+                        <td data-label="Vrsta naloga">
+                          <select aria-label={`Vrsta naloga za ${bankAccount.broj_racuna}`} defaultValue={setting?.journal_type?.id ?? ""} name="journal_type_id">
                             <option value="">Podrazumijevano: Izvodi</option>
                             {journalTypes.map((journalType) => (
                               <option key={journalType.id} value={journalType.id}>
@@ -219,6 +230,10 @@ export default async function PodesavanjaIzvodaPage({
           </form>
         )}
       </section>
+      {mailEnabled && <MailSettingsForm key={`${firma.id}-${mailSettings?.updated_at.toISOString() || "new"}`} firmaId={firma.id} godinaId={godina.id}
+        initial={{ folder: mailSettings?.folder || "", subfolders: mailSettings?.ukljuci_podfoldere || false,
+          inbox: mailSettings?.ukljuci_inbox ?? true, active: mailSettings?.aktivno ?? true,
+          rules: parseMailRules(mailSettings?.pravila || []), version: mailSettings?.updated_at.toISOString() || "" }} />}
     </div>
   );
 }

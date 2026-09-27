@@ -3,6 +3,55 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-09-26 — folderi i mail pravila po firmi
+
+- Dodata firma_mail_podesavanja, ručna migracija, scoped i auditirano čuvanje,
+  provjera aktivne firme/godine i zaštita od prepisivanja zastarjele forme.
+- Sekcija podešavanja učitava foldere sa servera i čuva opcione AND uslove
+  pošiljaoca/subjecta/naziva priloga, uz OR između popunjenih redova.
+- Mailovi filtriraju folder/podfoldere i INBOX za aktivnu firmu. Detalji i
+  prilozi ponovo provjeravaju firmu i pravila. Preklapanja su označena.
+- Migracija primijenjena, Prisma regenerisana, dev restartovan; 22 testa i
+  TypeScript prolaze, lint bez grešaka uz četiri postojeća upozorenja.
+- Live test foldera: dvije poruke, detalj i download rade, neodgovarajuće
+  pravilo blokira direktan pristup. Purge/čuvanje provjereni rollback testom.
+  Nema sačuvanih probnih podešavanja ni izmjena mailova.
+
+## 2026-09-26 — pregled mailova u agencijskom dijelu
+
+- Izvodi → Mailovi sada prikazuje po 25 poruka, najnovije prvo, sa naslovom,
+  pošiljaocem, datumom, veličinom i statusom. Detalj prikazuje običan tekst i
+  omogućava ručno preuzimanje priloga. Test veze ostaje dostupan u istom ekranu.
+- EXAMINE/BODY.PEEK i UIDVALIDITY štite oznake i identitet poruke; prava i
+  agencijski scope se provjeravaju i za priloge. Poruke ostaju van baze,
+  bez uvoza/knjiženja; HTML i spoljne slike se ne prikazuju.
+- MIME dekodiranje koristi mailparser, limit poruke je 10 MB. Audit bilježi
+  čitanje/preuzimanje bez sadržaja. Download ima no-store/nosniff zaštitu.
+- Browser potvrđuje spisak od 2.459 poruka, otvaranje detalja/priloga i da
+  probna nepročitana poruka nakon čitanja ostaje nepročitana. 16/16 testova
+  i TypeScript prolaze; lint bez grešaka uz četiri ranija upozorenja.
+
+## 2026-09-26 — IMAP test premješten u agenciju
+
+- Ekran i server action premješteni na `/agencija/izvodi/imap`, sa stavkom u
+  podmeniju Izvodi; uklonjen ulaz iz platformskog admina.
+- Pristup ima samo admin agencije navedene u `IMAP_AGENCY_ID` u `.env` uz
+  `izvodi:manage`. Nepodešen ID ili druga agencija nemaju pristup sandučetu.
+  Lokalno je vezana jedina aktivna agencija. Audit sada uključuje agencija_id.
+- Lozinka ostaje u `.env`; nema migracije baze ni preuzimanja poruka.
+- Proširene provjere prava/izolacije; 10/10 testova, čist TypeScript i lint
+  bez grešaka (četiri ranija upozorenja).
+
+## 2026-09-26 — read-only IMAP test veze
+
+- Dodat serverski ImapFlow klijent i admin-only ekran/server action za prijavu,
+  `EXAMINE INBOX` i broj poruka, uz strogi TLS, rokove i zatvaranje veze.
+- Nema čitanja poruka/priloga, izmjene oznaka ili uvoza. Lozinka ostaje u `.env`;
+  bibliotečki logovi su isključeni, audit čuva samo ishod.
+- TLS 1.3 handshake sa provjerom sertifikata i stvarna prijava su uspješni;
+  read-only INBOX vratio je 2.459 poruka. Devet regresionih testova prolazi,
+  TypeScript je čist, lint ima samo četiri ranija upozorenja. Planer je usklađen.
+
 ## 2026-09-24 — blokade i ponovno primjenjivanje pravila izvoda
 
 - Preview izvoda sada prikazuje konkretne razloge koji blokiraju knjiženje i
@@ -1495,3 +1544,32 @@
 - Kartice pripreme virmana su vizuelno presložene prema referentnom
   `zadaci/plate/pojedinacni virman.png`: lijeva strana prati nalogodavca, svrhu
   i primaoca, a desna račune, modele, pozive na broj, iznos, šifru i datum.
+
+### 2026-09-26 — istek vremena pri pregledu mailova
+- Reprodukovan rok od 30 s pri skeniranju cijelog INBOX-a u Next dev procesu; direktni IMAP test potvrđuje ispravan folder i dvije poruke.
+- ImapFlow ostaje van Next serverskog bundla; BODYSTRUCTURE se učitava samo ako pravila firme ili provjera preklapanja zahtijevaju naziv priloga. Timeout sada ima posebnu poruku umjesto tvrdnje da server nije dostupan.
+- TSC i 22 IMAP testa prolaze; lint bez grešaka (četiri ranija upozorenja). Podešavanja firme nijesu programski mijenjana.
+
+### 2026-09-26 — mail pregled samo prema pravilima izabrane firme
+- Uklonjeni poređenje sa pravilima drugih firmi i upozorenje o preklapanju. Folder i INBOX i dalje primjenjuju sve popunjene uslove aktivne firme.
+- TypeScript i 22 IMAP testa prolaze; lint bez grešaka uz četiri ranija upozorenja. Sačuvana podešavanja nijesu mijenjana.
+
+### 2026-09-26 — INBOX bez pravila se preskače
+- Zajednička serverska provjera foldera isključuje INBOX bez popunjenog uslova, uključujući direktno otvaranje poruke/priloga i INBOX izabran kao folder firme. Običan folder firme ostaje dostupan bez filtera.
+- Objašnjenje u formi i dokumentacija usklađeni; dodata regresiona provjera praznih/whitespace pravila i svakog pojedinačnog uslova.
+
+
+### 2026-09-27 — uvoz izvoda iz maila na klik
+- Dodati otkrivanje svih filtriranih poruka, sekvencijalni uvoz sa progresom/zaustavljanjem i trajni statusi priloga sa linkom na izvod.
+- Ručni i mail uvoz dijele isti parser i obradu stavki. Mail tok bira račun iz sadržaja, zahtijeva pripadnost firmi, podešen konto i otvorenu aktivnu godinu. Skraćeni i puni računi sa nulama normalizuju se pri provjeri.
+- SHA-256 priloga i postojeći poslovni identitet sprečavaju duplikate pri ponavljanju/premještanju i nakon ranijeg ručnog uvoza. Uvoz zaključava firmu/godinu i ne knjiži naloge.
+- Lokalno primijenjena migracija `20260927120000_mail_izvod_obrade`, regenerisana Prisma i restartovan dev server. Purge 62 tabele; nova tehnička evidencija se briše prije izvoda i nema podređenih tabela.
+- DB regresija radi stvarni import/persist/purge na privremenoj firmi, uz rollback; potvrđeni uvoz, stavke, duplikati, konflikt, pogrešan račun/godina/kontekst, prava, zaključana godina i ponovni uvoz nakon brisanja.
+- Read-only live parsiranje priloga potvrdilo parser, broj, datum i stavke za Lovćen, Prvu i CKB; razlika punog/skraćenog računa otkrivena i pokrivena regresionim testom. UI prikazuje dugme i statuse za filtrirane poruke. Korisnikovi izvodi nijesu probno uvezeni ili proknjiženi.
+- Završne provjere: TypeScript čist, 27/27 IMAP/import i 5/5 pravila izvoda testova; lint bez grešaka (četiri ranija upozorenja). Planer CSV i Excel su ažurirani; nema commita.
+
+### 2026-09-27 — ispravka PDF hash-a
+- PDF.js prenosi/detachuje ulazni Uint8Array; računanje hash-a nakon parsiranja je davalo hash praznog sadržaja i lažni konflikt različitih PDF izvoda.
+- Hash se sada računa prije predaje PDF.js-u. DB regresija simulira transfer bafera i potvrđuje izvorni i različiti hash za dva PDF-a; prolazi uz rollback. TypeScript čist, lint bez grešaka.
+- U lokalnoj agenciji uklonjen jedan neispravan hash praznog bafera uz audit REPAIR_EMPTY_PDF_HASH; iznosi, status i knjiženja nijesu mijenjani.
+- Ponovljen prethodno neuspjeli uvoz kroz UI za NEIMAR: 217 i 218 sada uspješno uvezeni, 219 prepoznat bez dupliranja. UI potvrdio 3/3 obrađene poruke i sva tri statusa Uvezen; nema automatskog knjiženja.

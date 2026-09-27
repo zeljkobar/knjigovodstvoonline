@@ -1,0 +1,93 @@
+.page,
+.page > *,
+.panel form {
+  min-width: 0;
+}
+
+.panel {
+  width: 100%;
+  max-width: 1100px;
+}
+
+.table {
+  width: 100%;
+  table-layout: fixed;
+  margin-bottom: 18px;
+}
+
+.bankColumn { width: 27%; }
+.accountColumn { width: 45%; }
+.typeColumn { width: 28%; }
+
+.table td,
+.table th {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.table td strong,
+.table td small {
+  display: block;
+}
+
+.table select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 760px) {
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .table thead,
+  .table colgroup {
+    display: none;
+  }
+
+  .table tr {
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+  }
+
+  .table td {
+    border: 0;
+    padding: 8px 0;
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+}
+
+.mailForm { display: grid; gap: 14px; margin-top: 16px; }
+.mailForm label { display: block; min-width: 0; font-weight: 600; }
+.mailForm input:not([type="checkbox"]):not([type="hidden"]),
+.mailForm select {
+  display: block; width: 100%; min-width: 0; max-width: 100%;
+  padding: 9px; margin-top: 6px; border: 1px solid var(--border);
+  border-radius: 8px; font: inherit; background: white;
+}
+.mailRule { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+.mailRule button { grid-column: 1 / -1; justify-self: start; }
+@media (max-width: 900px) { .mailRule { grid-template-columns: minmax(0, 1fr); } }

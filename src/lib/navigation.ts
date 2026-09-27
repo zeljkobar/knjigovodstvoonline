@@ -293,6 +293,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/izvodi/ziro-racuni", label: "Žiro računi komitenata" },
     { href: "/agencija/izvodi/kartica-banke", label: "Kartica banke" },
     { href: "/agencija/izvodi/kontrole", label: "Kontrole" },
+    { href: "/agencija/izvodi/imap", label: "Mailovi", roles: adminOnly },
     { href: "/agencija/izvodi/podesavanja", label: "Podešavanja", roles: adminOnly }
   ],
   "zavrsni-racun": [

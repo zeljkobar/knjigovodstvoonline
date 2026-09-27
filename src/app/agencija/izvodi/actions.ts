@@ -1,5 +1,10 @@
 "use server";
 
+import { attachmentHash, assertStatementAccount, normalizeStatementAccount, MailImportError, mailSourceKey, supportedStatementAttachment } from "@/lib/mail-import-policy";
+import { requireImapCompany } from "./imap/access";
+import { getCompanyMailConfigs } from "@/lib/company-mail-settings";
+import { getMailImportAttachments, MailError } from "@/lib/imap-mail";
+import { requirePermissionForUser } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
@@ -1892,6 +1897,7 @@ type UploadedStatement = {
   fileName: string | null;
   fileType: string | null;
   pdfRows?: PdfTextRow[];
+  contentHash?: string;
 };
 
 async function extractPdfTextRows(bytes: Uint8Array) {
@@ -1945,6 +1951,8 @@ async function extractPdfTextRows(bytes: Uint8Array) {
 async function readUploadedFile(file: File): Promise<UploadedStatement> {
   const buffer = await file.arrayBuffer();
   const bytes = new Uint8Array(buffer);
+  // PDF.js transfers/detaches this buffer. Hash the original bytes first.
+  const contentHash = attachmentHash(bytes);
   const fileHeader = new TextDecoder("ascii").decode(bytes.slice(0, 5));
 
   if (
@@ -1955,6 +1963,7 @@ async function readUploadedFile(file: File): Promise<UploadedStatement> {
     const extracted = await extractPdfTextRows(bytes);
 
     return {
+      contentHash,
       text: extracted.text,
       fileName: file.name,
       fileType: file.type || "application/pdf",
@@ -1973,6 +1982,7 @@ async function readUploadedFile(file: File): Promise<UploadedStatement> {
           : "utf-8";
 
   return {
+    contentHash,
     text: new TextDecoder(encoding).decode(bytes),
     fileName: file.name,
     fileType: file.type || null
@@ -2103,11 +2113,42 @@ async function resolveStatementLineStatus(
 }
 
 export async function importBankStatement(formData: FormData) {
+  await runBankStatementImport(formData);
+}
+
+async function runBankStatementImport(formData: FormData, mail?: { firmaId: string; yearId: string }) {
+  const fail: (code: string) => never = (code) => {
+    if (mail) {
+      const messages: Record<string, string> = {
+        izvod_obavezno: "Za račun firme podesite konto banke u Podešavanjima izvoda.",
+        godina_zakljucena: "Poslovna godina je zaključana.", izvod_prazan: "Prilog je prazan.",
+        izvod_nema_broj: "Parser nije pronašao broj izvoda.", izvod_nema_datum: "Parser nije pronašao datum izvoda.",
+        izvod_nema_stanja: "Parser nije pronašao početno i krajnje stanje.", izvod_nema_stavki: "Parser nije pronašao stavke izvoda."
+      };
+      throw new MailImportError(messages[code] || "Prilog zahtijeva ručnu provjeru.");
+    }
+    redirectStatements(code);
+  };
   const { user, firma, poslovnaGodina } = await getActiveContext("create");
-  const companyBankAccountId = value(formData, "company_bank_account_id");
+  let companyBankAccountId = value(formData, "company_bank_account_id");
   const bankAccountKontoCode = nullableValue(formData, "bank_account_konto_code");
   const requestedBusinessUnitId = nullableValue(formData, "poslovna_jedinica_id");
   const uploadedStatements = await readUploadedStatements(formData);
+  if (mail) {
+    if (!firma || !poslovnaGodina || !user.agencija_id || firma.id !== mail.firmaId || poslovnaGodina.id !== mail.yearId) {
+      throw new MailImportError("Aktivna firma ili godina je promijenjena. Osvježite stranicu.");
+    }
+    if (uploadedStatements.length !== 1) throw new MailImportError("Izaberite jedan prilog.");
+    const parsed = parseStatement(uploadedStatements[0].text, null, uploadedStatements[0].pdfRows);
+    if (!normalizeStatementAccount(parsed.companyAccountNumber)) throw new MailImportError("Račun firme nije prepoznat u prilogu. Potrebna je ručna provjera.");
+    const accounts = await prisma.firmaBankovniRacun.findMany({ where: {
+      agencija_id: user.agencija_id, firma_id: firma.id, aktivan: true, is_deleted: false
+    }});
+    const matching = accounts.filter((account) => normalizeStatementAccount(account.broj_racuna) === normalizeStatementAccount(parsed.companyAccountNumber));
+    if (matching.length !== 1) throw new MailImportError("Račun iz priloga ne pripada aktivnoj firmi ili nije jednoznačan.");
+    companyBankAccountId = matching[0].id;
+  }
+
 
   if (
     !user.agencija_id ||
@@ -2116,11 +2157,11 @@ export async function importBankStatement(formData: FormData) {
     !companyBankAccountId ||
     uploadedStatements.length === 0
   ) {
-    redirectStatements("izvod_obavezno");
+    fail("izvod_obavezno");
   }
 
   if (poslovnaGodina.zakljucena) {
-    redirectStatements("godina_zakljucena");
+    fail("godina_zakljucena");
   }
 
   const [companyBankAccount, bankAccountKonto, businessUnit] = await Promise.all([
@@ -2134,7 +2175,8 @@ export async function importBankStatement(formData: FormData) {
       },
       select: {
         id: true,
-        naziv_banke: true
+        naziv_banke: true,
+        broj_racuna: true
       }
     }),
     bankAccountKontoCode
@@ -2153,7 +2195,7 @@ export async function importBankStatement(formData: FormData) {
         })
       : null
   ]);
-  if (requestedBusinessUnitId && !businessUnit) redirectStatements("izvod_obavezno");
+  if (requestedBusinessUnitId && !businessUnit) fail("izvod_obavezno");
 
   const bankSetting = companyBankAccount
     ? await prisma.bankStatementAccountSetting.findUnique({
@@ -2175,11 +2217,12 @@ export async function importBankStatement(formData: FormData) {
       : null;
 
   if (!companyBankAccount || !effectiveBankAccountKonto) {
-    redirectStatements("izvod_obavezno");
+    fail("izvod_obavezno");
   }
 
   const manualOverridesAllowed = uploadedStatements.length === 1;
   const importedStatementIds: string[] = [];
+  const duplicateIds: string[] = [];
   let duplicateCount = 0;
   let invalidCount = 0;
   let firstInvalidMessage: string | null = null;
@@ -2190,6 +2233,12 @@ export async function importBankStatement(formData: FormData) {
       companyBankAccount.naziv_banke,
       uploaded.pdfRows
     );
+    if (mail) {
+      assertStatementAccount(parsedStatement.companyAccountNumber, companyBankAccount.broj_racuna);
+      if (!parsedStatement.statementDate || parsedStatement.statementDate.getUTCFullYear() !== poslovnaGodina.godina) {
+        throw new MailImportError("Datum izvoda ne pripada aktivnoj poslovnoj godini.");
+      }
+    }
     const statementNumber = manualOverridesAllowed
       ? value(formData, "statement_number") || parsedStatement.statementNumber || ""
       : parsedStatement.statementNumber || "";
@@ -2221,17 +2270,6 @@ export async function importBankStatement(formData: FormData) {
     if (invalidMessage) {
       firstInvalidMessage ??= invalidMessage;
       invalidCount += 1;
-      console.warn("Bank statement import skipped", {
-        fileName: uploaded.fileName,
-        parser: parsedStatement.parser,
-        reason: invalidMessage,
-        statementNumber,
-        hasStatementDate: Boolean(statementDate),
-        hasOpeningBalance: openingBalance !== null,
-        hasClosingBalance: closingBalance !== null,
-        lineCount: parsedStatement.lines.length,
-        textPreview: uploaded.text.slice(0, 160)
-      });
       continue;
     }
 
@@ -2380,9 +2418,34 @@ export async function importBankStatement(formData: FormData) {
         ? bankStatementStatuses.needsReview
         : bankStatementStatuses.imported;
 
-    const statement = await prisma.bankStatement.create({
+    let isDuplicate = false;
+    const statement = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM firme WHERE id = ${firma.id}::uuid FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM poslovne_godine WHERE id = ${poslovnaGodina.id}::uuid FOR UPDATE`;
+      const activeCompany = await tx.firma.findFirst({ where: { id: firma.id, agencija_id: user.agencija_id!, aktivan: true, is_deleted: false } });
+      if (!activeCompany) throw new MailImportError("Firma više nije dostupna.");
+      const currentYear = await tx.poslovnaGodina.findFirst({ where: { id: poslovnaGodina.id, firma_id: firma.id } });
+      if (!currentYear || currentYear.zakljucena) throw new MailImportError("Poslovna godina je zaključana.");
+      const existing = await tx.bankStatement.findFirst({ where: {
+        agencija_id: user.agencija_id!, firma_id: firma.id,
+        OR: [
+          { poslovna_godina_id: poslovnaGodina.id, company_bank_account_id: companyBankAccount.id, statement_number: statementNumber },
+          ...(uploaded.contentHash ? [{ sadrzaj_hash: uploaded.contentHash }] : [])
+        ]
+      }});
+      if (existing) {
+        if (mail && (existing.is_deleted || existing.company_bank_account_id !== companyBankAccount.id ||
+          existing.statement_date.getTime() !== validStatementDate.getTime() ||
+          decimalToCents(existing.opening_balance) !== validOpeningBalance || decimalToCents(existing.closing_balance) !== validClosingBalance ||
+          decimalToCents(existing.total_inflow) !== totalInflow || decimalToCents(existing.total_outflow) !== totalOutflow)) {
+          throw new MailImportError("Izvod sa istim identitetom već postoji, ali podaci se razlikuju ili je obrisan. Potrebna je provjera.");
+        }
+        isDuplicate = true;
+        return { id: existing.id };
+      }
+      return tx.bankStatement.create({
       data: {
-        agencija_id: user.agencija_id,
+        agencija_id: user.agencija_id!,
         firma_id: firma.id,
         poslovna_godina_id: poslovnaGodina.id,
         poslovna_jedinica_id: businessUnit?.id ?? null,
@@ -2395,6 +2458,7 @@ export async function importBankStatement(formData: FormData) {
         total_outflow: centsToDecimal(totalOutflow),
         closing_balance: centsToDecimal(validClosingBalance),
         status: initialStatus,
+        sadrzaj_hash: uploaded.contentHash ?? null,
         file_name: uploaded.fileName,
         file_type: uploaded.fileType,
         raw_text: uploaded.text,
@@ -2420,9 +2484,11 @@ export async function importBankStatement(formData: FormData) {
       select: {
         id: true
       }
-    }).catch(() => null);
+    });
+    });
 
-    if (!statement) {
+    if (isDuplicate) {
+      duplicateIds.push(statement.id);
       duplicateCount += 1;
       continue;
     }
@@ -2438,6 +2504,12 @@ export async function importBankStatement(formData: FormData) {
       tipEntiteta: "BankStatement",
       entitetId: statement.id
     });
+  }
+
+  if (mail) {
+    if (!importedStatementIds.length && !duplicateIds.length) fail(firstInvalidMessage ?? "izvod_nema_stavki");
+    revalidatePath("/agencija/izvodi");
+    return { status: importedStatementIds.length ? "IMPORTED" : "DUPLICATE", statementId: importedStatementIds[0] ?? duplicateIds[0] };
   }
 
   if (importedStatementIds.length === 0) {
@@ -3931,4 +4003,66 @@ export async function postReadyBankStatements() {
   }
 
   return postSelectedBankStatements(formData);
+}
+
+
+// Each request processes one message. The browser queue keeps large batches bounded
+// and repeats these authorization/context checks for every message.
+export async function importBankStatementMailMessage(input: { firmaId: string; yearId: string; folder: string; validity: string; uid: number }) {
+  const { user, firma } = await requireImapCompany(input.firmaId);
+  await requirePermissionForUser(user, { firmaId: firma.id, modul: "izvodi", akcija: "create" });
+  const context = await readWorkContext();
+  if (context.poslovnaGodinaId !== input.yearId) throw new Error("Aktivna godina je promijenjena. Osvježite stranicu.");
+  const year = await prisma.poslovnaGodina.findFirst({ where: { id: input.yearId, firma_id: firma.id } });
+  if (!year || year.zakljucena) throw new Error("Izaberite otvorenu poslovnu godinu.");
+  const config = (await getCompanyMailConfigs(user.agencija_id!)).find((item) => item.firmaId === firma.id);
+  if (!config) throw new Error("Mail pregled firme nije uključen.");
+  const sourceKey = mailSourceKey(input.folder, input.validity, input.uid);
+  const results: Array<{ filename: string; status: string; reason: string | null; statementId: string | null }> = [];
+  const record = async (index: number, filename: string, hash: string | null, status: string, reason: string | null, statementId: string | null) => {
+    const key = `${sourceKey}:${index}`;
+    // A retry must not replace the successful origin label with a duplicate label.
+    const prior = await prisma.mailIzvodObrada.findUnique({ where: {
+      firma_id_poslovna_godina_id_kljuc: { firma_id: firma.id, poslovna_godina_id: year.id, kljuc: key }
+    }});
+    if (prior?.status === "IMPORTED" && prior.izvod_id && prior.izvod_id === statementId && status === "DUPLICATE") status = "IMPORTED";
+    await prisma.mailIzvodObrada.upsert({ where: {
+      firma_id_poslovna_godina_id_kljuc: { firma_id: firma.id, poslovna_godina_id: year.id, kljuc: key }
+    }, create: {
+      agencija_id: user.agencija_id!, firma_id: firma.id, poslovna_godina_id: year.id,
+      kljuc: key, poruka_kljuc: sourceKey, naziv_priloga: filename.slice(0, 500), sadrzaj_hash: hash,
+      status, razlog: reason, izvod_id: statementId, updated_by: user.id
+    }, update: { naziv_priloga: filename.slice(0, 500), sadrzaj_hash: hash, status, razlog: reason, izvod_id: statementId, updated_by: user.id } });
+    results.push({ filename, status, reason, statementId });
+  };
+  try {
+    const attachments = await getMailImportAttachments(input.uid, input.validity, input.folder, config);
+    // Clear a previous message-level download error after a successful retry.
+    await prisma.mailIzvodObrada.deleteMany({ where: { agencija_id: user.agencija_id!, firma_id: firma.id, poslovna_godina_id: year.id, kljuc: `${sourceKey}:-1` } });
+    if (attachments.length === 0) await record(-1, "Poruka", null, "REVIEW", "Poruka nema priloga.", null);
+    for (const attachment of attachments) {
+      const hash = attachmentHash(attachment.content);
+      if (!supportedStatementAttachment(attachment.filename)) {
+        await record(attachment.index, attachment.filename, hash, "SKIPPED", "Podržani su PDF, XML i HTM/HTML izvodi.", null);
+        continue;
+      }
+      try {
+        const data = new FormData();
+        data.set("statement_file", new File([new Uint8Array(attachment.content)], attachment.filename, { type: attachment.contentType }));
+        const outcome = await runBankStatementImport(data, { firmaId: firma.id, yearId: year.id });
+        if (!outcome) throw new MailImportError("Uvoz nije završen.");
+        await record(attachment.index, attachment.filename, hash, outcome.status, null, outcome.statementId);
+      } catch (error) {
+        await record(attachment.index, attachment.filename, hash, error instanceof MailImportError ? "REVIEW" : "ERROR",
+          error instanceof MailImportError ? error.message : "Prilog nije moguće uvesti. Provjerite format ili pokušajte ponovo.", null);
+      }
+    }
+  } catch (error) {
+    await record(-1, "Poruka", null, "ERROR", error instanceof MailError ? error.message : "Poruku trenutno nije moguće obraditi. Pokušajte ponovo.", null);
+  }
+  await auditLog({ korisnikId: user.id, agencijaId: user.agencija_id, firmaId: firma.id,
+    modul: "agencija.izvodi", akcija: "IMAP_IMPORT", tipEntiteta: "MailIzvodObrada",
+    novaVrijednost: { statuses: results.map((item) => item.status), count: results.length } });
+  revalidatePath("/agencija/izvodi/imap");
+  return results;
 }

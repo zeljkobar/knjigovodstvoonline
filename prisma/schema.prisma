@@ -34,6 +34,7 @@ enum KomitentScope {
 }
 
 model Agencija {
+  mail_obrade MailIzvodObrada[]
   id                         String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   naziv                      String
   pib                        String?                @unique
@@ -52,6 +53,7 @@ model Agencija {
   created_by                 String?                @db.Uuid
   updated_at                 DateTime               @updatedAt
   updated_by                 String?                @db.Uuid
+  mailPodesavanja            FirmaMailPodesavanje[]
   firme                      Firma[]
   kufBooks                   KufBook[]
   kufEntries                 KufEntry[]
@@ -137,6 +139,7 @@ model Pozivnica {
 }
 
 model Firma {
+  mail_obrade MailIzvodObrada[]
   id                            String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id                   String                          @db.Uuid
   agencija                      Agencija                        @relation(fields: [agencija_id], references: [id])
@@ -186,6 +189,7 @@ model Firma {
   bankovni_racuni               FirmaBankovniRacun[]
   bankStatements                BankStatement[]
   partnerBankAccounts           PartnerBankAccount[]
+  mailPodesavanje               FirmaMailPodesavanje?
   bankStatementSettings         BankStatementAccountSetting[]
   bankPostingRules              BankPostingRule[]
   finansijskiIzvjestajKorekcije FinansijskiIzvjestajKorekcija[]
@@ -483,6 +487,7 @@ model AktivnostDogadjaj {
 }
 
 model PoslovnaGodina {
+  mail_obrade MailIzvodObrada[]
   id                            String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   firma_id                      String                          @db.Uuid
   firma                         Firma                           @relation(fields: [firma_id], references: [id])
@@ -2219,7 +2224,33 @@ model Nalog {
   @@map("nalozi")
 }
 
+model MailIzvodObrada {
+  agencija Agencija @relation(fields: [agencija_id], references: [id])
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  firma_id String @db.Uuid
+  firma Firma @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id String @db.Uuid
+  poslovna_godina PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  kljuc String
+  poruka_kljuc String
+  naziv_priloga String
+  sadrzaj_hash String?
+  status String
+  razlog String?
+  izvod_id String? @db.Uuid
+  izvod BankStatement? @relation(fields: [izvod_id], references: [id], onDelete: SetNull)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  updated_by String @db.Uuid
+  @@unique([firma_id, poslovna_godina_id, kljuc])
+  @@index([agencija_id, firma_id, poslovna_godina_id, poruka_kljuc])
+  @@map("mail_izvod_obrade")
+}
+
 model BankStatement {
+  sadrzaj_hash String?
+  mail_obrade MailIzvodObrada[]
   id                      String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id             String              @db.Uuid
   firma_id                String              @db.Uuid
@@ -2260,6 +2291,7 @@ model BankStatement {
   @@unique([firma_id, poslovna_godina_id, company_bank_account_id, statement_number])
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@index([poslovna_jedinica_id, statement_date])
+  @@unique([firma_id, sadrzaj_hash])
   @@map("bank_statements")
 }
 
@@ -3199,4 +3231,27 @@ model AuditLog {
   @@index([firma_id, created_at])
   @@index([modul, akcija])
   @@map("audit_log")
+}
+
+model FirmaMailPodesavanje {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id         String   @db.Uuid
+  agencija            Agencija @relation(fields: [agencija_id], references: [id])
+  firma_id            String   @unique @db.Uuid
+  firma               Firma    @relation(fields: [firma_id], references: [id])
+  folder              String?
+  ukljuci_podfoldere   Boolean  @default(false)
+  ukljuci_inbox       Boolean  @default(true)
+  pravila             Json     @default("[]")
+  aktivno             Boolean  @default(true)
+  is_deleted          Boolean  @default(false)
+  deleted_at          DateTime?
+  deleted_by          String?  @db.Uuid
+  created_at          DateTime @default(now())
+  created_by          String?  @db.Uuid
+  updated_at          DateTime @updatedAt
+  updated_by          String?  @db.Uuid
+
+  @@index([agencija_id, firma_id])
+  @@map("firma_mail_podesavanja")
 }

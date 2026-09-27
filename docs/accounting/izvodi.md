@@ -226,3 +226,120 @@ pravila (`bank_statement_imports`, `bank_statement_import_lines`,
 Audit log mora pokriti upload, parsiranje, ručne izmjene, povezivanje
 komitenta/fakture, ručno kontiranje, ignorisanje stavke, učenje žiro računa,
 pravila knjiženja, knjiženje, vraćanje u nacrt i brisanje.
+
+## IMAP provjera veze (prva faza)
+
+Admin agencije otvara Izvodi → Mailovi (`/agencija/izvodi/imap`) i bira
+`Testiraj IMAP vezu`. Stranica i serverska akcija provjeravaju ulogu,
+`izvodi:manage` i poklapanje agencije sa `IMAP_AGENCY_ID` iz `.env`. Prazan ID,
+druge agencije, radnici i klijenti nemaju pristup. Audit uključuje agenciju.
+Provjera je na nivou agencije i ne zavisi od firme ili poslovne godine jer
+ne mijenja poslovne podatke. Stari platformski ekran je uklonjen.
+
+Konfiguracija: `IMAP_AGENCY_ID` (ID agencije kojoj pripada sanduče), `IMAP_HOST`, `IMAP_PORT=993`, `IMAP_SECURE=true`, `IMAP_USER`,
+`IMAP_PASS`, `IMAP_FOLDER=INBOX`. Stvarne vrijednosti, naročito lozinka, ostaju
+isključivo u lokalnom/serverskom `.env`; primjer ne sadrži stvarni nalog.
+Next.js učitava environment vrijednosti: znak `$` u lozinci treba zapisati kao
+`\$`. Poslije promjene serverskog `.env` restartovati aplikacijski proces.
+
+ImapFlow otvara direktni TLS uz provjeru lanca sertifikata i naziva servera,
+minimum TLS 1.2, pa `EXAMINE INBOX` (read-only). Vraća samo broj poruka i
+zatvara vezu. Ne poziva FETCH/STORE niti parsere izvoda. Logging biblioteke je
+isključen; greške se mapiraju na fiksne bezbjedne poruke. Audit pamti isključivo
+ishod i korisnika, bez parametara veze, serverskog odgovora ili lozinke.
+
+Veza/greeting/socket imaju rok 10 sekundi, cijela provjera 25 sekundi.
+Nema automatskih retry prijava. Ograničenje jednog istovremenog testa i pauze
+15 sekundi važi po Node procesu. Lokalni operator koristi `npm run imap:check`;
+regresione provjere su `npm run test:imap`. Sam test veze ne preuzima sadržaj.
+
+
+## Pregled mailova
+
+Ista stranica prikazuje INBOX po 25 poruka, po opadajućem redoslijedu prijema
+u sanduče. Učitavaju se samo zaglavlja, oznake i veličine. Poruka se otvara po
+UID-u uz provjeru UIDVALIDITY, pomoću BODY.PEEK u read-only sesiji. Otvaranje
+ne označava poruku pročitanom. Paginacija se računa prema trenutnom sandučetu;
+novopristigle/obrisane poruke mogu pomjeriti granice stranica.
+
+Detalj dekodira MIME preko mailparser-a, prikazuje običan tekst (HTML se
+pretvara u tekst), podatke pošiljaoca/primaoca i priloge. Nema aktivnog HTML-a,
+skripti ili spoljnih slika. Prilozi se preuzimaju samo na zahtjev korisnika,
+sa Content-Disposition attachment, application/octet-stream, no-store i
+nosniff zaglavljima. Svaki zahtjev ponovo provjerava admina povezane agencije.
+Audit čuva tip radnje i ishod, bez naslova, sadržaja, adresa ili tajni.
+
+Cijela poruka, uključujući priloge, ograničena je na 10 MB; prikaz teksta na
+200.000 znakova. Detalj i preuzimanje ponovo čitaju poruku u memoriju, bez
+čuvanja na disk ili u bazu. IMAP operacija ima rok 30 sekundi i najviše tri
+paralelne veze po Node procesu. Poruke iznad limita ostaju za mail klijent.
+Automatski uvoz izvoda, slanje, brisanje i izmjena oznaka nijesu implementirani.
+
+
+## Mail podešavanja firme i filtrirani pregled
+
+Od 2026-09-26 pregled iznad proširen je na aktivnu firmu i njene izvore.
+Izvodi → Podešavanja → Preuzimanje iz maila čuva folder, uključivanje
+podfoldera, INBOX-a, aktivnost i pravila u `firma_mail_podesavanja`. Veza i
+lozinka ostaju na nivou agencije u `.env`. Bez aktivnih podešavanja nema liste.
+
+Pravilo ima tri opciona polja: tačnu adresu pošiljaoca, subject sadrži i naziv
+priloga sadrži. Poređenje ne razlikuje veličinu slova, normalizuje Unicode i
+ignoriše rubne razmake. Subject/naziv su doslovni podnizovi bilo gdje, ne regex.
+Svi popunjeni uslovi reda moraju važiti, a dovoljan je jedan odgovarajući red.
+Prazni redovi se odbacuju; ako nema uslova, prolaze mailovi iz foldera firme,
+a INBOX se preskače čak i kada je uključen ili izabran kao folder firme.
+Za INBOX je potreban bar jedan popunjen uslov. Forma to eksplicitno prikazuje.
+Pravila se primjenjuju na sve izvore.
+
+Lista koristi IMAP SEARCH po pošiljaocu kao početno sužavanje, zatim konačno
+poredi dekodirane envelope i BODYSTRUCTURE podatke. Sadržaj poruka se ne čita
+pri filtriranju; naziv priloga dolazi iz MIME strukture. Obrađuje do 20.000
+kandidata i rok 30 sekundi; preko limita javlja da treba suziti pravila, bez
+neprimjetnog izostavljanja rezultata. Stranice imaju po 25 rezultata sortiranih
+po prijemu. Provjeravaju se samo pravila izabrane firme; pravila drugih firmi
+ne utiču na prikaz i ne izazivaju upozorenja o preklapanju.
+
+Detalj/download nose firmu, folder, UID i UIDVALIDITY i ponovo provjeravaju
+sesiju, aktivnu firmu i njena pravila prije čitanja sadržaja. Sačuvana podešavanja
+su na nivou firme; izmjena traži otvorenu aktivnu godinu, pravo i audit.
+Uvoz na klik i deduplikacija opisani su u nastavku. Zakazani uvoz i automatsko knjiženje nijesu uključeni.
+
+
+## Uvoz priloga na klik — 2026-09-27
+
+Dugme „Uvezi nove izvode iz maila“ otkriva sve mailove iz podešenih izvora
+aktivne firme, nezavisno od trenutne stranice liste. Klijent obrađuje red po
+red serverskim akcijama; napuštanje stranice prekida dalje zahtjeve, a dugme
+Zaustavi završava tekuću poruku. Svaki zahtjev ponavlja provjeru IMAP agencije,
+aktivne firme/godine i prava izvodi:create. Otvaranje i čitanje ne mijenja
+IMAP oznake i ne premješta poruke.
+
+PDF, XML i HTM/HTML prilozi prolaze postojeći parser i isti postupak stvaranja
+izvoda/stavki i primjene pravila kao ručni uvoz. Račun iz sadržaja mora
+jednoznačno pripadati firmi; skraćeni račun i puni zapis sa nulama porede se
+u istom 18-cifrenom obliku. Konto banke dolazi iz podešavanja računa, a datum
+izvoda mora pripadati aktivnoj poslovnoj godini. Nečitljiv format, nepoznat
+račun, nedostajući broj/datum/stanja/stavke ili nepodešen konto zahtijevaju
+provjeru. Automatsko knjiženje i zakazani rad nijesu uključeni.
+
+`bank_statements.sadrzaj_hash` pamti SHA-256 izvornog priloga i pri ručnom
+uvozu. Unikatni indeks po firmi sprečava dupliranje istog sadržaja. Transakcija
+zaključava firmu i godinu i provjerava postojeći identitet izvoda, zbog ranijih
+ručnih uvoza bez hash-a i različitih formata istog izvoda. Mail sa istim
+identitetom, a različitim datumom/iznosima ili obrisanim izvodom, traži provjeru.
+Ne prepisuje postojeći izvod. Neuspjeh baze se ne proglašava duplikatom.
+
+`mail_izvod_obrade` je tehnička evidencija pokušaja, sa scope-om agencija/firma/
+godina, hash-em reference folder+UIDVALIDITY+UID, indeksom/nazivom/hash-em priloga,
+statusom i opcionom vezom na izvod. Binarni prilozi ostaju samo u memoriji.
+Parsiran tekst i stavke čuvaju se kao kod postojećeg ručnog uvoza. Audit bilježi
+ishode, korisnika i firmu, bez lozinki ili sadržaja maila. Ponovni pokušaj
+provjerava duplikate; premještanje daje novu referencu ali ne novi izvod.
+
+Evidencija nema soft-delete jer predstavlja tehnički rezultat koji se ažurira
+pri ponavljanju. Uspješno čitanje uklanja prethodnu privremenu grešku čitanja
+poruke. Brisanje neproknjiženog izvoda postavlja vezu na NULL, uz moguć ponovni
+uvoz. Purge firme briše evidenciju prije izvoda; tabela nema podređene tabele.
+Regresije: `npm run test:imap`, `npm run test:mail-import-db` (privremena firma,
+rollback svih izmjena), `npm run db:check-company-purge`.

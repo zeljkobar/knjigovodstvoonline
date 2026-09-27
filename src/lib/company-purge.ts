@@ -89,10 +89,16 @@ export async function purgeCompanyData(
     Prisma.sql`DELETE FROM pdv_podesavanja WHERE firma_id = ${firmaId}::uuid`
   );
 
+  await izvrsi("mail_izvod_obrade", Prisma.sql`DELETE FROM mail_izvod_obrade WHERE firma_id = ${firmaId}::uuid`);
+
   // Izvodi brišu svoje linije kaskadno. Podešavanja i pravila se brišu posebno.
   await izvrsi(
     "bank_statements",
     Prisma.sql`DELETE FROM bank_statements WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "firma_mail_podesavanja",
+    Prisma.sql`DELETE FROM firma_mail_podesavanja WHERE firma_id = ${firmaId}::uuid`
   );
   await izvrsi(
     "bank_statement_account_settings",
