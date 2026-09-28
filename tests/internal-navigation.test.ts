@@ -61,13 +61,28 @@ test("KIF/KUF je vidljiv sa pregledom bilo koje od dvije knjige", () => {
 test("admin agencije zadržava kompletan meni bez eksplicitne matrice", () => {
   const navigation = getAgencyNavigation("admin_agencije");
 
-  assert.equal(navigation.length, 13);
+  assert.equal(navigation.length, 14);
+  assert.equal(navigation.some((item) => item.section === "osnovna-sredstva"), true);
   assert.equal(navigation.some((item) => item.section === "zavrsni-racun"), true);
   assert.equal(navigation.some((item) => item.section === "korisnici"), true);
 });
 
+test("radnik vidi osnovna sredstva samo sa pravom pregleda", () => {
+  const withView = getAgencyNavigation(
+    "korisnik_agencije",
+    new Set(["osnovna_sredstva:view"])
+  );
+  const withoutView = getAgencyNavigation(
+    "korisnik_agencije",
+    new Set(["osnovna_sredstva:create"])
+  );
+
+  assert.equal(withView.some((item) => item.section === "osnovna-sredstva"), true);
+  assert.equal(withoutView.some((item) => item.section === "osnovna-sredstva"), false);
+});
+
 test("radnik ne vidi podešavanja unutar poslovnih modula", () => {
-  for (const section of ["pos", "robno", "racuni", "pdv", "plate", "izvodi", "zavrsni-racun"]) {
+  for (const section of ["pos", "robno", "racuni", "pdv", "plate", "izvodi", "osnovna-sredstva", "zavrsni-racun"]) {
     const workerItems = getSubNavigation(section, "korisnik_agencije");
     const adminItems = getSubNavigation(section, "admin_agencije");
 

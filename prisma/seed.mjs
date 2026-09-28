@@ -12,6 +12,7 @@ const permissionModules = [
   "ulazni_racuni",
   "izvodi",
   "plate",
+  "osnovna_sredstva",
   "pdv",
   "zavrsni_racun",
   "izvjestaji"

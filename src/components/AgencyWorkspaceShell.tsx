@@ -66,6 +66,12 @@ function AgencyNavigationIcon({ section }: { section: string }) {
         <path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 7h5M18.5 4.5v5" />
       </>
     ),
+    "osnovna-sredstva": (
+      <>
+        <path d="M4 20h16M6 20V8h12v12M9 8V4h6v4" />
+        <path d="M9 12h2M13 12h2M9 16h2M13 16h2" />
+      </>
+    ),
     "zavrsni-racun": (
       <>
         <path d="M5 3h14v18H5zM9 8h6M9 12h6" />

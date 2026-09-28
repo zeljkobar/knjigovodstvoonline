@@ -4,6 +4,13 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- **Poreska amortizacija:** izbor grupe pri unosu je završen. Preostaju poreska
+  početna stanja, događaji, obračun i OA; postojeća neklasifikovana sredstva
+  zahtijevaju zaseban tok dopune klasifikacije.
+- **Osnovna sredstva, nastavak faze C:** implementirati namjenski storno
+  posljednjeg zavisnog obračuna, kontra nalog i oslobađanje pokrića. Čuvanje
+  nacrta, revizije, lista/detalj, hash, knjiženje i zaštita preklopa su završeni.
+  Za produkciju primijeniti nove OS migracije; završiti interaktivnu UI provjeru.
 - Na produkciji primijeniti `20260926140000_firma_mail_podesavanja` i
   `20260927120000_mail_izvod_obrade`, regenerisati Prisma klijent i restartovati
   aplikaciju. Podesiti `IMAP_AGENCY_ID` za odgovarajuću agenciju.

@@ -429,7 +429,7 @@ export default async function NalogDetailPage({
               </form>
             ) : null}
             {canUpdate && nalog.status === journalStatuses.posted &&
-            nalog.source_module !== "PLATE" ? (
+            !["PLATE", "OSNOVNA_SREDSTVA"].includes(nalog.source_module ?? "") ? (
               <form action={reopenJournal}>
                 <input name="nalog_id" type="hidden" value={nalog.id} />
                 <button className="secondary-button" type="submit">

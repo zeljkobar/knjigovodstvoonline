@@ -112,7 +112,25 @@ provjeriti kroz FK veze i uvrstiti u ispravan redoslijed brisanja.
 12. Import / Export
 13. Integracije (IRMS, MAPR/SEP)
 14. Podešavanja, 15. Audit/sigurnost, 16. Pretplate, 17. Obavještenja,
-    18. Klijentski portal
+    18. Klijentski portal, 19. Osnovna sredstva i amortizacija
+
+Osnovna sredstva trenutno imaju registar i read-only računovodstveni preview.
+Kartica traje kroz poslovne godine. Datirani parametri hrane `MONTHLY_RATE_V2`
+kalkulator za linearnu, degresivnu i funkcionalnu metodu; postojeći parametri
+zadržavaju `ACTUAL_DAYS_LIFE_V1`. `os_ucinci` čuva količine i periode funkcionalne
+amortizacije sa auditom, soft-delete i verzijom. Nova procjena računa dotadašnji
+otpis; kasnija procjena štiti raniji učinak od izmjena. Nacrt ne utiče na glavnu knjigu. `os_obracuni` čuva snapshot/hash i reviziju,
+`os_obracun_stavke` iznose, a `os_obracun_pokrice` proknjižene intervale.
+Knjiženje kreira POSTED nalog i intervalna pokrića u jednoj transakciji.
+SQL exclusion i zaključavanje godine štite preklapanje; kontrola kontinuiteta
+sprečava preskakanje ranijeg perioda. Generički nalog ne može mijenjati ovaj
+izvor. Namjenski storno ostaje naredni korak.
+Početni presjek je dan prije početka godine, dok se događaj i novi obračun
+vezuju za prvi dan aktivne godine. Potvrda traži create/post; forme provjeravaju
+izvorni kontekst. Finansijske mutacije zaključavaju red godine i pogođene PDV
+periode. Zemljište se isključuje, nepodržane vrste se označavaju za provjeru.
+Registar ima paginaciju i nezavisne zbirove cijelog filtriranog skupa, u centima.
+DB regresija `npm run test:fixed-assets-db` koristi privremene podatke i rollback.
 
 ## Tokovi knjiženja (visok nivo)
 ```text

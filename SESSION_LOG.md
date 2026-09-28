@@ -3,6 +3,58 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-09-28 — sačuvani obračuni amortizacije i knjiženje
+
+- Početna stranica je lista obračuna sa datumima godine i dugmetom za izradu
+  nacrta; kraći datum uključuje posljednji dan. Isti period otvara postojeći
+  dokument, a ponovno računanje je posebno, verzionisano i auditirano.
+- Dodati snapshot, stavke, datumska pokrića, kontiranje, idempotentni POSTED
+  nalog, hash i blokade preklopa/preskočenih perioda. Registar uključuje
+  proknjiženi otpis. Zaštićeni generički nalozi i istorijski parametri/učinak.
+- TSC, fokusirani lint, purge checker i stvarna DB regresija sa rollback-om
+  prolaze. Migracija primijenjena; namjenski storno ostaje naredni korak.
+
+## 2026-09-28 — tri metode amortizacije, proširena faza B
+
+- Implementirani izbor metode/stope, dinamični datumi, mjesečna linearna i
+  degresivna amortizacija sa linearnim završetkom, funkcionalni obračun i učinak.
+- Sačuvan legacy algoritam; nove procjene imaju preostalu osnovicu. Dodati
+  SQL CHECK, prava, audit, zaključavanja, preklapanja, verzije i purge učinka.
+- Lokalne migracije primijenjene, Prisma generisan, dev restartovan. Prolaze
+  32 unit testa i stvarna DB regresija sa rollback-om. Browser traži prijavu;
+  forme i kartica provjereni serverskim renderom. Knjiženje ostaje faza C.
+
+## 2026-09-28 — završne ispravke faze B osnovnih sredstava
+
+- Ispravljeni početni presjek i start obračuna 1. januara; uvedena obavezna
+  create/post prava za potvrdu početnog stanja i provjera datuma.
+- Forme odbijaju promjenu firme/godine iz drugog taba; zemljište se ne
+  amortizuje, a nepodržani tipovi imaju jasno upozorenje.
+- Registar ima stranice po 50 redova i ukupne iznose cijelog filtriranog
+  skupa. Novac se sabira u centima, unos poštuje Decimal(14,2) granicu.
+- Finansijske akcije zaključavaju godinu i provjeravaju pogođene PDV periode.
+  Testirano poništavanje cijelog unosa pri grešci audita i zastarjeloj verziji.
+- 20/20 unit testova prolazi. DB regresija preko stvarnih akcija, matrice
+  prava i serverskog HTML-a provjerava izolaciju, početna stanja, obračun,
+  zaključavanja, 205 sredstava, paginaciju/zbirove i purge uz puni rollback.
+- TypeScript i fokusirani lint čisti; šema i migracije nijesu mijenjane u
+  ovoj doradi. Nema ranijih lokalnih početnih stanja za usklađivanje.
+- Planer CSV/Excel usklađeni. Faza C ostaje naredni korak; nema commita.
+
+## 2026-09-27 — osnovna sredstva, faze A i B
+
+- Dodati registar, kategorije sa kontima, kartica, početno stanje i nova
+  nabavka u pripremi; tenant scope, prava, audit, soft delete i purge su
+  uključeni. Početno stanje ne kreira GL nalog.
+- Implementiran čisti linearni kalkulator `ACTUAL_DAYS_LIFE_V1` sa novcem u
+  centima, UTC date-only aritmetikom, half-up zaokruživanjem, ostatkom
+  vrijednosti, datiranim segmentima i prekidom na datum isknjiženja.
+- Obračuni daju read-only mjesečni/godišnji preview i jasno razdvajaju uključene,
+  isključene i neispravne kartice. Nova verzija parametara se čuva auditirano uz
+  otvorenu godinu i optimističku kontrolu.
+- Testovi osnovnih sredstava prolaze 13/13, navigacija 11/11, TypeScript i lint
+  su čisti. Faza C knjiženja i storna ostaje sljedeća.
+
 ## 2026-09-26 — folderi i mail pravila po firmi
 
 - Dodata firma_mail_podesavanja, ručna migracija, scoped i auditirano čuvanje,
@@ -1573,3 +1625,11 @@
 - Hash se sada računa prije predaje PDF.js-u. DB regresija simulira transfer bafera i potvrđuje izvorni i različiti hash za dva PDF-a; prolazi uz rollback. TypeScript čist, lint bez grešaka.
 - U lokalnoj agenciji uklonjen jedan neispravan hash praznog bafera uz audit REPAIR_EMPTY_PDF_HASH; iznosi, status i knjiženja nijesu mijenjani.
 - Ponovljen prethodno neuspjeli uvoz kroz UI za NEIMAR: 217 i 218 sada uspješno uvezeni, 219 prepoznat bez dupliranja. UI potvrdio 3/3 obrađene poruke i sva tri statusa Uvezen; nema automatskog knjiženja.
+
+## 2026-09-29 — Poreska klasifikacija osnovnih sredstava
+
+Dodat izbor I–V i posebnih tretmana pri unosu, izvedena poreska stopa, pomoć
+sa spiskom iz pravilnika i prikaz na kartici. Backend provjerava izbor prema
+vrsti imovine; klasifikacija se čuva u parametrima, snapshot-u i auditu.
+Bez migracije i promjene računovodstvenog kalkulatora. Provjera: tsc i tri
+ciljana testa klasifikacije. Poreski obračun i OA ostaju naredna faza.

@@ -1,12 +1,55 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-09-27. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-09-28. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Osnovna sredstva — proširena faza B, 2026-09-28
+
+- 2026-09-29: unos sredstva ima obaveznu poresku klasifikaciju, stope I–V,
+  pomoć sa spiskom iz člana 4 i posebne tretmane. Čuva se u postojećim
+  parametrima, snapshot-u i auditu; kartica prikazuje grupu i stopu.
+  Računovodstveni obračun ostaje odvojen; poreski kalkulator/OA još nije implementiran.
+
+- Faze A i B: registar, kategorije, datirane kartice, početna stanja bez novog
+  GL naloga i preview linearne, degresivne i funkcionalne amortizacije.
+- Nova forma bira metodu i godišnju stopu ili stopu/učinak po jedinici.
+  Datumi i početni podaci prikazuju se prema načinu unosa; presjek je automatski.
+- `MONTHLY_RATE_V2`: jednaki puni mjeseci, djelimični mjesec srazmjerno danima;
+  degresivna metoda prelazi na linearni završetak kroz preostali vijek kada
+  daje veći otpis. BigInt razlomci i kumulativno zaokruživanje čuvaju cente.
+  Postojeći `ACTUAL_DAYS_LIFE_V1` parametri ostaju nepromijenjeni.
+- Funkcionalna metoda ima evidenciju `os_ucinci`, preciznost šest decimala,
+  izričitu nulu, kontrolu nedostajućih unosa, preklapanja i kapaciteta. Ručna
+  stopa određuje kapacitet; izvedena stopa koristi tačan odnos osnovice/učinka.
+- Nove procjene računaju dotadašnji otpis i preostalu osnovicu. Kasnija procjena
+  blokira izmjenu učinka od kojeg zavisi. Učinak ima audit, verzije, soft-delete
+  i create/update/delete prava; provjeravaju se kontekst i zaključani periodi.
+- Zemljište nema stopu/vijek. Nepodržani tretmani ostaju označeni. Registar ima
+  server paginaciju i zbirove cijelog skupa; nova nabavka ostaje u pripremi.
+- Primijenjene lokalne migracije `20260928100000_os_tri_metode` i
+  `20260928110000_os_parametri_null_constraints`; purge obuhvata 67 tabela.
+- 32 unit testa prolaze. DB regresija provjerava stvarne akcije, prava,
+  obračun, serverski render, zaključavanja, rollback audita, legacy podatke,
+  paginaciju i stvarni purge. Svi testni podaci se poništavaju.
+- Puna interaktivna browser provjera čeka prijavu (sesija je istekla).
+- Tok obračuna sada otvara listu sačuvanih nacrta/proknjiženih obračuna.
+  „Obračunaj amortizaciju” čuva period (do datuma uključivo); isti period otvara
+  postojeći dokument. Ponovno računanje nacrta povećava reviziju i auditira izmjenu.
+- Knjiženje provjerava hash ulaza, konta/dimenzije, kontinuitet i preklapanja;
+  pravi POSTED nalog AM i pokriće po datumskom intervalu. Nulti obračun se
+  potvrđuje bez praznog naloga. SQL exclusion sprečava preklop i unutar mjeseca.
+- Konta se preuzimaju iz parametara ili biraju za cijeli nacrt. Nalog je zaštićen
+  od generičkog uređivanja/vraćanja/brisanja; proknjiženi učinak/parametri se
+  ne mijenjaju retroaktivno. Registar i kartica sabiraju proknjiženu amortizaciju.
+- Migracija `20260928150000_os_obracuni` lokalno primijenjena; purge pokriva
+  70 tabela i testiran je na firmi sa proknjiženim obračunima. DB regresija
+  provjerava djelimični mjesec, duplikat, hash, rollback, nalog i zaštite.
+  TypeScript i fokusirani lint prolaze. Preostaje namjenski storno obračuna.
 
 ## Uvoz izvoda iz maila — 2026-09-27
 

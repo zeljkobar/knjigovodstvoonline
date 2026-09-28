@@ -338,6 +338,29 @@ export async function purgeCompanyData(
     Prisma.sql`DELETE FROM virmani WHERE firma_id = ${firmaId}::uuid`
   );
 
+  // Evidencija osnovnih sredstava referencira naloge, konta, partnere i
+  // poslovne jedinice, pa se briše prije svih tih zajedničkih šifarnika.
+  await izvrsi("os_obracun_pokrice", Prisma.sql`DELETE FROM os_obracun_pokrice WHERE firma_id = ${firmaId}::uuid`);
+  await izvrsi("os_obracun_stavke", Prisma.sql`DELETE FROM os_obracun_stavke WHERE firma_id = ${firmaId}::uuid`);
+  await izvrsi("os_obracuni", Prisma.sql`DELETE FROM os_obracuni WHERE firma_id = ${firmaId}::uuid`);
+  await izvrsi("os_ucinci", Prisma.sql`DELETE FROM os_ucinci WHERE firma_id = ${firmaId}::uuid`);
+  await izvrsi(
+    "os_promjene",
+    Prisma.sql`DELETE FROM os_promjene WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "os_parametri",
+    Prisma.sql`DELETE FROM os_parametri WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "osnovna_sredstva",
+    Prisma.sql`DELETE FROM osnovna_sredstva WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "os_kategorije",
+    Prisma.sql`DELETE FROM os_kategorije WHERE firma_id = ${firmaId}::uuid`
+  );
+
   // Stavke naloga moraju biti obrisane prije samih naloga i konta firme.
   await izvrsi(
     "stavke_naloga",

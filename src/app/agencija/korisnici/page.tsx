@@ -43,6 +43,7 @@ const moduli = [
   "izvodi",
   "virmani",
   "plate",
+  "osnovna_sredstva",
   "pdv",
   "zavrsni_racun",
   "izvjestaji"

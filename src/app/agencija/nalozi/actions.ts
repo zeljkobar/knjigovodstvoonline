@@ -572,6 +572,7 @@ export async function updateDraftJournalLines(formData: FormData) {
       id: true,
       firma_id: true,
       status: true,
+      source_module: true,
       poslovna_jedinica_id: true,
       poslovna_godina: {
         select: {
@@ -581,7 +582,7 @@ export async function updateDraftJournalLines(formData: FormData) {
     }
   });
 
-  if (!nalog || nalog.status !== journalStatuses.draft) {
+  if (!nalog || nalog.status !== journalStatuses.draft || nalog.source_module === "OSNOVNA_SREDSTVA") {
     redirectJournals("nalog_greska");
   }
 
@@ -704,6 +705,7 @@ export async function postJournal(formData: FormData) {
       id: true,
       firma_id: true,
       status: true,
+      source_module: true,
       poslovna_godina: {
         select: {
           zakljucena: true
@@ -718,7 +720,7 @@ export async function postJournal(formData: FormData) {
     }
   });
 
-  if (!nalog || nalog.status !== journalStatuses.draft) {
+  if (!nalog || nalog.status !== journalStatuses.draft || nalog.source_module === "OSNOVNA_SREDSTVA") {
     redirectJournals("nalog_greska");
   }
 
@@ -823,7 +825,7 @@ export async function reopenJournal(formData: FormData) {
   if (
     !nalog ||
     nalog.status !== journalStatuses.posted ||
-    nalog.source_module === "PLATE"
+    ["PLATE", "OSNOVNA_SREDSTVA"].includes(nalog.source_module ?? "")
   ) {
     redirectJournals("nalog_greska");
   }
@@ -902,6 +904,7 @@ export async function deleteJournal(formData: FormData) {
       broj: true,
       sifra: true,
       status: true,
+      source_module: true,
       source_type: true,
       poslovna_godina: {
         select: {
@@ -919,7 +922,7 @@ export async function deleteJournal(formData: FormData) {
     redirectJournals("prava");
   }
 
-  if (nalog.status !== journalStatuses.draft) {
+  if (nalog.status !== journalStatuses.draft || nalog.source_module === "OSNOVNA_SREDSTVA") {
     redirectJournals("nalog_greska");
   }
 

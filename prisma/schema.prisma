@@ -34,6 +34,10 @@ enum KomitentScope {
 }
 
 model Agencija {
+  osObracuni OsObracun[]
+  osObracunStavke OsObracunStavka[]
+  osObracunPokrica OsObracunPokrice[]
+  ucinci OsUcinak[]
   mail_obrade MailIzvodObrada[]
   id                         String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   naziv                      String
@@ -91,6 +95,10 @@ model Agencija {
   posAccountingBatches       PosAccountingBatch[]
   posSmjene                  PosSmjena[]
   virmani                    Virman[]
+  osKategorije               OsKategorija[]
+  osnovnaSredstva            OsnovnoSredstvo[]
+  osParametri                OsParametar[]
+  osPromjene                 OsPromjena[]
 
   @@map("agencije")
 }
@@ -139,6 +147,10 @@ model Pozivnica {
 }
 
 model Firma {
+  osObracuni OsObracun[]
+  osObracunStavke OsObracunStavka[]
+  osObracunPokrica OsObracunPokrice[]
+  ucinci OsUcinak[]
   mail_obrade MailIzvodObrada[]
   id                            String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id                   String                          @db.Uuid
@@ -226,6 +238,10 @@ model Firma {
   posSmjene                     PosSmjena[]
   transferZahtjevi              FirmaAgencyTransferRequest[]
   virmani                       Virman[]
+  osKategorije                  OsKategorija[]
+  osnovnaSredstva               OsnovnoSredstvo[]
+  osParametri                   OsParametar[]
+  osPromjene                    OsPromjena[]
 
   @@unique([agencija_id, pib])
   @@map("firme")
@@ -487,6 +503,10 @@ model AktivnostDogadjaj {
 }
 
 model PoslovnaGodina {
+  osObracuni OsObracun[]
+  osObracunStavke OsObracunStavka[]
+  osObracunPokrica OsObracunPokrice[]
+  ucinci OsUcinak[]
   mail_obrade MailIzvodObrada[]
   id                            String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   firma_id                      String                          @db.Uuid
@@ -523,6 +543,7 @@ model PoslovnaGodina {
   stanjaZaliha                  StanjeZaliha[]
   prometiZaliha                 PrometZaliha[]
   virmani                       Virman[]
+  osPromjene                    OsPromjena[]
 
   @@unique([firma_id, godina])
   @@map("poslovne_godine")
@@ -566,6 +587,8 @@ model Komitent {
   cijene_artikala       CijenaArtikla[]
   kalkulacije           Kalkulacija[]
   dobavljacArtikalVeze  DobavljacArtikalVeza[]
+  osnovnaSredstva       OsnovnoSredstvo[]       @relation("OsDobavljac")
+  osParametri           OsParametar[]           @relation("OsParametarKomitent")
 
   @@index([is_foreign])
   @@index([pib])
@@ -719,6 +742,13 @@ model FirmaKonto {
   bankPostingRules          BankPostingRule[]
   plateKontiranjaDuguje     PlateKontiranjePravilo[]      @relation("PlateKontiranjeDugujeKonto")
   plateKontiranjaPotrazuje  PlateKontiranjePravilo[]      @relation("PlateKontiranjePotrazujeKonto")
+  osKategorijaSredstvo      OsKategorija[]                 @relation("OsKategorijaKontoSredstva")
+  osKategorijaIspravka      OsKategorija[]                 @relation("OsKategorijaKontoIspravke")
+  osKategorijaTrosak        OsKategorija[]                 @relation("OsKategorijaKontoTroska")
+  osKategorijaNeotpisano    OsKategorija[]                 @relation("OsKategorijaKontoNeotpisano")
+  osParametarSredstvo       OsParametar[]                  @relation("OsParametarKontoSredstva")
+  osParametarIspravka       OsParametar[]                  @relation("OsParametarKontoIspravke")
+  osParametarTrosak         OsParametar[]                  @relation("OsParametarKontoTroska")
 
   @@unique([firma_id, sifra])
   @@map("firma_konta")
@@ -896,6 +926,8 @@ model PoslovnaJedinica {
   popisiRobe       PopisRobe[]
   otpisiRobe       OtpisRobe[]
   nivelacijeCijena NivelacijaCijena[]
+  osnovnaSredstva  OsnovnoSredstvo[]
+  osParametri      OsParametar[]
 
   @@unique([firma_id, sifra])
   @@index([agencija_id, firma_id, aktivna, is_deleted])
@@ -2174,6 +2206,7 @@ model VrstaNaloga {
 }
 
 model Nalog {
+  osObracun OsObracun?
   id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id          String?              @db.Uuid
   firma_id             String               @db.Uuid
@@ -2217,11 +2250,174 @@ model Nalog {
   popisiRobe           PopisRobe[]
   otpisiRobe           OtpisRobe[]
   nivelacijeCijena     NivelacijaCijena[]
+  osPromjene           OsPromjena[]       @relation("OsPromjenaIzvorniNalog")
 
   @@unique([firma_id, poslovna_godina_id, vrsta_naloga_id, broj])
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@index([poslovna_jedinica_id, datum])
   @@map("nalozi")
+}
+
+model OsKategorija {
+  id                                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id                         String           @db.Uuid
+  agencija                            Agencija         @relation(fields: [agencija_id], references: [id])
+  firma_id                            String           @db.Uuid
+  firma                               Firma            @relation(fields: [firma_id], references: [id])
+  sifra                               String
+  naziv                               String
+  predlozeni_korisni_vijek_mjeseci   Int?
+  konto_sredstva_id                   String?          @db.Uuid
+  konto_sredstva                      FirmaKonto?      @relation("OsKategorijaKontoSredstva", fields: [konto_sredstva_id], references: [id])
+  konto_ispravke_id                   String?          @db.Uuid
+  konto_ispravke                      FirmaKonto?      @relation("OsKategorijaKontoIspravke", fields: [konto_ispravke_id], references: [id])
+  konto_troska_id                     String?          @db.Uuid
+  konto_troska                        FirmaKonto?      @relation("OsKategorijaKontoTroska", fields: [konto_troska_id], references: [id])
+  konto_neotpisane_vrijednosti_id     String?          @db.Uuid
+  konto_neotpisane_vrijednosti        FirmaKonto?      @relation("OsKategorijaKontoNeotpisano", fields: [konto_neotpisane_vrijednosti_id], references: [id])
+  aktivna                             Boolean          @default(true)
+  is_deleted                          Boolean          @default(false)
+  deleted_at                          DateTime?
+  deleted_by                          String?          @db.Uuid
+  delete_reason                       String?
+  created_at                          DateTime         @default(now())
+  created_by                          String?          @db.Uuid
+  updated_at                          DateTime         @updatedAt
+  updated_by                          String?          @db.Uuid
+  sredstva                            OsnovnoSredstvo[]
+
+  @@unique([firma_id, sifra])
+  @@index([agencija_id, firma_id, aktivna, is_deleted])
+  @@map("os_kategorije")
+}
+
+model OsnovnoSredstvo {
+  obracunStavke OsObracunStavka[]
+  obracunPokrica OsObracunPokrice[]
+  ucinci OsUcinak[]
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id           String              @db.Uuid
+  agencija              Agencija            @relation(fields: [agencija_id], references: [id])
+  firma_id              String              @db.Uuid
+  firma                 Firma               @relation(fields: [firma_id], references: [id])
+  inventarski_broj      String
+  naziv                 String
+  opis                   String?
+  serijski_broj          String?
+  kategorija_id         String?             @db.Uuid
+  kategorija             OsKategorija?       @relation(fields: [kategorija_id], references: [id])
+  vrsta_imovine         String
+  lokacija              String?
+  zaduzena_osoba        String?
+  poslovna_jedinica_id  String?             @db.Uuid
+  poslovna_jedinica     PoslovnaJedinica?   @relation(fields: [poslovna_jedinica_id], references: [id])
+  dobavljac_id           String?             @db.Uuid
+  dobavljac              Komitent?           @relation("OsDobavljac", fields: [dobavljac_id], references: [id])
+  broj_dokumenta         String?
+  datum_nabavke          DateTime?           @db.Date
+  datum_raspolozivosti   DateTime?           @db.Date
+  datum_isknjizenja      DateTime?           @db.Date
+  status                 String              @default("DRAFT")
+  verzija                Int                 @default(1)
+  is_deleted             Boolean             @default(false)
+  deleted_at             DateTime?
+  deleted_by             String?             @db.Uuid
+  delete_reason           String?
+  created_at             DateTime            @default(now())
+  created_by             String?             @db.Uuid
+  updated_at             DateTime            @updatedAt
+  updated_by             String?             @db.Uuid
+  parametri              OsParametar[]
+  promjene               OsPromjena[]
+
+  @@unique([firma_id, inventarski_broj])
+  @@index([agencija_id, firma_id, status, is_deleted])
+  @@index([firma_id, kategorija_id, naziv])
+  @@map("osnovna_sredstva")
+}
+
+model OsParametar {
+  ucinci OsUcinak[]
+  id                      String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id             String             @db.Uuid
+  agencija                Agencija           @relation(fields: [agencija_id], references: [id])
+  firma_id                String             @db.Uuid
+  firma                   Firma              @relation(fields: [firma_id], references: [id])
+  sredstvo_id             String             @db.Uuid
+  sredstvo                OsnovnoSredstvo    @relation(fields: [sredstvo_id], references: [id])
+  vazi_od                 DateTime           @db.Date
+  metoda                  String             @default("LINEAR")
+  korisni_vijek_mjeseci   Int?
+  algoritam              String @default("ACTUAL_DAYS_LIFE_V1")
+  godisnja_stopa          Decimal? @db.Decimal(9, 6)
+  osnovica               Decimal? @db.Decimal(14, 2)
+  jedinica_ucinka        String?
+  ocekivani_ucinak       Decimal? @db.Decimal(20, 6)
+  prethodni_ucinak       Decimal? @db.Decimal(20, 6)
+  stopa_po_jedinici      Decimal? @db.Decimal(20, 6)
+  izvor_stope            String?
+  ostatak_vrijednosti     Decimal            @default(0) @db.Decimal(14, 2)
+  konto_sredstva_id       String?            @db.Uuid
+  konto_sredstva          FirmaKonto?        @relation("OsParametarKontoSredstva", fields: [konto_sredstva_id], references: [id])
+  konto_ispravke_id       String?            @db.Uuid
+  konto_ispravke          FirmaKonto?        @relation("OsParametarKontoIspravke", fields: [konto_ispravke_id], references: [id])
+  konto_troska_id         String?            @db.Uuid
+  konto_troska            FirmaKonto?        @relation("OsParametarKontoTroska", fields: [konto_troska_id], references: [id])
+  komitent_id             String?            @db.Uuid
+  komitent                Komitent?          @relation("OsParametarKomitent", fields: [komitent_id], references: [id])
+  poslovna_jedinica_id    String?            @db.Uuid
+  poslovna_jedinica       PoslovnaJedinica?  @relation(fields: [poslovna_jedinica_id], references: [id])
+  poreski_tretman         String             @default("UNSUPPORTED")
+  poreska_grupa           String?
+  razlog_promjene         String?
+  created_at              DateTime           @default(now())
+  created_by              String?            @db.Uuid
+  updated_at              DateTime           @updatedAt
+  updated_by              String?            @db.Uuid
+
+  @@unique([sredstvo_id, vazi_od])
+  @@index([agencija_id, firma_id, vazi_od])
+  @@map("os_parametri")
+}
+
+model OsPromjena {
+  id                              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id                     String           @db.Uuid
+  agencija                        Agencija         @relation(fields: [agencija_id], references: [id])
+  firma_id                        String           @db.Uuid
+  firma                           Firma            @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id              String           @db.Uuid
+  poslovna_godina                 PoslovnaGodina   @relation(fields: [poslovna_godina_id], references: [id])
+  sredstvo_id                     String           @db.Uuid
+  sredstvo                        OsnovnoSredstvo  @relation(fields: [sredstvo_id], references: [id])
+  datum                           DateTime          @db.Date
+  vrsta                           String
+  status                          String           @default("DRAFT")
+  razlog                          String?
+  delta_nabavna_vrijednost        Decimal          @default(0) @db.Decimal(14, 2)
+  delta_ispravka_vrijednosti      Decimal          @default(0) @db.Decimal(14, 2)
+  nabavna_vrijednost              Decimal?         @db.Decimal(14, 2)
+  akumulirana_amortizacija        Decimal?         @db.Decimal(14, 2)
+  ostatak_vrijednosti             Decimal?         @db.Decimal(14, 2)
+  preostali_vijek_mjeseci         Int?
+  izvorni_nalog_id                String?          @db.Uuid
+  izvorni_nalog                   Nalog?           @relation("OsPromjenaIzvorniNalog", fields: [izvorni_nalog_id], references: [id])
+  original_promjena_id            String?          @db.Uuid
+  original_promjena               OsPromjena?      @relation("OsPromjenaStorno", fields: [original_promjena_id], references: [id])
+  storno_promjene                  OsPromjena[]     @relation("OsPromjenaStorno")
+  snapshot                        Json?
+  is_deleted                      Boolean           @default(false)
+  deleted_at                      DateTime?
+  deleted_by                      String?           @db.Uuid
+  delete_reason                   String?
+  created_at                      DateTime          @default(now())
+  created_by                      String?           @db.Uuid
+  updated_at                      DateTime          @updatedAt
+  updated_by                      String?           @db.Uuid
+
+  @@index([agencija_id, firma_id, poslovna_godina_id, status, datum])
+  @@index([sredstvo_id, datum, status, is_deleted])
+  @@map("os_promjene")
 }
 
 model MailIzvodObrada {
@@ -3254,4 +3450,102 @@ model FirmaMailPodesavanje {
 
   @@index([agencija_id, firma_id])
   @@map("firma_mail_podesavanja")
+}
+
+model OsUcinak {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  agencija Agencija @relation(fields: [agencija_id], references: [id])
+  firma_id String @db.Uuid
+  firma Firma @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id String @db.Uuid
+  poslovna_godina PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  sredstvo_id String @db.Uuid
+  sredstvo OsnovnoSredstvo @relation(fields: [sredstvo_id], references: [id])
+  parametar_id String @db.Uuid
+  parametar OsParametar @relation(fields: [parametar_id], references: [id])
+  datum_od DateTime @db.Date
+  datum_do DateTime @db.Date
+  kolicina Decimal @db.Decimal(20, 6)
+  razlog String
+  verzija Int @default(1)
+  is_deleted Boolean @default(false)
+  deleted_at DateTime?
+  deleted_by String? @db.Uuid
+  created_at DateTime @default(now())
+  created_by String @db.Uuid
+  updated_at DateTime @updatedAt
+  updated_by String @db.Uuid
+  @@index([agencija_id, firma_id, sredstvo_id, datum_od])
+  @@map("os_ucinci")
+}
+
+model OsObracun {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  agencija Agencija @relation(fields:[agencija_id], references:[id])
+  firma_id String @db.Uuid
+  firma Firma @relation(fields:[firma_id], references:[id])
+  poslovna_godina_id String @db.Uuid
+  poslovna_godina PoslovnaGodina @relation(fields:[poslovna_godina_id], references:[id])
+  period_od DateTime @db.Date
+  period_do DateTime @db.Date
+  status String @default("DRAFT")
+  revizija Int @default(1)
+  ulazni_hash String
+  ukupna_amortizacija Decimal @db.Decimal(14,2)
+  snapshot Json
+  nalog_id String? @unique @db.Uuid
+  nalog Nalog? @relation(fields:[nalog_id], references:[id])
+  bez_naloga_razlog String?
+  created_at DateTime @default(now())
+  created_by String @db.Uuid
+  updated_at DateTime @updatedAt
+  updated_by String @db.Uuid
+  proknjizen_at DateTime?
+  proknjizen_by String? @db.Uuid
+  stavke OsObracunStavka[]
+  pokrica OsObracunPokrice[]
+  @@unique([firma_id, poslovna_godina_id, period_od, period_do])
+  @@index([agencija_id, firma_id, poslovna_godina_id])
+  @@map("os_obracuni")
+}
+model OsObracunStavka {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  agencija Agencija @relation(fields:[agencija_id], references:[id])
+  firma_id String @db.Uuid
+  firma Firma @relation(fields:[firma_id], references:[id])
+  poslovna_godina_id String @db.Uuid
+  poslovna_godina PoslovnaGodina @relation(fields:[poslovna_godina_id], references:[id])
+  obracun_id String @db.Uuid
+  obracun OsObracun @relation(fields:[obracun_id], references:[id])
+  sredstvo_id String @db.Uuid
+  sredstvo OsnovnoSredstvo @relation(fields:[sredstvo_id], references:[id])
+  period_od DateTime @db.Date
+  period_do DateTime @db.Date
+  iznos Decimal @db.Decimal(14,2)
+  snapshot Json
+  @@index([firma_id, sredstvo_id])
+  @@index([obracun_id])
+  @@map("os_obracun_stavke")
+}
+model OsObracunPokrice {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  agencija Agencija @relation(fields:[agencija_id], references:[id])
+  firma_id String @db.Uuid
+  firma Firma @relation(fields:[firma_id], references:[id])
+  poslovna_godina_id String @db.Uuid
+  poslovna_godina PoslovnaGodina @relation(fields:[poslovna_godina_id], references:[id])
+  obracun_id String @db.Uuid
+  obracun OsObracun @relation(fields:[obracun_id], references:[id])
+  sredstvo_id String @db.Uuid
+  sredstvo OsnovnoSredstvo @relation(fields:[sredstvo_id], references:[id])
+  period_od DateTime @db.Date
+  period_do DateTime @db.Date
+  aktivno Boolean @default(true)
+  @@index([firma_id, sredstvo_id, period_od])
+  @@index([obracun_id])
+  @@map("os_obracun_pokrice")
 }

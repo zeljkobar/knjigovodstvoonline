@@ -108,6 +108,14 @@ export const agencyNavigation: NavigationItem[] = [
     permissions: [{ modul: "plate", akcija: "view" }]
   },
   {
+    href: "/agencija/osnovna-sredstva",
+    icon: "▱",
+    label: "Osnovna sredstva",
+    roles: agencyRoles,
+    section: "osnovna-sredstva",
+    permissions: [{ modul: "osnovna_sredstva", akcija: "view" }]
+  },
+  {
     href: "/agencija/zavrsni-racun",
     icon: "▨",
     label: "Završni račun",
@@ -280,6 +288,11 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/plate/obustave", label: "Obustave" },
     { href: "/agencija/plate/arhiva", label: "Arhiva obračuna" },
     { href: "/agencija/plate/podesavanja", label: "Podešavanja plata", roles: adminOnly }
+  ],
+  "osnovna-sredstva": [
+    { href: "/agencija/osnovna-sredstva", label: "Registar" },
+    { href: "/agencija/osnovna-sredstva/obracuni", label: "Obračuni" },
+    { href: "/agencija/osnovna-sredstva/podesavanja", label: "Podešavanja", roles: adminOnly }
   ],
   izvodi: [
     { href: "/agencija/izvodi", label: "Pregled izvoda" },
