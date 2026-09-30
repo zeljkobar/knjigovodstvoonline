@@ -124,7 +124,10 @@ otpis; kasnija procjena štiti raniji učinak od izmjena. Nacrt ne utiče na gla
 Knjiženje kreira POSTED nalog i intervalna pokrića u jednoj transakciji.
 SQL exclusion i zaključavanje godine štite preklapanje; kontrola kontinuiteta
 sprečava preskakanje ranijeg perioda. Generički nalog ne može mijenjati ovaj
-izvor. Namjenski storno ostaje naredni korak.
+izvor. Posljednji zavisni obračun vraća se u nacrt samo kroz OS modul: u jednoj
+auditiranoj transakciji fizički se brišu njegov automatski AM nalog, stavke i
+pokrića. Nacrt se zatim može ponovo knjižiti ili trajno izbrisati; kasniji
+obračun ili potvrđena prodaja blokiraju vraćanje.
 Početni presjek je dan prije početka godine, dok se događaj i novi obračun
 vezuju za prvi dan aktivne godine. Potvrda traži create/post; forme provjeravaju
 izvorni kontekst. Finansijske mutacije zaključavaju red godine i pogođene PDV
@@ -201,3 +204,12 @@ a runtime koristi kontrolisanu strukturu i validaciju vrijednosti bez PowerShell
 POST ruta provjerava ulogu, oba prava view/export, tenant i firmu/godinu iz sesije,
 odbija promijenjen kontekst i ne prihvata iznose ili naziv firme iz browsera.
 Izvoz ne mijenja dokumente/status prijave; audit ne sadrži JMBG/e-mail.
+
+### Poreska amortizacija (2026-09-29)
+
+`os_poreske_godine` čuva samostalne godišnje poreske ulaze i verziju; JSON
+sadrži validirane cente, klasifikacije i dokumentovane promjene. Immutable
+`os_poreski_obracuni` čuva numerisanu reviziju, snapshot i hash. Firma/godina
+su FK i backend scope; potvrda i prenos se serijalizuju zaključavanjem firme.
+Jedna potvrđena revizija po godini garantovana je parcijalnim unique indeksom.
+Potvrda ne pravi GL nalog. Čista štampa je `/stampa/osnovna-sredstva/poreska-amortizacija/[id]`.

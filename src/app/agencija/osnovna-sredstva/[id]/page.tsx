@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { activateFixedAsset } from "../lifecycle-actions";
 import { taxClassificationLabel } from "@/lib/fixed-assets-tax-groups";
 import { DepreciationFields } from "@/components/fixed-assets/DepreciationFields";
 import { fixedAssetMethodLabels, derivedUnitRate } from "@/lib/fixed-assets-rates";
@@ -9,7 +11,7 @@ import { hasPermission, requirePermissionForUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
-type AssetPageProps = { params: Promise<{ id: string }>; searchParams?: Promise<{ poruka?: string }> };
+type AssetPageProps = { params: Promise<{ id: string }>; searchParams?: Promise<{ poruka?: string; greska?: string }> };
 
 const messages: Record<string, string> = {
   proknjizena_istorija: "Izmjena bi uticala na proknjiženu amortizaciju. Istorijski podaci su zaštićeni.",
@@ -79,6 +81,7 @@ export default async function FixedAssetPage({ params, searchParams }: AssetPage
         })
       : null
   ]);
+  const canPost=await hasPermission(user,{firmaId:context.firmaId,modul:"osnovna_sredstva",akcija:"post"});
   const latestParameter = asset.parametri[0];
   const earliestParameterDate = latestParameter && year
     ? [nextDateOnly(latestParameter.vazi_od), dateOnly(year.datum_od)].sort().at(-1)!
@@ -93,6 +96,9 @@ export default async function FixedAssetPage({ params, searchParams }: AssetPage
     <div className="admin-stack">
       <header className="admin-header"><div><p className="eyebrow">{asset.inventarski_broj}</p><h2>{asset.naziv}</h2><p className="muted-text">{fixedAssetStatusLabels[asset.status] ?? asset.status}</p></div></header>
       {query?.poruka && messages[query.poruka] ? <p className="admin-note">{messages[query.poruka]}</p> : null}
+      {query?.greska?<p className="admin-note" role="alert">{query.greska}</p>:null}
+      {["ACTIVE","DISPOSED"].includes(asset.status)?<p><Link className="button" href={`/agencija/osnovna-sredstva/${id}/prodaja`}>{asset.status==="ACTIVE"?"Prodaj sredstvo":"Pregled prodaje"}</Link></p>:null}
+      {asset.status==="IN_PREPARATION"&&year&&context.poslovnaGodinaId?<section className="admin-panel"><h3>Potvrda nabavke</h3><p>Povežite nabavku sa proknjiženim nalogom. Potvrdom se sredstvo aktivira, a poreska nabavka preuzima automatski.</p><form action={activateFixedAsset} className="admin-form"><input type="hidden" name="ocekivana_firma_id" value={context.firmaId}/><input type="hidden" name="ocekivana_godina_id" value={context.poslovnaGodinaId}/><input type="hidden" name="sredstvo_id" value={id}/><input type="hidden" name="verzija" value={asset.verzija}/><input type="hidden" name="datum" value={asset.datum_raspolozivosti?dateOnly(asset.datum_raspolozivosti):""}/><label>Šifra izvornog proknjiženog naloga<input name="nalog_sifra" required/></label><label>Konto nabavne vrijednosti u tom nalogu<input name="konto_sredstva" required/></label><button disabled={!canPost||year.zakljucena}>Potvrdi nabavku i aktiviraj sredstvo</button></form></section>:null}
       <section className="metric-grid"><article className="metric"><span>Nabavna vrijednost</span><strong>{fixedAssetCentsMoney(gross)}</strong></article><article className="metric"><span>Ispravka vrijednosti</span><strong>{fixedAssetCentsMoney(accumulated)}</strong></article><article className="metric"><span>Neto vrijednost</span><strong>{fixedAssetCentsMoney(gross - accumulated)}</strong></article></section>
       <section className="admin-panel"><div className="panel-header"><div><h3>Podaci kartice</h3><span>Kartica važi kroz sve poslovne godine.</span></div></div><dl className="detail-grid"><div><dt>Vrsta</dt><dd>{fixedAssetTypeLabels[asset.vrsta_imovine as keyof typeof fixedAssetTypeLabels] ?? asset.vrsta_imovine}</dd></div><div><dt>Kategorija</dt><dd>{asset.kategorija ? `${asset.kategorija.sifra} - ${asset.kategorija.naziv}` : "-"}</dd></div><div><dt>Poslovna jedinica</dt><dd>{asset.poslovna_jedinica ? `${asset.poslovna_jedinica.sifra} - ${asset.poslovna_jedinica.naziv}` : "-"}</dd></div><div><dt>Lokacija</dt><dd>{asset.lokacija ?? "-"}</dd></div><div><dt>Zadužena osoba</dt><dd>{asset.zaduzena_osoba ?? "-"}</dd></div><div><dt>Serijski broj</dt><dd>{asset.serijski_broj ?? "-"}</dd></div></dl></section>
       <section className="admin-panel"><div className="panel-header"><div><h3>Parametri</h3><span>Datirane verzije za budući obračun.</span></div></div><div className="table-wrap"><table><thead><tr><th>Važi od</th><th>Metoda</th><th>Vijek</th><th>Stopa amortizacije</th><th>Osnovica</th><th>Učinak: ukupno / prethodno</th><th>Ostatak</th><th>Razlog</th><th>Poreski tretman</th></tr></thead><tbody>{asset.parametri.map((parameter) => <tr key={parameter.id}><td>{parameter.vazi_od.toLocaleDateString("sr-Latn-ME")}</td><td>{asset.vrsta_imovine === "LAND" ? "Bez amortizacije" : fixedAssetMethodLabels[parameter.metoda] ?? parameter.metoda}</td><td>{asset.vrsta_imovine === "LAND" ? "Ne amortizuje se" : parameter.korisni_vijek_mjeseci ? `${parameter.korisni_vijek_mjeseci} mjeseci` : "—"}</td><td>{asset.vrsta_imovine === "LAND" ? "—" : parameter.godisnja_stopa ? `${parameter.godisnja_stopa.toString()}%` : parameter.metoda === "UNITS_OF_PRODUCTION" ? `${parameter.stopa_po_jedinici?.toString() ?? derivedUnitRate(fixedAssetDecimalToCents(parameter.osnovica ?? "0")!,parameter.ocekivani_ucinak?.toString() ?? "")} EUR/${parameter.jedinica_ucinka}` : `Prema vijeku (${parameter.algoritam})`}</td><td>{parameter.osnovica ? fixedAssetMoney(parameter.osnovica) : "—"}</td><td>{parameter.ocekivani_ucinak ? `${parameter.ocekivani_ucinak} / ${parameter.prethodni_ucinak ?? 0} ${parameter.jedinica_ucinka}` : "—"}</td><td>{fixedAssetMoney(parameter.ostatak_vrijednosti)}</td><td>{parameter.razlog_promjene ?? "-"}</td><td>{taxClassificationLabel(parameter.poreski_tretman, parameter.poreska_grupa)}</td></tr>)}</tbody></table></div></section>

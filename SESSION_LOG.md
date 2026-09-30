@@ -3,6 +3,34 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-09-30 — zaštita revizija i poništavanje poreskog prenosa
+
+Dodate provjere revizije prije vraćanja/brisanja računovodstvenog obračuna.
+Nova akcija poništava poreski prenos tek poslije uklanjanja svih revizija
+odredišne godine, uz prava, zaključavanja, ID/verziju, razlog, potvrdu i audit.
+UI izričito najavljuje uklanjanje godišnjih ulaza i ručnih promjena.
+TSC i obje DB regresije prolaze; dodati slučajevi zastarjelog taba, zavisnih
+revizija, prava, zaključane godine, audit rollback-a i ponovnog prenosa.
+Bez migracije i bez promjene poslovnih podataka; testni podaci su poništeni.
+
+## 2026-09-30 — vraćanje i brisanje obračuna amortizacije
+
+- Posljednji zavisni POSTED obračun u otvorenoj godini može se vratiti u DRAFT;
+  povezani automatski AM nalog, njegove stavke i pokrića fizički se brišu u istoj
+  serijalizovanoj transakciji, bez kontra-naloga.
+- Kasniji obračun i potvrđena prodaja blokiraju vraćanje. Nacrt se može ponovo
+  obračunati/knjižiti ili fizički izbrisati sa stavkama. Oba toka traže prava,
+  razlog, potvrdu i audit; zaključana godina ili PDV period ih blokiraju.
+- TSC i stvarna DB regresija sa rollback-om prolaze; test pokriva zavisnosti,
+  audit rollback, brisanje naloga/pokrića, ponovno knjiženje i brisanje nacrta.
+- Potvrđeni poreski obračun može se kontrolisano vratiti u DRAFT bez GL naloga;
+  prenos ili kasnija potvrđena godina blokiraju vraćanje, a DRAFT revizija može
+  se fizički izbrisati. DB regresija potvrđuje i deblokadu KIF-a/prodaje sredstva.
+- Konta obračuna sada prikazuju spoj aktivnih globalnih i firminih analitičkih
+  konta; globalni izbor backend veže firmi kao `BASE_LINK`.
+- Prolaze TypeScript, fokusirani lint, 35 fixed-assets i 9 poreskih unit testova,
+  te poreska DB regresija sa rollback-om.
+
 ## 2026-09-28 — sačuvani obračuni amortizacije i knjiženje
 
 - Početna stranica je lista obračuna sa datumima godine i dugmetom za izradu
@@ -1633,3 +1661,25 @@ sa spiskom iz pravilnika i prikaz na kartici. Backend provjerava izbor prema
 vrsti imovine; klasifikacija se čuva u parametrima, snapshot-u i auditu.
 Bez migracije i promjene računovodstvenog kalkulatora. Provjera: tsc i tri
 ciljana testa klasifikacije. Poreski obračun i OA ostaju naredna faza.
+
+## 2026-09-29 — Poreska stanja, godišnji obračuni i OA
+
+Implementirane dvije odvojene poreske tabele, unos početnih salda i događaja,
+godišnja klasifikacija, kalkulator I–V i posebnih tretmana, sačuvane revizije,
+hash/potvrda, prenos, OA pregled i HTML štampa. Korisnik potvrdio početni saldo
+za test 5% i vremensku srazmjeru; operativne konvencije zapisane u specifikaciji.
+Migracija primijenjena, Prisma generisana, dev restartovan. TSC, fokusirani
+lint, 9 unit testova i ciljana DB regresija sa rollback-om prolaze. Purge 72
+tabele i stvarni purge sa poreskim prenosom provjereni. OA testni prikaz
+vizuelno pregledan; korisnička sesija nije mijenjana. Bez commita.
+
+## 2026-09-30 — Automatske poreske promjene i prodaja sredstva
+
+Na zahtjev korisnika uklonjena potreba za duplim unosom nabavki/prodaja.
+Dodati automatski izvori, stabilan ID, provjera duplikata, potvrda nabavke
+sa POSTED izvorom i alokacijom. Poseban ekran prodaje koristi sredstvo iz
+registra i kupca (bez artikala), pravi KIF/nacrt SALE; potvrda poslije KIF
+knjiženja stvara nalog isknjiženja i poresku promjenu. Zaštićena pokrića,
+poreske potvrde i izvorni nalozi. Ciljana DB regresija prolazi uz rollback,
+uključujući stvarne server actions i balans isknjiženja. TSC i lint prolaze.
+Bez migracije i commita.

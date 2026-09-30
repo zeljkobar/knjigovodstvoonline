@@ -67,8 +67,11 @@ Ova pravila su rezultat odluka u specifikaciji i ne smiju se kršiti:
    `deleted_at` / `deleted_by`. Dokumentovani izuzetak su neproknjiženi nacrti
    bez aktivne veze na nalog (trenutno nacrt naloga, KIF/KUF račun ili cijela
    knjiga i neproknjiženi izvod), koji se fizički brišu da ne zauzimaju redni
-   broj; prije brisanja moraju proći scope, status, zaključavanje i audit
-   provjere odgovarajućeg toka.
+   broj. Uski dodatni izuzetak je automatski `DEPRECIATION` nalog: kada se
+   posljednji zavisni proknjiženi obračun amortizacije u otvorenoj godini vraća
+   u nacrt, njegov nalog, stavke i pokrića fizički se brišu u istoj transakciji;
+   sam nacrt obračuna zatim se može fizički izbrisati. Prije ovih brisanja moraju
+   proći scope, prava, status, zaključavanje, zavisnosti i audit provjere toka.
 5. **Audit log.** Svaka bitna akcija se upisuje (ko, kada, agencija, firma, modul,
    zapis, tip, stara/nova vrijednost). Vidi `audit.ts`.
 6. **Globalni kontekst.** Agencija, firma i poslovna godina se biraju gore i svi

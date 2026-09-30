@@ -1,4 +1,7 @@
 "use server";
+import { lockAssetLifecycle } from "@/lib/fixed-assets-lifecycle";
+import { fixedAssetContextMatches } from "@/lib/fixed-assets";
+import { auditLogInTransaction } from "@/lib/audit";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -27,7 +30,7 @@ import {
   pazarPostingSchemeFields,
   pazarPostingSubtype
 } from "@/lib/kif-pazar";
-import { hasPermission, type PermissionAction } from "@/lib/permissions";
+import { hasPermission, requirePermissionForUser, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { normalizeVatTransactionType, vatTransactionTypes } from "@/lib/vat-transaction";
 import { readWorkContext } from "@/lib/work-context";
@@ -5407,6 +5410,11 @@ export async function createKifEntry(formData: FormData) {
     redirectKif("kif_kontekst");
   }
 
+  const assetId = value(formData,"os_sredstvo_id");
+  if(assetId) {
+    if(!fixedAssetContextMatches(formData,workContext)) redirectKif("kif_kontekst");
+    await requirePermissionForUser(user,{firmaId:workContext.firmaId,modul:"osnovna_sredstva",akcija:"update"});
+  }
   const kifBookId = value(formData, "kif_book_id");
   const buyerId = value(formData, "kupac_id");
   const customerInvoiceNumber = normalizeFiscalInvoiceNumber(value(formData, "customer_invoice_number"));
@@ -5651,6 +5659,13 @@ export async function createKifEntry(formData: FormData) {
   }
 
   const createdEntry = await prisma.$transaction(async (tx) => {
+    const assetScope={agencija_id:user.agencija_id!,firma_id:firma.id,poslovna_godina_id:poslovnaGodina.id};
+    if(assetId) {
+      const {asset}=await lockAssetLifecycle(tx,assetScope,assetId,invoiceDate);
+      if(asset.status!=="ACTIVE"||!asset.datum_raspolozivosti||asset.datum_raspolozivosti>=invoiceDate)throw new Error("Za prodaju izaberite aktivno sredstvo i datum poslije početka korišćenja.");
+      const pending=await tx.kifEntry.findFirst({where:{agencija_id:assetScope.agencija_id,firma_id:assetScope.firma_id,source_type:"FIXED_ASSET_SALE",source_id:assetId,is_deleted:false}});
+      if(pending)throw new Error("Prodaja ovog sredstva je već pripremljena u KIF-u.");
+    }
     let revenueAccount: { id: string } | null = null;
 
     if (revenueAccountCode) {
@@ -5676,8 +5691,9 @@ export async function createKifEntry(formData: FormData) {
     const redniBroj = (lastEntry?.redni_broj ?? 0) + 1;
     const internalNumber = `KIF-${poslovnaGodina.godina}-${String(redniBroj).padStart(4, "0")}`;
 
-    return tx.kifEntry.create({
+    const entry = await tx.kifEntry.create({
       data: {
+        ...(assetId?{source_type:"FIXED_ASSET_SALE",source_id:assetId}:{}),
         kif_book_id: kifBook.id,
         agencija_id: user.agencija_id!,
         firma_id: firma.id,
@@ -5716,6 +5732,14 @@ export async function createKifEntry(formData: FormData) {
         total_gross: true
       }
     });
+    if(assetId) {
+      const change=await tx.osPromjena.create({data:{...assetScope,sredstvo_id:assetId,datum:invoiceDate,vrsta:"SALE",status:"DRAFT",razlog:`Priprema prodaje ${customerInvoiceNumber}`,snapshot:{kif_entry_id:entry.id,sale_price_cents:String(baseTotalCents)},created_by:user.id,updated_by:user.id}});
+      await auditLogInTransaction(tx,{korisnikId:user.id,agencijaId:user.agencija_id!,firmaId:firma.id,modul:"osnovna_sredstva",akcija:"prepare_sale",tipEntiteta:"OsPromjena",entitetId:change.id,novaVrijednost:{change,kif_entry_id:entry.id}});
+    }
+    return entry;
+  }).catch(error=>{
+    if(assetId)redirect(`/agencija/osnovna-sredstva/${assetId}/prodaja?greska=${encodeURIComponent(error instanceof Error && error.name==="Error"?error.message:"Podaci su izmijenjeni. Osvježite stranicu.")}`);
+    throw error;
   });
 
   if (!createdEntry) {
@@ -5736,6 +5760,7 @@ export async function createKifEntry(formData: FormData) {
   revalidatePath("/agencija/racuni/kif");
   revalidatePath("/agencija/racuni/pregled-kif");
   revalidatePath(`/agencija/racuni/kif/${kifBook.id}`);
+  if(assetId) redirect(`/agencija/osnovna-sredstva/${assetId}/prodaja`);
   redirectKifEntry(kifBook.id, "kif_sacuvan");
 }
 

@@ -292,6 +292,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
   "osnovna-sredstva": [
     { href: "/agencija/osnovna-sredstva", label: "Registar" },
     { href: "/agencija/osnovna-sredstva/obracuni", label: "Obračuni" },
+    { href: "/agencija/osnovna-sredstva/poreska-amortizacija", label: "Poreska amortizacija" },
     { href: "/agencija/osnovna-sredstva/podesavanja", label: "Podešavanja", roles: adminOnly }
   ],
   izvodi: [

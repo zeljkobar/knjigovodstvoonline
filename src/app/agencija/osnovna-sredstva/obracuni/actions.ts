@@ -7,13 +7,14 @@ import { requirePermissionForUser } from "@/lib/permissions";
 import { readWorkContext } from "@/lib/work-context";
 import { prisma } from "@/lib/prisma";
 import { auditLogInTransaction } from "@/lib/audit";
+import { accountOverrideTypes } from "@/lib/account-plan";
 import { fixedAssetContextMatches, parseFixedAssetDate, fixedAssetCentsToDecimal } from "@/lib/fixed-assets";
 import { assetDate, assetDay, buildAssetBatch, type AssetBatchSnapshot, type AssetBatchScope } from "@/lib/fixed-assets-batches";
 import { formatJournalCode } from "@/lib/journals";
 const base = "/agencija/osnovna-sredstva/obracuni";
 const value = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
-async function batchContext(form: FormData, action: "create" | "update" | "post") {
+async function batchContext(form: FormData, action: "create" | "update" | "post" | "delete") {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const context = await readWorkContext();
   if (!user.agencija_id || !context.firmaId || !context.poslovnaGodinaId || !fixedAssetContextMatches(form, context)) redirect(`${base}?greska=${encodeURIComponent("Firma ili godina je promijenjena. Ponovo otvorite stranicu.")}`);
@@ -44,6 +45,42 @@ function failed(error: unknown, id = ""): never {
   redirect(`${base}${id ? `/${encodeURIComponent(id)}` : ""}?greska=${encodeURIComponent(message)}`);
 }
 
+async function resolveDepreciationAccount(
+  tx: Prisma.TransactionClient,
+  firmaId: string,
+  accountCode: string
+) {
+  if (!accountCode) return null;
+  const companyAccount = await tx.firmaKonto.findUnique({
+    where: { firma_id_sifra: { firma_id: firmaId, sifra: accountCode } }
+  });
+  if (companyAccount) {
+    return companyAccount.aktivan &&
+      companyAccount.override_type !== accountOverrideTypes.deactivated &&
+      companyAccount.tip_konta === "analiticko"
+      ? companyAccount.id
+      : null;
+  }
+  const baseAccount = await tx.konto.findUnique({ where: { sifra: accountCode } });
+  if (!baseAccount?.aktivan || baseAccount.tip_konta !== "analiticko") return null;
+  const linked = await tx.firmaKonto.create({
+    data: {
+      firma_id: firmaId,
+      konto_id: baseAccount.id,
+      sifra: baseAccount.sifra,
+      naziv: baseAccount.naziv,
+      tip_konta: baseAccount.tip_konta,
+      analitika_obavezna: baseAccount.analitika_obavezna,
+      sinteticki_konto: baseAccount.sinteticki_konto,
+      normalni_saldo: baseAccount.normalni_saldo,
+      koristi_radnu_jedinicu: baseAccount.koristi_radnu_jedinicu,
+      override_type: accountOverrideTypes.baseLink,
+      aktivan: true
+    }
+  });
+  return linked.id;
+}
+
 export async function calculateDepreciation(form: FormData) {
   const id = value(form, "obracun_id");
   const { user, scope } = await batchContext(form, id ? "update" : "create");
@@ -62,7 +99,14 @@ export async function calculateDepreciation(form: FormData) {
         if (existing) return existing.id;
       }
       await openPeriods(tx, scope, from, to);
-      const { snapshot, hash } = await buildAssetBatch(tx, scope, from, to, value(form, "konto_troska_id") || null, value(form, "konto_ispravke_id") || null);
+      const debitCode = value(form, "konto_troska_sifra");
+      const creditCode = value(form, "konto_ispravke_sifra");
+      const debitOverride = await resolveDepreciationAccount(tx, scope.firma_id, debitCode);
+      const creditOverride = await resolveDepreciationAccount(tx, scope.firma_id, creditCode);
+      if ((debitCode && !debitOverride) || (creditCode && !creditOverride)) {
+        throw new Error("Izabrano konto ne postoji, deaktivirano je ili nije analitičko.");
+      }
+      const { snapshot, hash } = await buildAssetBatch(tx, scope, from, to, debitOverride, creditOverride);
       const data = { ulazni_hash: hash, snapshot: snapshot as unknown as Prisma.InputJsonValue, ukupna_amortizacija: fixedAssetCentsToDecimal(snapshot.totalCents), updated_by: user.id };
       const batch = old ? await tx.osObracun.update({ where: { id: old.id }, data: { ...data, revizija: { increment: 1 } } }) : await tx.osObracun.create({ data: { ...scope, ...data, period_od: from, period_do: to, created_by: user.id } });
       if (old) await tx.osObracunStavka.deleteMany({ where: { obracun_id: old.id, ...scope } });
@@ -126,4 +170,147 @@ export async function postDepreciation(form: FormData) {
   } catch (e) { failed(e, id); }
   revalidatePath("/agencija", "layout");
   redirect(`${base}/${id}`);
+}
+
+export async function reopenDepreciation(form: FormData) {
+  const id = value(form, "obracun_id");
+  const reason = value(form, "razlog_vracanja");
+  const { user, scope } = await batchContext(form, "post");
+  if (value(form, "potvrda_vracanja") !== "DA" || reason.length < 3) {
+    failed(new Error("Potvrdite vraćanje i unesite razlog od najmanje 3 znaka."), id);
+  }
+  try {
+    await transaction(async tx => {
+      await lockedYear(tx, scope);
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM os_obracuni WHERE id=${id}::uuid FOR UPDATE`);
+      const batch = await tx.osObracun.findFirst({
+        where: { id, ...scope },
+        include: {
+          nalog: {
+            include: {
+              stavke: { orderBy: { redni_broj: "asc" } }
+            }
+          },
+          pokrica: { where: { aktivno: true } },
+          stavke: { select: { sredstvo_id: true } }
+        }
+      });
+      if (!batch) throw new Error("Obračun nije pronađen.");
+      if (String(batch.revizija) !== value(form, "revizija")) throw new Error("Obračun je izmijenjen. Osvježite stranicu prije vraćanja ili brisanja.");
+      if (batch.status !== "POSTED") throw new Error("Samo proknjižen obračun može biti vraćen u nacrt.");
+      if (batch.nalog && (batch.nalog.status !== "POSTED" || batch.nalog.source_type !== "DEPRECIATION" || batch.nalog.source_module !== "OSNOVNA_SREDSTVA" || batch.nalog.izvorni_dokument_id !== batch.id)) {
+        throw new Error("Povezani nalog amortizacije nije ispravan.");
+      }
+      if (!batch.nalog && (Number(batch.ukupna_amortizacija) !== 0 || batch.bez_naloga_razlog !== "ZERO_AMOUNT")) {
+        throw new Error("Proknjiženi obračun nema ispravan povezani nalog.");
+      }
+      await openPeriods(tx, scope, batch.period_od, batch.period_do);
+      if (batch.pokrica.length === 0) throw new Error("Obračun nema aktivno pokriće za vraćanje u nacrt.");
+      const laterCoverage = await tx.osObracunPokrice.findFirst({
+        where: {
+          agencija_id: scope.agencija_id,
+          firma_id: scope.firma_id,
+          aktivno: true,
+          obracun_id: { not: batch.id },
+          OR: batch.pokrica.map(coverage => ({
+            sredstvo_id: coverage.sredstvo_id,
+            period_do: { gt: coverage.period_do }
+          }))
+        },
+        select: { id: true }
+      });
+      if (laterCoverage) throw new Error("Postoji kasniji proknjiženi obračun. Prvo vratite posljednji obračun u nacrt.");
+      const assetIds = [...new Set([
+        ...batch.stavke.map(line => line.sredstvo_id),
+        ...batch.pokrica.map(coverage => coverage.sredstvo_id)
+      ])];
+      const laterSale = await tx.osPromjena.findFirst({
+        where: {
+          agencija_id: scope.agencija_id,
+          firma_id: scope.firma_id,
+          sredstvo_id: { in: assetIds },
+          vrsta: "SALE",
+          status: "CONFIRMED",
+          is_deleted: false,
+          datum: { gt: batch.period_do }
+        },
+        select: { id: true }
+      });
+      if (laterSale) throw new Error("Sredstvo iz obračuna ima potvrđenu kasniju prodaju. Prvo poništite prodaju.");
+
+      const draft = await tx.osObracun.update({
+        where: { id: batch.id },
+        data: {
+          status: "DRAFT",
+          revizija: { increment: 1 },
+          nalog_id: null,
+          bez_naloga_razlog: null,
+          proknjizen_at: null,
+          proknjizen_by: null,
+          updated_by: user.id
+        }
+      });
+      await tx.osObracunPokrice.deleteMany({ where: { obracun_id: batch.id, ...scope } });
+      if (batch.nalog) {
+        await tx.stavkaNaloga.deleteMany({ where: { nalog_id: batch.nalog.id } });
+        await tx.nalog.delete({ where: { id: batch.nalog.id } });
+      }
+      await auditLogInTransaction(tx, {
+        korisnikId: user.id,
+        agencijaId: scope.agencija_id,
+        firmaId: scope.firma_id,
+        modul: "osnovna_sredstva",
+        akcija: "reopen_depreciation",
+        tipEntiteta: "OsObracun",
+        entitetId: batch.id,
+        staraVrijednost: {
+          status: batch.status,
+          nalog: batch.nalog,
+          pokrica: batch.pokrica
+        },
+        novaVrijednost: { status: draft.status, revizija: draft.revizija, razlog: reason }
+      });
+    });
+  } catch (error) { failed(error, id); }
+  revalidatePath("/agencija", "layout");
+  redirect(`${base}/${id}`);
+}
+
+export async function deleteDepreciationDraft(form: FormData) {
+  const id = value(form, "obracun_id");
+  const reason = value(form, "razlog_brisanja");
+  const { user, scope } = await batchContext(form, "delete");
+  if (value(form, "potvrda_brisanja") !== "DA" || reason.length < 3) {
+    failed(new Error("Potvrdite brisanje i unesite razlog od najmanje 3 znaka."), id);
+  }
+  try {
+    await transaction(async tx => {
+      await lockedYear(tx, scope);
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM os_obracuni WHERE id=${id}::uuid FOR UPDATE`);
+      const batch = await tx.osObracun.findFirst({
+        where: { id, ...scope },
+        include: { stavke: true, pokrica: true }
+      });
+      if (!batch) throw new Error("Obračun nije pronađen.");
+      if (String(batch.revizija) !== value(form, "revizija")) throw new Error("Obračun je izmijenjen. Osvježite stranicu prije vraćanja ili brisanja.");
+      if (batch.status !== "DRAFT" || batch.nalog_id || batch.pokrica.length > 0) {
+        throw new Error("Samo nacrt bez povezanog naloga i pokrića može biti izbrisan.");
+      }
+      await openPeriods(tx, scope, batch.period_od, batch.period_do);
+      await auditLogInTransaction(tx, {
+        korisnikId: user.id,
+        agencijaId: scope.agencija_id,
+        firmaId: scope.firma_id,
+        modul: "osnovna_sredstva",
+        akcija: "delete_depreciation_draft",
+        tipEntiteta: "OsObracun",
+        entitetId: batch.id,
+        staraVrijednost: { ...batch, razlog: reason }
+      });
+      await tx.osObracunStavka.deleteMany({ where: { obracun_id: batch.id, ...scope } });
+      await tx.osObracun.delete({ where: { id: batch.id } });
+    });
+  } catch (error) { failed(error, id); }
+  revalidatePath("/agencija", "layout");
+  redirect(base);
 }

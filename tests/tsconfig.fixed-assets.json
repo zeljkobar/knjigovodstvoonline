@@ -15,6 +15,7 @@
     "fixed-assets.test.ts",
     "fixed-assets-calculation.test.ts",
     "../src/lib/fixed-assets.ts",
-    "../src/lib/fixed-assets-calculation.ts"
+    "../src/lib/fixed-assets-calculation.ts",
+    "fixed-assets-tax.test.ts"
   ]
 }

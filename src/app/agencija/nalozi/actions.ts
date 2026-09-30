@@ -838,9 +838,14 @@ export async function reopenJournal(formData: FormData) {
     redirectJournalDetail(nalog.id, "godina_zakljucena");
   }
 
-  const draftJournal = await prisma.nalog.update({
+  if(await prisma.osPromjena.findFirst({where:{izvorni_nalog_id:nalog.id,status:"CONFIRMED",is_deleted:false}})) redirectJournalDetail(nalog.id,"nalog_greska");
+  const draftJournal = await prisma.$transaction(async tx=>{
+    await tx.$queryRaw(Prisma.sql`SELECT id FROM nalozi WHERE id=${nalog.id}::uuid FOR UPDATE`);
+    if(await tx.osPromjena.findFirst({where:{izvorni_nalog_id:nalog.id,status:"CONFIRMED",is_deleted:false}}))throw new Error("Nalog je izvor potvrđene promjene osnovnog sredstva.");
+    return tx.nalog.update({
     where: {
-      id: nalog.id
+      id: nalog.id,
+      osPromjene:{none:{status:"CONFIRMED",is_deleted:false}}
     },
     data: {
       status: journalStatuses.draft,
@@ -853,6 +858,7 @@ export async function reopenJournal(formData: FormData) {
       firma_id: true,
       status: true
     }
+  });
   });
 
   await auditLog({

@@ -2,15 +2,16 @@
 
 Datum: 28.09.2026. Verzija: 1.4.
 Status: proširena faza B implementira sve tri metode, izbor stope i učinak.
-Faza C sada ima sačuvane nacrte, revizije, knjiženje i zaštitu perioda;
-namjenski storno i faze D–E ostaju plan. Interaktivna provjera čeka prijavu.
+Faza C sada ima sačuvane nacrte, revizije, knjiženje, zaštitu perioda i
+kontrolisano vraćanje posljednjeg obračuna u nacrt. Faze D–E ostaju plan.
+Interaktivna provjera čeka prijavu.
 
 Tok: lista obračuna → „Obračunaj amortizaciju” → sačuvani nacrt → „Proknjiži”.
 Početni datumi su početak/kraj aktivne godine; datum Do je uključiv. Isti period
 otvara postojeći dokument; „Ponovo obračunaj nacrt” ažurira snapshot i reviziju.
 Pokrića u ovoj implementaciji koriste inkluzivne datumske intervale i SQL
 exclusion umjesto mjesečnog unique indeksa, radi podrške nepotpunom mjesecu.
-Statusi ove isporuke su DRAFT/POSTED; proširenje REVERSED čeka storno tok.
+Statusi ove isporuke ostaju DRAFT/POSTED; ispravka vraća POSTED u DRAFT.
 
 Implementaciona odluka za ovu isporuku: mjesečna raspodjela sa srazmjerom po
 stvarnim danima nepotpunog mjeseca i degresivni prelaz na linearni završetak.
@@ -448,7 +449,8 @@ Zemljište je EXEMPT; nematerijalna imovina i pravo korišćenja ACCOUNTING_AMOU
 Materijalna/ostala imovina bira grupu, izuzeće ili eksplicitni UNSUPPORTED
 za poseban tretman koji zahtijeva dalju provjeru. Klasifikacija se čuva u
 OsParametar, snapshot-u i auditu. Datirane računovodstvene promjene je nasljeđuju.
-Postojeći zapisi ostaju neklasifikovani do zasebne dopune; ovo nije poreski obračun.
+Postojeći zapisi dobijaju godišnju dopunu u poreskoj evidenciji; izvorni
+računovodstveni parametri se time ne mijenjaju.
 
 Kratak sažetak Pravilnika (čl. 2–12): zemljište i umjetnička djela su izuzeta;
 OA je propisani obrazac. Za grupni obračun polazi se od prethodnog salda,
@@ -462,23 +464,42 @@ i verziju pravila. Vratiti običan obračun i zasebne kolone korekcija; ne svodi
 sve na jednu proizvoljno promijenjenu stopu. Knjigovodstvena neto vrijednost
 ne zamjenjuje poresko stanje. UI prikazuje porijeklo svakog povećanja/smanjenja.
 
-Prije finalizacije poreske faze potvrditi i zapisati odluke u ovom dokumentu:
+### Implementaciona pravila i prihvatni primjeri (2026-09-29)
 
-| Otvoreno tumačenje | Šta tačno treba utvrditi | Ponašanje do potvrde |
-|---|---|---|
-| I grupa, djelimična godina | Početak/prestanak, vremenska srazmjera, ulaganje tokom godine | Blokirati finalizaciju pogođenog obračuna |
-| Redoslijed testa krajnjeg salda | Trenutak primjene posebnog otpisa i odnos prema redovnom iznosu | Nacrt sa jasnim upozorenjem |
-| Popravke i test procenta | Osnovica, redoslijed, cijelo ulaganje ili razlika i odnos prema računovodstvu | Zahtijevati dokumentovanu poresku klasifikaciju |
-| Prodaja/rashodovanje | Vrijednost smanjenja, djelimične prodaje, negativna osnovica, uništenje bez prodaje | Blokirati nepokrivenu kombinaciju |
-| OA I grupa | Mapiranje prethodne/tekuće amortizacije i formule službenog obrasca | Ne prepisivati formulu koja duplira prethodni otpis |
-| Posebni tretmani | Potrebna dokumentacija i obim priznavanja za konkretno sredstvo | Samo eksplicitno podržani podtipovi |
-| Nestandardna godina | Kraći period, početak/prestanak rada, prelaz režima | Izvan inicijalnog poreskog obima |
+Verzija `ME_2024_ANNUAL_DAYS_OPENING_REPAIRS_V1`; kalendarske godine od 2025.
+Izvor: [Pravilnik i OA](https://wapi.gov.me/download/806b0f82-416d-4f85-bc04-7ea8780c616a?version=1.0).
 
-Ove tačke ne sprečavaju registar, računovodstvenu fazu i obični poreski preview.
-Finalni OA nije završen dok svi slučajevi prisutni u firmi nemaju potvrđeno
-pravilo i prihvatni primjer. Ne dodavati korisnički checkbox kojim se nepoznato
-pravilo proglašava ispravnim. Ručna korekcija zahtijeva izvor, razlog i audit;
-čuva se odvojeno od automatski izračunate vrijednosti.
+- Korisnik je potvrdio vremensku srazmjeru prema stopi i test popravki na
+  **početni saldo**. Operativna konvencija I grupe: stvarni dani/365 ili 366,
+  datum stavljanja u upotrebu uključen, datum prodaje isključen; ponderi svih
+  povećanja sabiraju se prije jednog zaokruživanja. To je projektna odluka,
+  ne tvrdnja da pravilnik izričito određuje dnevnu konvenciju.
+- I grupa čuva poresku nabavnu osnovicu prije otpisa i raniju poresku
+  amortizaciju. Primjer 100.000 / ranije 20.000 daje 2.500 tekuće i 77.500
+  završno. Prethodni otpis se nikad ne oduzima dvaput.
+- II–V: početni poreski saldo + nabavke + kapitalizovane popravke − prodaje.
+  Test popravki je strogo >5% početnog salda; kapitalizuje se cijeli iznos,
+  ne samo višak. Kod I grupe test je na nabavnu osnovicu prema članu 5.
+  Početni saldo 10.000 i popravke 500 ostaju rashod; 500,01 se kapitalizuje.
+- Prag 1.000 testira se nakon redovne amortizacije (član 9); jednakost ne
+  ispunjava uslov. Poseban otpis je zasebno evidentiran i uključen u OA
+  amortizaciju radi zatvaranja salda. Kod prodaje svih sredstava preostali
+  saldo ide u poseban otpis; višak prodaje nad saldom prikazuje se kao prihod.
+- Pojedinačna potpuna prodaja mora odgovarati datumu isknjiženja registra.
+  OA smanjenje je uklonjena neotpisana vrijednost poslije tekućeg otpisa;
+  prodajni iznos je u izvornoj promjeni. Dobitak/gubitak prodaje pojedinačnog
+  sredstva nije dio ovog kalkulatora amortizacije.
+- MRS38/MSFI16: dokumentovani računovodstveni godišnji iznos uz osnovicu,
+  raniji otpis i nabavke; iznos se ne izvodi iz računovodstvenog početnog stanja.
+- Godišnje klasifikacije, početna stanja i promjene su u `OsPoreskaGodina`.
+  Svaki različiti obračun čuva novu `OsPoreskiObracun` reviziju i ulazni hash;
+  identični ulazi otvaraju postojeću. Potvrda je nepromjenljiva, bez GL naloga.
+  Prenos poredi sva prenesena stanja i klasifikacije sa potvrđenom revizijom.
+- Ne dozvoljavati finalizaciju neklasifikovanih, nepokrivenih i nepotpunih
+  slučajeva. Djelimična otuđenja, rashod bez prodaje, prirodna bogatstva,
+  nestandardne godine i kontrolisana zamjena potvrde ostaju van ovog obima.
+- Brisanje firme prvo prekida prenosne veze, zatim briše poreske revizije i
+  godišnje ulaze; nove tabele nemaju podređene tabele bez `firma_id`.
 
 ## 8. Obračun, knjiženje i konkurentnost
 
@@ -527,17 +548,17 @@ Zatvoriti sve zaobilazne puteve u generičkim akcijama naloga: direktno uređiva
 vraćanje, brisanje i ponovno knjiženje izvornog/storno naloga ovog modula.
 Postojeća zaštita `PLATE` u `reopenJournal` nije zaštita za novi modul.
 
-### 8.3. Poništavanje
+### 8.3. Vraćanje u nacrt i brisanje
 
-MVP podržava samo poništavanje posljednjeg zavisnog obračuna u otvorenoj godini,
-bez kasnijeg knjiženog obračuna/promjene/isknjiženja ili zavisne potvrđene OA revizije.
+MVP podržava vraćanje samo posljednjeg zavisnog obračuna u otvorenoj godini,
+bez kasnijeg knjiženog obračuna ili potvrđene prodaje pogođenog sredstva.
 Vraćati zavisnosti obrnutim redoslijedom; ne mijenjati zaključanu istoriju.
 
-Kreirati poseban `POSTED` kontra nalog tačnom zamjenom D/P originalnih stavki,
-sa originalnim kontima i dimenzijama. Original ostaje `POSTED`; zajedno se
-poništavaju u glavnoj knjizi. Izvorni obračun označiti `REVERSED` i osloboditi
-pokrića u istoj transakciji. Ponovni storno odbiti. Novi obračun je nova revizija.
-Za nulti batch nema kontra naloga. Razlog poništavanja obavezan.
+U istoj serijalizovanoj transakciji obračun vratiti iz `POSTED` u `DRAFT`,
+fizički izbrisati njegov automatski `DEPRECIATION` nalog i stavke te ukloniti
+pokrića perioda. Nulti batch nema nalog, ali mu se pokrića uklanjaju. Nacrt se
+zatim može ponovo obračunati i knjižiti ili fizički izbrisati zajedno sa svojim
+stavkama. Razlog i potvrda su obavezni; audit čuva prethodno stanje.
 Napredne ispravke zatvorenih prethodnih godina nijesu dio ovog MVP postupka.
 
 ### 8.4. Audit u istoj transakciji
@@ -569,6 +590,23 @@ a ne razlog da novi modul preskoči kontrolu. Sam obračun ne stvara PDV promet.
 Izmjena trenutnog naziva/lokacije ne smije promijeniti arhivsku štampu.
 
 ## 10. Nabavke, ulaganja, prodaja i rashodovanje
+
+Implementirano 2026-09-30: kartica nudi potvrdu nabavke uz postojeći knjiženi
+nalog i konto. Kontroliše se ukupna alokacija nabavne vrijednosti po nalogu/kontu.
+Poseban ekran prodaje bira sredstvo iz registra, bez šifarnika artikala.
+Priprema pravi povezani KIF dokument i nacrt prodaje; nakon knjiženja KIF-a
+potvrda pravi samo nalog isknjiženja (bez dupliranja prihoda/PDV-a), mijenja
+status sredstva i čuva prodajni iznos bez PDV-a u snapshot-u promjene.
+Amortizacija mora biti proknjižena do dana prije prodaje; naknadna pokrića
+blokiraju prodaju. U početnom obimu koriste se konta bez obaveznih dimenzija;
+već knjiženo isknjiženje zahtijeva poseban tok povezivanja.
+
+Poreski događaji ACQUISITION/SALE izvode se iz potvrđenih promjena i važećih
+POSTED izvora svaki put pri otvaranju/obračunu. OPENING se nikad ne kopira.
+Ključ `os:<promjena_id>` obezbjeđuje idempotentnost. Automatske stavke su
+read-only; ručni identičan unos se eksplicitno odbija zbog mogućeg dupliranja.
+Ručne dopune/popravke ostaju odvojene. Promjene izvora ulaze u ulazni hash.
+
 
 Nabavka/ulaganje u MVP dolaze iz već knjiženog dokumenta ili ručno unesenog
 dokaza uz vezu na `POSTED` nalog. Potvrda povećanja zahtijeva provjeru iznosa,
@@ -604,13 +642,14 @@ Modul prava: `osnovna_sredstva`. Akcije iz postojeće matrice:
 |---|---|
 | `view` | Registar, kartica, obračuni |
 | `create` / `update` | Unos i izmjena dozvoljenih nacrta, priprema obračuna |
-| `delete` | Soft delete nekorišćenog nacrta |
-| `post` | Potvrda promjene, knjiženje amortizacije, potvrda OA |
+| `delete` | Trajno brisanje nekorišćenog nacrta obračuna; soft delete ostalih podržanih zapisa |
+| `post` | Potvrda promjene, knjiženje i vraćanje amortizacije, potvrda OA |
 | `cancel` | Poništavanje/storno, zamjena potvrđene poreske revizije |
 | `export` | Štampa i izvoz uz `view` |
 | `manage` | Podešavanja, dodatno obavezna uloga admina agencije |
 
-Knjiženje traži i `nalozi:post`; kreiranje kontra naloga i `nalozi:cancel`.
+Generičke akcije naloga ne upravljaju AM nalogom; knjiženje i vraćanje idu kroz
+OS `post`, a fizičko brisanje nacrta kroz OS `delete` pravo.
 Otvaranje izvornog KUF/KIF/naloga zahtijeva i pravo tog modula.
 Klijentski read-only pristup ostaviti za zaseban odobreni prikaz, bez mutacija.
 Radnicima ne dodjeljivati nova prava automatski migracijom.
@@ -768,7 +807,7 @@ ne uzimati izlaz sopstvenog kalkulatora kao očekivanu vrijednost testa.
 4. Dva istovremena knjiženja: jedan rezultat, jedan nalog i jedno pokriće.
 5. Retry nakon prekida odgovora vraća isti nalog; izmjena ulaza odbija stari preview.
 6. Greška na auditu/stavci vraća cijelu transakciju; nema polovičnog naloga.
-7. DRAFT ne utiče na GL; POSTED utiče; original plus kontra nalog daju nulu.
+7. DRAFT ne utiče na GL; POSTED utiče; vraćanje fizički uklanja generisani AM nalog.
 8. Generičke akcije naloga ne mogu promijeniti stanje mimo modula.
 9. Kasnija zavisnost blokira poništavanje; nakon razrješenja radi nova revizija.
 10. Poreska potvrda ne pravi GL promet; promjena prethodne godine kontroliše zavisnosti.
@@ -801,8 +840,8 @@ linearna faza B ostaje kompatibilna; proširenje je implementirano i pokriveno s
 
 ### Faza C — knjiženje i ispravke
 
-POSTED nalog, pokrića, idempotentnost, kontra nalog, zaštita generičkih akcija,
-GL usaglašavanje. Gotovo tek poslije konkurentnih i rollback testova.
+POSTED nalog, pokrića, idempotentnost, vraćanje u nacrt, brisanje nacrta,
+zaštita generičkih akcija i GL usaglašavanje. Pokriveno DB rollback testom.
 
 ### Faza D — događaji i poreski obračun
 
@@ -826,6 +865,16 @@ CSV planer i regenerisati Excel prema AGENTS.md. Commit samo uz korisnikovu potv
 
 ## 16. Naredna implementacija
 
-Faza C nastavak: namjenski storno i kontra nalog. Sačuvati
-tri metode i postojeće kontrole. Interaktivnu provjeru forme dovršiti poslije
-ponovne prijave; serverski render i DB regresija su provjereni.
+Faza C: vraćanje posljednjeg obračuna u nacrt i brisanje nacrta su završeni bez
+kontra-naloga. Interaktivnu provjeru forme dovršiti poslije ponovne prijave;
+serverski render i DB regresija su provjereni.
+
+### Dopuna 2026-09-30 — ispravke i poništavanje prenosa
+
+Vraćanje i brisanje računovodstvenog obračuna zahtijevaju trenutnu reviziju.
+Poništavanje poreskog prenosa radi se u odredišnoj godini: prvo ukloniti sve
+njene revizije obračuna. Akcija zahtijeva delete pravo, otvorenu godinu/PDV,
+ID i verziju godišnjih ulaza, razlog i izričitu potvrdu. Kasnija potvrđena godina
+blokira akciju. Brišu se godišnji ulazi i ručne promjene uz potpuni audit u istoj
+transakciji; izvorni obračun i izvorni dokumenti nabavke/prodaje ostaju.
+Nakon ispravke i potvrde prethodne godine ponoviti prenos i unijeti ručne promjene.

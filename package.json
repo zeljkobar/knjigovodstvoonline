@@ -14,6 +14,8 @@
     "test:inventory-write-off": "tsc -p tests/tsconfig.inventory-write-off.json && node --test .test-build/tests/inventory-write-off.test.js",
     "test:inventory-price-adjustment": "tsc -p tests/tsconfig.inventory-price-adjustment.json && node --test .test-build/tests/inventory-price-adjustment.test.js",
     "test:internal-navigation": "tsc -p tests/tsconfig.internal-navigation.json && node --test .test-build/tests/internal-navigation.test.js",
+    "test:fixed-assets-tax": "tsc -p tests/tsconfig.fixed-assets.json && node --test .test-build/tests/fixed-assets-tax.test.js",
+    "test:fixed-assets-tax-db": "node scripts/check-fixed-assets-tax.cjs",
     "test:fixed-assets-db": "node scripts/check-fixed-assets.cjs",
     "test:fixed-assets": "tsc -p tests/tsconfig.fixed-assets.json && node --test .test-build/tests/fixed-assets.test.js .test-build/tests/fixed-assets-calculation.test.js",
     "test:bank-statements": "tsc -p tests/tsconfig.bank-statement-rules.json && node --test .test-build/tests/bank-statement-rules.test.js",

@@ -340,6 +340,10 @@ export async function purgeCompanyData(
 
   // Evidencija osnovnih sredstava referencira naloge, konta, partnere i
   // poslovne jedinice, pa se briše prije svih tih zajedničkih šifarnika.
+  // Prekini prenos prije brisanja poreskih revizija i godišnjih ulaza.
+  await tx.$executeRaw(Prisma.sql`UPDATE os_poreske_godine SET prethodni_obracun_id=NULL WHERE firma_id=${firmaId}::uuid`);
+  await izvrsi("os_poreski_obracuni", Prisma.sql`DELETE FROM os_poreski_obracuni WHERE firma_id=${firmaId}::uuid`);
+  await izvrsi("os_poreske_godine", Prisma.sql`DELETE FROM os_poreske_godine WHERE firma_id=${firmaId}::uuid`);
   await izvrsi("os_obracun_pokrice", Prisma.sql`DELETE FROM os_obracun_pokrice WHERE firma_id = ${firmaId}::uuid`);
   await izvrsi("os_obracun_stavke", Prisma.sql`DELETE FROM os_obracun_stavke WHERE firma_id = ${firmaId}::uuid`);
   await izvrsi("os_obracuni", Prisma.sql`DELETE FROM os_obracuni WHERE firma_id = ${firmaId}::uuid`);

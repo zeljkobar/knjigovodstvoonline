@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-09-28. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-09-30. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -8,12 +8,73 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Automatske poreske promjene i posebna prodaja — 2026-09-30
+
+- Potvrđene ACQUISITION/SALE promjene sa važećim POSTED izvorom preuzimaju
+  se automatski pri prikazu i obračunu; OPENING i nacrti nijesu nove nabavke.
+  Stabilan ključ promjene sprečava dupliranje; ručna identična kopija traži
+  usklađenje. Promjena/poništenje izvora mijenja hash i blokira staru potvrdu.
+- Kartica sredstva u pripremi ima potvrdu nabavke: izvorni POSTED nalog,
+  konto nabavne vrijednosti i kontrola raspoloživog iznosa/alokacija.
+- Kartica aktivnog sredstva ima „Prodaj sredstvo”: poseban ekran bira kupca,
+  broj/datum, iznose/PDV i KIF knjigu; nema artikala niti robnog lagera.
+  Priprema pravi povezan KIF i nacrt SALE; poslije knjiženja KIF naloga
+  potvrda prodaje pravi zaseban nalog isknjiženja i automatsku poresku prodaju.
+- Potvrda traži proknjiženu amortizaciju do dana prije prodaje; budući obračuni
+  blokiraju prodaju. Cijena bez PDV-a uzima se iz KIF-a, ne iz nabavne vrijednosti.
+  Izvorni nalog potvrđene OS promjene ne može se generički vratiti u nacrt.
+- TSC, ciljani lint i DB regresija prolaze (aktiviranje, povezani KIF, prodaja,
+  saldo isknjiženja, poreske promjene, scope, potvrda i purge uz rollback).
+  Nema nove migracije. Poseban tok podržava cjelovitu prodaju sa kontima bez
+  obaveznih analitičkih dimenzija; postojeće isknjiženje u izvornom nalogu
+  zahtijeva zasebno povezivanje. Štampa prodaje je zasebna čista stranica.
+
+## Zaštita ispravki obračuna — 2026-09-30
+
+- Vraćanje i brisanje računovodstvenog obračuna provjeravaju reviziju iz forme;
+  zastarjeli tab ne može ukloniti noviju verziju.
+- Poreski prenos može se poništiti u odredišnoj otvorenoj godini uz delete pravo,
+  razlog, potvrdu, provjeru ID-a/verzije i audit. Prvo se uklanjaju sve njene
+  revizije obračuna; potvrđene kasnije godine i zaključani periodi blokiraju tok.
+  Brišu se godišnji ulazi uključujući ručne promjene; izvorni obračun ostaje.
+  Poslije korekcije prethodne godine moguće je ponoviti prenos.
+- TypeScript i obje ciljane DB regresije prolaze uz rollback. Nema migracije.
+
+## Poreska amortizacija — 2026-09-29
+
+- Nova kartica „Poreska amortizacija”: eksplicitna početna poreska stanja II–V,
+  pojedinačne osnovice i prethodni otpis I grupe/posebnih tretmana, godišnja
+  klasifikacija postojećih sredstava i dokumentovane nabavke/prodaje/popravke.
+- I grupa: 2,5% na poresku nabavnu osnovicu, dnevna srazmjera (datum prodaje
+  isključen), ograničenje preostalom vrijednošću. II–V: 10/15/20/30% na saldo.
+  Po dogovoru korisnika test 5% za grupe II–V koristi početni poreski saldo;
+  iznad praga kapitalizuje se cijeli iznos. I grupa koristi nabavnu osnovicu.
+- Poseban otpis salda ispod 1.000 EUR testira se poslije redovne amortizacije;
+  prodaja svih sredstava i prihod od viška prodaje su posebno prikazani.
+- Godišnji ulazi odvojeni od računovodstva; revizije obračuna su nepromjenljive.
+  Potvrda provjerava hash i zaključavanja, ne pravi GL nalog, zaključava ulaze.
+  Prenos je samo iz potvrđene prethodne godine, uz kontrolu istovjetnosti salda.
+- Potvrđeni obračun otvorene godine može se vratiti u DRAFT uz razlog, potvrdu,
+  pravo i audit. Kasniji potvrđeni obračun ili već izvršen prenos blokiraju tok;
+  DRAFT revizija može se trajno izbrisati. Vraćanje uklanja poresku blokadu
+  pripreme KIF-a i potvrde prodaje sredstva, bez GL ili kontra-naloga.
+- OA pregled/čista HTML štampa ima I, II–V i MRS38/MSFI16 sekcije, nacrt oznaku,
+  izvore i prilog korekcija. Posebni tretmani traže dokumentovan godišnji
+  računovodstveni iznos; to nije automatsko preuzimanje knjiženog obračuna.
+- Migracija `20260929100000_os_poreska_amortizacija` primijenjena lokalno;
+  server restartovan. Purge pokriva 72 tabele. TSC/fokusirani lint i 9 testova
+  kalkulatora prolaze; DB test provjerava prava, scope, verzije/hash, audit
+  rollback, zaključanu godinu/PDV, prenos, odsustvo GL naloga i stvarni purge.
+- Podržane su kalendarske godine od 2025. Djelimične prodaje pojedinačnih
+  sredstava, rashod bez prodaje i prirodna bogatstva zahtijevaju zaseban tok.
+  Nepokriveni slučajevi blokiraju potvrdu.
+
 ## Osnovna sredstva — proširena faza B, 2026-09-28
 
 - 2026-09-29: unos sredstva ima obaveznu poresku klasifikaciju, stope I–V,
   pomoć sa spiskom iz člana 4 i posebne tretmane. Čuva se u postojećim
   parametrima, snapshot-u i auditu; kartica prikazuje grupu i stopu.
-  Računovodstveni obračun ostaje odvojen; poreski kalkulator/OA još nije implementiran.
+  Računovodstveni obračun ostaje odvojen. Poreski kalkulator/OA je dodat u nastavku.
 
 - Faze A i B: registar, kategorije, datirane kartice, početna stanja bez novog
   GL naloga i preview linearne, degresivne i funkcionalne amortizacije.
@@ -43,13 +104,20 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - Knjiženje provjerava hash ulaza, konta/dimenzije, kontinuitet i preklapanja;
   pravi POSTED nalog AM i pokriće po datumskom intervalu. Nulti obračun se
   potvrđuje bez praznog naloga. SQL exclusion sprečava preklop i unutar mjeseca.
+- Posljednji zavisni proknjiženi obračun u otvorenoj godini može se vratiti u
+  nacrt: povezani automatski AM nalog, njegove stavke i pokrića fizički se brišu
+  u jednoj auditiranoj transakciji. Kasniji obračun ili potvrđena prodaja
+  blokiraju tok. Nacrt se zatim može ponovo računati/knjižiti ili trajno izbrisati.
 - Konta se preuzimaju iz parametara ili biraju za cijeli nacrt. Nalog je zaštićen
   od generičkog uređivanja/vraćanja/brisanja; proknjiženi učinak/parametri se
   ne mijenjaju retroaktivno. Registar i kartica sabiraju proknjiženu amortizaciju.
+- Izbor konta prikazuje sva aktivna analitička konta dostupna firmi: globalni
+  kontni plan spojen sa firminim override kontima. Globalni izbor se pri upisu
+  materijalizuje kao `BASE_LINK`, pa UI i backend koriste isti skup konta.
 - Migracija `20260928150000_os_obracuni` lokalno primijenjena; purge pokriva
   70 tabela i testiran je na firmi sa proknjiženim obračunima. DB regresija
   provjerava djelimični mjesec, duplikat, hash, rollback, nalog i zaštite.
-  TypeScript i fokusirani lint prolaze. Preostaje namjenski storno obračuna.
+  TypeScript, fokusirani lint i DB regresija prolaze.
 
 ## Uvoz izvoda iz maila — 2026-09-27
 

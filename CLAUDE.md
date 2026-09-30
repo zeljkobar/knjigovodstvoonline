@@ -13,7 +13,7 @@ Takođe prati:
   (vidi [`zadaci/planer/README.md`](zadaci/planer/README.md))
 
 Sva pravila iz `AGENTS.md` su obavezna (izolacija agencija, provjera prava na
-backendu, soft delete sa dokumentovanim izuzecima za neproknjižene nacrte,
+backendu, soft delete sa dokumentovanim izuzecima iz `AGENTS.md`,
 audit, KIF/KUF kao osnova PDV-a, ručne migracije +
 `npx prisma migrate deploy` + `generate` + restart dev, računanje novca u
 centima uz `Decimal(14, 2)` zapis u bazi, async

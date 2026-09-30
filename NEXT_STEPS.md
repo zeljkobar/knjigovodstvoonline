@@ -4,13 +4,18 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
-- **Poreska amortizacija:** izbor grupe pri unosu je završen. Preostaju poreska
-  početna stanja, događaji, obračun i OA; postojeća neklasifikovana sredstva
-  zahtijevaju zaseban tok dopune klasifikacije.
-- **Osnovna sredstva, nastavak faze C:** implementirati namjenski storno
-  posljednjeg zavisnog obračuna, kontra nalog i oslobađanje pokrića. Čuvanje
-  nacrta, revizije, lista/detalj, hash, knjiženje i zaštita preklopa su završeni.
-  Za produkciju primijeniti nove OS migracije; završiti interaktivnu UI provjeru.
+- **Poreska amortizacija:** godišnja stanja, klasifikacija postojećih sredstava,
+  promjene, obračun/revizije, potvrda, kontrolisano vraćanje u nacrt i brisanje, poništavanje prenosa,
+  prenos i OA štampa su implementirani. Slijede djelimična otuđenja i
+  rashodovanje bez prodaje. Automatsko preuzimanje potvrđenih nabavki/prodaja
+  i poseban ekran prodaje su implementirani; preostaju ulaganja i povezivanje
+  već postojećeg isknjiženja / obaveznih analitičkih dimenzija.
+  Na produkciji primijeniti `20260929100000_os_poreska_amortizacija`.
+- **Osnovna sredstva, nastavak faze C:** vraćanje posljednjeg zavisnog obračuna
+  u nacrt, fizičko uklanjanje njegovog automatskog AM naloga/pokrića i brisanje
+  nacrta su implementirani. Za produkciju primijeniti nove OS migracije i
+  završiti interaktivnu UI provjeru čuvanja, knjiženja, vraćanja, brisanja
+  i poništavanja poreskog prenosa. Zastarjele revizije pri ispravkama su blokirane.
 - Na produkciji primijeniti `20260926140000_firma_mail_podesavanja` i
   `20260927120000_mail_izvod_obrade`, regenerisati Prisma klijent i restartovati
   aplikaciju. Podesiti `IMAP_AGENCY_ID` za odgovarajuću agenciju.

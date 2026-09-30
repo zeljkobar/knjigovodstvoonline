@@ -46,9 +46,9 @@ export async function buildAssetBatch(tx: Prisma.TransactionClient, scope: Asset
     if (first && (first > to || asset.datum_isknjizenja && asset.datum_isknjizenja <= from)) {
       snapshot.excluded.push({ name, reason: "Van perioda korišćenja." }); continue;
     }
-    if (fixedAssetDepreciationEligibility(asset.vrsta_imovine) !== "SUPPORTED" || !asset.datum_raspolozivosti || !first || asset.promjene.some(c => !["OPENING", "ACQUISITION"].includes(c.vrsta))) throw new Error(`${name}: provjerite vrstu imovine, datume i početne podatke.`);
-    const grossCents = asset.promjene.reduce((sum, p) => sum + fixedAssetDecimalToCents(p.delta_nabavna_vrijednost)!, 0);
-    const accumulatedCents = asset.promjene.reduce((sum, p) => sum + fixedAssetDecimalToCents(p.delta_ispravka_vrijednosti)!, 0);
+    if (fixedAssetDepreciationEligibility(asset.vrsta_imovine) !== "SUPPORTED" || !asset.datum_raspolozivosti || !first || asset.promjene.some(c => !["OPENING", "ACQUISITION", "SALE"].includes(c.vrsta))) throw new Error(`${name}: provjerite vrstu imovine, datume i početne podatke.`);
+    const grossCents = asset.promjene.filter(p=>p.vrsta!=="SALE").reduce((sum, p) => sum + fixedAssetDecimalToCents(p.delta_nabavna_vrijednost)!, 0);
+    const accumulatedCents = asset.promjene.filter(p=>p.vrsta!=="SALE").reduce((sum, p) => sum + fixedAssetDecimalToCents(p.delta_ispravka_vrijednosti)!, 0);
     const result = calculateAssetPeriods({ assetId: asset.id, grossCents, accumulatedCents, availableDate: assetDate(asset.datum_raspolozivosti), disposalDate: asset.datum_isknjizenja ? assetDate(asset.datum_isknjizenja) : null, periodFrom: assetDate(from), periodTo: assetDate(to), parameters: asset.parametri.map(parameterInput), usage: asset.ucinci.map(usageInput) });
     if (result.errors.length) {
       const missing = result.errors.some(e => ["MISSING_USAGE", "INVALID_USAGE"].includes(e.code));

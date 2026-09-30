@@ -34,6 +34,8 @@ enum KomitentScope {
 }
 
 model Agencija {
+  osPoreskeGodine OsPoreskaGodina[]
+  osPoreskiObracuni OsPoreskiObracun[]
   osObracuni OsObracun[]
   osObracunStavke OsObracunStavka[]
   osObracunPokrica OsObracunPokrice[]
@@ -147,6 +149,8 @@ model Pozivnica {
 }
 
 model Firma {
+  osPoreskeGodine OsPoreskaGodina[]
+  osPoreskiObracuni OsPoreskiObracun[]
   osObracuni OsObracun[]
   osObracunStavke OsObracunStavka[]
   osObracunPokrica OsObracunPokrice[]
@@ -503,6 +507,8 @@ model AktivnostDogadjaj {
 }
 
 model PoslovnaGodina {
+  osPoreskeGodine OsPoreskaGodina[]
+  osPoreskiObracuni OsPoreskiObracun[]
   osObracuni OsObracun[]
   osObracunStavke OsObracunStavka[]
   osObracunPokrica OsObracunPokrice[]
@@ -3548,4 +3554,50 @@ model OsObracunPokrice {
   @@index([firma_id, sredstvo_id, period_od])
   @@index([obracun_id])
   @@map("os_obracun_pokrice")
+}
+
+// Poreski ulazi su odvojeni od računovodstvenih parametara i stanja.
+model OsPoreskaGodina {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  agencija Agencija @relation(fields: [agencija_id], references: [id])
+  firma_id String @db.Uuid
+  firma Firma @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id String @unique @db.Uuid
+  poslovna_godina PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  verzija Int @default(1)
+  ulazi Json
+  prethodni_obracun_id String? @db.Uuid
+  prethodni_obracun OsPoreskiObracun? @relation("PoreskiPrenos", fields: [prethodni_obracun_id], references: [id])
+  created_at DateTime @default(now())
+  created_by String @db.Uuid
+  updated_at DateTime @updatedAt
+  updated_by String @db.Uuid
+  obracuni OsPoreskiObracun[] @relation("PoreskaGodinaObracuni")
+  @@index([agencija_id, firma_id])
+  @@map("os_poreske_godine")
+}
+model OsPoreskiObracun {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  agencija Agencija @relation(fields: [agencija_id], references: [id])
+  firma_id String @db.Uuid
+  firma Firma @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id String @db.Uuid
+  poslovna_godina PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  poreska_godina_id String @db.Uuid
+  poreska_godina OsPoreskaGodina @relation("PoreskaGodinaObracuni", fields: [poreska_godina_id], references: [id])
+  prenosi OsPoreskaGodina[] @relation("PoreskiPrenos")
+  revizija Int
+  status String @default("DRAFT")
+  ulazni_hash String
+  snapshot Json
+  ukupna_amortizacija Decimal @db.Decimal(14,2)
+  created_at DateTime @default(now())
+  created_by String @db.Uuid
+  potvrdjen_at DateTime?
+  potvrdjen_by String? @db.Uuid
+  @@unique([poslovna_godina_id, revizija])
+  @@index([agencija_id, firma_id, poslovna_godina_id])
+  @@map("os_poreski_obracuni")
 }

@@ -113,7 +113,9 @@ export default async function NalogDetailPage({
       datum_knjizenja: true,
       opis: true,
       status: true,
+      source_type: true,
       source_module: true,
+      izvorni_dokument_id: true,
       poslovna_jedinica: {
         select: { sifra: true, naziv: true }
       },
@@ -196,6 +198,11 @@ export default async function NalogDetailPage({
     0
   );
   const balanced = Math.round(totalDebit * 100) === Math.round(totalCredit * 100);
+  const isFixedAssetJournal = nalog.source_module === "OSNOVNA_SREDSTVA";
+  const depreciationBatchHref =
+    nalog.source_type === "DEPRECIATION" && nalog.izvorni_dokument_id
+      ? `/agencija/osnovna-sredstva/obracuni/${nalog.izvorni_dokument_id}`
+      : null;
   const code =
     nalog.sifra ||
     formatJournalCode(nalog.vrsta_naloga.prefiks, nalog.poslovna_godina.godina, nalog.broj);
@@ -388,7 +395,8 @@ export default async function NalogDetailPage({
         </div>
       </section>
 
-      {canUpdate && nalog.status === journalStatuses.draft && !nalog.poslovna_godina.zakljucena ? (
+      {canUpdate && nalog.status === journalStatuses.draft &&
+      !nalog.poslovna_godina.zakljucena && !isFixedAssetJournal ? (
         <section className="admin-panel">
           <div className="panel-header">
             <h3>Izmijeni stavke</h3>
@@ -419,10 +427,27 @@ export default async function NalogDetailPage({
         <section className="admin-panel">
           <div className="panel-header">
             <h3>Akcije</h3>
-            <span>Zaključana godina blokira izmjene</span>
+            <span>
+              {isFixedAssetJournal
+                ? "Nalog kontroliše modul osnovnih sredstava"
+                : "Izmjene su dostupne dok je godina otvorena"}
+            </span>
           </div>
           <div className="journal-actions">
-            {canPost && nalog.status === journalStatuses.draft ? (
+            {isFixedAssetJournal ? (
+              <>
+                <p className="admin-hint">
+                  Nalog amortizacije se ne vraća direktno u nacrt jer je vezan za
+                  proknjiženi obračun i pokriće perioda.
+                </p>
+                {depreciationBatchHref ? (
+                  <Link className="secondary-button" href={depreciationBatchHref}>
+                    Otvori obračun amortizacije
+                  </Link>
+                ) : null}
+              </>
+            ) : null}
+            {canPost && nalog.status === journalStatuses.draft && !isFixedAssetJournal ? (
               <form action={postJournal} data-journal-post-form="true">
                 <input name="nalog_id" type="hidden" value={nalog.id} />
                 <button type="submit">Proknjiži nalog (F9)</button>

@@ -13,8 +13,8 @@ Poslije veće promjene ažuriraj `CURRENT_STATE.md`, `NEXT_STEPS.md`, dopiši
 bilješku u `SESSION_LOG.md` i **ažuriraj planer** (uredi CSV izvor u
 `zadaci/planer/` pa pokreni `npm run planer:build`; vidi `zadaci/planer/README.md`).
 Sva pravila iz `AGENTS.md` (izolacija agencija,
-provjera prava na backendu, soft delete sa dokumentovanim izuzecima za
-neproknjižene nacrte, audit, KIF/KUF kao osnova PDV-a, ručne
+provjera prava na backendu, soft delete sa dokumentovanim izuzecima iz
+`AGENTS.md`, audit, KIF/KUF kao osnova PDV-a, ručne
 migracije + `migrate deploy` + `generate` + restart dev, računanje novca u
 centima uz `Decimal(14, 2)` zapis u bazi, async
 pretraga partnera) su obavezna.
