@@ -8,6 +8,14 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Brisanje nacrta izlazne fakture — 2026-10-02
+
+- Detalj OFFICE fakture ima Obriši nacrt uz potvrdu i robno/delete pravo.
+- Soft delete zadržava broj i audit. Server provjerava scope, DRAFT status,
+  fiskalne pokušaje, dokumentne veze, promet lagera i zaključanu godinu/PDV period.
+- Brisanje koristi isti advisory lock kao izmjena/fiskalizacija i audit u transakciji.
+  Nema migracije. TSC i ciljana regresija zaštita prolaze.
+
 ## Korisnici i dnevnik aktivnosti — 2026-10-01
 
 - Meni ima Radnici, Klijenti i Dnevnik aktivnosti. Liste i kreiranje razdvojeni

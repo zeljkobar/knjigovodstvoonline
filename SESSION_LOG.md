@@ -1747,3 +1747,11 @@ DB regresija provjerava poredak, smjer salda, avanse i ukupne iznose.
 - Provjereno renderovanje obje matrice, agency scope na svim audit upitima,
   granice datuma (uključujući 23-časovni DST dan), nevalidni filteri,
   paginacija i odbijanje neautorizovanog pristupa. Bez upisa produkcijskih podataka.
+
+
+## Brisanje nacrta fakture — 2026-10-02
+- Dodata server akcija i dugme sa potvrdom na detalju izlazne fakture.
+- Scoped soft delete samo netaknutog OFFICE nacrta, bez fiskalnih pokušaja,
+  naloga/KIF/plaćanja/korekcija/lagera, u otvorenoj godini i PDV periodu.
+- Isti invoice lock i transakcioni audit; broj ostaje evidentiran.
+- Regresija provjerava dozvoljeni nacrt i blokade; TypeScript čist.

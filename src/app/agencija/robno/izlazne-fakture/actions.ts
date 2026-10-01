@@ -25,6 +25,7 @@ import {
   saveOutgoingInvoiceDraft as saveOutgoingInvoiceDraftService,
   updateOutgoingInvoiceDraftHeader
 } from "@/lib/outgoing-invoice-service";
+import { deleteOutgoingInvoiceDraftDocument } from "@/lib/outgoing-invoice-delete";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 import { getInventoryContext } from "../_shared";
@@ -37,7 +38,7 @@ function detail(id: string, message: string): never {
   redirect(`/agencija/robno/izlazne-fakture/${id}?poruka=${message}`);
 }
 
-async function context(action: "create" | "update" | "post", firmaId: string) {
+async function context(action: "create" | "update" | "post" | "delete", firmaId: string) {
   const [ctx, work] = await Promise.all([
     getInventoryContext(action),
     readWorkContext()
@@ -525,4 +526,15 @@ export async function finalizeOutgoingInvoice(formData: FormData) {
   });
   revalidatePath(`/agencija/robno/izlazne-fakture/${id}`);
   detail(id, `zavrsena:${result.journal}`);
+}
+
+export async function deleteOutgoingInvoiceDraft(formData: FormData) {
+  const ctx = await context("delete", text(formData.get("firma_id")));
+  const id = text(formData.get("faktura_id"));
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) redirect("/agencija/robno/izlazne-fakture?poruka=nije_nacrt");
+  const result = await deleteOutgoingInvoiceDraftDocument({ agencijaId: ctx.user.agencija_id!, firmaId: ctx.firma.id, yearId: ctx.year.id, userId: ctx.user.id }, id);
+  revalidatePath("/agencija/robno/izlazne-fakture");
+  revalidatePath(`/agencija/robno/izlazne-fakture/${id}`);
+  if (result !== "obrisana") detail(id, result);
+  redirect("/agencija/robno/izlazne-fakture?poruka=obrisana");
 }
