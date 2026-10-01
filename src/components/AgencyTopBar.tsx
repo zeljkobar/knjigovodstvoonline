@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   getSectionFromPath,
   getSubNavigation,
@@ -43,6 +43,7 @@ export function AgencyTopBar({
   years
 }: AgencyTopBarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const section = getSectionFromPath(pathname);
   const currentSection = navigation.find((item) => item.section === section);
   const subItems = currentSection
@@ -119,7 +120,9 @@ export function AgencyTopBar({
         <nav className="section-tabs" aria-label={`${currentSection?.label ?? "Sekcija"} podmeni`}>
           {subItems.map((item) => {
             const isActive =
-              pathname === item.href ||
+              (section === "korisnici"
+                ? pathname === item.href.split("?")[0] && (item.href.includes("tip=klijenti") ? searchParams.get("tip") === "klijenti" : searchParams.get("tip") !== "klijenti")
+                : pathname === item.href) ||
               Boolean(
                 item.children?.some(
                   (child) =>

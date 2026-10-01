@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { decimalToScaled } from "@/lib/inventory-calculation";
+import { requireClientContext } from "@/lib/client-portal";
 import type { Prisma } from "@prisma/client";
 import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
 import {
@@ -24,6 +26,7 @@ type SearchParams = {
 
 type Props = {
   kind: ReportKind;
+  clientType?: "kupci" | "ino-kupci" | "dobavljaci" | "ino-dobavljaci";
   searchParams?: Promise<SearchParams>;
 };
 
@@ -73,7 +76,7 @@ function parseDate(value?: string) {
 }
 
 function toCents(value: { toString(): string }) {
-  return Math.round(Number(value.toString()) * 100);
+  return Number(decimalToScaled(value, 2));
 }
 
 function money(cents: number) {
@@ -83,7 +86,7 @@ function money(cents: number) {
   });
 }
 
-function cardHref(row: ReportRow, params?: SearchParams) {
+function cardHref(row: ReportRow, params?: SearchParams, clientType?: string) {
   const query = new URLSearchParams({
     konto: row.accountId,
     partner: row.partnerId
@@ -92,6 +95,10 @@ function cardHref(row: ReportRow, params?: SearchParams) {
   if (params?.datum_od) query.set("datum_od", params.datum_od);
   if (params?.datum_do) query.set("datum_do", params.datum_do);
 
+  if (clientType) {
+    query.delete("konto");
+    return `/klijent/izvjestaji/${clientType}/kartica?${query.toString()}`;
+  }
   return `/agencija/izvjestaji/kartice-partnera?${query.toString()}`;
 }
 
@@ -109,13 +116,14 @@ function reportScopeHref(
   return `${basePath}?${query.toString()}`;
 }
 
-export async function PartnerBalanceReportPage({ kind, searchParams }: Props) {
-  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
-  const context = await readWorkContext();
+export async function PartnerBalanceReportPage({ kind, searchParams, clientType }: Props) {
+  const client = clientType ? await requireClientContext(["izvjestaji", "nalozi"]) : null;
+  const user = client?.user ?? await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const context = client ? { firmaId: client.firma.id, poslovnaGodinaId: client.year.id } : await readWorkContext();
   const params = await searchParams;
-  const config = reportConfig[kind];
+  const config = { ...reportConfig[kind], ...(clientType ? { basePath: `/klijent/izvjestaji/${clientType}`, title: clientType.startsWith("ino-") ? reportConfig[kind].foreignLabel : reportConfig[kind].domesticLabel } : {}) };
   const reportScope: ReportScope =
-    params?.prikaz === "ino" || params?.prikaz === "svi"
+    clientType ? (clientType.startsWith("ino-") ? "ino" : "domaci") : params?.prikaz === "ino" || params?.prikaz === "svi"
       ? params.prikaz
       : "domaci";
   const showDomestic = reportScope !== "ino";
@@ -217,6 +225,7 @@ export async function PartnerBalanceReportPage({ kind, searchParams }: Props) {
             : {}),
           firma_konto: { sifra: { in: selectedCodes } },
           nalog: {
+            agencija_id: user.agencija_id,
             firma_id: context.firmaId,
             poslovna_godina_id: context.poslovnaGodinaId,
             status: journalStatuses.posted,
@@ -295,11 +304,12 @@ export async function PartnerBalanceReportPage({ kind, searchParams }: Props) {
       <header className="admin-header">
         <div>
           <h1>{config.title}</h1>
-          <p className="muted-text">Otvoreni saldo po partnerima i podešenim kontima.</p>
+          <p className="muted-text">Pregled otvorenih salda po partnerima.</p>
         </div>
       </header>
 
-      {showDomestic && !domesticCode ? (
+      {clientType && ((showDomestic && !domesticCode) || (showForeign && !foreignCode)) ? <p className="admin-message">Agencija još nije podesila ovaj pregled. Obratite se svom knjigovođi.</p> : null}
+      {!clientType && showDomestic && !domesticCode ? (
         <p className="admin-message">
           Konto „{config.domesticLabel}“ nije podešeno. Administrator ga može izabrati u{" "}
           <Link href="/agencija/podesavanja/podrazumijevana-konta">
@@ -307,13 +317,13 @@ export async function PartnerBalanceReportPage({ kind, searchParams }: Props) {
           </Link>.
         </p>
       ) : null}
-      {showForeign && !foreignCode ? (
+      {!clientType && showForeign && !foreignCode ? (
         <p className="admin-message">
           Konto „{config.foreignLabel}“ nije podešeno, pa ino partneri nijesu prikazani.
         </p>
       ) : null}
 
-      <nav className="tabs-row" aria-label={`${config.title} prikaz`}>
+      {!clientType ? <nav className="tabs-row" aria-label={`${config.title} prikaz`}>
         <Link
           className={reportScope === "domaci" ? "tab-link active" : "tab-link"}
           href={reportScopeHref(config.basePath, "domaci", params)}
@@ -332,7 +342,7 @@ export async function PartnerBalanceReportPage({ kind, searchParams }: Props) {
         >
           {config.allLabel}
         </Link>
-      </nav>
+      </nav> : null}
 
       <section className="stats-grid">
         <article className="stat-card"><span>Firma</span><strong>{company.naziv}</strong></article>
@@ -366,11 +376,11 @@ export async function PartnerBalanceReportPage({ kind, searchParams }: Props) {
             <input defaultValue={params?.datum_do ?? ""} name="datum_do" type="date" />
           </label>
         </AutoSubmitFilterForm>
-        <p className="muted-text">
+        {!clientType ? <p className="muted-text">
           Aktivna konta: {selectedAccounts.length
             ? selectedAccounts.map((account) => `${account.label} ${account.code}`).join(" · ")
             : "nijedno konto nije podešeno"}
-        </p>
+        </p> : null}
       </section>
 
       <section className="admin-card">
@@ -379,7 +389,7 @@ export async function PartnerBalanceReportPage({ kind, searchParams }: Props) {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Vrsta</th><th>Konto</th><th>Partner</th><th>Duguje</th><th>Potražuje</th>
+                <th>Vrsta</th>{!clientType ? <th>Konto</th> : null}<th>Partner</th><th>Duguje</th><th>Potražuje</th>
                 <th>Saldo duguje</th><th>Saldo potražuje</th><th>Akcija</th>
               </tr>
             </thead>
@@ -387,20 +397,20 @@ export async function PartnerBalanceReportPage({ kind, searchParams }: Props) {
               {rows.map((row) => (
                 <tr key={`${row.accountId}-${row.partnerId}`}>
                   <td>{row.accountScope === "FOREIGN" ? "Ino" : "Domaći"}</td>
-                  <td>{row.accountCode}<small>{row.accountName}</small></td>
+                  {!clientType ? <td>{row.accountCode}<small>{row.accountName}</small></td> : null}
                   <td>{row.partnerName}<small>{row.partnerTaxNumber ?? ""}</small></td>
                   <td>{money(row.debitCents)}</td>
                   <td>{money(row.creditCents)}</td>
                   <td><strong>{money(Math.max(row.balanceCents, 0))}</strong></td>
                   <td><strong>{money(Math.max(-row.balanceCents, 0))}</strong></td>
-                  <td><Link className="table-link" href={cardHref(row, params)}>Kartica</Link></td>
+                  <td><Link className="table-link" href={cardHref(row, params, clientType)}>Kartica</Link></td>
                 </tr>
               ))}
-              {rows.length === 0 ? <tr><td colSpan={8}>{config.empty}</td></tr> : null}
+              {rows.length === 0 ? <tr><td colSpan={clientType ? 7 : 8}>{config.empty}</td></tr> : null}
             </tbody>
             <tfoot>
               <tr className="balance-total-row">
-                <td colSpan={3}>Ukupno</td><td>{money(totals.debit)}</td><td>{money(totals.credit)}</td>
+                <td colSpan={clientType ? 2 : 3}>Ukupno</td><td>{money(totals.debit)}</td><td>{money(totals.credit)}</td>
                 <td>{money(totals.debitBalance)}</td><td>{money(totals.creditBalance)}</td><td />
               </tr>
             </tfoot>

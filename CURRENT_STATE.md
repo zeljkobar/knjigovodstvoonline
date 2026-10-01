@@ -8,6 +8,65 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Korisnici i dnevnik aktivnosti — 2026-10-01
+
+- Meni ima Radnici, Klijenti i Dnevnik aktivnosti. Liste i kreiranje razdvojeni
+  po roli, a aktivna kartica prati tip korisnika. Prava se uređuju na korisniku.
+- Dnevnik aktivnosti prikazuje postojeći audit samo administratoru agencije,
+  sa obaveznim agency scopeom i filterima korisnik/firma/period/radnja.
+  Paginacija je 50 redova; lokalno vrijeme Europe/Podgorica uključuje DST.
+  Prikazuje metapodatke aktivnosti, bez sirovih JSON vrijednosti.
+- Uloge i zasebna Prava pristupa uklonjeni iz menija; stari link prava ostaje
+  preusmjeren na korisnike. Nema migracija ni promjena poslovnih podataka.
+
+## Klijentski knjigovodstveni pregledi — 2026-10-01
+
+- `/klijent` ima zaseban portal sa automatskom jedinom dodijeljenom aktivnom firmom
+  i izborom njene poslovne godine. Više dodjela traži ispravku od agencije. Navigacija i svaka stranica provjeravaju prava.
+- Kupci, ino kupci, dobavljači i ino dobavljači koriste isti zbirni izvještaj
+  kao agencija i postojeća četiri podrazumijevana konta firme. Klijent ne bira
+  niti vidi konto. Kartica ponovo određuje konto na serveru, koristi samo POSTED
+  naloge i prikazuje početni saldo prije perioda i tekući saldo.
+- Početna prikazuje grafikone deset najvećih kupaca/dužnika i dobavljača/obaveza,
+  sa ukupnim pozitivnim saldom cijelog skupa, opadajućim rangiranjem i linkovima
+  na kartice. Domaći/ino prikaz je odvojen; avansi/preplate ne ulaze u rang-listu.
+- Robno: liste i detalji kalkulacija, nivelacija, prenosa, popisa, otpisa i
+  izlaznih faktura; artikli/cjenovnik, grupe, magacini, lager i kartica artikla.
+  Dokumenti i artikli imaju paginaciju; nacrti su jasno označeni. Nema unosa.
+- PDV pregled prikazuje sačuvane prijave po mjesecima, iznose i nacrt status;
+  odsustvo prijave nije nulti obračun. Ne kreira periode niti prijave.
+- Matrice prava su odvojene: radnik ima punu matricu modul/akcija, klijent tri
+  opcije pregleda (Kupci i dobavljači, Robno, PDV). Server određuje rolu i mapira
+  grupe u view prava, zajedničke dozvole se ne dupliraju, POS prava se čuvaju zasebno.
+- Prava Pregled: partneri traže izvjestaji+nalozi, robno traži robno,
+  PDV traži izvjestaji+pdv. U matrici prava dodato objašnjenje za agenciju.
+  Postojeća fiskalizacija ostaje zaseban ulaz; nema automatskog dodjeljivanja prava.
+- Bez migracije. TSC, fokusirani lint, fiskalni portal testovi i nova DB regresija
+  prolaze. DB regresija sa rollbackom provjerava konta, POSTED izvor, početni saldo,
+  firmu/godinu, IDOR, ukinuta prava i zabranu upisa. Browser prijava je istekla;
+  desktop/mobilni raspored provjeren na serverski renderovanim testnim podacima.
+- Otvoreno: puni interaktivni QA prijavljenog klijenta; štampa/izvoz novih pregleda,
+  klijentske plate i odobreni unos robnih dokumenata su naredne faze.
+
+## Dnevna automatska obrada izvoda — 2026-10-01
+
+- Server u produkciji provjerava raspored svakog minuta i od 10:00 Europe/Podgorica
+  obrađuje aktivne firme povezane IMAP agencije sa uključenim mailom i izvorom.
+  Jedan završni audit po firmi/danu i PostgreSQL advisory lock sprečavaju ponavljanje
+  i paralelnu obradu. Restart poslije 10:00 nadoknađuje nezavršenu obradu istog dana.
+- Zajednički server-only servis koristi postojeći parser i knjiženje, sa eksplicitnim
+  serverskim kontekstom. Browser akcije ne primaju kontekst automatizacije.
+  Knjiže se samo READY izvodi sa mail porijeklom, po jedan u transakciji; provjeravaju
+  se zaključavanja, konta, partneri, jedinice, zbirovi i balans. Audit je atomaran.
+- Izvodi → Automatska obrada prikazuje posljednjih 100 rezultata po firmama.
+  Greške ne zaustavljaju ostale firme. Postojeći uvezeni mailovi se preskaču.
+- Uključivanje: produkcijski BANK_AUTOMATION_ENABLED=true. Deploy skripta ga
+  postavlja pri PM2 restartu nakon builda (false ga isključuje). Lokalni dev ne
+  pokreće obradu. Ove izmjene još nijesu deployovane; stvarni izvodi nijesu knjiženi.
+- Bez migracije. Ciljana DB regresija koristi lažni mailbox, privremene zapise i
+  rollback; pokriva raspored ljeto/zima, konfiguraciju, dnevno ponavljanje, knjiženje,
+  PDV i balans. TypeScript i fokusirani lint prolaze.
+
 ## Automatske poreske promjene i posebna prodaja — 2026-09-30
 
 - Potvrđene ACQUISITION/SALE promjene sa važećim POSTED izvorom preuzimaju
@@ -120,6 +179,12 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   TypeScript, fokusirani lint i DB regresija prolaze.
 
 ## Uvoz izvoda iz maila — 2026-09-27
+
+- 2026-10-01: završene poruke sa živim uvezenim/duplim izvodima izostavljaju
+  se iz reda prije IMAP preuzimanja zaglavlja i priloga. Server action ponavlja
+  provjeru prije download-a. Greške, djelimična obrada i obrisani izvodi ostaju
+  za retry; marker nezavršene poruke štiti prekid između priloga. Progres broji
+  samo preostale poruke; prazan red prikazuje da nema novih poruka.
 
 - Mailovi imaju dugme „Uvezi nove izvode iz maila“ za aktivnu firmu/godinu.
   Obrađuje sve filtrirane izvore, po jednu poruku u zahtjevu, sa progresom i
@@ -1249,8 +1314,8 @@ je od samodeaktivacije i samostalne rotacije.
   Ostaju obustave, ručni QA štampe virmana na stvarnom obrascu,
   storno/namjensko vraćanje knjiženja, arhiva dokumenata i dodatna opisna pravila
   koja traže ručne parametre.
-- Standardni klijentski portal je ograničen na postojeći dashboard i uslovni
-  ulaz u fiskalizaciju. Poseban `/portal` je implementiran sa backend guardovima,
+- Standardni klijentski portal ima read-only partnere/kartice, robno i PDV
+  preglede uz prava agencije i uslovni ulaz u fiskalizaciju. Poseban `/portal` je implementiran sa backend guardovima,
   POS-om, bezgotovinskim fakturama, računima, izvještajima, šifarnicima i
   operativnim podešavanjima. Otvoreni su ručni live/E2E fiskalni QA i preostali
   opšti računovodstveni dashboard izvještaji.

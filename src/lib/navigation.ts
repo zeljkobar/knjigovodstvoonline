@@ -308,6 +308,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/izvodi/kartica-banke", label: "Kartica banke" },
     { href: "/agencija/izvodi/kontrole", label: "Kontrole" },
     { href: "/agencija/izvodi/imap", label: "Mailovi", roles: adminOnly },
+    { href: "/agencija/izvodi/automatska-obrada", label: "Automatska obrada", roles: adminOnly },
     { href: "/agencija/izvodi/podesavanja", label: "Podešavanja", roles: adminOnly }
   ],
   "zavrsni-racun": [
@@ -336,9 +337,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
   korisnici: [
     { href: "/agencija/korisnici", label: "Radnici" },
     { href: "/agencija/korisnici?tip=klijenti", label: "Klijenti" },
-    { href: "/agencija/korisnici/uloge", label: "Uloge" },
-    { href: "/agencija/korisnici/prava", label: "Prava pristupa" },
-    { href: "/agencija/korisnici/audit-log", label: "Audit log" }
+    { href: "/agencija/korisnici/audit-log", label: "Dnevnik aktivnosti" }
   ],
   podesavanja: [
     { href: "/agencija/podesavanja/kontni-plan", label: "Kontni plan" },

@@ -18,6 +18,7 @@ export default function MailImport({ firmaId, yearId, disabled }: { firmaId: str
     try {
       const found = await discoverMailImport(firmaId, yearId);
       if (!found.references) { setMessage(found.error || "Uvoz nije moguće pokrenuti."); return; }
+      if (found.references.length === 0) { setMessage("Nema novih poruka za uvoz. Već uvezene poruke su preskočene."); return; }
       let completed = 0;
       for (const ref of found.references) {
         if (stopped.current) break;

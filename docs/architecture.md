@@ -187,7 +187,7 @@ dodatno imaju statuse na srpskom: otvorena, djelimično knjižena, knjižena.
 - **Djelimično ili otvoreno:** potpuna primjena prava na svakom backend toku,
   testovi, zaključavanje PDV perioda, napredne alokacije izvoda, obustave i
   storno knjiženja plata i portal QA XML-a završnog računa.
-- **Nije implementirano:** puni standardni klijentski portal, dio naprednog
+- **Nije implementirano:** klijentski unos i dio dodatnih pregleda, dio naprednog
   robnog toka, dashboard podstranice i većina zbirnih izvještaja. Direktni
   fiskalni portal je implementiran u obimu
   [`../zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`](../zadaci/fiskalizacija/DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md),
@@ -213,3 +213,24 @@ sadrži validirane cente, klasifikacije i dokumentovane promjene. Immutable
 su FK i backend scope; potvrda i prenos se serijalizuju zaključavanjem firme.
 Jedna potvrđena revizija po godini garantovana je parcijalnim unique indeksom.
 Potvrda ne pravi GL nalog. Čista štampa je `/stampa/osnovna-sredstva/poreska-amortizacija/[id]`.
+
+### Dnevni mail izvodi (2026-10-01)
+
+`bank-statement-service.ts` je zajednički server-only servis ručnih akcija i
+zakazane obrade. Samo tanke server action funkcije su dostupne browseru; eksplicitni
+serverski kontekst nije njihov argument. `bank-automation.ts` pokreće produkcijska
+instrumentacija uz runtime flag, lokalni raspored, advisory lock i audit po firmi/danu.
+Nema dodatnih tabela; evidencija koristi postojeći audit i postojeći company purge.
+
+### Standardni klijentski portal (2026-10-01)
+
+`client-portal.ts` provjerava standardnu klijentsku ulogu, aktivne dodjele firmi,
+agenciju i pripadajuću poslovnu godinu. Cookies se porede sa dozvoljenim skupom;
+nisu dokaz pristupa. Svaki loader/stranica provjerava module sa view pravom.
+`PartnerBalanceReportPage` ima serverski client režim; partner kartica ne prima
+konto već ga određuje iz četiri postojeće namjene firme. Izvor je POSTED GL.
+Lager i kartica artikla dijele postojeći renderer i upite uz zaseban klijentski
+guard. Ostali robni dokumenti imaju read-only adaptere sa scope-om agencije,
+firme, godine i soft-delete filterom. Nema novih poslovnih server actions.
+PDV čita sačuvane prijave bez kreiranja perioda i označava nacrte. Postojeći
+`/portal` za fiskalizaciju zadržava svoje guardove i tokove.

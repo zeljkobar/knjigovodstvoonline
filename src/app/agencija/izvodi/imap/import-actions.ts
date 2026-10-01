@@ -1,4 +1,5 @@
 "use server";
+import { completedMailKeys } from "@/lib/mail-import-completion";
 import { requireImapCompany } from "./access";
 import { requirePermissionForUser } from "@/lib/permissions";
 import { readWorkContext } from "@/lib/work-context";
@@ -16,7 +17,8 @@ export async function discoverMailImport(firmaId: string, yearId: string) {
   const config = (await getCompanyMailConfigs(user.agencija_id!)).find((item) => item.firmaId === firma.id);
   if (!config) return { error: "Mail pregled firme nije uključen." };
   try {
-    return { references: (await listCompanyInbox(config, 1)).references };
+    const completed = await completedMailKeys({ agencija_id: user.agencija_id!, firma_id: firma.id, poslovna_godina_id: year.id });
+    return { references: (await listCompanyInbox(config, 1, completed)).references };
   } catch (error) {
     return { error: error instanceof MailError ? error.message : "Mailove trenutno nije moguće učitati." };
   }

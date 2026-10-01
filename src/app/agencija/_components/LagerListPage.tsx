@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireClientContext } from "@/lib/client-portal";
 import type { Prisma } from "@prisma/client";
 import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
 import { hasPermission } from "@/lib/permissions";
@@ -16,6 +17,7 @@ import {
 } from "../robno/_shared";
 
 type LagerListPageProps = {
+  clientView?: boolean;
   basePath: string;
   itemCardPath: string;
   sectionLabel: string;
@@ -31,6 +33,7 @@ type LagerListPageProps = {
 const stockFilters = new Set(["nenulto", "pozitivno", "negativno", "nulto", "sve"]);
 
 export async function LagerListPage({
+  clientView = false,
   basePath,
   itemCardPath,
   sectionLabel,
@@ -38,7 +41,7 @@ export async function LagerListPage({
   searchParams
 }: LagerListPageProps) {
   const [context, params] = await Promise.all([
-    loadInventoryReportContext(),
+    clientView ? requireClientContext(["robno"]).then((context) => ({ ...context, allowed: true })) : loadInventoryReportContext(),
     searchParams
   ]);
 

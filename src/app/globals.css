@@ -10767,3 +10767,95 @@ td small {
     border: 0;
   }
 }
+
+/* Standardni klijentski portal */
+.client-main { min-width: 0; flex: 1; padding: 28px; }
+.client-navigation { display: grid; gap: 6px; margin: 20px 0; }
+.client-navigation a { color: inherit; padding: 12px 14px; border-radius: 10px; text-decoration: none; }
+.client-navigation a:hover, .client-navigation a:focus-visible { background: #ffffff20; }
+.client-context { margin-bottom: 24px; }
+.client-context .admin-form { align-items: end; margin-top: 12px; }
+@media (max-width: 800px) { .client-main { padding: 16px; } .client-navigation { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+@media (max-width: 900px) {
+  .client-app .portal-sidebar { display: flex; position: static; height: auto; gap: 12px; padding: 16px; }
+  .client-app .client-navigation { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+  .client-app .portal-sidebar-company { margin: 0; }
+}
+.client-main .admin-header h1 { margin: 0 0 8px; font-size: clamp(1.7rem, 3vw, 2.6rem); line-height: 1.15; }
+.client-main .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.client-main .stat-card, .client-main .admin-card { border: 1px solid #dce7f1; border-radius: 14px; background: #fff; padding: 20px; }
+.client-main .stat-card { display: grid; align-content: start; gap: 8px; }
+.client-main .stat-card span { color: #5b7087; font-size: .85rem; }
+.client-main .stat-card strong { font-size: 1.15rem; overflow-wrap: anywhere; }
+.client-main .card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+.client-main .card-header h2 { font-size: 1.15rem; margin: 0; }
+.client-main .card-header > span { color: #5b7087; font-size: .85rem; }
+.client-main .journal-filter-form { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; }
+.client-app .portal-sidebar { gap: 16px; justify-content: flex-start; overflow-y: auto; }
+.client-app .portal-sidebar > form { margin-top: auto; }
+@media (max-width: 600px) {
+  .client-main .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .client-main .journal-filter-form { grid-template-columns: 1fr; }
+  .client-main .card-header { align-items: flex-start; flex-direction: column; }
+}
+.client-main .admin-stack > *, .client-main .table-wrap { min-width: 0; }
+.client-main .table-wrap { max-width: 100%; overflow-x: auto; }
+
+.client-context { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.client-context-identity { display: grid; gap: 6px; min-width: 0; }
+.client-context-identity > span { color: #5b7087; font-size: .8rem; }
+.client-context-identity > strong { overflow-wrap: anywhere; }
+.client-year-form { display: flex; align-items: flex-end; gap: 12px; }
+.client-year-form label { display: grid; gap: 8px; font-size: .85rem; font-weight: 600; }
+.client-year-form select { min-width: 150px; height: 44px; padding: 0 12px; border: 1px solid #d2e0ed; border-radius: 8px; background: #fff; color: #17324f; font: inherit; }
+.client-year-form button { min-height: 44px; width: auto; padding: 10px 22px; }
+.client-shortcuts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+.client-shortcut { display: flex; flex-direction: column; justify-content: space-between; gap: 24px; min-height: 138px; padding: 24px; border: 1px solid #dce7f1; border-radius: 14px; background: #fff; color: #17324f; text-decoration: none; box-shadow: 0 3px 12px #17324f05; transition: border-color .15s, box-shadow .15s; }
+.client-shortcut > strong { font-size: 1.05rem; line-height: 1.4; }
+.client-shortcut-action { display: flex; align-items: center; justify-content: space-between; gap: 14px; font-size: .85rem; font-weight: 600; color: #155fa9; white-space: nowrap; }
+.client-shortcut-action > span { font-size: 1.2rem; line-height: 1; }
+.client-shortcut:hover { border-color: #91b9df; box-shadow: 0 6px 18px #17324f0d; }
+.client-shortcut:focus-visible { outline: 3px solid #91b9df; outline-offset: 3px; }
+@media (max-width: 600px) {
+  .client-context { align-items: stretch; flex-direction: column; gap: 18px; }
+  .client-year-form label { flex: 1; }
+  .client-year-form select { width: 100%; min-width: 0; }
+  .client-shortcuts { grid-template-columns: 1fr; }
+  .client-shortcut { min-height: 116px; padding: 20px; gap: 18px; }
+}
+
+.client-dashboard-tabs { display: flex; gap: 6px; padding: 5px; border: 1px solid #dce7f1; border-radius: 12px; background: #eaf0f7; width: fit-content; }
+.client-dashboard-tabs a { padding: 10px 18px; border-radius: 8px; color: #526b83; font-size: .9rem; font-weight: 600; text-decoration: none; }
+.client-dashboard-tabs a[aria-current="page"] { background: #fff; color: #155fa9; box-shadow: 0 2px 6px #17324f0c; }
+.client-balance-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.client-balance-panel { --chart-color: #2178c4; --chart-light: #f0f7fe; min-width: 0; padding: 28px; border: 1px solid #dce7f1; border-radius: 18px; background: #fff; box-shadow: 0 5px 24px #17324f06; }
+.client-balance-panel.suppliers { --chart-color: #188b83; --chart-light: #edf8f6; }
+.client-balance-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.client-balance-panel h2 { margin: 0; font-size: 1.35rem; }
+.client-balance-panel .eyebrow { color: var(--chart-color); font-size: .72rem; margin: 0 0 6px; }
+.client-balance-count { white-space: nowrap; padding: 7px 10px; border-radius: 20px; background: var(--chart-light); color: var(--chart-color); font-size: .75rem; }
+.client-balance-total { display: grid; gap: 8px; margin: 24px 0 28px; padding: 22px; border-radius: 12px; background: var(--chart-light); }
+.client-balance-total > span { font-size: .85rem; color: #526b83; }
+.client-balance-total > strong { color: #17324f; font-size: clamp(1.5rem, 2.4vw, 2.2rem); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.client-ranking-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.client-ranking-heading h3 { margin: 0; font-size: .85rem; }
+.client-ranking-heading > span { font-size: .72rem; color: #6f8397; }
+.client-partner-ranking { list-style: none; padding: 0; margin: 0; }
+.client-partner-ranking a { display: flex; align-items: center; gap: 12px; padding: 15px 0; color: #17324f; text-decoration: none; border-bottom: 1px solid #edf2f7; }
+.client-ranking-number { flex: 0 0 20px; color: #90a0b1; font-size: .75rem; font-variant-numeric: tabular-nums; }
+.client-ranking-content { flex: 1; min-width: 0; }
+.client-ranking-label { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 10px; font-size: .83rem; }
+.client-ranking-label strong { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.client-ranking-label > span { white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums; }
+.client-ranking-track { height: 7px; overflow: hidden; border-radius: 8px; background: var(--chart-light); }
+.client-ranking-track > span { display: block; height: 100%; min-width: 2px; border-radius: inherit; background: var(--chart-color); }
+.client-ranking-arrow { color: #92a6b8; }
+.client-partner-ranking a:hover .client-ranking-label strong { color: var(--chart-color); text-decoration: underline; }
+.client-partner-ranking a:focus-visible, .client-dashboard-tabs a:focus-visible { outline: 3px solid #91b9df; outline-offset: 3px; border-radius: 6px; }
+.client-balance-panel footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 20px; font-size: .75rem; }
+.client-balance-panel footer > span, .client-dashboard-note { color: #6f8397; }
+.client-balance-panel footer a { font-weight: 600; color: var(--chart-color); text-decoration: none; }
+.client-dashboard-note { margin: 0; font-size: .8rem; line-height: 1.6; }
+@media (max-width: 1100px) { .client-balance-panels { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .client-balance-panel { padding: 20px; } .client-ranking-label { flex-direction: column; gap: 4px; } .client-dashboard-tabs a { padding: 10px 12px; } }

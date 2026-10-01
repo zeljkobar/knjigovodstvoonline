@@ -3,6 +3,26 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-10-01 — dnevni uvoz i knjiženje mail izvoda
+
+Dodati produkcijski raspored u 10:00 Europe/Podgorica, PostgreSQL lock po firmi,
+dnevna evidencija i pregled rezultata. Obrađuju se samo aktivne mail konfiguracije
+povezane agencije. Parser i operacije izdvojeni u zajednički server-only servis;
+server actions zadržavaju prijavu i ne izlažu serverski kontekst automatizacije.
+Knjiženje jednog spremnog mail izvoda je atomarno sa auditom i provjerama godine,
+PDV-a, konta/dimenzija i balansa. Greške ostavljaju ostale firme za obradu.
+Runtime flag uključuje produkciju poslije builda; razvojni server ne izvršava posao.
+TSC, fokusirani lint i ciljana DB regresija prolaze. Sve probe su rollback-ovane,
+bez stvarnih mailova i trajnih knjiženja. Nema nove migracije niti deploya.
+
+## 2026-10-01 — preskakanje već uvezenih mailova
+
+Uvoz filtrira završene poruke po folderu/UIDVALIDITY/UID i scope-u prije IMAP
+fetch-a, uz ponovnu provjeru u akciji prije download-a. Greške, djelimični uvoz
+i obrisani izvodi ostaju dostupni za retry. Marker štiti prekid između priloga.
+Dodate regresije koje provjeravaju broj download-a i nepotpune/obrisane izvore.
+Bez migracije; stvarni mailovi i izvodi nijesu mijenjani.
+
 ## 2026-09-30 — zaštita revizija i poništavanje poreskog prenosa
 
 Dodate provjere revizije prije vraćanja/brisanja računovodstvenog obračuna.
@@ -1683,3 +1703,47 @@ knjiženja stvara nalog isknjiženja i poresku promjenu. Zaštićena pokrića,
 poreske potvrde i izvorni nalozi. Ciljana DB regresija prolazi uz rollback,
 uključujući stvarne server actions i balans isknjiženja. TSC i lint prolaze.
 Bez migracije i commita.
+
+
+## 2026-10-01 — Klijentski portal: pregledi poslovanja
+
+Dodat `/klijent` shell, kontekst dodijeljene firme/godine i meni po pravima.
+Kupci/ino kupci/dobavljači/ino dobavljači vezani su za postojeća podrazumijevana
+konta bez izlaganja konta klijentu. Kartice koriste POSTED izvor i početni saldo.
+Dodati read-only robni dokumenti sa detaljima, cjenovnik/šifarnici, postojeći
+lager/kartica artikla i mjesečni PDV iz sačuvanih prijava. Nema unosa/knjiženja.
+Agencijska matrica objašnjava potrebna view prava. Bez migracije ili commita.
+Provjere: tsc, fokusirani lint, 9 fiskalnih portal testova i
+`node scripts/check-client-portal.cjs` (privremeni DB zapisi + rollback).
+Desktop/mobilni raspored provjeren na testnom serverskom renderu; live login
+sesija je istekla pa interaktivni QA prijavljenog klijenta ostaje otvoren.
+
+Klijentski portal, UI dorada: uklonjen izbor firme; server bira jedinu aktivnu
+dodjelu, a promjena konteksta prima samo godinu. Početne kartice koriste zasebne
+stilove umjesto fiskalnih quick-link stilova, sa urednim naslovom i pozivom za pregled.
+
+Klijentska početna: prečice zamijenjene sa dva horizontalna grafikona najvećih
+dužnika i obaveza. Kupci koriste D-P, dobavljači P-D, pozitivne salde i opadajući
+poredak; top 10 i ukupni iznos svih pozitivnih salda, odvojeno domaći/ino.
+DB regresija provjerava poredak, smjer salda, avanse i ukupne iznose.
+
+
+## Odvojene matrice radnika i klijenta — 2026-10-01
+- Klijent bira tri poslovno imenovana pregleda; radnik zadržava punu matricu.
+- Backend koristi rolu iz baze, odbija pogrešan tip obrasca i klijentu upisuje
+  samo view prava odabranih grupa. Pri čuvanju uklanja stare knjigovodstvene
+  dozvole, a postojeća POS prava ostaju. Nema automatskog upisa postojećim korisnicima.
+- Prikaz označava samo dozvoljena prava. Otvori/Prava vode na ciljnu sekciju;
+  stari link /korisnici/prava preusmjerava na listu.
+- Provjera stvarne server akcije sa izolovanim spremištem: grupisanje, zajedničke
+  dozvole, ukidanje, očuvanje POS prava, odbijanje lažne role i radnička matrica.
+
+
+## Navigacija korisnika i dnevnik aktivnosti — 2026-10-01
+- Radnici/Klijenti filtriraju liste i kreiranje po roli, linkovi čuvaju tip;
+  povratak sa akcije za klijenta preusmjerava na odgovarajuću karticu.
+- Uklonjeni meniji Uloge i Prava pristupa. Dnevnik aktivnosti implementiran
+  nad postojećim auditom, za admina agencije, uz scoped filtere i paginaciju.
+- Provjereno renderovanje obje matrice, agency scope na svim audit upitima,
+  granice datuma (uključujući 23-časovni DST dan), nevalidni filteri,
+  paginacija i odbijanje neautorizovanog pristupa. Bez upisa produkcijskih podataka.

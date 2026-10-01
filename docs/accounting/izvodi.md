@@ -343,3 +343,40 @@ poruke. Brisanje neproknjiženog izvoda postavlja vezu na NULL, uz moguć ponovn
 uvoz. Purge firme briše evidenciju prije izvoda; tabela nema podređene tabele.
 Regresije: `npm run test:imap`, `npm run test:mail-import-db` (privremena firma,
 rollback svih izmjena), `npm run db:check-company-purge`.
+
+### Preskakanje završenih mailova (2026-10-01)
+
+Red uvoza izostavlja poznate završene poruke prije preuzimanja zaglavlja/priloga.
+Identitet je folder + UIDVALIDITY + UID, uz agenciju, firmu i godinu. Svi zapisi
+moraju biti završeni (IMPORTED/DUPLICATE sa neobrisanim izvodom ili SKIPPED), uz
+bar jedan uspješan izvod. ERROR/REVIEW, marker nezavršene obrade i obrisana veza
+ostavljaju poruku za retry. Server action ponavlja provjeru prije download-a.
+IMAP SEARCH i dalje otkriva UID-ove; red i progres sadrže samo nezavršene poruke.
+Premještena poruka sa novim identitetom i dalje koristi zaštitu po hash-u priloga.
+
+### Automatska dnevna obrada (2026-10-01)
+
+Produkcijski Node server preko `src/instrumentation.ts` pokreće minutnu provjeru
+rasporeda. `BANK_AUTOMATION_ENABLED=true` uključuje posao; `false` ga isključuje.
+`deploy_knjigovodstvo.sh` podrazumijevano uključuje flag pri PM2 restartu, nakon
+builda. Za isključen deploy: `BANK_AUTOMATION_ENABLED=false ./deploy_knjigovodstvo.sh`.
+Kod ručnog deploya postaviti flag u serverskom okruženju i restartovati PM2 sa
+`--update-env`. Razvojni server i build ne izvršavaju posao. Potreban je stalno
+pokrenut Node/PM2 server; raspored nije namijenjen serverless hostingu.
+
+U 10:00 Europe/Podgorica (uz automatski ljetnji/zimski pomak) prolazi kroz aktivne
+mail konfiguracije samo `IMAP_AGENCY_ID` agencije, uz aktivnog administratora kao
+audit izvršioca. Firme bez izvora, neaktivne firme i isključen mail se preskaču.
+Bira otvorenu godinu koja obuhvata današnji datum; druga godina izvoda ostaje za
+ručnu provjeru. Uvozi nezavršene poruke i knjiži samo READY izvode sa mail porijeklom.
+Ručni nacrti se ne knjiže ovim poslom. Izolovana greška knjiženja ne zaustavlja
+naredni izvod/firmu. Nema automatskog otključavanja, izmjene konta ili knjiženja
+izvoda koji zahtijevaju provjeru.
+
+Advisory lock po firmi sprečava paralelne procese. Završni AUTO_BANK_RUN audit
+sprečava ponavljanje istog dana; nedovršen posao poslije pada pokušava ponovo uz
+postojeću zaštitu duplikata. Obrada firme ograničena je na oko 20 minuta; ostatak
+ostaje za sljedeći dan/ručni uvoz. Ako je server ugašen u 10:00, pokretanje istog
+dana poslije 10:00 nadoknađuje obradu. AUTO_POST audit se čuva u transakciji naloga.
+Ekran `/agencija/izvodi/automatska-obrada` pokazuje uključivanje, broj uvoza,
+knjiženja, potrebnih provjera i greške posljednjih 100 obrada povezane agencije.

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireClientContext } from "@/lib/client-portal";
 import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -19,6 +20,7 @@ import {
 } from "../robno/_shared";
 
 type ItemCardPageProps = {
+  clientView?: boolean;
   basePath: string;
   lagerPath: string;
   sectionLabel: string;
@@ -37,6 +39,7 @@ type DocumentMeta = {
 };
 
 export async function ItemCardPage({
+  clientView = false,
   basePath,
   lagerPath,
   sectionLabel,
@@ -44,7 +47,7 @@ export async function ItemCardPage({
   searchParams
 }: ItemCardPageProps) {
   const [context, params] = await Promise.all([
-    loadInventoryReportContext(),
+    clientView ? requireClientContext(["robno"]).then((context) => ({ ...context, allowed: true })) : loadInventoryReportContext(),
     searchParams
   ]);
 
@@ -425,7 +428,7 @@ export async function ItemCardPage({
                             {document ? (
                               <Link
                                 className="table-link"
-                                href={document.href}
+                                href={clientView ? document.href.replace("/agencija/robno/", "/klijent/robno/").replace("/stampa/pos/racuni/", "/klijent/robno/izlazne-fakture/") : document.href}
                                 target={row.tip_dokumenta.startsWith("POS_") ? "_blank" : undefined}
                               >
                                 {document.label}

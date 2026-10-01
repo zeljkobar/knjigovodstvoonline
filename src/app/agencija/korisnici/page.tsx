@@ -6,12 +6,15 @@ import {
   toggleAgencyUser
 } from "../actions";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { configurablePermissionActions } from "@/lib/permission-policy";
 import { prisma } from "@/lib/prisma";
+import { clientPermissionGroups } from "@/lib/client-permission-policy";
 
 type KorisniciPageProps = {
   searchParams?: Promise<{
+    tip?: string;
     firma?: string;
     korisnik?: string;
     poruka?: string;
@@ -142,7 +145,8 @@ export default async function AgencijskiKorisniciPage({
             id: true,
             firma_id: true,
             modul: true,
-            akcija: true
+            akcija: true,
+            dozvoljeno: true
           }
         }
       }
@@ -165,13 +169,20 @@ export default async function AgencijskiKorisniciPage({
   ]);
 
   const selectedUser = korisnici.find((korisnik) => korisnik.id === selectedUserId) ?? null;
+  if (selectedUser?.rola === "klijent" && params?.tip !== "klijenti") {
+    const query = new URLSearchParams({ ...params, tip: "klijenti" });
+    redirect(`/agencija/korisnici?${query}#podesavanja-korisnika`);
+  }
+  const clients = params?.tip === "klijenti";
+  const visibleUsers = korisnici.filter((user) => user.rola === (clients ? "klijent" : "korisnik_agencije"));
+  const typeQuery = clients ? "tip=klijenti&" : "";
   const selectedAssignment =
     selectedUser?.firme.find((dodjela) => dodjela.firma.id === requestedFirmaId) ??
-    null;
+    (!requestedFirmaId && selectedUser?.firme.length === 1 ? selectedUser.firme[0] : null);
   const selectedFirmaId = selectedAssignment?.firma.id ?? "";
   const selectedPermissionActions = new Set(
     selectedUser?.prava
-      .filter((pravo) => pravo.firma_id === selectedFirmaId)
+      .filter((pravo) => pravo.firma_id === selectedFirmaId && pravo.dozvoljeno)
       .map((pravo) => `${pravo.modul}:${pravo.akcija}`) ?? []
   );
 
@@ -179,14 +190,14 @@ export default async function AgencijskiKorisniciPage({
     <div className="admin-stack">
       <header className="admin-header">
         <div>
-          <h2>Korisnici i prava</h2>
+          <h2>{clients ? "Klijenti" : "Radnici"}</h2>
         </div>
       </header>
 
       {message ? <p className="admin-message">{message}</p> : null}
 
       <section className="admin-form-section">
-        <h3>Novi korisnik</h3>
+        <h3>{clients ? "Novi klijent" : "Novi radnik"}</h3>
         <form className="admin-form" action={createAgencyUser}>
           <label>
             <span>Korisnicko ime</span>
@@ -196,25 +207,19 @@ export default async function AgencijskiKorisniciPage({
             <span>Email</span>
             <input name="email" required type="email" />
           </label>
-          <label>
-            <span>Tip korisnika</span>
-            <select name="rola" required>
-              <option value="korisnik_agencije">Radnik agencije</option>
-              <option value="klijent">Klijent</option>
-            </select>
-          </label>
+          <input type="hidden" name="rola" value={clients ? "klijent" : "korisnik_agencije"} />
           <button type="submit">Posalji pozivnicu</button>
         </form>
       </section>
 
-      <section className="admin-panel">
+      <section className="admin-panel" id="lista-korisnika" style={{ scrollMarginTop: "24px" }}>
         <div className="panel-header">
-          <h3>Radnici i klijenti</h3>
-          <span>{korisnici.length} ukupno</span>
+          <h3>{clients ? "Klijenti" : "Radnici"}</h3>
+          <span>{visibleUsers.length} ukupno</span>
         </div>
 
-        {korisnici.length === 0 ? (
-          <p className="empty-state">Nema radnika ili klijenata.</p>
+        {visibleUsers.length === 0 ? (
+          <p className="empty-state">{clients ? "Nema klijenata." : "Nema radnika."}</p>
         ) : (
           <div className="table-wrap">
             <table>
@@ -230,7 +235,7 @@ export default async function AgencijskiKorisniciPage({
                 </tr>
               </thead>
               <tbody>
-                {korisnici.map((korisnik) => {
+                {visibleUsers.map((korisnik) => {
                   const isSelected = selectedUser?.id === korisnik.id;
 
                   return (
@@ -252,7 +257,7 @@ export default async function AgencijskiKorisniciPage({
                         <div className="table-actions">
                           <Link
                             className="table-link"
-                            href={`/agencija/korisnici?korisnik=${korisnik.id}`}
+                            href={`/agencija/korisnici?${typeQuery}korisnik=${korisnik.id}#${korisnik.firme.length === 1 ? "prava-korisnika" : "podesavanja-korisnika"}`}
                           >
                             Otvori
                           </Link>
@@ -279,7 +284,7 @@ export default async function AgencijskiKorisniciPage({
       </section>
 
       {selectedUser ? (
-        <section className="admin-panel">
+        <section className="admin-panel" id="podesavanja-korisnika" style={{ scrollMarginTop: "24px" }}>
           <div className="panel-header">
             <div>
               <h3>{selectedUser.korisnicko_ime}</h3>
@@ -335,7 +340,7 @@ export default async function AgencijskiKorisniciPage({
                               <div className="table-actions">
                                 <Link
                                   className="table-link"
-                                  href={`/agencija/korisnici?korisnik=${selectedUser.id}&firma=${dodjela.firma.id}`}
+                                  href={`/agencija/korisnici?${typeQuery}korisnik=${selectedUser.id}&firma=${dodjela.firma.id}#prava-korisnika`}
                                 >
                                   Prava
                                 </Link>
@@ -390,24 +395,42 @@ export default async function AgencijskiKorisniciPage({
       ) : null}
 
       {selectedUser && selectedAssignment ? (
-        <section className="admin-panel permission-panel">
+        <section className="admin-panel permission-panel" id="prava-korisnika" style={{ scrollMarginTop: "24px" }}>
           <div className="panel-header">
             <div>
               <h3>Prava za {selectedAssignment.firma.naziv}</h3>
+              <p className="muted-text">{selectedUser.rola === "klijent" ? "Prava klijenta — izaberite preglede koje može da vidi. Unos i izmjene nijesu omogućeni." : "Prava radnika — podesite dozvoljene radnje po modulima."}</p>
               <span>{selectedUser.korisnicko_ime}</span>
             </div>
-            <span>{selectedUser.prava.filter((pravo) => pravo.firma_id === selectedFirmaId).length} prava</span>
+            <span>{selectedUser.rola === "klijent" ? "Klijentski portal" : "Radnik agencije"}</span>
           </div>
 
-          <p className="admin-note">
+          {selectedUser.rola !== "klijent" ? <p className="admin-note">
             Pravo <strong>Pregled</strong> određuje da li radnik vidi modul u
             glavnom meniju za izabranu firmu. KIF/KUF se prikazuje kada radnik
             ima pregled ulaznih ili izlaznih računa.
-          </p>
+          </p> : <p className="admin-note">Fiskalizacija se podešava zasebno. Ove opcije uređuju knjigovodstvene preglede klijenta.</p>}
 
-          <form className="compact-form" action={saveUserPermissionMatrix}>
+          <form key={`${selectedUser.id}:${selectedFirmaId}`} className="compact-form" action={saveUserPermissionMatrix}>
             <input name="korisnik_id" type="hidden" value={selectedUser.id} />
             <input name="firma_id" type="hidden" value={selectedFirmaId} />
+            {selectedUser.rola === "klijent" ? <>
+              <input name="matrica" type="hidden" value="klijent" />
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>Pregled</th><th>Dozvoljen pristup</th></tr></thead>
+                  <tbody>{clientPermissionGroups.map((group) => <tr key={group.id}>
+                    <td><strong>{group.label}</strong><small>{group.description}</small></td>
+                    <td><label className="single-checkbox">
+                      <input type="checkbox" name="pregledi" value={group.id}
+                        defaultChecked={group.modules.every((module) => selectedPermissionActions.has(`${module}:view`))} />
+                      {group.label}
+                    </label></td>
+                  </tr>)}</tbody>
+                </table>
+              </div>
+            </> : <>
+              <input name="matrica" type="hidden" value="radnik" />
             <div className="permission-matrix-wrap">
               <table className="permission-matrix">
                 <thead>
@@ -444,7 +467,8 @@ export default async function AgencijskiKorisniciPage({
                 </tbody>
               </table>
             </div>
-            <button type="submit">Sacuvaj matricu prava</button>
+            </>}
+            <button type="submit">Sačuvaj prava</button>
           </form>
         </section>
       ) : null}

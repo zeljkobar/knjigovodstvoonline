@@ -19,6 +19,8 @@ npx prisma generate
 echo "==> Build Next.js app"
 npm run build
 
+# Enable only at runtime, after the build. The scheduler uses Europe/Podgorica.
+export BANK_AUTOMATION_ENABLED="${BANK_AUTOMATION_ENABLED:-true}"
 echo "==> Restart PM2 app"
 if pm2 describe "$APP_NAME" >/dev/null 2>&1; then
   PORT="$APP_PORT" pm2 restart "$APP_NAME" --update-env

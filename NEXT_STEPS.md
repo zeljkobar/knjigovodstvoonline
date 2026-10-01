@@ -21,7 +21,9 @@
   aplikaciju. Podesiti `IMAP_AGENCY_ID` za odgovarajuću agenciju.
 - Uvoz filtriranih mail priloga na klik, statusi i zaštita od ponavljanja/
   premještanja su implementirani. Sljedeće: korisnička provjera uvoza za banke,
-  zatim zasebno dogovoriti zakazani rad i automatsko knjiženje spremnih izvoda.
+  dnevna obrada u 10:00 i knjiženje spremnih mail izvoda su implementirani.
+  Deployovati i provjeriti prvi rezultat u Izvodi → Automatska obrada.
+  Produkcijski BANK_AUTOMATION_ENABLED=true; deploy skripta ga postavlja pri restartu.
   Šifrovana konfiguracija više sandučića ostaje buduća faza.
 - Na produkciji primijeniti migraciju `20260923120000_opsti_virmani`, dodijeliti
   radnicima potrebna prava za novi modul i uraditi probnu štampu tri opšta
@@ -233,9 +235,10 @@
   produkcijski početni depozit i djelimični povrat kada ga Fiscal API podrži.
 
 ## Nije implementirano
-- Potpuniji standardni klijentski portal i preostali opšti dashboard izvještaji;
-  centralne kartice konta/partnera, kupci/dobavljači, PDV, plate, lager i kartica
-  artikla već koriste postojeće funkcionalne prikaze.
+- Klijentski portal: read-only partneri/kartice, robno i PDV su implementirani.
+  Sljedeće: interaktivni QA prijavljenog klijenta, štampa/izvoz, opcioni pregledi
+  plata i rezultata po jedinicama; unos robnih dokumenata tek nakon dogovora.
+  Preostaju opšti dashboard izvještaji.
 - Produkcijski početni depozit, reprint audit agencijskog POS-a, lokalni POS
   Agent i djelimični povrat prije odgovarajuće podrške Fiscal API-ja.
 

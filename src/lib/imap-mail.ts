@@ -4,6 +4,8 @@ import { simpleParser } from "mailparser";
 import { matchesMailRules, matchesMailFolder, type CompanyMailConfig, type MailMetadata } from "./company-mail-rules";
 import { imapOptions, safeImapError } from "./imap-connection";
 
+import { mailSourceKey } from "./mail-import-policy";
+
 export const MAIL_PAGE_SIZE = 25;
 export const MAX_MAIL_BYTES = 10 * 1024 * 1024;
 export class MailError extends Error {}
@@ -83,7 +85,7 @@ export async function listMailFolders() {
   })));
 }
 
-export async function listCompanyInbox(config: CompanyMailConfig, requestedPage: number) {
+export async function listCompanyInbox(config: CompanyMailConfig, requestedPage: number, completed: ReadonlySet<string> = new Set()) {
   return withMailClient(async (client) => {
     const folders = await client.list();
     if (config.folder && !folders.some((folder) => folder.path === config.folder)) throw new MailError("Podešeni folder više ne postoji. Provjerite podešavanja firme.");
@@ -101,7 +103,7 @@ export async function listCompanyInbox(config: CompanyMailConfig, requestedPage:
       const query = config.rules.length > 0 && senders.length === config.rules.length
         ? (senders.length === 1 ? { from: senders[0] } : { or: senders.map((from) => ({ from })) }) : { all: true };
       const found = await client.search(query, { uid: true });
-      const uids = Array.isArray(found) ? found : [];
+      const uids = (Array.isArray(found) ? found : []).filter(uid => !completed.has(mailSourceKey(folder.path, mailbox.uidValidity.toString(), uid)));
       scanned += uids.length;
       if (scanned > 20000) throw new MailError("Previše poruka za jednu provjeru. Suzite foldere ili pravila pošiljaoca.");
       for (let offset = 0; offset < uids.length; offset += 100) {

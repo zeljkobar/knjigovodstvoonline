@@ -34,6 +34,8 @@ import {
 } from "@/lib/work-context";
 import { configurablePermissionActions } from "@/lib/permission-policy";
 
+import { clientPermissionsForGroups } from "@/lib/client-permission-policy";
+
 const validActions: readonly string[] = configurablePermissionActions;
 
 const allowedSubjectTypes = [
@@ -2731,7 +2733,7 @@ export async function saveUserPermissionMatrix(formData: FormData) {
   }
 
   const agencijaId = admin.agencija_id;
-  const parsedPermissions = selectedPermissions
+  let parsedPermissions = selectedPermissions
     .map((permission) => {
       const [modul, akcija] = permission.split(":");
 
@@ -2755,7 +2757,8 @@ export async function saveUserPermissionMatrix(formData: FormData) {
         }
       },
       select: {
-        id: true
+        id: true,
+        rola: true
       }
     }),
     prisma.firma.findFirst({
@@ -2774,12 +2777,23 @@ export async function saveUserPermissionMatrix(formData: FormData) {
     redirectUsers("prava_greska");
   }
 
+  const isClient = korisnik.rola === "klijent";
+  // The role comes from the database; submitted worker permissions cannot grant
+  // write access to a client. Refuse stale forms instead of clearing their rights.
+  if (value(formData, "matrica") !== (isClient ? "klijent" : "radnik")) {
+    redirectUsers("prava_greska", korisnikId, firmaId);
+  }
+  if (isClient) {
+    parsedPermissions = clientPermissionsForGroups(formData.getAll("pregledi").map(String));
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.korisnikPravo.deleteMany({
       where: {
         agencija_id: agencijaId,
         korisnik_id: korisnikId,
-        firma_id: firmaId
+        firma_id: firmaId,
+        ...(isClient ? { modul: { not: "pos" } } : {})
       }
     });
 
