@@ -4,6 +4,27 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Rokovi implementirani bez emailova. Pri deployu primijeniti migraciju
+  `20261003090000_rokovi` i `20261003110000_rokovi_kontrolna_lista`; administrator provjerava obaveze i početni mjesec
+  praćenja po firmama. Ranije nezavršene obaveze imaju upozorenje i poseban pregled.
+  Dokumentacija i ostali zadaci nisu u obimu.
+- Statistika rada agencije implementirana je bez nove migracije; periodični
+  dokumenti i obračuni su odvojeni od trenutnog broja zaposlenih i ugovora.
+- Upozorenja za preskočene brojeve izvoda implementirana su bez nove migracije.
+  Kontrola počinje od 1; kod preuzetih firmi provjeriti raniju evidenciju van programa.
+- Profil agencije i povezivanje ugovora su implementirani. Pri deployu primijeniti
+  migracije 20261002120000 i 20261002140000; administrator zatim dopunjava stvarne podatke.
+  Postojeći ugovori preuzimaju dopunu samo uz izričito osvježavanje podataka strana.
+  Dostavljeni predložak sa 13 članova je povezan; za svaki ugovor provjeriti
+  datum zaključenja, početak primjene, cijenu, način plaćanja i nadležni sud.
+- Računovodstvena regresija i objedinjeni runner su dodati. Nakon push-a provjeriti
+  prvi GitHub Linux/PostgreSQL i Windows/XSD run. Dalje širiti browser E2E,
+  testove PDV prijave/ručnih korekcija i zaključavanja svih edit/delete tokova;
+  postojeći novi testovi pokrivaju navedene tokove knjiženja, ne svaki endpoint.
+- OFFICE potpuni storno je implementiran. Nakon deploya provjeriti stvarni Fiscal
+  API Test tok: kreiranje, potvrdu, prekid odgovora i nastavak istog storna,
+  štampu, knjiženje korektivnog nacrta i preuzimanje u KIF. Lokalna DB regresija
+  koristi simulirani API i rollback; nije slat produkcijski fiskalni zahtjev.
 - **Poreska amortizacija:** godišnja stanja, klasifikacija postojećih sredstava,
   promjene, obračun/revizije, potvrda, kontrolisano vraćanje u nacrt i brisanje, poništavanje prenosa,
   prenos i OA štampa su implementirani. Slijede djelimična otuđenja i

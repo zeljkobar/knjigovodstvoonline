@@ -2,6 +2,8 @@ import Link from "next/link";
 import { saveCompanyContract } from "../../actions";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
+import { ContractPaymentTerms } from "./ContractPaymentTerms";
 
 type UgovoriPageProps = {
   searchParams?: Promise<{
@@ -78,6 +80,9 @@ export default async function UgovoriPage({ searchParams }: UgovoriPageProps) {
       ugovor: {
         select: {
           id: true,
+          datum_zakljucenja: true,
+          dan_placanja: true,
+          nadlezni_sud: true,
           datum_pocetka: true,
           datum_prestanka: true,
           mjesecna_cijena: true,
@@ -96,7 +101,7 @@ export default async function UgovoriPage({ searchParams }: UgovoriPageProps) {
     }
   });
 
-  const selectedCompany = firme.find((firma) => firma.id === selectedCompanyId) ?? firme[0];
+  const selectedCompany = selectedCompanyId ? firme.find((firma) => firma.id === selectedCompanyId) : firme[0];
   const selectedContract = selectedCompany?.ugovor ?? null;
 
   return (
@@ -112,24 +117,24 @@ export default async function UgovoriPage({ searchParams }: UgovoriPageProps) {
 
       {message ? <p className="admin-message">{message}</p> : null}
 
-      {canManage ? (
+      {canManage && selectedCompany ? (
         <section className="admin-form-section">
           <h3>Uredi ugovor</h3>
-          <form className="admin-form" action={saveCompanyContract}>
-            <label className="form-wide">
-              <span>Firma</span>
-              <select name="firma_id" required defaultValue={selectedCompany?.id ?? ""}>
-                <option value="">Izaberite firmu</option>
-                {firme.map((firma) => (
-                  <option key={firma.id} value={firma.id}>
-                    {firma.naziv}
-                    {firma.pib ? ` (${firma.pib})` : ""}
-                  </option>
-                ))}
+          <AutoSubmitFilterForm action="/agencija/firme/ugovori" className="admin-form" key={`firma-${selectedCompany.id}`}>
+            <label className="form-wide"><span>Firma</span>
+              <select name="firma" defaultValue={selectedCompany.id}>
+                {firme.map(firma => <option key={firma.id} value={firma.id}>{firma.naziv}{firma.pib ? ` (${firma.pib})` : ""}</option>)}
               </select>
             </label>
+          </AutoSubmitFilterForm>
+          <p className="muted-text">Ugovor koristi predložak sa 13 članova. Provjerite datume, cijenu bez PDV-a, rok plaćanja i nadležni sud. <Link href={`/agencija/firme/${selectedCompany.id}`}>Podaci firme i izvršni direktor</Link></p>
+          <form className="admin-form" action={saveCompanyContract} key={selectedCompany.id}>
+            <input type="hidden" name="firma_id" value={selectedCompany.id}/>
+            <label><span>Datum zaključenja ugovora</span>
+              <input name="datum_zakljucenja" type="date" defaultValue={dateInputValue(selectedContract?.datum_zakljucenja ?? null)}/>
+            </label>
             <label>
-              <span>Datum pocetka</span>
+              <span>Datum početka primjene</span>
               <input
                 name="datum_pocetka"
                 type="date"
@@ -145,7 +150,7 @@ export default async function UgovoriPage({ searchParams }: UgovoriPageProps) {
               />
             </label>
             <label>
-              <span>Mjesecna cijena</span>
+              <span>Mjesečna cijena bez PDV-a</span>
               <input
                 name="mjesecna_cijena"
                 inputMode="decimal"
@@ -162,15 +167,9 @@ export default async function UgovoriPage({ searchParams }: UgovoriPageProps) {
                 ))}
               </select>
             </label>
-            <label>
-              <span>Rok placanja dana</span>
-              <input
-                name="rok_placanja_dana"
-                min="0"
-                max="365"
-                type="number"
-                defaultValue={selectedContract?.rok_placanja_dana ?? ""}
-              />
+            <ContractPaymentTerms day={selectedContract?.dan_placanja ?? null} days={selectedContract?.rok_placanja_dana ?? null} isNew={!selectedContract}/>
+            <label><span>Nadležni sud</span>
+              <input name="nadlezni_sud" maxLength={200} defaultValue={selectedContract?.nadlezni_sud ?? "Sud u Baru"}/>
             </label>
             <label>
               <span>Dan fakturisanja</span>
@@ -226,9 +225,13 @@ export default async function UgovoriPage({ searchParams }: UgovoriPageProps) {
               />
             </label>
             <label className="form-wide">
-              <span>Napomena</span>
+              <span>Napomena za ugovor (štampa se)</span>
               <textarea name="napomena" defaultValue={selectedContract?.napomena ?? ""} />
             </label>
+            <div className="form-wide">
+              <p className="muted-text">Novi ugovor preuzima podatke iz <Link href="/agencija/podesavanja/agencija">Podešavanja → Agencija</Link> i podatke firme. Sačuvani ugovor zadržava podatke ugovornih strana.</p>
+              <label className="single-checkbox form-checkbox"><input type="checkbox" name="obnovi_podatke_strana"/><span>Preuzmi sadašnje podatke agencije i klijenta u ovaj ugovor (zamjenjuje ranije sačuvane podatke).</span></label>
+            </div>
             <button type="submit">Sacuvaj ugovor</button>
           </form>
         </section>
@@ -269,9 +272,9 @@ export default async function UgovoriPage({ searchParams }: UgovoriPageProps) {
                     </td>
                     <td>{currencyValue(firma.ugovor?.mjesecna_cijena ?? null, firma.ugovor?.valuta ?? "EUR")}</td>
                     <td>
-                      {firma.ugovor?.rok_placanja_dana
-                        ? `${firma.ugovor.rok_placanja_dana} dana`
-                        : "-"}
+                      {firma.ugovor?.dan_placanja != null
+                        ? `Do ${firma.ugovor.dan_placanja}. u mjesecu`
+                        : firma.ugovor?.rok_placanja_dana != null ? `${firma.ugovor.rok_placanja_dana} dana` : "-"}
                     </td>
                     <td>{firma.ugovor?.paket ?? "-"}</td>
                     <td>{firma.ugovor?.automatsko_fakturisanje ? "Ukljuceno" : "Iskljuceno"}</td>

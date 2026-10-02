@@ -1,0 +1,50 @@
+name: Regression tests
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: knjigovodstvo_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U test -d knjigovodstvo_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/knjigovodstvo_test
+      TEST_DATABASE_URL: postgresql://test:test@localhost:5432/knjigovodstvo_test
+      BANK_AUTOMATION_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npm run prisma:generate
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run test:db
+  financial-xml-xsd:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:generate
+      - run: npm run test:financial-xml

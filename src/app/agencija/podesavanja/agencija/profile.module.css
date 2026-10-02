@@ -1,0 +1,4 @@
+.actions { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin-top:1.5rem; }
+.account { padding:1.25rem 0; border-bottom:1px solid #d5e3f2; margin-bottom:1.25rem; }
+.remove { display:flex; justify-content:flex-end; margin-top:.75rem; }
+@media(max-width:600px) { .actions { align-items:stretch; flex-direction:column; } }

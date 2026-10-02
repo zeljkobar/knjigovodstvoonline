@@ -1755,3 +1755,99 @@ DB regresija provjerava poredak, smjer salda, avanse i ukupne iznose.
   naloga/KIF/plaćanja/korekcija/lagera, u otvorenoj godini i PDV periodu.
 - Isti invoice lock i transakcioni audit; broj ostaje evidentiran.
 - Regresija provjerava dozvoljeni nacrt i blokade; TypeScript čist.
+
+
+## Potpuni storno izlazne fakture — 2026-10-02
+- OFFICE storno ekran/akcija i servis sa backend pravima i scope-om; original
+  ostaje neizmijenjen kao poslovni dokument, potvrđena korekcija određuje UI status.
+- Idempotentni Fiscal API create i provjera remote statusa prije slanja; trajni
+  pokušaji, lease za dupli klik, čuvanje potvrde odvojeno od lokalnog knjiženja.
+- DRAFT korektivni nalog sa negativnim originalnim stavkama, robni povrat po
+  originalnom razduženju, poreska razrada i postojeći KIF import. Ne mijenja se
+  originalni KIF, ne brišu se fiskalni dokumenti. Štampa ima originalnu referencu.
+- Storno koristi otvorenu godinu/period datuma storna; za nepotvrđeni dokument
+  ranijeg datuma traži provjeru servisa. Potvrđeni odgovor se može uskladiti i
+  kad je period naknadno zaključan, a lokalno knjiženje tada ostaje blokirano.
+- DB test privremene podatke uvijek rollbackuje i potpuno simulira Fiscal API.
+  Provjereni replay create/submit, dupli klik, atomarnost lagera/naloga,
+  negativni KIF, scope, Test/Production, zatvorena godina/PDV i nastavak bez
+  ponovne fiskalizacije. Stvarni Fiscal API Test ostaje naredna provjera.
+
+
+## Računovodstvena regresija i CI — 2026-10-02
+- Dodati PDV/opening unit testovi, stvarni nalozi/KIF/KUF/izvodi/PDV integracioni
+  test, puni OFFICE lifecycle sa simuliranim servisom i stvarna PG konkurentnost.
+- Testovi dokazali PDV blokadu koja je nedostajala na postJournal i orphan nalog
+  kod greške knjiženja knjige. Popravljeno zaključavanje, ponovna validacija,
+  analitika i transakcioni audit/rollback; serijalizovan dupli post naloga/knjige.
+- Objedinjene komande npm test/test:db/test:all; DB runner zahtijeva izdvojenu
+  TEST_DATABASE_URL. Mail fixture samostalan; nema stvarnih IMAP/fiskalnih poziva.
+- Dodati Linux/PostgreSQL i Windows/XSD GitHub jobs. Nova prazna lokalna testna
+  baza napravljena i svih 105 postojećih migracija primijenjeno bez nove migracije.
+- Lokalna verifikacija: unit skup, integracione skripte, TypeScript i fokusirani
+  lint. XSD test se na macOS-u preskače; GitHub run čeka push. Nema deploya.
+
+
+## 2026-10-02 — Profil agencije za ugovore
+- Dodata stranica Podešavanja → Agencija i podsjetnik na dashboardu; samo admin
+  uređuje svoju agenciju. Više bankovnih računa, jedan glavni, soft delete,
+  optimistička verzija i transakcioni audit.
+- Ručna migracija profila/računa i JSON snapshot-a ugovora primijenjena lokalno
+  i u izdvojenoj testnoj bazi. Stari ugovori dobijaju trenutno dostupne podatke;
+  izmjena profila ne prepisuje ugovor bez izričitog osvježavanja.
+- DB test izvršava stvarne akcije, provjerava štampu i purge koji čuva profil
+  agencije; dodat u objedinjeni runner. Nema commit-a, push-a ni deploya.
+
+
+## 2026-10-02 — Mapiranje korisničkog Word ugovora
+- Pročitan Word iz root-a; izvorni DOCX/PDF ostaju neizmijenjeni. Svih 13 članova
+  preneseno u HTML/CSS štampu. Promjenljivi identiteti/naknada/račun/datumi su
+  mapirani; direktor klijenta dolazi iz odgovornog lica i čuva se u snapshot-u.
+- Nova ručna migracija dodaje datum zaključenja, dan plaćanja i sud. Primijenjena
+  lokalno i u testnoj bazi; dev restartovan. Purge uklanja ista firma_ugovori polja.
+- Ugovor i cijena dobija relevantna polja i dva načina roka plaćanja. Izbor firme
+  prvo učitava odgovarajući ugovor umjesto snimanja tuđih podrazumijevanih polja.
+- Dodata validacija/testovi datuma, centi i roka; DB provjerava sve mapirane
+  vrijednosti, direktora/snapshot, scope, štampu i purge. A4 pregledan u headless
+  Chrome-u na tri stranice; ispravljene margine nastavka stranice.
+- Nema pravnog prepisivanja fiksnih članova, commit-a, push-a ni deploya.
+
+
+## 2026-10-02 — Upozorenja o kontinuitetu izvoda
+- Pregledan referentni provjera_knjizenja (read-only clone u /private/tmp):
+  kontrola od 1 do najvećeg broja, prvo firme sa preskocima.
+- Dodata postojeća ruta /agencija/upozorenja sa filtrom godine/firme/prikaza,
+  brojevima i rasponima, odvojenim nepoznatim oznakama i praznim računima.
+- Backend scope/prava za radnike; otvaranje izvoda postavlja odgovarajući kontekst.
+  Nema izmjene baze niti poslovnih podataka. Unit + stvarni DB rollback test,
+  TypeScript i lint; test dodan u objedinjeni runner. Bez commit-a/push-a.
+
+
+## 2026-10-02 — Statistika rada agencije
+- Dodata /agencija/statistika: period, firma, kartice, mjesečni grafikon i tabela.
+- POSTED nalozi potvrđuju knjiženje izvora; obračuni plata/ugovora/zakupa koriste
+  obračunate statuse. Broj aktivnih zaposlenih i ugovora odvojen kao trenutno stanje.
+- Modul/pravo/tenant scope; bez ličnih podataka zaposlenih u agregatima.
+- DB fixture test za statuse i validnu vezu naloga, mjesece/godine, kategorije,
+  prava/opoziv i SSR; TypeScript i lint provjereni. Bez migracije/commit-a/push-a.
+
+
+## 2026-10-03 — Rokovi za agenciju i radnike
+- PDV/plate mjesečno do 15; godišnji završni račun do 31.03, prethodni period.
+- Filteri i statusi, ručna potvrda/ponovno otvaranje sa napomenom i autorom;
+  admin planira obaveze po firmi. Bez emailova i bez automatskog potvrđivanja.
+- Migracija planova i zadataka lokalno/test baza; purge, tenant/assignment scope,
+  verzije i audit. Unit + DB regresije pokrivaju radnika, opoziv, plan i purge.
+- Kompletan test runner prošao: 136 unit testova, jedan preskočen i 12 DB skripti.
+  TypeScript i ciljani lint; dev restartovan poslije migracije. Bez commit/push.
+
+
+## 2026-10-03 — Tabovi i tekuće obaveze
+- PDV/Plate prethodni mjesec i Završni račun prethodna godina; raniji zaostaci
+  vidljivi preko upozorenja i pregleda preko granice godine. Filteri ostaju nakon čuvanja.
+- Ručna godišnja kontrolna lista nezavisna od predaje; migracija primijenjena
+  lokalno i na test bazu, postojeće potvrde bez promjene. Purge ostaje pokriven.
+- Prošli TypeScript, ciljani lint i kompletan runner (137 unit prošlo, jedan
+  preskočen, 12 DB skripti). Regresije pokrivaju prelazak mjeseca/godine,
+  SSR tabova, ranije obaveze, validaciju i nezavisnost kontrolne liste od predaje.
+- Bez emailova/dokumentacije/ostalih zadataka. Bez commit-a i push-a.

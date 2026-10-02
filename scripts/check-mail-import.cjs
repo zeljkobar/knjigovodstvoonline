@@ -11,11 +11,14 @@ const { PrismaClient } = require('@prisma/client');
 const db = new PrismaClient();
 const rollback = new Error('ROLLBACK_TEST');
 let verified = false;
+const previousImapAgency = process.env.IMAP_AGENCY_ID;
 (async () => {
-  const user = await db.korisnik.findFirst({ where: { agencija_id: process.env.IMAP_AGENCY_ID, rola: 'admin_agencije', aktivan: true, is_deleted: false } });
-  if (!user) throw new Error('Missing test agency administrator');
   try {
     await db.$transaction(async (tx) => {
+      const agency = await tx.agencija.create({data:{naziv:'Mail regression fixture'}});
+      const user = await tx.korisnik.create({data:{agencija_id:agency.id,korisnicko_ime:require('node:crypto').randomUUID(),lozinka_hash:'disabled',rola:'admin_agencije'}});
+      process.env.IMAP_AGENCY_ID = agency.id;
+      if (!await tx.vrstaNaloga.findFirst({where:{sifra:'BANK_STATEMENT',aktivan:true}})) await tx.vrstaNaloga.create({data:{sifra:'BANK_STATEMENT',naziv:'Izvod test',prefiks:'IZ',sistemska:true}});
       const firma = await tx.firma.create({ data: { agencija_id: user.agencija_id, naziv: 'Temporary mail import regression' } });
       const year = await tx.poslovnaGodina.create({ data: { firma_id: firma.id, godina: 2026, datum_od: new Date('2026-01-01'), datum_do: new Date('2026-12-31') } });
       const account = await tx.firmaBankovniRacun.create({ data: { agencija_id: user.agencija_id, firma_id: firma.id, broj_racuna: '530-123456-78', naziv_banke: 'NLB' } });
@@ -28,8 +31,9 @@ let verified = false;
       let discovered = 0;
       let xml = '<stmtrs><acctid>530000000012345678</acctid><stmtnumber>186</stmtnumber><ledgerbal><balamt>10.00</balamt><dtasof>2026-09-25</dtasof></ledgerbal><availbal><balamt>15.00</balamt><dtasof>2026-09-25</dtasof></availbal><stmttrn><benefit>credit</benefit><trnamt>5.00</trnamt><dtposted>2026-09-25</dtposted><purpose>Test</purpose></stmttrn></stmtrs>';
       const fixture = () => [{ index: 0, filename: 'statement.xml', content: Buffer.from(xml), contentType: 'application/xml' }];
-      const proxy = new Proxy(tx, { get(target, key) { if (key === '$transaction') return (fn) => fn(tx); return target[key]; } });
+      const proxy = require('../tests/helpers/source-loader.cjs').transactionProxy(tx);
       const mocks = {
+        'server-only': {},
         'next/cache': { revalidatePath() {} },
         'next/navigation': { redirect(url) { throw new Error('REDIRECT:' + url); } },
         '@/lib/prisma': { prisma: proxy },
@@ -156,4 +160,4 @@ let verified = false;
     }, { timeout: 60000 });
   } catch (error) { if (error !== rollback) throw error; }
   console.log(JSON.stringify({ dailyAutomationAndPosting: verified, noRepeatDaily: verified, lockedPeriodAndBalance: verified, importAndLines: verified, repeatAndMoveDeduplication: verified, legacyManualDuplicate: verified, wrongAccountYearAndScopeRejected: verified, lockedYearAndPermissionsRejected: verified, deleteAndReimport: verified, purge: verified, rolledBack: true }));
-})().catch(error => { console.error(error instanceof assert.AssertionError ? error.message : 'Mail import database regression failed'); process.exitCode = 1; }).finally(() => db.$disconnect());
+})().catch(error => { console.error(error instanceof assert.AssertionError ? error.message : 'Mail import database regression failed'); process.exitCode = 1; }).finally(() => { if(previousImapAgency===undefined)delete process.env.IMAP_AGENCY_ID;else process.env.IMAP_AGENCY_ID=previousImapAgency;return db.$disconnect(); });

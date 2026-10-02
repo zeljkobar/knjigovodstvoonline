@@ -34,6 +34,12 @@ enum KomitentScope {
 }
 
 model Agencija {
+  rok_planovi FirmaRokPlan[]
+  rok_zadaci FirmaRokZadatak[]
+  pdv_broj                   String?
+  zastupnik_ime              String?
+  zastupnik_funkcija         String?
+  bankovni_racuni            AgencijaBankovniRacun[]
   osPoreskeGodine OsPoreskaGodina[]
   osPoreskiObracuni OsPoreskiObracun[]
   osObracuni OsObracun[]
@@ -148,7 +154,28 @@ model Pozivnica {
   @@map("pozivnice")
 }
 
+model AgencijaBankovniRacun {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String   @db.Uuid
+  agencija    Agencija @relation(fields: [agencija_id], references: [id])
+  naziv_banke String
+  broj_racuna String
+  glavni      Boolean  @default(false)
+  is_deleted  Boolean  @default(false)
+  deleted_at  DateTime?
+  deleted_by  String?  @db.Uuid
+  created_at  DateTime @default(now())
+  created_by  String?  @db.Uuid
+  updated_at  DateTime @updatedAt
+  updated_by  String?  @db.Uuid
+
+  @@index([agencija_id, is_deleted])
+  @@map("agencija_bankovni_racuni")
+}
+
 model Firma {
+  rok_plan FirmaRokPlan?
+  rok_zadaci FirmaRokZadatak[]
   osPoreskeGodine OsPoreskaGodina[]
   osPoreskiObracuni OsPoreskiObracun[]
   osObracuni OsObracun[]
@@ -392,6 +419,11 @@ model Virman {
 }
 
 model FirmaUgovor {
+  datum_zakljucenja        DateTime? @db.Date
+  dan_placanja             Int?
+  nadlezni_sud             String?
+  agencija_snapshot       Json?
+  klijent_snapshot        Json?
   id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id             String    @db.Uuid
   firma_id                String    @unique @db.Uuid
@@ -3600,4 +3632,39 @@ model OsPoreskiObracun {
   @@unique([poslovna_godina_id, revizija])
   @@index([agencija_id, firma_id, poslovna_godina_id])
   @@map("os_poreski_obracuni")
+}
+
+
+model FirmaRokPlan {
+  agencija Agencija @relation(fields:[agencija_id],references:[id])
+  firma_id String @id @db.Uuid
+  firma Firma @relation(fields:[firma_id],references:[id])
+  agencija_id String @db.Uuid
+  pdv Boolean
+  plate Boolean
+  zavrsni Boolean @default(true)
+  od_mjeseca DateTime @db.Date
+  updated_at DateTime @updatedAt
+  @@index([agencija_id])
+  @@map("firma_rok_planovi")
+}
+
+model FirmaRokZadatak {
+  agencija Agencija @relation(fields:[agencija_id],references:[id])
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firma_id String @db.Uuid
+  firma Firma @relation(fields:[firma_id],references:[id])
+  agencija_id String @db.Uuid
+  vrsta String
+  godina_roka Int
+  mjesec_roka Int
+  zavrseno_at DateTime?
+  zavrseno_by String? @db.Uuid
+  zavrseno_ime String?
+  napomena String?
+  kontrola String[] @default([])
+  updated_at DateTime @updatedAt
+  @@unique([firma_id,vrsta,godina_roka,mjesec_roka])
+  @@index([agencija_id,godina_roka,mjesec_roka])
+  @@map("firma_rok_zadaci")
 }

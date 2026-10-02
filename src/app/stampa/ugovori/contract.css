@@ -1,0 +1,24 @@
+/* A4 contract based on the supplied Word template; independent of report page sizes. */
+.contract-screen-note { max-width: 210mm; margin: 0 auto 1rem; color: #334155; }
+.accounting-contract-document { padding: 21mm 19mm 17mm; }
+.accounting-contract-document .contract-header { margin-bottom: 18pt; }
+.accounting-contract-document .contract-header h1 { font-size: 14pt; margin: 0; text-decoration: none; }
+.accounting-contract-document p { font-size: 11pt; line-height: 1.25; text-align: justify; margin-bottom: 6pt; overflow-wrap: anywhere; orphans: 3; widows: 3; }
+.accounting-contract-document .contract-intro { margin-bottom: 10pt; }
+.accounting-contract-document .contract-conjunction { text-align: center; }
+.accounting-contract-document .contract-section { margin-top: 10pt; break-inside: auto; }
+.accounting-contract-document h2 { font-size: 11pt; text-align: center; margin: 0 0 6pt; break-after: avoid; }
+.accounting-contract-document .contract-list-item { padding-left: 10pt; text-indent: -10pt; }
+.accounting-contract-document .contract-signatures { margin-top: 24pt; gap: 30pt; break-inside: avoid; }
+.accounting-contract-document .contract-signatures div { gap: 12pt; }
+.accounting-contract-document .contract-addendum p { white-space: pre-wrap; }
+@media screen and (max-width: 850px) {
+  .accounting-contract-document { width: 100%; min-height: auto; padding: 1.5rem; }
+  .accounting-contract-document .contract-signatures { gap: 1rem; }
+}
+@page accountingContract { size: A4 portrait; margin: 21mm 19mm 17mm; }
+@media print {
+  .accounting-contract-page { page: accountingContract; }
+  .accounting-contract-document { page: accountingContract; width: 100%; padding: 0; box-shadow: none; }
+  .contract-screen-note { display: none; }
+}

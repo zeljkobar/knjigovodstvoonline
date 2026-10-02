@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.fixed-assets.json",
+  "include": ["accounting-core.test.ts", "../src/lib/pdv.ts", "../src/lib/opening-balance.ts"]
+}

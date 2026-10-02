@@ -1,0 +1,26 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { getInventoryContext, InventoryAccessDenied, MissingInventoryContext } from "../../../_shared";
+import { officeStornoMessages } from "@/lib/office-storno-messages";
+import { submitOfficeStorno } from "./actions";
+const money = (value: { toString(): string }) => Number(value.toString()).toLocaleString("sr-Latn-ME", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export default async function OfficeStornoPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ poruka?: string }> }) {
+  const [{ id }, query, ctx] = await Promise.all([params, searchParams, getInventoryContext(["view", "cancel", "post"])]);
+  if (!ctx.firma) return <MissingInventoryContext title="Storno fakture" />;
+  if (!ctx.allowed) return <InventoryAccessDenied title="Storno fakture" />;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
+  const original = await prisma.fiskalniIzlazniRacun.findFirst({ where: { id, agencija_id: ctx.user.agencija_id!, firma_id: ctx.firma.id, document_type: "INVOICE", sales_channel: "OFFICE", is_deleted: false }, include: { stavke: { orderBy: { redni_broj: "asc" } }, corrective_invoices: { where: { is_deleted: false }, include: { poslovna_godina: { select: { godina: true } } } } } });
+  if (!original) notFound();
+  const correction = original.corrective_invoices[0];
+  const confirmed = correction?.fiscal_status === "Fiscalized";
+  const completed = confirmed && Boolean(correction.nalog_id);
+  const allowed = original.fiscal_status === "Fiscalized" && Boolean(original.fiscal_api_invoice_id && original.iic && original.jikr);
+  return <div className="admin-stack">
+    <header className="admin-header"><div><p className="eyebrow">Robno / Prodaja</p><h2>Potpuni storno fakture</h2><p>Original: {original.broj_racuna} · {original.datum_racuna.toLocaleDateString("sr-Latn-ME")}</p></div><Link className="secondary-button" href="/agencija/robno/izlazne-fakture">Nazad na fakture</Link></header>
+    {query.poruka ? <p className="admin-message" role="status">{officeStornoMessages[query.poruka] ?? officeStornoMessages.storno_provjera}</p> : null}
+    {correction ? <section className="admin-panel"><h3>{completed ? "Storno je fiskalizovan i računovodstveno pripremljen" : confirmed ? "Storno je fiskalizovan — završite knjiženje" : "Storno je sačuvan — fiskalni ishod nije potvrđen"}</h3><p>{correction.broj_racuna} · {correction.poslovna_godina.godina} · {money(correction.ukupno_sa_pdv)} €</p><p>Razlog: {correction.correction_reason}</p>{!confirmed && correction.fiscal_error_code ? <p className="admin-message">{officeStornoMessages[correction.fiscal_error_code] ?? correction.fiscal_error_message}</p> : null}{confirmed ? <Link className="table-link" href={`/stampa/robno/izlazne-fakture/${correction.id}`} target="_blank">Štampaj storno</Link> : null}{completed ? <p>Korektivni nalog je nacrt. Pregledajte i proknjižite ga kroz Naloge. Storno se preuzima u KIF za mjesec njegovog datuma; originalni KIF zapis ostaje sačuvan.</p> : null}</section> : null}
+    <section className="admin-panel"><h3>Stavke za potpuni storno</h3><div className="table-wrap"><table><thead><tr><th>Artikal / usluga</th><th>Količina za storno</th><th>Iznos za storno</th></tr></thead><tbody>{original.stavke.map((line) => <tr key={line.id}><td>{line.naziv_artikla}</td><td>{line.kolicina.negated().toString()}</td><td>{money(line.ukupno_sa_pdv.negated())} €</td></tr>)}</tbody></table></div><p><strong>Ukupno za storno: {money(original.ukupno_sa_pdv.negated())} €</strong></p><p>Original ostaje sačuvan. Storno dobija svoj datum i fiskalni broj. Povrat robe i korektivni nalog nastaju tek nakon potvrđene fiskalizacije i završene obrade originala.</p></section>
+    {!completed && allowed ? <section className="admin-panel"><h3>{confirmed ? "Završi računovodstvenu obradu" : correction ? "Nastavi isti storno" : "Potvrda storna"}</h3><p>Fiskalno okruženje originala: <strong>{original.fiscal_environment ?? "Nije evidentirano"}</strong>. {confirmed ? "Ova radnja ne šalje ponovo dokument fiskalnom servisu." : "Potvrdom pokrećete kreiranje i fiskalizaciju potpunog storna. Datum novog storna je današnji datum u Crnoj Gori."}</p><form action={submitOfficeStorno} className="compact-form"><input type="hidden" name="original_id" value={original.id} /><input type="hidden" name="firma_id" value={ctx.firma.id} />{correction ? <input type="hidden" name="reason" value={correction.correction_reason ?? ""} /> : <label>Razlog storna<textarea name="reason" minLength={3} maxLength={500} required /></label>}<label className="single-checkbox"><input type="checkbox" name="confirmation" value="CONFIRM" required />{confirmed ? "Potvrđujem završavanje knjiženja storna" : "Potvrđujem potpuni storno svih stavki i cjelokupnog iznosa"}</label><button className="danger-button" type="submit">{confirmed ? "Završi knjiženje storna" : correction ? "Provjeri / nastavi isti storno" : "Fiskalizuj potpuni storno"}</button></form></section> : !allowed ? <p className="admin-message">{officeStornoMessages.storno_original}</p> : null}
+  </div>;
+}

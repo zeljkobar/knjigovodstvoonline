@@ -30,7 +30,13 @@
     "db:seed": "node prisma/seed.mjs",
     "test:imap": "tsc -p tests/tsconfig.imap.json && node --conditions=react-server --test .test-build/tests/imap-connection.test.js .test-build/tests/imap-mail.test.js .test-build/tests/company-mail-rules.test.js .test-build/tests/mail-import-policy.test.js",
     "imap:check": "tsc -p tests/tsconfig.imap.json && node --conditions=react-server scripts/check-imap.cjs",
-    "test:mail-import-db": "node --conditions=react-server scripts/check-mail-import.cjs"
+    "test:mail-import-db": "node --conditions=react-server scripts/check-mail-import.cjs",
+    "test": "node scripts/run-tests.cjs",
+    "test:all": "node scripts/run-tests.cjs --all",
+    "test:db": "node scripts/run-tests.cjs --db",
+    "test:accounting": "tsc -p tests/tsconfig.accounting-core.json && node --test .test-build/tests/accounting-core.test.js",
+    "test:accounting-db": "node scripts/check-accounting-core.cjs",
+    "test:office-storno": "node scripts/check-office-storno.cjs"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",

@@ -23,6 +23,7 @@ type NeproknjizenoPageProps = {
 const poruke: Record<string, string> = {
   knjizenje_kreiran: "Nalog je kreiran.",
   knjizenje_dodato: "Novi računi su dodati na postojeći nalog.",
+  knjizenje_period: "PDV period knjige je zaključan.",
   knjizenje_kontekst: "Izaberite aktivnu firmu i poslovnu godinu.",
   knjizenje_pdv: "Definišite aktivne PDV stope prije knjiženja.",
   knjizenje_vrsta_naloga: "Za ovu vrstu KIF/KUF knjige prvo izaberite vrstu naloga u podešavanjima.",

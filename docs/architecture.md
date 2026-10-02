@@ -234,3 +234,85 @@ guard. Ostali robni dokumenti imaju read-only adaptere sa scope-om agencije,
 firme, godine i soft-delete filterom. Nema novih poslovnih server actions.
 PDV čita sačuvane prijave bez kreiranja perioda i označava nacrte. Postojeći
 `/portal` za fiskalizaciju zadržava svoje guardove i tokove.
+
+
+## Pokretanje regresionih testova (2026-10-02)
+
+- `npm test`: svi `tests/*.test.ts`, brisanje nacrta fakture, matrica prava i
+  pokrivenost purge-a. Ne treba baza niti pristup fiskalnom ili mail servisu.
+- `npm run test:accounting`: samo novi PDV/početni saldo unit testovi.
+- `npm run test:db`: nalozi/KIF/KUF/PDV/izvodi, konkurentnost, puni OFFICE tok,
+  storno, klijentski portal, osnovna sredstva i mail uvoz.
+- `npm run test:all`: oba skupa, prekida se na prvoj grešci.
+
+Za integracione testove napraviti posebnu PostgreSQL bazu čiji naziv sadrži
+`_test`, postaviti `TEST_DATABASE_URL` na njenu konekciju i primijeniti migracije:
+
+```bash
+DATABASE_URL="$TEST_DATABASE_URL" npx prisma migrate deploy
+npm run prisma:generate
+npm run test:all
+```
+
+Ne koristiti produkcijsku bazu. Runner preusmjerava DATABASE_URL samo u testnim
+procesima; ne mijenja `.env`. Nije potreban seed: testovi prave vlastite podatke.
+Većina skripti radi rollback, a test stvarne konkurentnosti koristi dvije
+transakcije i uklanja isključivo svoje fixture zapise u finally bloku.
+Sesije su simulirane; poslovne akcije i ORM izvršavaju se stvarno. Fiscal API
+odgovori i mailbox su simulirani, pa ovo nije potvrda stvarne fiskalizacije.
+
+GitHub Actions koristi privremeni PostgreSQL 16, primjenjuje migracije i pokreće
+isti skup. Zaseban Windows job provjerava XML prema XSD-u; taj test se na
+Linuxu/macOS-u namjerno preskače. Browser interakcije i prijava nisu obuhvaćene
+ovim runnerom. Nema izmjene zahtjeva da se TypeScript provjeri prije commita.
+
+
+### Profil agencije i ugovorne strane
+
+`/agencija/podesavanja/agencija` uređuje agenciju iz sesije, nezavisno od work
+konteksta; dozvoljen je samo admin_agencije. Akcije zaključavaju agenciju,
+provjeravaju verziju i upisuju audit u istoj transakciji. Aktivni bankovni računi
+imaju parcijalne unique indekse za broj i jedan glavni račun; brisanje je soft.
+FirmaUgovor čuva JSON podatke obje strane, uključujući glavni račun agencije.
+Štampa čita snapshot; eksplicitni checkbox pri snimanju ugovora preuzima nove
+podatke. Migracioni backfill čuva stanje u trenutku migracije, ne istorijsko stanje.
+Trajno brisanje firme briše ugovor sa snapshot-ima, ali čuva račune agencije.
+
+
+Predložak štampe ugovora je `accounting-contract-template.ts` (13 članova iz
+korisničkog Word-a), a promjenljive vrijednosti renderuje `AccountingContractDocument`.
+Ne koristi HTML iz baze, pa su unijete vrijednosti React-escaped. Datum zaključenja
+je zaseban od početka primjene. Plaćanje je ili `dan_placanja` u mjesecu ili
+`rok_placanja_dana` od fakture; akcija briše neizabranu varijantu. `nadlezni_sud`
+je uneseni tekst, ne izvodi se iz grada. Klijentski snapshot uključuje samo ime
+aktivnog izvršnog direktora, bez njegovog JMBG-a. Starim snapshot-ima ne dodaje se
+trenutni direktor bez eksplicitnog osvježavanja ugovora. Dodatna polja su u istoj
+tabeli firma_ugovori, pa postojeći purge briše i njih.
+
+
+### Statistika rada agencije
+
+Statistika se računa čitanjem postojećih evidencija, bez posebnih zbirnih tabela.
+Godina dolazi iz globalnog konteksta uz filter godine/mjeseca/firme. Firma scope
+je agencija + aktivne/neobrisane firme, za radnika i dodjela + prava pojedinačnih
+modula. Mjesečni dokumenti i obračuni odvojeni su od trenutnog stanja ljudi i
+ugovora. Broj naloga ne sabira se sa brojem izvora. Za KIF/KUF i izvode provjerava
+se POSTED status i veza sa važećim POSTED nalogom; obračuni obuhvataju CALCULATED,
+REVIEWED, POSTED i LOCKED. Test `check-agency-statistics.cjs` je dio DB runnera.
+
+
+### Rokovi obaveza po firmama
+`firma_rok_planovi` čuva admin izbor obaveza i početni mjesec; zadaci se računaju
+za traženu godinu roka, a `firma_rok_zadaci` čuva ručne potvrde/napomene.
+Jedinstveni ključ je firma + vrsta + godina/mjesec roka. Firma se zaključava
+u transakciji, provjerava se verzija i piše audit. Radnici imaju pravo potvrde
+za aktivne dodijeljene firme; klijenti nemaju pristup. Dokazi o obračunima
+poštuju dodatna prava modula. Zadaci ne mijenjaju računovodstvene dokumente.
+Bez emailova; početak postojećih planova je mjesec migracije u Europe/Podgorica.
+
+Tabovi rokova biraju period obaveze, koji helper prevodi u godinu/mjesec roka.
+Pregled učitava i prethodne godine od početka plana ili najstarijeg sačuvanog
+zadatka; raniji dospjeli nezavršeni zadaci ostaju dostupni. `kontrola` je niz
+ključeva godišnje kontrolne liste u `firma_rok_zadaci`, bez podređenih tabela.
+Akcija kontrolne liste čuva potvrdu predaje; predaja čuva kontrolnu listu.
+Obje koriste postojeće scope, transakcioni audit i provjeru verzije.

@@ -5,8 +5,10 @@ import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { auditLog } from "@/lib/audit";
+import { auditLog, auditLogInTransaction } from "@/lib/audit";
+import { agencyProfileSelect, agencyContractSnapshot, clientContractSnapshot, contractDirectorSelect } from "@/lib/agency-profile";
 import { requireRole } from "@/lib/auth";
+import { parseContractTerms } from "@/lib/contract-terms";
 import {
   CompanyPurgeError,
   purgeCompanyData
@@ -218,18 +220,6 @@ function nullableDate(formData: FormData, key: string) {
   }
 
   return new Date(`${data}T00:00:00.000Z`);
-}
-
-function nullableNumber(formData: FormData, key: string) {
-  const data = value(formData, key).replace(",", ".");
-
-  if (!data) {
-    return null;
-  }
-
-  const parsed = Number(data);
-
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function nullableInt(formData: FormData, key: string) {
@@ -1078,37 +1068,20 @@ export async function saveCompanyContract(formData: FormData) {
   }
 
   const valuta = value(formData, "valuta") || "EUR";
-  const rokPlacanjaDana = nullableInt(formData, "rok_placanja_dana");
-  const danFakturisanja = nullableInt(formData, "dan_fakturisanja");
+  const terms = parseContractTerms(formData);
 
   if (!allowedCurrencies.includes(valuta)) {
     redirectCompanyContracts("valuta_nevalidna", firmaId);
   }
 
-  if (
-    (rokPlacanjaDana !== null && (rokPlacanjaDana < 0 || rokPlacanjaDana > 365)) ||
-    (danFakturisanja !== null && (danFakturisanja < 1 || danFakturisanja > 31))
-  ) {
-    redirectCompanyContracts("ugovor_greska", firmaId);
-  }
-
-  const stariUgovor = await prisma.firmaUgovor.findUnique({
-    where: {
-      firma_id: firmaId
-    }
-  });
+  if (!terms) redirectCompanyContracts("ugovor_greska", firmaId);
 
   const data = {
     agencija_id: agencijaId,
-    datum_pocetka: nullableDate(formData, "datum_pocetka"),
-    datum_prestanka: nullableDate(formData, "datum_prestanka"),
-    mjesecna_cijena: nullableNumber(formData, "mjesecna_cijena"),
+    ...terms,
     valuta,
-    rok_placanja_dana: rokPlacanjaDana,
-    dan_fakturisanja: danFakturisanja,
     paket: nullableValue(formData, "paket"),
     dodatne_usluge: nullableValue(formData, "dodatne_usluge"),
-    dugovanje: nullableNumber(formData, "dugovanje"),
     blokiran_zbog_duga: value(formData, "blokiran_zbog_duga") === "on",
     automatsko_fakturisanje: value(formData, "automatsko_fakturisanje") === "on",
     faktura_kao_nacrt: value(formData, "faktura_kao_nacrt") === "on",
@@ -1116,38 +1089,25 @@ export async function saveCompanyContract(formData: FormData) {
     updated_by: admin.id
   };
 
-  const ugovor = await prisma.firmaUgovor.upsert({
-    where: {
-      firma_id: firmaId
-    },
-    create: {
-      firma_id: firmaId,
-      ...data,
-      created_by: admin.id
-    },
-    update: data,
-    select: {
-      id: true,
-      firma_id: true,
-      mjesecna_cijena: true,
-      valuta: true,
-      rok_placanja_dana: true,
-      dan_fakturisanja: true,
-      automatsko_fakturisanje: true
-    }
+  await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM agencije WHERE id=${agencijaId}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM firme WHERE id=${firmaId}::uuid FOR UPDATE`;
+    const agency = await tx.agencija.findFirst({where:{id:agencijaId,aktivan:true,is_deleted:false},select:agencyProfileSelect});
+    const company = await tx.firma.findFirst({where:{id:firmaId,agencija_id:agencijaId,is_deleted:false},include:{odgovorna_lica:{...contractDirectorSelect,where:{...contractDirectorSelect.where,agencija_id:agencijaId}}}});
+    if(!agency || !company) redirectCompanyContracts("ugovor_greska",firmaId);
+    const previous = await tx.firmaUgovor.findUnique({where:{firma_id:firmaId}});
+    const refresh = value(formData,"obnovi_podatke_strana") === "on";
+    const snapshot = {
+      agencija_snapshot: !refresh && previous?.agencija_snapshot ? previous.agencija_snapshot : agencyContractSnapshot(agency),
+      klijent_snapshot: !refresh && previous?.klijent_snapshot ? previous.klijent_snapshot : clientContractSnapshot(company)
+    };
+    const contract = await tx.firmaUgovor.upsert({where:{firma_id:firmaId},
+      create:{firma_id:firmaId,...data,...snapshot,created_by:admin.id},update:{...data,...snapshot}});
+    await auditLogInTransaction(tx,{korisnikId:admin.id,agencijaId,firmaId,modul:"agencija.ugovori",
+      akcija:previous ? "update" : "create",tipEntiteta:"FirmaUgovor",entitetId:contract.id,
+      staraVrijednost:previous,novaVrijednost:contract,napomena:refresh ? "Izričito osvježeni podaci ugovornih strana." : null});
   });
-
-  await auditLog({
-    korisnikId: admin.id,
-    agencijaId,
-    firmaId,
-    modul: "agencija.ugovori",
-    akcija: stariUgovor ? "update" : "create",
-    tipEntiteta: "FirmaUgovor",
-    entitetId: ugovor.id,
-    staraVrijednost: stariUgovor,
-    novaVrijednost: ugovor
-  });
+  revalidatePath(`/stampa/ugovori/${firmaId}`);
 
   revalidatePath("/agencija/firme/ugovori");
   revalidatePath(`/agencija/firme/${firmaId}`);

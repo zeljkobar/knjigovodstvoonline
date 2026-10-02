@@ -69,6 +69,13 @@ export async function purgeCompanyData(
     obrisano[tabela] = await tx.$executeRaw(query);
   };
 
+  // Kontrolna lista je dio reda zadatka; nema dodatnih zavisnih tabela.
+  await izvrsi("firma_rok_zadaci", Prisma.sql`DELETE FROM firma_rok_zadaci WHERE firma_id = ${firmaId}::uuid`);
+  await izvrsi("firma_rok_planovi", Prisma.sql`DELETE FROM firma_rok_planovi WHERE firma_id = ${firmaId}::uuid`);
+
+  // agencija_bankovni_racuni su zajednički podaci agencije i namjerno ostaju.
+  // Snapshot-i ugovornih strana, datum zaključenja, dan plaćanja i sud
+  // su kolone firma_ugovori i brišu se sa ugovorom; nema novih zavisnih tabela.
   // Raspodjele povezuju izvode sa KIF/KUF računima i moraju prve nestati.
   await izvrsi(
     "firma_agency_transfer_requests",

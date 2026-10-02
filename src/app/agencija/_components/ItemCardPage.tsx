@@ -172,7 +172,7 @@ export async function ItemCardPage({
     new Set(
       movements
         .filter((movement) =>
-          ["OUTGOING_INVOICE", "POS_SALE", "POS_RETURN"].includes(
+          ["OUTGOING_INVOICE", "OUTGOING_INVOICE_STORNO", "POS_SALE", "POS_RETURN"].includes(
             movement.tip_dokumenta
           )
         )
@@ -276,7 +276,7 @@ export async function ItemCardPage({
 
     const label = invoice.official_invoice_number ?? invoice.broj_racuna;
 
-    if (row.tip_dokumenta === "OUTGOING_INVOICE") {
+    if (["OUTGOING_INVOICE", "OUTGOING_INVOICE_STORNO"].includes(row.tip_dokumenta)) {
       return {
         href: `/agencija/robno/izlazne-fakture/${invoice.id}`,
         label

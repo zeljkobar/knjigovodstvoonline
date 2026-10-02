@@ -340,6 +340,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/korisnici/audit-log", label: "Dnevnik aktivnosti" }
   ],
   podesavanja: [
+    { href: "/agencija/podesavanja/agencija", label: "Agencija", roles: adminOnly },
     { href: "/agencija/podesavanja/kontni-plan", label: "Kontni plan" },
     { href: "/agencija/podesavanja/podrazumijevana-konta", label: "Podrazumijevana konta" },
     { href: "/agencija/podesavanja/pdv-stope", label: "PDV stope" },

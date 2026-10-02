@@ -1611,7 +1611,15 @@ export async function postInvoiceBook(formData: FormData) {
     redirectInvoicePosting(returnTo, message)
   );
 
+  class PostingValidationError extends Error {
+    constructor(readonly result: { ok: false; reason: string; detail?: string }) { super(result.reason); }
+  }
   const result = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM firme WHERE id=${firma.id}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM poslovne_godine WHERE id=${poslovnaGodina.id}::uuid FOR UPDATE`;
+    const currentYear = await tx.poslovnaGodina.findFirst({ where: { id: poslovnaGodina.id, firma_id: firma.id, zakljucena: false } });
+    if (!currentYear) throw new PostingValidationError({ ok: false, reason: "knjizenje_kontekst" });
+    const outcome = await (async () => {
     const vatRates = await tx.pdvStopa.findMany({
       where: {
         agencija_id: user.agencija_id!,
@@ -1728,6 +1736,9 @@ export async function postInvoiceBook(formData: FormData) {
       if (!book) {
         return { ok: false as const, reason: "knjizenje_greska" };
       }
+      const periods = await tx.$queryRaw<{status: string}[]>`SELECT status FROM pdv_periodi WHERE firma_id=${firma.id}::uuid AND datum_od<=${book.kuf_date} AND datum_do>=${book.kuf_date} FOR UPDATE`;
+      if (periods.some(period => period.status === "LOCKED")) return { ok: false as const, reason: "knjizenje_period" };
+      if (book.kuf_date < currentYear.datum_od || book.kuf_date > currentYear.datum_do) return { ok: false as const, reason: "knjizenje_kontekst" };
 
       const journalTypeId = book.racun_vrsta.vrsta_naloga_id;
 
@@ -1781,6 +1792,7 @@ export async function postInvoiceBook(formData: FormData) {
         )?.id ??
         null;
 
+      if (existingJournalId) await tx.$queryRaw`SELECT id FROM nalozi WHERE id=${existingJournalId}::uuid FOR UPDATE`;
       const existingJournal = existingJournalId
         ? await tx.nalog.findFirst({
             where: {
@@ -2262,6 +2274,9 @@ export async function postInvoiceBook(formData: FormData) {
     if (!book) {
       return { ok: false as const, reason: "knjizenje_greska" };
     }
+    const periods = await tx.$queryRaw<{status: string}[]>`SELECT status FROM pdv_periodi WHERE firma_id=${firma.id}::uuid AND datum_od<=${book.kif_date} AND datum_do>=${book.kif_date} FOR UPDATE`;
+    if (periods.some(period => period.status === "LOCKED")) return { ok: false as const, reason: "knjizenje_period" };
+    if (book.kif_date < currentYear.datum_od || book.kif_date > currentYear.datum_do) return { ok: false as const, reason: "knjizenje_kontekst" };
 
     const journalTypeId = book.racun_vrsta.vrsta_naloga_id;
 
@@ -2311,6 +2326,7 @@ export async function postInvoiceBook(formData: FormData) {
         })
       )?.id ?? null;
 
+    if (existingJournalId) await tx.$queryRaw`SELECT id FROM nalozi WHERE id=${existingJournalId}::uuid FOR UPDATE`;
     const existingJournal = existingJournalId
       ? await tx.nalog.findFirst({
           where: {
@@ -2645,6 +2661,28 @@ export async function postInvoiceBook(formData: FormData) {
       journalCode: journal.sifra ?? "NALOG",
       roundingCorrections
     };
+    })();
+    if (!outcome.ok) throw new PostingValidationError(outcome);
+    await auditLogInTransaction(tx, {
+      korisnikId: user.id,
+      agencijaId: user.agencija_id,
+      firmaId: firma.id,
+      modul: `agencija.racuni.${documentType.toLowerCase()}`,
+      akcija: outcome.created ? "create_journal_from_book" : "append_journal_from_book",
+      tipEntiteta: "Nalog",
+      entitetId: outcome.journalId,
+      novaVrijednost: {
+        documentType,
+        bookId,
+        journalCode: outcome.journalCode,
+        roundingCorrections:
+          "roundingCorrections" in outcome ? outcome.roundingCorrections : []
+      }
+    });
+    return outcome;
+  }).catch((error: unknown) => {
+    if (error instanceof PostingValidationError) return error.result;
+    throw error;
   });
 
   if (!result.ok) {
@@ -2655,23 +2693,6 @@ export async function postInvoiceBook(formData: FormData) {
       "detail" in result ? result.detail : undefined
     );
   }
-
-  await auditLog({
-    korisnikId: user.id,
-    agencijaId: user.agencija_id,
-    firmaId: firma.id,
-    modul: `agencija.racuni.${documentType.toLowerCase()}`,
-    akcija: result.created ? "create_journal_from_book" : "append_journal_from_book",
-    tipEntiteta: "Nalog",
-    entitetId: result.journalId,
-    novaVrijednost: {
-      documentType,
-      bookId,
-      journalCode: result.journalCode,
-      roundingCorrections:
-        "roundingCorrections" in result ? result.roundingCorrections : []
-    }
-  });
 
   revalidatePath("/agencija/racuni/neproknjizeno");
   revalidatePath("/agencija/nalozi");

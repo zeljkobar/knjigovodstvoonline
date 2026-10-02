@@ -380,3 +380,13 @@ ostaje za sljedeći dan/ručni uvoz. Ako je server ugašen u 10:00, pokretanje i
 dana poslije 10:00 nadoknađuje obradu. AUTO_POST audit se čuva u transakciji naloga.
 Ekran `/agencija/izvodi/automatska-obrada` pokazuje uključivanje, broj uvoza,
 knjiženja, potrebnih provjera i greške posljednjih 100 obrada povezane agencije.
+
+
+## Kontinuitet brojeva — Upozorenja
+
+`/agencija/upozorenja` kontroliše sve dostupne firme za izabranu godinu, posebno
+po bankovnom računu. Računa preskoke od 1 do najvećeg broja iz neobrisanih izvoda,
+uključujući IMPORTED/NEEDS_REVIEW/READY/POSTED. Prepoznaje cijele pozitivne brojeve
+i broj/godina za izabranu godinu. Neprepoznate oznake prikazuje za ručnu provjeru;
+prazan račun nije potvrda uredne evidencije. Nema pretpostavke o brojevima nakon
+posljednjeg evidentiranog. Radnik mora imati i dodjelu firme i izvodi/view.

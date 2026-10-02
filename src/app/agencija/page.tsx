@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { agencyProfileSelect, missingAgencyFields } from "@/lib/agency-profile";
 import type { Prisma } from "@prisma/client";
 import { requireAnyRole } from "@/lib/auth";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
@@ -58,6 +59,10 @@ export default async function AgencijaPage() {
   if (!user.agencija_id) {
     return null;
   }
+
+  const agencyProfile = user.rola === "admin_agencije"
+    ? await prisma.agencija.findFirst({where:{id:user.agencija_id,is_deleted:false},select:agencyProfileSelect}) : null;
+  const agencyIncomplete = agencyProfile && missingAgencyFields(agencyProfile).length > 0;
 
   const [brojFirmi, brojRadnika, brojKlijenata, activeCompany] = await Promise.all([
     prisma.firma.count({
@@ -286,6 +291,8 @@ export default async function AgencijaPage() {
           </Link>
         ) : null}
       </header>
+
+      {agencyIncomplete ? <p className="admin-message">Dopunite podatke agencije za izradu ugovora. <Link className="inline-link" href="/agencija/podesavanja/agencija">Otvori podešavanja agencije</Link></p> : null}
 
       <section className="metric-grid" aria-label="Statistika agencije">
         <div className="metric">

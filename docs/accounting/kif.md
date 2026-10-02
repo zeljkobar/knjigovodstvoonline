@@ -94,3 +94,13 @@ fiskalne kase, bez pojedinačnih izlaznih faktura za svaki promet.
 
 ## Štampa
 Čista HTML/CSS print stranica knjige bez menija.
+
+
+## Storno izlazne fakture (OFFICE)
+
+Potvrđeni potpuni storno je poseban negativni dokument sa vezom na original.
+Poslije lokalne obrade ulazi u isti red za preuzimanje fiskalnih računa u KIF,
+za mjesec datuma storna. Originalni KIF zapis se ne mijenja niti briše.
+Poreske stavke i ukupan iznos korekcije su negativni; KIF referencira već kreirani
+korektivni nalog i ne kreira drugo knjiženje. Korektivni nalog je nacrt za pregled
+u Nalozima, kao i nalog standardne OFFICE fakture.

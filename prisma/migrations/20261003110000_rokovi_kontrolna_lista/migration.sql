@@ -1,0 +1,1 @@
+ALTER TABLE firma_rok_zadaci ADD COLUMN kontrola TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

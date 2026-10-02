@@ -1,0 +1,11 @@
+.metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.metrics>div { display:grid; gap:12px; padding:24px; background:white; border:1px solid #d5e6f6; border-radius:12px; }
+.metrics span { color:#5d7188; font-weight:600; }
+.metrics strong { font-size:32px; color:#10243f; }
+.warning,.unknown,.ok { display:inline-block; border-radius:20px; padding:7px 12px; font-weight:700; white-space:nowrap; font-size:13px; }
+.warning { background:#fff1e6; color:#9a3412; }
+.unknown { background:#fff9db; color:#854d0e; }
+.ok { background:#e8f7ef; color:#166534; }
+.ranges { display:flex; flex-wrap:wrap; gap:6px; max-width:360px; margin-top:8px; }
+.ranges span { background:#fff1e6; color:#9a3412; border-radius:5px; padding:3px 8px; font-weight:700; }
+@media(max-width:700px) { .metrics {grid-template-columns:1fr;} }

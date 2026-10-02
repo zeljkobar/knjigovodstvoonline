@@ -41,6 +41,7 @@ export default async function OutgoingInvoicePrintPage({ params }: { params: Pro
       ...(user.rola === "admin_agencije" ? {} : { firma: { korisnici: { some: { korisnik_id: user.id, is_deleted: false } } } })
     },
     include: {
+      original_invoice: { select: { broj_racuna: true, datum_racuna: true, iic: true, firma_id: true } },
       firma: { include: { bankovni_racuni: { where: { aktivan: true, is_deleted: false }, orderBy: [{ glavni: "desc" }, { created_at: "asc" }], take: 1 } } },
       kupac: true,
       poslovna_godina: { select: { godina: true } },
@@ -89,9 +90,10 @@ export default async function OutgoingInvoicePrintPage({ params }: { params: Pro
       {invoice.status === "DRAFT" && !fiscalized ? <div className="invoice-print-watermark">NACRT / DRAFT</div> : null}
       <header className="invoice-print-header">
         <div className="invoice-print-brand"><div className="invoice-print-monogram">{(issuer.skraceniNaziv ?? issuer.naziv ?? "SS").slice(0, 2).toUpperCase()}</div><div><h1>{issuer.naziv}</h1><p>{[issuer.adresa, issuer.grad, issuer.drzava].filter(Boolean).join(", ")}</p><p>PIB / Tax ID: {issuer.pib ?? "-"}{issuer.pdvBroj ? ` · PDV / VAT: ${issuer.pdvBroj}` : ""}</p></div></div>
-        <div className="invoice-print-title"><span>IZLAZNA FAKTURA / SALES INVOICE</span><strong>{invoiceNumber}</strong><small>Poslovna oznaka / Internal reference: {invoice.interni_broj}</small></div>
+        <div className="invoice-print-title"><span>{invoice.document_type === "OFFICE_STORNO" ? "STORNO FAKTURA / CREDIT NOTE" : "IZLAZNA FAKTURA / SALES INVOICE"}</span><strong>{invoiceNumber}</strong><small>Poslovna oznaka / Internal reference: {invoice.interni_broj}</small></div>
       </header>
 
+      {invoice.document_type === "OFFICE_STORNO" && invoice.original_invoice?.firma_id === invoice.firma_id ? <section className="invoice-print-note"><strong>Storno originala: {invoice.original_invoice.broj_racuna} · {date(invoice.original_invoice.datum_racuna)}</strong><p>IKOF originala: {invoice.original_invoice.iic}</p><p>Razlog: {invoice.correction_reason}</p></section> : null}
       <section className="invoice-print-parties">
         <div><span>IZDAVALAC / SUPPLIER</span><h2>{issuer.naziv}</h2><p>{[issuer.adresa, issuer.grad].filter(Boolean).join(", ")}</p><p>PIB / Tax ID: {issuer.pib ?? "-"}</p>{issuer.telefon || issuer.email ? <p>{[issuer.telefon, issuer.email].filter(Boolean).join(" · ")}</p> : null}</div>
         <div><span>KUPAC / CUSTOMER</span><h2>{buyer.naziv}</h2><p>{[buyer.adresa, buyer.grad, buyer.drzava].filter(Boolean).join(", ")}</p><p>PIB / Tax ID: {buyer.pib ?? "-"}{buyer.pdvBroj ? ` · PDV / VAT: ${buyer.pdvBroj}` : ""}</p>{buyer.email ? <p>{buyer.email}</p> : null}</div>

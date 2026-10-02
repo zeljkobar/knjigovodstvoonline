@@ -1,0 +1,22 @@
+export const officeStornoMessages: Record<string, string> = {
+  storno_potvrda: "Unesite razlog (3–500 znakova) i potvrdite potpuni storno.",
+  storno_prava: "Za storno su potrebna prava Pregled, Storniranje i Knjiženje za Robno.",
+  storno_original: "Original nije dostupan ili nema potvrđenu fiskalizaciju i kompletne fiskalne podatke.",
+  storno_godina: "Otvorite poslovnu godinu za datum storna. Zaključana godina ne dozvoljava obradu.",
+  storno_period: "PDV period storna je zaključan. Obrada nije izvršena.",
+  storno_postoji: "Za ovu fakturu već postoji korektivni dokument. Nastavite obradu postojećeg storna.",
+  storno_original_knjizenje: "Storno je fiskalizovan. Prvo završite računovodstvenu obradu originalne fakture, pa ovdje završite knjiženje storna.",
+  storno_nalog: "Originalni nalog nije ispravan za korekciju. Provjerite balans i analitiku.",
+  storno_lager: "Povrat robe nije završen: promet lagera originalne fakture nije potpun.",
+  storno_podesavanja: "Veza sa fiskalnim servisom nije dostupna ili je suspendovana.",
+  storno_okruzenje: "Aktivno fiskalno okruženje mora odgovarati originalu. Test i Production se ne mogu miješati.",
+  storno_remote_podaci: "Podaci fiskalnog servisa ne odgovaraju originalu ili iznosu storna. Slanje je zaustavljeno.",
+  storno_u_toku: "Fiskalni servis još obrađuje storno. Sačekajte, pa provjerite isti dokument.",
+  storno_nepotvrdjen: "Fiskalizacija još nije potvrđena kompletnim IKOF, JIKR i QR podacima.",
+  storno_servis_provjera: "Fiskalni servis je odbio dokument ili traži provjeru statusa. Potrebno je otkloniti prijavljenu grešku u servisu prije nastavka.",
+  storno_stari_zahtjev: "Zahtjev je iz prethodnog dana i nije potvrđeno fiskalizovan. Potrebno je usklađivanje kroz fiskalni servis; datum se neće automatski mijenjati.",
+  storno_provjera: "Odgovor servisa nije potvrđen. Provjerite ishod istog storna; novi dokument neće biti kreiran.",
+  storno_knjizenje: "Storno je fiskalizovan, ali lokalna obrada nije završena. Ponovite samo knjiženje.",
+  storno_zavrsen: "Storno je fiskalizovan. Kreiran je korektivni nacrt naloga i dokument čeka preuzimanje u KIF.",
+  storno_cekanje: "Obrada istog storna je već pokrenuta. Sačekajte završetak prije novog pokušaja."
+};

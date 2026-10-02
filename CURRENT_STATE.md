@@ -1,12 +1,144 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-09-30. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-10-03. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Rokovi po firmama — 2026-10-03
+
+- `/agencija/rokovi`: PDV i plate 15. za prethodni mjesec; završni račun
+  31. marta za prethodnu godinu. Tabovi PDV/Plate otvaraju prethodni mjesec
+  tokom cijelog tekućeg mjeseca; Završni račun prethodnu godinu. Filter je period
+  obaveze, uz jasan datum roka. Bez emailova, dokumentacije i ostalih zadataka.
+- Brojač predatih firmi i napredak; nezavršene prve. Upozorenje i poseban pregled
+  obuhvataju ranije dospjele nezavršene obaveze, uključujući prethodne godine.
+- Završni račun ima ručnu kontrolnu listu: izvodi, kupci, dobavljači, plate,
+  amortizacija, PDV, dobit, pripremljen izvještaj i predata prijava dobiti.
+  Kontrolna lista i potvrda predaje su nezavisne; čuvanje zadržava filtere.
+  Migracija `20261003110000_rokovi_kontrolna_lista` dodaje niz u postojeći zadatak;
+  prethodne potvrde ostaju sačuvane.
+- Radnik vidi aktivne dodijeljene firme i potvrđuje/ponovo otvara zadatak uz
+  napomenu. Evidentiraju se korisnik, vrijeme i transakcioni audit; verzije
+  štite od prepisivanja paralelnih izmjena. Klijent nema pristup.
+- Administrator uključuje obaveze po firmi i početni mjesec. Migracija
+  `20261003090000_rokovi` postojećim firmama uključuje PDV prema statusu,
+  plate prema aktivnim zaposlenima i završni račun, od mjeseca primjene migracije.
+  Ranije obaveze mogu se uključiti promjenom početnog mjeseca.
+- Statusi zavise od datuma u Crnoj Gori: kasni, danas, narednih pet dana,
+  predstoji i završeno. Datumi su fiksni, bez pomjeranja vikendom.
+  Postojanje obračuna/prijave je samo informacija, ograničena pravima modula.
+- Ovo je evidencija zadataka, bez knjiženja ili promjene zaključanih dokumenata;
+  zaključana godina ne blokira potvrdu zadatka. Planovi/zadaci uključeni u purge.
+
+## Statistika rada agencije — 2026-10-02
+
+- `/agencija/statistika`: godina/mjesec/firma, broj proknjiženih naloga,
+  KUF/KIF računa i izvoda, obračuna plata, ugovora o djelu, zakupa i ostalih ugovora.
+  Mjesečni grafikon razdvaja KIF/KUF/izvode; tabela daje pregled po firmama.
+- Proknjiženost izvora potvrđuje status i važeći POSTED nalog. Dokumenti se
+  raspoređuju po datumu dokumenta, obračuni po mjesecu obračuna (CALCULATED,
+  REVIEWED, POSTED, LOCKED, bez nacrta/obrisanih). Nema sabiranja naloga sa izvorima.
+- Posebno trenutno stanje: aktivne firme, aktivni radnici agencije, zaposleni kod
+  klijenata i evidentirani ugovori agencije. Radnici vide samo odobrene module
+  dodijeljenih firmi; broj radnika agencije i ugovori dostupni su administratoru.
+- DB rollback regresija potvrđuje brojanja, periode, statuse, kategorije i prava.
+
+## Upozorenja za preskočene izvode — 2026-10-02
+
+- `/agencija/upozorenja` zamjenjuje 404 pregledom po dostupnim firmama, računima
+  i poslovnoj godini (podrazumijevano godina iz globalnog konteksta).
+- Kontrola je od 1 do najvećeg prepoznatog broja: cijeli broj ili broj/godina.
+  Sve faze uvoza su prisutni izvodi, obrisani nisu. Računi i godine se ne miješaju.
+  Neprepoznate oznake i računi bez izvoda imaju odvojenu oznaku za ručnu provjeru;
+  velike praznine su rasponi. Ne zaključuje se da iza posljednjeg nema novog izvoda.
+- Administrator vidi svoje aktivne firme; radnik samo dodijeljene sa izvodi/view.
+  Link preko konteksta otvara odgovarajuću firmu/godinu i njen posljednji izvod.
+- Unit i rollback DB test provjeravaju granice, tenant/prava, opoziv prava,
+  odvajanje računa/godina, soft-delete, status i nestanak popunjenog preskoka.
+
+## Ugovor prema dostavljenom predlošku — 2026-10-02
+
+- Štampa ugovora koristi svih 13 članova iz korisničkog Word predloška umjesto
+  placeholder teksta. Nazivi, adrese, PIB, zastupnici, naknada, račun, datumi,
+  rok plaćanja i sud su promjenljivi; podaci primjer-firmi nisu u predlošku koda.
+- Direktor klijenta preuzima se iz aktivnog `IZVRSNI_DIREKTOR` odgovornog lica
+  (bez JMBG-a) i čuva u snapshot-u. Stari snapshot se osvježava samo izričito.
+- Migracija `20261002140000_ugovor_predlozak`: datum zaključenja odvojen od
+  početka primjene, dan plaćanja u mjesecu i nadležni sud. Stari ugovori ne
+  dobijaju izmišljene vrijednosti; novi unos predlaže 5. dan i Sud u Baru iz
+  predloška, oba izmjenljiva prije čuvanja. Alternativa je broj dana od fakture.
+- Izbor firme učitava njen ugovor prije uređivanja; firma_id u save formi je
+  fiksiran na učitanu firmu. Backend provjerava scope, datume, rok i novac.
+- A4 štampa sa namjenskim marginama, 13 članova i potpisima; interne stavke o
+  dugu i automatskoj fakturi se ne štampaju. Opcione dodatne usluge/napomena
+  štampaju se kao dodatno ugovoreno. Testovi pokrivaju mapiranje i stare podatke.
+
+## Podaci agencije i ugovori — 2026-10-02
+
+- Podešavanja → Agencija: sopstveni profil dostupan samo administratoru agencije,
+  nezavisno od aktivne firme. Naziv, PIB/PDV, adresa, zastupnik, kontakt i više
+  bankovnih računa sa jednim glavnim; dashboard podsjeća na nedostajuće podatke.
+- Izmjene imaju backend scope, zaključavanje reda, provjeru verzije i audit.
+  Bankovni računi imaju soft delete; ne brišu se pri brisanju klijentske firme.
+- Ugovor čuva podatke obje strane i glavni račun. Obična izmjena ugovora ih
+  zadržava; checkbox izričito preuzima sadašnje podatke. Štampa koristi snapshot.
+- Migracija `20261002120000_agencija_podaci_ugovori` postojećim ugovorima čuva
+  trenutno dostupne podatke; ne rekonstruiše istorijske podatke. Poslije dopune
+  profila postojeći ugovor može izričito preuzeti nove podatke.
+- `check-agency-profile.cjs`: stvarna DB regresija prava, scope-a, verzije,
+  primarnog računa, rollback-a, snapshot-a, štampe i trajnog brisanja firme.
+
+## Automatizovana računovodstvena regresija — 2026-10-02
+
+- `npm test` objedinjuje unit testove, brisanje nacrta, matricu prava i purge coverage.
+  `npm run test:db` pokreće jedanaest integracionih skripti; `npm run test:all` oba skupa.
+  DB skup zahtijeva eksplicitni TEST_DATABASE_URL i naziv baze koji sadrži `_test`.
+- Novi testovi: PDV 21/15/7/0 i tip dokumenta, odbitak/carinski PDV, korekcije,
+  početni saldo po partnerima; stvarni nalozi, bruto bilans, prava/ukidanje prava,
+  scope, zaključavanja, KIF/KUF dopune i rollback neispravne knjige.
+- Stvarni izvodi provjeravaju djelimičnu/punu uplatu, preplatu, KIF alokacije,
+  ponavljanje i zabranu brisanja knjiženog izvoda. Postojeći mail test sada
+  sam kreira agenciju/korisnika i ne zavisi od razvojnih podataka.
+- Cijeli lokalni tok kreira i snima robnu fakturu, simulira samo Fiscal API,
+  razdužuje lager, knjiži nalog, preuzima u KIF, računa PDV i stornira.
+  Provjera potvrđuje nulte konačne GL/PDV salde i vraćenu količinu/vrijednost.
+- Dvije stvarne transakcije testiraju istovremeno knjiženje naloga/KIF-a i
+  zaključavanje godine. Fixture podaci se rollbackuju; concurrency fixture
+  se posebno briše u finally, samo u izdvojenoj testnoj bazi.
+- Testovi otkrili i popravili: ručno knjiženje bez PDV/analitika provjere,
+  prazan nalog nakon odbijene KIF/KUF knjige i nedostatak serijalizacije
+  knjiženja. Nalog i knjiženje knjige sada čuvaju audit u istoj transakciji.
+- GitHub workflow: PostgreSQL 16 + migracije + TypeScript + testovi na Linuxu;
+  Windows job izvršava XSD validaciju koja se lokalno na macOS-u preskače.
+  Workflow će se izvršiti nakon push-a; live fiskalni servis se ne poziva.
+- Preostaju browser E2E i stvarni Fiscal API Test QA; testovi ne implementiraju
+  nedostajuće poslovne funkcije (npr. namjensko vraćanje izvoda u nacrt).
+
+## Potpuni storno OFFICE fakture — 2026-10-02
+
+- Detalj fiskalizovane izlazne fakture ima Storniraj fakturu, pregled negativnih
+  stavki, razlog i potvrdu. Backend traži robno/view+cancel+post i scope firme.
+- Poseban OFFICE_STORNO dokument čuva original_invoice_id, zamrznute iznose,
+  negativne stavke/poreske iznose, originalno fiskalno okruženje i stabilan ključ.
+- Fiscal API koristi kontrolisani storno endpoint i provjeru istog dokumenta
+  prije slanja. Izgubljen create/submit odgovor se nastavlja bez duplog računa.
+  Pending i nepodržani/odbijeni statusi se ne šalju naslijepo; stari nepotvrđeni
+  datum zahtijeva provjeru u servisu. Test/Production i PIB se provjeravaju.
+- Fiskalni rezultat se čuva odvojeno od lokalne obrade. Računovodstveni nastavak
+  ne šalje fiskalni zahtjev. Ako original nema nalog, prvo se dovršava original.
+- Korektivni DRAFT nalog obrće originalne stavke na istim kontima/dimenzijama;
+  robni povrat koristi stvarno razduženje i nabavnu vrijednost originala.
+  Povrat, nalog, status i audit su atomarni. Knjiženje nacrta naloga ostaje u Nalozima.
+- Korekcija čeka postojeći KIF import u mjesecu storna; originalni KIF i status
+  knjiženja ostaju sačuvani. UI označava original kao storniran preko potvrđene
+  korekcije. Štampa prikazuje vezu i IKOF originala. Nema migracije.
+- DB rollback test sa simuliranim Fiscal API-jem provjerava replay, dupli klik,
+  lager, nalog, stvarni KIF import, rollback greške, zatvoreni izvorni period,
+  zabranu miješanja okruženja i scope. Live Test fiskalizacija ostaje za QA.
 
 ## Brisanje nacrta izlazne fakture — 2026-10-02
 

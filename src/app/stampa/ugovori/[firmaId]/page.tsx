@@ -1,33 +1,17 @@
 import Link from "next/link";
+import { agencyProfileSelect, agencyContractSnapshot, clientContractSnapshot, readContractSnapshot, contractDirectorSelect } from "@/lib/agency-profile";
 import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/PrintButton";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { AccountingContractDocument } from "../_components/AccountingContractDocument";
+import "../contract.css";
 
 type StampaUgovoraPageProps = {
   params: Promise<{
     firmaId: string;
   }>;
 };
-
-function formatDate(date: Date | null) {
-  if (!date) {
-    return "-";
-  }
-
-  return date.toLocaleDateString("sr-Latn");
-}
-
-function moneyLabel(value: { toString: () => string } | null, currency: string) {
-  if (!value) {
-    return "-";
-  }
-
-  return `${Number(value.toString()).toLocaleString("sr-Latn", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  })} ${currency}`;
-}
 
 export default async function StampaUgovoraPage({ params }: StampaUgovoraPageProps) {
   const user = await requireRole("admin_agencije");
@@ -63,18 +47,15 @@ export default async function StampaUgovoraPage({ params }: StampaUgovoraPagePro
       opstina: true,
       email: true,
       telefon: true,
-      agencija: {
-        select: {
-          naziv: true,
-          pib: true,
-          adresa: true,
-          grad: true,
-          email: true,
-          telefon: true
-        }
-      },
+      odgovorna_lica: {...contractDirectorSelect, where: {...contractDirectorSelect.where, agencija_id: user.agencija_id}},
+      agencija: { select: agencyProfileSelect },
       ugovor: {
         select: {
+          datum_zakljucenja: true,
+          dan_placanja: true,
+          nadlezni_sud: true,
+          agencija_snapshot: true,
+          klijent_snapshot: true,
           datum_pocetka: true,
           datum_prestanka: true,
           mjesecna_cijena: true,
@@ -97,125 +78,24 @@ export default async function StampaUgovoraPage({ params }: StampaUgovoraPagePro
   }
 
   const ugovor = firma.ugovor;
+  const agency = readContractSnapshot(ugovor?.agencija_snapshot ?? null, agencyContractSnapshot(firma.agencija));
+  const client = readContractSnapshot(ugovor?.klijent_snapshot ?? null, clientContractSnapshot(firma));
 
   return (
-    <main className="print-page">
+    <main className="print-page accounting-contract-page">
       <div className="print-toolbar">
         <Link className="table-link" href={`/agencija/firme/ugovori?firma=${firma.id}`}>
           Nazad na ugovor
         </Link>
-        <PrintButton label="Stampaj ugovor" />
+        <PrintButton label="Štampaj ugovor" />
       </div>
 
-      <article className="contract-document">
-        <header className="contract-header">
-          <p>Broj: ____ / {new Date().getFullYear()}</p>
-          <h1>UGOVOR O PRUZANJU KNJIGOVODSTVENIH USLUGA</h1>
-        </header>
+      <div className="contract-screen-note">
+        {!ugovor ? <p>Ovo je pregled prije čuvanja ugovora. Unesite datume, cijenu i uslove kroz „Ugovor i cijena“.</p> : null}
+        <p>Prazna mjesta označavaju podatke koje treba dopuniti. Podaci zastupnika klijenta preuzimaju se iz firme pri čuvanju novog ugovora ili izričitom osvježavanju podataka strana.</p>
+      </div>
+      <AccountingContractDocument agency={agency} client={client} contract={ugovor}/>
 
-        <section className="contract-intro">
-          <p>Zakljucen izmedju:</p>
-          <p>
-            <strong>{firma.agencija.naziv}</strong>, PIB {firma.agencija.pib ?? "________"},
-            sa sjedistem na adresi{" "}
-            {[firma.agencija.adresa, firma.agencija.grad].filter(Boolean).join(", ") ||
-              "________"}
-            , kao pruzaoca usluge,
-          </p>
-          <p>i</p>
-          <p>
-            <strong>{firma.naziv}</strong>, PIB {firma.pib ?? "________"}, PDV broj{" "}
-            {firma.pdv_broj ?? "________"}, sa sjedistem na adresi{" "}
-            {[firma.adresa, firma.opstina, firma.grad].filter(Boolean).join(", ") ||
-              "________"}
-            , kao klijenta.
-          </p>
-        </section>
-
-        <section className="contract-section">
-          <h2>Clan 1. Predmet ugovora</h2>
-          <p>
-            Pruzalac usluge se obavezuje da za klijenta obavlja knjigovodstvene,
-            racunovodstvene i povezane administrativne usluge, u obimu koji ce biti
-            precizno definisan konacnom verzijom ovog ugovora i pratecim dogovorima
-            ugovornih strana.
-          </p>
-        </section>
-
-        <section className="contract-section">
-          <h2>Clan 2. Cijena i nacin placanja</h2>
-          <p>
-            Ugovorne strane su saglasne da mjesecna cijena usluge iznosi{" "}
-            <strong>
-              {moneyLabel(ugovor?.mjesecna_cijena ?? null, ugovor?.valuta ?? "EUR")}
-            </strong>
-            .
-          </p>
-          <p>
-            Rok placanja je {ugovor?.rok_placanja_dana ?? "____"} dana od dana izdavanja
-            fakture. Fakturisanje se vrsi {ugovor?.dan_fakturisanja ?? "____"}. dana u
-            mjesecu, osim ako ugovorne strane naknadno ne dogovore drugacije.
-          </p>
-          <table className="contract-table">
-            <tbody>
-              <tr>
-                <th>Paket</th>
-                <td>{ugovor?.paket ?? "-"}</td>
-              </tr>
-              <tr>
-                <th>Automatsko fakturisanje</th>
-                <td>{ugovor?.automatsko_fakturisanje ? "Ukljuceno" : "Iskljuceno"}</td>
-              </tr>
-              <tr>
-                <th>Faktura kao nacrt</th>
-                <td>{ugovor?.faktura_kao_nacrt ? "Da" : "Ne"}</td>
-              </tr>
-              <tr>
-                <th>Trenutno dugovanje</th>
-                <td>{moneyLabel(ugovor?.dugovanje ?? null, ugovor?.valuta ?? "EUR")}</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-
-        <section className="contract-section">
-          <h2>Clan 3. Trajanje ugovora</h2>
-          <p>
-            Ugovor se primjenjuje od {formatDate(ugovor?.datum_pocetka ?? null)}
-            {ugovor?.datum_prestanka
-              ? ` do ${formatDate(ugovor.datum_prestanka)}.`
-              : " i vazi do opoziva ili raskida ugovora."}
-          </p>
-        </section>
-
-        <section className="contract-section">
-          <h2>Clan 4. Dodatne usluge</h2>
-          <p>{ugovor?.dodatne_usluge || "Dodatne usluge ce biti definisane naknadno."}</p>
-        </section>
-
-        <section className="contract-section">
-          <h2>Clan 5. Napomena</h2>
-          <p>
-            {ugovor?.napomena ||
-              "Ovo je radna placeholder verzija ugovora. Konacni tekst ce naknadno sadrzati detaljne pravne odredbe, obaveze strana, rokove dostavljanja dokumentacije, uslove raskida i odgovornost za tacnost podataka."}
-          </p>
-        </section>
-
-        <section className="contract-place">
-          <p>U ____________________, dana ____.____.{new Date().getFullYear()}.</p>
-        </section>
-
-        <footer className="contract-signatures">
-          <div>
-            <span>Za pruzaoca usluge</span>
-            <strong>________________________</strong>
-          </div>
-          <div>
-            <span>Za klijenta</span>
-            <strong>________________________</strong>
-          </div>
-        </footer>
-      </article>
     </main>
   );
 }

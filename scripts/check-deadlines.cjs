@@ -1,0 +1,67 @@
+require('@next/env').loadEnvConfig(process.cwd(),false,{info(){},error(){}});
+const assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+const {PrismaClient}=require('@prisma/client');
+const {sourceLoader,transactionProxy}=require('../tests/helpers/source-loader.cjs');
+const db=new PrismaClient(),rollback=Error('ROLLBACK');
+const form=o=>{const f=new FormData();for(const[k,v]of Object.entries(o))f.set(k,String(v));return f;};
+async function response(action,data){try{await action(form(data));throw Error('No redirect');}catch(e){if(!e.message.startsWith('REDIRECT:'))throw e;return e.message;}}
+(async()=>{try{await db.$transaction(async tx=>{
+ const a=await tx.agencija.create({data:{naziv:'Deadline fixture'}}),b=await tx.agencija.create({data:{naziv:'Foreign'}});
+ const c=await tx.firma.create({data:{agencija_id:a.id,naziv:'Deadline company',pdv_obveznik:true}}),foreign=await tx.firma.create({data:{agencija_id:b.id,naziv:'Foreign company'}});
+ const admin=await tx.korisnik.create({data:{agencija_id:a.id,korisnicko_ime:randomUUID(),lozinka_hash:'disabled',rola:'admin_agencije'}}),worker=await tx.korisnik.create({data:{agencija_id:a.id,korisnicko_ime:randomUUID(),lozinka_hash:'disabled',rola:'korisnik_agencije'}});
+ const assignment=await tx.korisnikFirma.create({data:{firma_id:c.id,korisnik_id:worker.id,glavni_radnik:true}});
+ await tx.firmaRokPlan.create({data:{firma_id:c.id,agencija_id:a.id,pdv:true,plate:true,zavrsni:true,od_mjeseca:new Date('2026-01-01')}});
+ let user=worker;
+ const load=sourceLoader({'server-only':{},'@/lib/prisma':{prisma:transactionProxy(tx)},'@/lib/auth':{requireAnyRole:async roles=>{if(!roles.includes(user.rola))throw Error('DENIED');return user;}},'next/navigation':{redirect(url){throw Error('REDIRECT:'+url);}},'next/cache':{revalidatePath(){}},'next/headers':{headers:async()=>new Map()}});
+ const report=load('src/lib/deadlines.ts').loadDeadlines,action=load('src/app/agencija/rokovi/actions.ts').updateDeadline;
+ let rows=await report(user,2026);assert.equal(rows.tasks.length,25);assert.equal(rows.companies.length,1);
+ const page=load('src/app/agencija/rokovi/page.tsx').default;
+ const html=require('react-dom/server').renderToStaticMarkup(await page({searchParams:Promise.resolve({tab:'PDV',period:'2025-12',status:'svi'})}));
+ assert.match(html,/Označi predato/);assert.match(html,/Deadline company/);assert.doesNotMatch(html,/Sačuvaj plan|Foreign company/);
+ const task={firma:c.id,vrsta:'PDV',godina:2026,mjesec:1,akcija:'zavrsi',verzija:'',napomena:'Predato'};
+ assert.match(await response(action,task),/sacuvano/);
+ let saved=await tx.firmaRokZadatak.findFirstOrThrow({where:{firma_id:c.id}});assert.equal(saved.zavrseno_by,worker.id);assert.equal(saved.napomena,'Predato');
+ assert.match(await response(action,task),/zastarjelo/);
+ assert.equal(await tx.firmaRokZadatak.count({where:{firma_id:c.id}}),1);
+ assert.match(await response(action,{...task,akcija:'otvori',verzija:saved.updated_at.toISOString()}),/sacuvano/);
+ saved=await tx.firmaRokZadatak.findFirstOrThrow({where:{firma_id:c.id}});assert.equal(saved.zavrseno_at,null);
+ assert.match(await response(action,{...task,firma:foreign.id}),/prava/);
+ assert.match(await response(action,{...task,akcija:'plan'}),/prava/);
+ assert.match(await response(action,{...task,vrsta:'ZAVRSNI',mjesec:2}),/podaci/);
+ // Checklist changes preserve submission; completion never invents checklist entries.
+ const annual={firma:c.id,vrsta:'ZAVRSNI',godina:2026,mjesec:3,akcija:'kontrola',verzija:'',kontrola:'izvodi',povrat_tab:'ZAVRSNI',povrat_period:'2025'};
+ assert.match(await response(action,annual),/tab=ZAVRSNI&period=2025/);
+ let annualRow=await tx.firmaRokZadatak.findFirstOrThrow({where:{firma_id:c.id,vrsta:'ZAVRSNI'}});
+ assert.deepEqual(annualRow.kontrola,['izvodi']);assert.equal(annualRow.zavrseno_at,null);
+ await response(action,{...annual,akcija:'zavrsi',verzija:annualRow.updated_at.toISOString()});
+ annualRow=await tx.firmaRokZadatak.findUniqueOrThrow({where:{id:annualRow.id}});
+ const submitted=annualRow.zavrseno_at.toISOString();
+ await response(action,{...annual,kontrola:'kupci',verzija:annualRow.updated_at.toISOString()});
+ annualRow=await tx.firmaRokZadatak.findUniqueOrThrow({where:{id:annualRow.id}});
+ assert.equal(annualRow.zavrseno_at.toISOString(),submitted);assert.deepEqual(annualRow.kontrola,['kupci']);
+ assert.match(await response(action,{...annual,kontrola:'invalid',verzija:annualRow.updated_at.toISOString()}),/podaci/);
+ assert.match(await response(action,{...annual,vrsta:'PDV'}),/podaci/);
+ const annualHtml=require('react-dom/server').renderToStaticMarkup(await page({searchParams:Promise.resolve({tab:'ZAVRSNI',period:'2025'})}));
+ assert.match(annualHtml,/Sačuvaj provjere/);assert.match(annualHtml,/Predato 1 od 1/);
+ // Previous years are included even if schedule now starts later; completed tasks excluded by page.
+ await tx.firmaRokZadatak.create({data:{firma_id:c.id,agencija_id:a.id,vrsta:'PDV',godina_roka:2025,mjesec_roka:12}});
+ assert.ok((await report(worker,2026,true)).tasks.some(t=>t.year===2025&&t.month===12));
+ const earlierHtml=require('react-dom/server').renderToStaticMarkup(await page({searchParams:Promise.resolve({tab:'PDV',ranije:'1'})}));
+ assert.match(earlierHtml,/11\/2025/);
+ user=admin;
+ const plan=await tx.firmaRokPlan.findUnique({where:{firma_id:c.id}});
+ assert.match(await response(action,{firma:c.id,akcija:'plan',verzija:plan.updated_at.toISOString(),od_mjeseca:'2026-10',plate:'on',zavrsni:'on'}),/sacuvano/);
+ rows=await report(admin,2026);assert.equal(rows.tasks.filter(t=>t.kind==='PDV').length,1); // saved task survives disabled schedule
+ assert.equal(rows.tasks.filter(t=>t.kind==='PLATE').length,3);
+ user=worker;
+ assert.match(await response(action,{...task,mjesec:11}),/podaci/);
+ await tx.korisnikFirma.update({where:{id:assignment.id},data:{is_deleted:true}});
+ assert.equal((await report(worker,2026)).tasks.length,0);
+ assert.match(await response(action,{...task,verzija:saved.updated_at.toISOString()}),/prava/);
+ user={...worker,rola:'klijent'};await assert.rejects(()=>response(action,task),/DENIED/);
+ assert.ok(await tx.auditLog.count({where:{agencija_id:a.id,modul:'rokovi'}}));
+ await load('src/lib/company-purge.ts').purgeCompanyData(tx,{agencijaId:a.id,firmaId:c.id,potvrdaNaziva:c.naziv,korisnikId:admin.id});
+ assert.equal(await tx.firmaRokZadatak.count({where:{firma_id:c.id}}),0);assert.equal(await tx.firmaRokPlan.count({where:{firma_id:c.id}}),0);
+ assert.equal(await tx.firma.count({where:{id:foreign.id}}),1);
+ console.log('PASS deadlines: worker complete/reopen, version conflicts, scope and revoked assignment, admin plans, disabled schedule history, audit and purge');throw rollback;
+},{timeout:60000});}catch(e){if(e!==rollback)throw e;}finally{await db.$disconnect();}})().catch(e=>{console.error(e);process.exitCode=1;});

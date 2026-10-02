@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.fixed-assets.json",
+  "compilerOptions": { "target": "ES2022" },
+  "include": ["*.test.ts"]
+}

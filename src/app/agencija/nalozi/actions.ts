@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
-import { auditLog } from "@/lib/audit";
+import { auditLog, auditLogInTransaction } from "@/lib/audit";
 import { accountOverrideTypes } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
@@ -678,109 +678,56 @@ export async function postJournal(formData: FormData) {
   const nalogId = value(formData, "nalog_id");
   const returnTo = value(formData, "return_to");
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  if (!user.agencija_id || !/^[0-9a-f-]{36}$/i.test(nalogId)) redirectJournals("nalog_greska");
+  const scope = {
+    id: nalogId, agencija_id: user.agencija_id, is_deleted: false,
+    firma: { is_deleted: false, aktivan: true, ...(user.rola === "admin_agencije" ? {} : {
+      korisnici: { some: { korisnik_id: user.id, is_deleted: false } }
+    }) }
+  };
+  const source = await prisma.nalog.findFirst({ where: scope, select: { firma_id: true, poslovna_godina_id: true } });
+  if (!source) redirectJournals("nalog_greska");
+  if (!(await canUseJournals(user, source.firma_id, "post"))) redirectJournalDetail(nalogId, "prava");
 
-  if (!user.agencija_id || !nalogId) {
-    redirectJournals("nalog_greska");
-  }
-
-  const nalog = await prisma.nalog.findFirst({
-    where: {
-      id: nalogId,
-      agencija_id: user.agencija_id,
-      is_deleted: false,
-      ...(user.rola === "admin_agencije"
-        ? {}
-        : {
-            firma: {
-              korisnici: {
-                some: {
-                  korisnik_id: user.id,
-                  is_deleted: false
-                }
-              }
-            }
-          })
-    },
-    select: {
-      id: true,
-      firma_id: true,
-      status: true,
-      source_module: true,
-      poslovna_godina: {
-        select: {
-          zakljucena: true
-        }
-      },
-      stavke: {
-        select: {
-          duguje: true,
-          potrazuje: true
-        }
-      }
+  const result = await prisma.$transaction(async (tx) => {
+    // Re-read all posting preconditions under locks; two requests cannot post twice.
+    await tx.$queryRaw`SELECT id FROM poslovne_godine WHERE id=${source.poslovna_godina_id}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM nalozi WHERE id=${nalogId}::uuid FOR UPDATE`;
+    const journal = await tx.nalog.findFirst({ where: scope, include: {
+      poslovna_godina: true, stavke: { include: { firma_konto: true } }
+    } });
+    if (!journal || journal.status !== journalStatuses.draft || journal.source_module === "OSNOVNA_SREDSTVA") return "nalog_greska";
+    if (journal.poslovna_godina.zakljucena) return "godina_zakljucena";
+    if (journal.datum < journal.poslovna_godina.datum_od || journal.datum > journal.poslovna_godina.datum_do) return "nalog_datum";
+    const periods = await tx.$queryRaw<{status: string}[]>`SELECT status FROM pdv_periodi WHERE firma_id=${journal.firma_id}::uuid AND datum_od<=${journal.datum} AND datum_do>=${journal.datum} FOR UPDATE`;
+    if (periods.some(period => period.status === "LOCKED")) return "pdv_period_zakljucan";
+    const totalDebit = journal.stavke.reduce((sum, line) => sum.add(line.duguje), new Prisma.Decimal(0));
+    const totalCredit = journal.stavke.reduce((sum, line) => sum.add(line.potrazuje), new Prisma.Decimal(0));
+    if (totalDebit.isZero() || !totalDebit.equals(totalCredit)) return "nalog_nije_balansiran";
+    for (const line of journal.stavke) {
+      if (line.firma_konto.firma_id !== journal.firma_id || !line.firma_konto.aktivan || line.firma_konto.override_type === "DEACTIVATED" || line.firma_konto.tip_konta !== "analiticko") return "konto_nevalidno";
+      if (line.firma_konto.analitika_obavezna && !line.komitent_id) return "partner_obavezan";
+      if (!line.duguje.isZero() && !line.potrazuje.isZero()) return "stavka_iznos";
+      if (line.komitent_id && !await tx.komitent.findFirst({ where: { id: line.komitent_id, OR: [
+        { agencija_id: null }, { agencija_id: user.agencija_id, firma_id: null },
+        { agencija_id: user.agencija_id, firma_id: journal.firma_id }
+      ] } })) return "partner_obavezan";
+      if (line.firma_konto.koristi_radnu_jedinicu && (!line.poslovna_jedinica_id || !await tx.poslovnaJedinica.findFirst({ where: {
+        id: line.poslovna_jedinica_id, firma_id: journal.firma_id, agencija_id: user.agencija_id!, aktivna: true, is_deleted: false
+      } }))) return "poslovna_jedinica_obavezna";
     }
+    const posted = await tx.nalog.update({ where: { id: journal.id }, data: {
+      status: journalStatuses.posted, datum_knjizenja: new Date(), proknjizen_at: new Date(), proknjizen_by: user.id, updated_by: user.id
+    }, select: { id: true, firma_id: true, status: true } });
+    await tx.posAccountingBatch.updateMany({ where: { journal_id: journal.id }, data: { status: "POSTED" } });
+    await auditLogInTransaction(tx, { korisnikId: user.id, agencijaId: user.agencija_id, firmaId: journal.firma_id,
+      modul: "agencija.nalozi", akcija: "post", tipEntiteta: "Nalog", entitetId: journal.id, novaVrijednost: posted });
+    return null;
   });
-
-  if (!nalog || nalog.status !== journalStatuses.draft || nalog.source_module === "OSNOVNA_SREDSTVA") {
-    redirectJournals("nalog_greska");
-  }
-
-  if (!(await canUseJournals(user, nalog.firma_id, "post"))) {
-    redirectJournalDetail(nalog.id, "prava");
-  }
-
-  if (nalog.poslovna_godina.zakljucena) {
-    redirectJournalDetail(nalog.id, "godina_zakljucena");
-  }
-
-  const totalDebit = nalog.stavke.reduce(
-    (sum, line) => sum + Math.round(Number(line.duguje) * 100),
-    0
-  );
-  const totalCredit = nalog.stavke.reduce(
-    (sum, line) => sum + Math.round(Number(line.potrazuje) * 100),
-    0
-  );
-
-  if (totalDebit !== totalCredit || totalDebit === 0) {
-    redirectJournalDetail(nalog.id, "nalog_nije_balansiran");
-  }
-
-  const postedJournal = await prisma.$transaction(async (tx) => {
-    const posted = await tx.nalog.update({
-      where: { id: nalog.id },
-      data: {
-        status: journalStatuses.posted,
-        datum_knjizenja: new Date(),
-        proknjizen_at: new Date(),
-        proknjizen_by: user.id,
-        updated_by: user.id
-      },
-      select: { id: true, firma_id: true, status: true }
-    });
-    await tx.posAccountingBatch.updateMany({
-      where: { journal_id: nalog.id },
-      data: { status: "POSTED" }
-    });
-    return posted;
-  });
-
-  await auditLog({
-    korisnikId: user.id,
-    agencijaId: user.agencija_id,
-    firmaId: postedJournal.firma_id,
-    modul: "agencija.nalozi",
-    akcija: "post",
-    tipEntiteta: "Nalog",
-    entitetId: postedJournal.id,
-    novaVrijednost: postedJournal
-  });
-
+  if (result) redirectJournalDetail(nalogId, result);
   revalidatePath("/agencija/nalozi");
-  if (returnTo === "drafts") {
-    redirect("/agencija/nalozi?status=DRAFT&poruka=nalog_proknjizen");
-  }
-
-  redirectJournalDetail(nalog.id, "nalog_proknjizen");
+  if (returnTo === "drafts") redirect("/agencija/nalozi?status=DRAFT&poruka=nalog_proknjizen");
+  redirectJournalDetail(nalogId, "nalog_proknjizen");
 }
 
 export async function reopenJournal(formData: FormData) {
