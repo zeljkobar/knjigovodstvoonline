@@ -144,7 +144,7 @@ async function resolveCompanyAccount(
   if (companyAccount) {
     return companyAccount.aktivan &&
       companyAccount.override_type !== accountOverrideTypes.deactivated &&
-      companyAccount.tip_konta === "analiticko"
+      (companyAccount.tip_konta === "analiticko" && companyAccount.sifra.trim().length >= 4)
       ? companyAccount
       : null;
   }

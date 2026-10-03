@@ -113,7 +113,7 @@ async function resolveCompanyAccount(
   if (existing) {
     return existing.aktivan &&
       existing.override_type !== accountOverrideTypes.deactivated &&
-      existing.tip_konta === "analiticko" &&
+      (existing.tip_konta === "analiticko" && existing.sifra.trim().length >= 4) &&
       !existing.analitika_obavezna
       ? existing
       : null;

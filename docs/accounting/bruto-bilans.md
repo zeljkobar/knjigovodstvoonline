@@ -65,3 +65,5 @@ partnerom.
 - Dodatne kontrole po poslovnoj jedinici.
 - Dodatni automatizovani testovi za prava i konkurentne zahtjeve pri kreiranju
   početnog stanja (vidi [`NEXT_STEPS.md`](../../NEXT_STEPS.md)).
+
+Knjiženje zahtijeva analitički konto sa najmanje četiri znaka u šifri. Konta sa jednom, dvije ili tri cifre služe za grupisanje. Pravilo štite backend provjere, DB CHECK ograničenja i triggeri stavki/statusa naloga. Istorijske testne stavke nijesu preknjižene migracijom.

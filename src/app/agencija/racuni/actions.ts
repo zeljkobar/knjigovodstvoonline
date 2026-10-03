@@ -185,7 +185,7 @@ async function resolveCompanyAccount(
     if (
       !companyAccount.aktivan ||
       companyAccount.override_type === accountOverrideTypes.deactivated ||
-      companyAccount.tip_konta !== "analiticko"
+      (companyAccount.tip_konta !== "analiticko" || companyAccount.sifra.trim().length < 4)
     ) {
       return null;
     }
@@ -210,7 +210,7 @@ async function resolveCompanyAccount(
     }
   });
 
-  if (!baseAccount?.aktivan || baseAccount.tip_konta !== "analiticko") {
+  if (!baseAccount?.aktivan || (baseAccount.tip_konta !== "analiticko" || baseAccount.sifra.trim().length < 4)) {
     return null;
   }
 
@@ -938,7 +938,7 @@ export async function savePazarPostingScheme(formData: FormData) {
   ]);
   const activeAccountCodes = new Set(
     mergeCompanyAccountPlan(baseAccounts, companyOverrides)
-      .filter((account) => account.aktivan && account.tip_konta === "analiticko")
+      .filter((account) => account.aktivan && (account.tip_konta === "analiticko" && account.sifra.trim().length >= 4))
       .map((account) => account.sifra)
   );
   const entries = pazarPostingSchemeFields.map(([purpose, , paymentMethod]) => ({

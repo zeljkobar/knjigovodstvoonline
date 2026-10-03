@@ -268,11 +268,11 @@ export default async function ZavrsniRacunObrasciPage({ searchParams }: PageProp
       <section className="stats-grid">
         <article className="stat-card">
           <span>Šablon</span>
-          <strong>{incomeResult.templateSource === "company" ? "BU firma" : "BU sistemski"}</strong>
+          <strong>{incomeResult.templateSource === "agency" ? "BU agencija" : "BU sistemski"}</strong>
         </article>
         <article className="stat-card">
           <span>Bilans stanja</span>
-          <strong>{balanceResult.templateSource === "company" ? "Firma" : "Sistemski"}</strong>
+          <strong>{balanceResult.templateSource === "agency" ? "Agencija" : "Sistemski"}</strong>
         </article>
         <article className="stat-card">
           <span>Rezultat</span>

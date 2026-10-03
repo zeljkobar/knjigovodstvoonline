@@ -181,7 +181,7 @@ const regularDefaults: Record<string, PostingDefault> = {
 
 const categoryDefaults: Record<string, { expenseCode: string; netLiabilityCode: string }> = {
   [payrollCategories.serviceContract]: {
-    expenseCode: "522",
+    expenseCode: "5220",
     netLiabilityCode: "4651"
   },
   [payrollCategories.rent]: {
@@ -189,7 +189,7 @@ const categoryDefaults: Record<string, { expenseCode: string; netLiabilityCode: 
     netLiabilityCode: "4654"
   },
   [payrollCategories.otherContracts]: {
-    expenseCode: "525",
+    expenseCode: "5250",
     netLiabilityCode: "4654"
   }
 };

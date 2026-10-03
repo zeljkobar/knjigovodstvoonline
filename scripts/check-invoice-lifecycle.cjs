@@ -23,8 +23,8 @@ async function response(fn,data){try{await fn(form(data));throw new Error('Missi
   await tx.stanjeZaliha.create({data:{...scope,magacin_id:warehouse.id,artikal_id:item.id,kolicina:'10',nabavna_vrijednost:'300',prosjecna_nabavna_cijena:'30',maloprodajna_vrijednost:'605',razlika_u_cijeni:'200',ukalkulisani_pdv:'105'}});
   const journalType=await tx.vrstaNaloga.findFirst({where:{sifra:'OUTGOING_INVOICE',sistemska:true}})||await tx.vrstaNaloga.create({data:{sifra:'OUTGOING_INVOICE',naziv:'Invoice',prefiks:'IR',sistemska:true}});
   const accounts={};
-  for(const [purpose,code,direction] of [['CUSTOMER','201','D'],['REVENUE','600','P'],['OUTPUT_VAT','260','P'],['COGS','500','D'],['INVENTORY','130','P']]){
-   accounts[code]=await tx.firmaKonto.create({data:{firma_id:firm.id,sifra:code,naziv:code,tip_konta:'analiticko',analitika_obavezna:code==='201'}});
+  for(const [purpose,code,direction] of [['CUSTOMER','2010','D'],['REVENUE','6000','P'],['OUTPUT_VAT','2600','P'],['COGS','5000','D'],['INVENTORY','1300','P']]){
+   accounts[code]=await tx.firmaKonto.create({data:{firma_id:firm.id,sifra:code,naziv:code,tip_konta:'analiticko',analitika_obavezna:code==='2010'}});
    await tx.firmaPodrazumijevanoKonto.create({data:{firma_id:firm.id,dokument_tip:'OUTGOING_INVOICE',podvrsta:'GENERAL',pdv_stopa_sifra:'GENERAL',namjena:'INVOICE_'+purpose,sifra_konta:code,smjer:direction}});
   }
   const remoteCompany=randomUUID(),unitId=randomUUID(),remotes=new Map();let submits=0,creates=0;

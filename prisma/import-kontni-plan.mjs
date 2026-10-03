@@ -62,6 +62,14 @@ async function main() {
     }))
     .filter((row) => row.sifra && row.naziv);
 
+  // Analytic leaves used by built-in payroll defaults, absent in the source workbook.
+  for (const parentCode of ["522", "525"]) {
+    const parent = rows.find(row => row.sifra === parentCode);
+    if (parent && !rows.some(row => row.sifra === `${parentCode}0`)) {
+      rows.push({ ...parent, sifra: `${parentCode}0` });
+    }
+  }
+
   const seen = new Set();
   const duplicates = [];
   for (const row of rows) {
@@ -79,7 +87,7 @@ async function main() {
   let imported = 0;
 
   for (const row of rows) {
-    const tipKonta = hasChildren(row.sifra, allCodes) ? "sinteticko" : "analiticko";
+    const tipKonta = row.sifra.length < 4 || hasChildren(row.sifra, allCodes) ? "sinteticko" : "analiticko";
 
     await prisma.konto.upsert({
       where: {

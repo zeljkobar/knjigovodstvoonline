@@ -301,6 +301,8 @@ export async function purgeCompanyData(
     "finansijski_izvjestaj_korekcije",
     Prisma.sql`DELETE FROM finansijski_izvjestaj_korekcije WHERE firma_id = ${firmaId}::uuid`
   );
+  // Shared agency templates have firma_id NULL and survive company deletion.
+  // Legacy company templates and their cascading positions can still be purged.
   await izvrsi(
     "finansijski_izvjestaj_sabloni",
     Prisma.sql`DELETE FROM finansijski_izvjestaj_sabloni WHERE firma_id = ${firmaId}::uuid`

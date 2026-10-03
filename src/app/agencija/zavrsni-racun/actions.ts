@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
-import { auditLog } from "@/lib/audit";
+import { auditLog, auditLogInTransaction } from "@/lib/audit";
 import { accountOverrideTypes } from "@/lib/account-plan";
 import { requireAnyRole, requireRole } from "@/lib/auth";
 import {
@@ -275,8 +275,9 @@ async function saveFinancialReportSettings({
   redirectPath: string;
   revalidatePaths: string[];
 }) {
-  await requireRole("admin_agencije");
-  const context = await requireFinalAccountManageContext();
+  const user = await requireRole("admin_agencije");
+  if (!user.agencija_id) redirect(`${errorPath}?poruka=prava`);
+  const agencijaId = user.agencija_id;
   const rbrValues = formData.getAll("rbr");
   const aopValues = formData.getAll("aop");
   const pozicijaValues = formData.getAll("pozicija");
@@ -295,7 +296,7 @@ async function saveFinancialReportSettings({
     redirect(`${errorPath}?poruka=prazno`);
   }
 
-  const currentSettings = await getSettings(context.agencijaId, context.firmaId);
+  const currentSettings = await getSettings(agencijaId);
   const rows = rbrValues.map((entry, index) => ({
     rbr: numberValue(entry),
     aop: text(aopValues[index]) || null,
@@ -317,20 +318,15 @@ async function saveFinancialReportSettings({
   }
 
   await prisma.$transaction(async (tx) => {
-    const template =
-      currentSettings.source === "company"
-        ? currentSettings.template
-        : await tx.finansijskiIzvjestajSablon.create({
-            data: {
-              agencija_id: context.agencijaId,
-              firma_id: context.firmaId,
-              tip_sifra: tipSifra,
-              naziv,
-              sistemski: false,
-              created_by: context.user.id,
-              updated_by: context.user.id
-            }
-          });
+    // Serialize first-save creation and updates for this agency.
+    await tx.$queryRaw`SELECT id FROM agencije WHERE id=${agencijaId}::uuid FOR UPDATE`;
+    const existing = await tx.finansijskiIzvjestajSablon.findFirst({
+      where: { agencija_id: agencijaId, firma_id: null, tip_sifra: tipSifra, sistemski: false }
+    });
+    const template = existing ?? await tx.finansijskiIzvjestajSablon.create({
+      data: { agencija_id: agencijaId, firma_id: null, tip_sifra: tipSifra, naziv,
+        sistemski: false, created_by: user.id, updated_by: user.id }
+    });
 
     for (const row of rows) {
       await tx.finansijskiIzvjestajPozicija.upsert({
@@ -353,23 +349,18 @@ async function saveFinancialReportSettings({
         id: template.id
       },
       data: {
-        updated_by: context.user.id
+        updated_by: user.id
       }
     });
+    await auditLogInTransaction(tx, {
+      korisnikId: user.id, agencijaId, modul: "zavrsni_racun", akcija: auditAction,
+      tipEntiteta: "finansijski_izvjestaj_sablon", entitetId: template.id,
+      staraVrijednost: currentSettings.template.pozicije,
+      novaVrijednost: { tip: tipSifra, opseg: "agencija", pozicije: rows }
+    });
   });
-
-  await auditLog({
-    korisnikId: context.user.id,
-    agencijaId: context.agencijaId,
-    firmaId: context.firmaId,
-    modul: "zavrsni_racun",
-    akcija: auditAction,
-    tipEntiteta: "finansijski_izvjestaj_sablon",
-    novaVrijednost: {
-      tip: tipSifra,
-      redova: rows.length
-    }
-  });
+  revalidatePath("/agencija/zavrsni-racun", "layout");
+  revalidatePath("/stampa", "layout");
 
   for (const path of revalidatePaths) {
     revalidatePath(path);

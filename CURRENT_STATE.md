@@ -1573,3 +1573,17 @@ je od samodeaktivacije i samostalne rotacije.
 - Odjava zaposlenog koristi izbor: sporazumni raskid, istek ugovora ili jednostrani raskid radnika. Odvojeni su datum dokumenta i datum prestanka.
 - `otkazi_o_radu` čuva snapshot i HTML dokumenta; odjava, kreiranje i audit su jedna transakcija. Štampa iz neaktivnih/bivših ostaje dostupna i poslije reaktivacije.
 - Provjeravaju se prava, firma/agencija, otvorena godina, verzija radnika, datumi i određeno vrijeme za istek. Izjava radnika provjerava 30 dana ili evidentirani dogovor o kraćem roku. Ovo je evidencija u programu, bez slanja odjave organima.
+
+## Minimalna dužina konta za knjiženje — 2026-10-03
+
+- Migracija `20261003190000_minimum_posting_account_length`: konta kraća od 4 znaka postaju sintetička na sva tri nivoa; CHECK ograničenja sprečavaju ponovno označavanje kao analitička.
+- DB triggeri blokiraju nove/izmijenjene stavke na kratkim kontima i knjiženje postojećeg nacrta. Backend provjere vraćaju postojeće greške nevalidnog konta.
+- Import kontnog plana poštuje minimalnu dužinu. Sistemske šeme plata koriste novu analitiku 5220/5250; korisničke šeme i istorijski testni nalozi nijesu preknjižavani.
+- Provjereni TypeScript, npm test, rollback DB regresija kratkih konta i računovodstvenog jezgra. Nema novih tabela/FK; purge redoslijed ostaje isti (76 tabela).
+
+## Zajedničke šeme završnog računa agencije — 2026-10-03
+
+- Postojeća podešavanja BU/BS/SA rade bez aktivne firme/godine, samo za administratora agencije. Čuvanje i obračun koriste jednu šemu po agenciji i tipu; sistemska je početna osnova. Nema novih tabova.
+- Migracija `20261003200000_agency_financial_templates` promoviše jedinu raniju prilagođenu šemu po tipu; kod više različitih šema prekida radi eksplicitnog usklađivanja. Lokalni A216 sa 5290 sačuvan. Arhivirani rezultati ostaju snapshotovi.
+- Serijalizovano čuvanje, parcijalni jedinstveni indeks i transakcioni audit; sve firme koriste zajedničku šemu. Brisanje firme čuva agencijske šeme i njihove pozicije.
+- DB rollback regresija: tri tipa, više firmi, izolacija, admin prava, stranice bez konteksta, ponovljeno čuvanje i audit. TypeScript i purge provjera prolaze.

@@ -66,17 +66,17 @@ export type StatisticalAnnexRow = ReportPosition & {
 
 export type IncomeStatementResult = {
   rows: IncomeStatementRow[];
-  templateSource: "company" | "system";
+  templateSource: "agency" | "system";
 };
 
 export type BalanceSheetResult = {
   rows: BalanceSheetRow[];
-  templateSource: "company" | "system";
+  templateSource: "agency" | "system";
 };
 
 export type StatisticalAnnexResult = {
   rows: StatisticalAnnexRow[];
-  templateSource: "company" | "system";
+  templateSource: "agency" | "system";
 };
 
 function splitAccountList(value: string | null) {
@@ -172,30 +172,14 @@ function evaluateFormula(formula: string, valuesByAop: Map<string, number>) {
 
 async function getEffectiveTemplateForType(
   agencijaId: string,
-  firmaId: string,
+  _firmaId: string | undefined,
   tipSifra: string
 ) {
-  const companyTemplate = await prisma.finansijskiIzvjestajSablon.findFirst({
-    where: {
-      agencija_id: agencijaId,
-      firma_id: firmaId,
-      tip_sifra: tipSifra
-    },
-    include: {
-      pozicije: {
-        orderBy: {
-          rbr: "asc"
-        }
-      }
-    }
+  const agencyTemplate = await prisma.finansijskiIzvjestajSablon.findFirst({
+    where: { agencija_id: agencijaId, firma_id: null, tip_sifra: tipSifra, sistemski: false },
+    include: { pozicije: { orderBy: { rbr: "asc" } } }
   });
-
-  if (companyTemplate) {
-    return {
-      source: "company" as const,
-      template: companyTemplate
-    };
-  }
+  if (agencyTemplate) return { source: "agency" as const, template: agencyTemplate };
 
   const systemTemplate = await prisma.finansijskiIzvjestajSablon.findFirstOrThrow({
     where: {
@@ -219,7 +203,7 @@ async function getEffectiveTemplateForType(
   };
 }
 
-async function getEffectiveTemplate(agencijaId: string, firmaId: string) {
+async function getEffectiveTemplate(agencijaId: string, firmaId?: string) {
   return getEffectiveTemplateForType(agencijaId, firmaId, financialReportTypes.incomeStatement);
 }
 
@@ -505,7 +489,7 @@ export async function calculateIncomeStatement({
   };
 }
 
-export async function getIncomeStatementSettings(agencijaId: string, firmaId: string) {
+export async function getIncomeStatementSettings(agencijaId: string, firmaId?: string) {
   return getEffectiveTemplate(agencijaId, firmaId);
 }
 
@@ -602,7 +586,7 @@ export async function calculateBalanceSheet({
   };
 }
 
-export async function getBalanceSheetSettings(agencijaId: string, firmaId: string) {
+export async function getBalanceSheetSettings(agencijaId: string, firmaId?: string) {
   return getEffectiveTemplateForType(agencijaId, firmaId, financialReportTypes.balanceSheet);
 }
 
@@ -688,6 +672,6 @@ export async function calculateStatisticalAnnex({
   };
 }
 
-export async function getStatisticalAnnexSettings(agencijaId: string, firmaId: string) {
+export async function getStatisticalAnnexSettings(agencijaId: string, firmaId?: string) {
   return getEffectiveTemplateForType(agencijaId, firmaId, financialReportTypes.statisticalAnnex);
 }

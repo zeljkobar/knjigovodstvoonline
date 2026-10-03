@@ -1152,7 +1152,7 @@ export async function createCompanyCustomAccount(formData: FormData) {
     redirectCompanyAccountPlan("konto_obavezno", firmaId);
   }
 
-  if (!allowedAccountTypes.includes(tipKonta)) {
+  if (!allowedAccountTypes.includes(tipKonta) || (tipKonta === "analiticko" && sifra.length < 4)) {
     redirectCompanyAccountPlan("konto_tip_nevalidan", firmaId);
   }
 
@@ -1729,7 +1729,7 @@ export async function createGlobalAccount(formData: FormData) {
     redirectGlobalAccountPlan("konto_obavezno");
   }
 
-  if (!allowedAccountTypes.includes(tipKonta)) {
+  if (!allowedAccountTypes.includes(tipKonta) || (tipKonta === "analiticko" && sifra.length < 4)) {
     redirectGlobalAccountPlan("konto_tip_nevalidan");
   }
 
@@ -1804,6 +1804,10 @@ export async function updateGlobalAccount(formData: FormData) {
 
   if (!stariKonto) {
     redirectGlobalAccountPlan("konto_greska", q);
+  }
+
+  if (tipKonta === "analiticko" && stariKonto.sifra.trim().length < 4) {
+    redirectGlobalAccountPlan("konto_tip_nevalidan", q);
   }
 
   const konto = await prisma.konto.update({

@@ -50,7 +50,7 @@ async function requireWriteOffContext(action: PermissionAction, firmaId: string,
 
 async function resolveCompanyAccount(tx: Prisma.TransactionClient, firmaId: string, accountCode: string) {
   const existing = await tx.firmaKonto.findUnique({ where: { firma_id_sifra: { firma_id: firmaId, sifra: accountCode } } });
-  if (existing) return existing.aktivan && existing.override_type !== accountOverrideTypes.deactivated && existing.tip_konta === "analiticko" && !existing.analitika_obavezna ? existing : null;
+  if (existing) return existing.aktivan && existing.override_type !== accountOverrideTypes.deactivated && (existing.tip_konta === "analiticko" && existing.sifra.trim().length >= 4) && !existing.analitika_obavezna ? existing : null;
   const base = await tx.konto.findFirst({ where: { sifra: accountCode, aktivan: true, tip_konta: "analiticko", analitika_obavezna: false } });
   if (!base) return null;
   return tx.firmaKonto.create({ data: { firma_id: firmaId, konto_id: base.id, sifra: base.sifra, naziv: base.naziv, tip_konta: base.tip_konta, analitika_obavezna: base.analitika_obavezna, sinteticki_konto: base.sinteticki_konto, normalni_saldo: base.normalni_saldo, koristi_radnu_jedinicu: base.koristi_radnu_jedinicu, override_type: accountOverrideTypes.baseLink, aktivan: true } });

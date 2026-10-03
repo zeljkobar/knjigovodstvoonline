@@ -57,12 +57,12 @@ async function resolveDepreciationAccount(
   if (companyAccount) {
     return companyAccount.aktivan &&
       companyAccount.override_type !== accountOverrideTypes.deactivated &&
-      companyAccount.tip_konta === "analiticko"
+      (companyAccount.tip_konta === "analiticko" && companyAccount.sifra.trim().length >= 4)
       ? companyAccount.id
       : null;
   }
   const baseAccount = await tx.konto.findUnique({ where: { sifra: accountCode } });
-  if (!baseAccount?.aktivan || baseAccount.tip_konta !== "analiticko") return null;
+  if (!baseAccount?.aktivan || (baseAccount.tip_konta !== "analiticko" || baseAccount.sifra.trim().length < 4)) return null;
   const linked = await tx.firmaKonto.create({
     data: {
       firma_id: firmaId,

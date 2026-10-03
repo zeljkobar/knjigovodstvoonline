@@ -31,7 +31,7 @@ type ArchivedRow = {
 };
 
 type ArchivedReport = {
-  templateSource?: "company" | "system";
+  templateSource?: "company" | "agency" | "system";
   rows?: ArchivedRow[];
 };
 
@@ -116,6 +116,7 @@ function rowKey(row: ArchivedRow, index: number) {
 }
 
 function sourceLabel(source: ArchivedReport["templateSource"]) {
+  if (source === "agency") return "Agencija";
   if (source === "company") {
     return "Firma";
   }

@@ -465,7 +465,7 @@ export default async function PayrollSettingsPage({ searchParams }: PageProps) {
             ))}
           </nav>
 
-          <form className="payroll-posting-form" action={savePayrollPostingSettings}>
+          <form key={`${context.firma.id}:${context.godina.id}:${postingCategory}`} className="payroll-posting-form" action={savePayrollPostingSettings}>
             <input name="kategorija" type="hidden" value={postingCategory} />
             <div className="admin-form compact-form payroll-posting-header">
               <label>

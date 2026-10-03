@@ -708,6 +708,7 @@ model KomitentKontakt {
   @@map("komitent_kontakti")
 }
 
+/// DB CHECK: analiticko requires a code of at least four characters. Same for agency/company accounts.
 model Konto {
   id                     String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   sifra                  String          @unique
@@ -2817,6 +2818,7 @@ model PdvPodesavanjePravilo {
   @@map("pdv_podesavanja_pravila")
 }
 
+/// Agency template: firma_id NULL. Partial unique index on agency/type in SQL migration.
 model FinansijskiIzvjestajSablon {
   id          String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id String?                        @db.Uuid
@@ -3425,6 +3427,7 @@ model PlateObracunStavka {
   @@map("plate_obracun_stavke")
 }
 
+/// DB triggers reject short account codes on new/changed lines and when posting existing drafts.
 model StavkaNaloga {
   id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nalog_id             String            @db.Uuid

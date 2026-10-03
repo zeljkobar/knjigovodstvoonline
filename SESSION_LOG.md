@@ -1876,3 +1876,17 @@ DB regresija provjerava poredak, smjer salda, avanse i ukupne iznose.
 ### KUF uzastopni unos — 03.10.2026.
 - Poslije uspješnog dodavanja račun vraća fokus i skrol na fiskalni link. Nova forma se ponovo montira poslije dodavanja da resetuje stanje prethodnog QR računa. Greške i ostale radnje zadržavaju postojeće preusmjeravanje.
 - Provjeren položaj i fokus u pregledniku bez upisa stvarnog računa; TSC i ciljani lint.
+
+## Minimalna dužina konta za knjiženje — 2026-10-03
+
+- Migracija `20261003190000_minimum_posting_account_length`: konta kraća od 4 znaka postaju sintetička na sva tri nivoa; CHECK ograničenja sprečavaju ponovno označavanje kao analitička.
+- DB triggeri blokiraju nove/izmijenjene stavke na kratkim kontima i knjiženje postojećeg nacrta. Backend provjere vraćaju postojeće greške nevalidnog konta.
+- Import kontnog plana poštuje minimalnu dužinu. Sistemske šeme plata koriste novu analitiku 5220/5250; korisničke šeme i istorijski testni nalozi nijesu preknjižavani.
+- Provjereni TypeScript, npm test, rollback DB regresija kratkih konta i računovodstvenog jezgra. Nema novih tabela/FK; purge redoslijed ostaje isti (76 tabela).
+
+## Zajedničke šeme završnog računa agencije — 2026-10-03
+
+- Postojeća podešavanja BU/BS/SA rade bez aktivne firme/godine, samo za administratora agencije. Čuvanje i obračun koriste jednu šemu po agenciji i tipu; sistemska je početna osnova. Nema novih tabova.
+- Migracija `20261003200000_agency_financial_templates` promoviše jedinu raniju prilagođenu šemu po tipu; kod više različitih šema prekida radi eksplicitnog usklađivanja. Lokalni A216 sa 5290 sačuvan. Arhivirani rezultati ostaju snapshotovi.
+- Serijalizovano čuvanje, parcijalni jedinstveni indeks i transakcioni audit; sve firme koriste zajedničku šemu. Brisanje firme čuva agencijske šeme i njihove pozicije.
+- DB rollback regresija: tri tipa, više firmi, izolacija, admin prava, stranice bez konteksta, ponovljeno čuvanje i audit. TypeScript i purge provjera prolaze.

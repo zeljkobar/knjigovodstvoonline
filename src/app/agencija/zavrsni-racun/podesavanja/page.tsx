@@ -2,9 +2,7 @@ import { saveIncomeStatementSettings } from "../actions";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { getIncomeStatementSettings } from "@/lib/financial-reports";
-import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { readWorkContext } from "@/lib/work-context";
 
 type PageProps = {
   searchParams?: Promise<{
@@ -23,49 +21,11 @@ const messages: Record<string, string> = {
 export default async function ZavrsniRacunPodesavanjaPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const user = await requireRole("admin_agencije");
-  const workContext = await readWorkContext();
-
-  if (!user.agencija_id || !workContext.firmaId) {
-    return (
-      <div className="admin-stack">
-        <header className="admin-header">
-          <div>
-            <h2>Podešavanja završnog računa</h2>
-            <p>Izaberite aktivnu firmu u gornjoj traci.</p>
-          </div>
-        </header>
-      </div>
-    );
-  }
-
-  const [allowed, firma, settings] = await Promise.all([
-    hasPermission(user, {
-      firmaId: workContext.firmaId,
-      modul: "zavrsni_racun",
-      akcija: "manage"
-    }),
-    prisma.firma.findFirst({
-      where: {
-        id: workContext.firmaId,
-        agencija_id: user.agencija_id,
-        is_deleted: false
-      },
-      select: {
-        naziv: true
-      }
-    }),
-    getIncomeStatementSettings(user.agencija_id, workContext.firmaId)
+  if (!user.agencija_id) return <p>Agencija nije dostupna.</p>;
+  const [agencija, settings] = await Promise.all([
+    prisma.agencija.findUnique({ where: { id: user.agencija_id }, select: { naziv: true } }),
+    getIncomeStatementSettings(user.agencija_id)
   ]);
-
-  if (!allowed) {
-    return (
-      <div className="admin-stack">
-        <section className="admin-card">
-          <p className="empty-state">Nemate pravo za podešavanje završnog računa.</p>
-        </section>
-      </div>
-    );
-  }
 
   return (
     <div className="admin-stack">
@@ -73,8 +33,8 @@ export default async function ZavrsniRacunPodesavanjaPage({ searchParams }: Page
         <div>
           <h2>Podešavanja Bilansa uspjeha</h2>
           <p>
-            {firma?.naziv ?? "Aktivna firma"} ·{" "}
-            {settings.source === "company" ? "firma ima svoju šemu" : "koristi se sistemska šema"}
+            {agencija?.naziv ?? "Agencija"} ·{" "}
+            Povezivanje konta važi za sve firme agencije.
           </p>
         </div>
         <div className="header-actions">
@@ -165,7 +125,7 @@ export default async function ZavrsniRacunPodesavanjaPage({ searchParams }: Page
             </table>
           </div>
           <div className="form-actions">
-            <button type="submit">Sačuvaj podešavanja</button>
+            <button type="submit">Sačuvaj za sve firme agencije</button>
           </div>
         </form>
       </section>

@@ -4,6 +4,8 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Deploy: `20261003200000_agency_financial_templates` prenosi šeme završnog računa na agenciju. Ako postoje višestruke šeme istog tipa unutar agencije, potrebno je prvo usklađivanje; migracija ih ne bira proizvoljno.
+- Pri deployu primijeniti `20261003190000_minimum_posting_account_length`, generisati Prisma klijent i restartovati aplikaciju. Kratka konta su sintetička; sistemske šeme koriste 5220/5250. Postojeće korisničke šeme sa kratkim kontima treba ručno uskladiti prije sljedećeg knjiženja.
 - Radna mjesta i ugovori o radu implementirani. Pri deployu primijeniti
   `20261003150000_radna_mjesta_ugovori`. Dopuniti podatke zaposlenih i opise
   radnih mjesta; fiksni tekst ugovora preuzet iz starog sajta, pravna revizija

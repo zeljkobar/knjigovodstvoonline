@@ -1014,7 +1014,7 @@ export async function postPayrollCalculation(formData: FormData) {
             account.firma_id !== context.firma.id ||
             !account.aktivan ||
             account.override_type === accountOverrideTypes.deactivated ||
-            account.tip_konta !== "analiticko" ||
+            (account.tip_konta !== "analiticko" || account.sifra.trim().length < 4) ||
             account.analitika_obavezna
         );
 

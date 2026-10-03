@@ -705,7 +705,7 @@ export async function postJournal(formData: FormData) {
     const totalCredit = journal.stavke.reduce((sum, line) => sum.add(line.potrazuje), new Prisma.Decimal(0));
     if (totalDebit.isZero() || !totalDebit.equals(totalCredit)) return "nalog_nije_balansiran";
     for (const line of journal.stavke) {
-      if (line.firma_konto.firma_id !== journal.firma_id || !line.firma_konto.aktivan || line.firma_konto.override_type === "DEACTIVATED" || line.firma_konto.tip_konta !== "analiticko") return "konto_nevalidno";
+      if (line.firma_konto.firma_id !== journal.firma_id || !line.firma_konto.aktivan || line.firma_konto.override_type === "DEACTIVATED" || (line.firma_konto.tip_konta !== "analiticko" || line.firma_konto.sifra.trim().length < 4)) return "konto_nevalidno";
       if (line.firma_konto.analitika_obavezna && !line.komitent_id) return "partner_obavezan";
       if (!line.duguje.isZero() && !line.potrazuje.isZero()) return "stavka_iznos";
       if (line.komitent_id && !await tx.komitent.findFirst({ where: { id: line.komitent_id, OR: [

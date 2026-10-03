@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 async function resolveAccount(tx: Prisma.TransactionClient, firmaId: string, code: string) {
   const existing = await tx.firmaKonto.findUnique({ where: { firma_id_sifra: { firma_id: firmaId, sifra: code } } });
-  if (existing) return existing.aktivan && existing.override_type !== accountOverrideTypes.deactivated && existing.tip_konta === "analiticko" ? existing : null;
+  if (existing) return existing.aktivan && existing.override_type !== accountOverrideTypes.deactivated && (existing.tip_konta === "analiticko" && existing.sifra.trim().length >= 4) ? existing : null;
   const base = await tx.konto.findFirst({ where: { sifra: code, aktivan: true, tip_konta: "analiticko" } });
   if (!base) return null;
   return tx.firmaKonto.create({ data: { firma_id: firmaId, konto_id: base.id, sifra: base.sifra, naziv: base.naziv, tip_konta: base.tip_konta, analitika_obavezna: base.analitika_obavezna, sinteticki_konto: base.sinteticki_konto, normalni_saldo: base.normalni_saldo, koristi_radnu_jedinicu: base.koristi_radnu_jedinicu, override_type: accountOverrideTypes.baseLink, aktivan: true } });

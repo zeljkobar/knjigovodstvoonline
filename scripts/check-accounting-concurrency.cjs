@@ -18,11 +18,11 @@ async function response(fn,data){try{await fn(form(data));throw new Error('Missi
  partner=await db.komitent.create({data:{naziv:'Concurrent buyer',agencija_id:agency.id,firma_id:firm.id}});
  const scope={agencija_id:agency.id,firma_id:firm.id,poslovna_godina_id:year.id};
  const accounts={};
- for(const code of ['201','600','260']) accounts[code]=await db.firmaKonto.create({data:{firma_id:firm.id,sifra:code,naziv:code,tip_konta:'analiticko',analitika_obavezna:code==='201'}});
+ for(const code of ['2010','6000','2600']) accounts[code]=await db.firmaKonto.create({data:{firma_id:firm.id,sifra:code,naziv:code,tip_konta:'analiticko',analitika_obavezna:code==='2010'}});
  const load=sourceLoader({'server-only':{},'@/lib/prisma':{prisma:db},'@/lib/auth':{requireAnyRole:async()=>user,getCurrentUser:async()=>user,isDirectFiscalTenantUser:()=>false},'@/lib/work-context':{readWorkContext:async()=>({firmaId:firm.id,poslovnaGodinaId:year.id})},'next/headers':{headers:async()=>new Map()},'next/cache':{revalidatePath(){}},'next/navigation':{redirect(url){throw new Error('REDIRECT:'+url);}}});
  const journals=load('src/app/agencija/nalozi/actions.ts');
  const invoices=load('src/app/agencija/racuni/actions.ts');
- const makeJournal=number=>db.nalog.create({data:{...scope,vrsta_naloga_id:type.id,broj:number,sifra:'CQ-'+number,datum:new Date('2026-06-15'),status:'DRAFT',kreirao_korisnik_id:user.id,stavke:{create:[{konto_id:accounts['201'].id,komitent_id:partner.id,duguje:'121',potrazuje:'0',redni_broj:1},{konto_id:accounts['600'].id,duguje:'0',potrazuje:'121',redni_broj:2}]}}});
+ const makeJournal=number=>db.nalog.create({data:{...scope,vrsta_naloga_id:type.id,broj:number,sifra:'CQ-'+number,datum:new Date('2026-06-15'),status:'DRAFT',kreirao_korisnik_id:user.id,stavke:{create:[{konto_id:accounts['2010'].id,komitent_id:partner.id,duguje:'121',potrazuje:'0',redni_broj:1},{konto_id:accounts['6000'].id,duguje:'0',potrazuje:'121',redni_broj:2}]}}});
  const journal=await makeJournal(1);
  const replies=await Promise.all([response(journals.postJournal,{nalog_id:journal.id}),response(journals.postJournal,{nalog_id:journal.id})]);
  assert.equal(replies.filter(r=>r.includes('nalog_proknjizen')).length,1);
@@ -47,7 +47,7 @@ async function response(fn,data){try{await fn(form(data));throw new Error('Missi
  console.log('PASS closing year during posting prevents stale write');
  const rate=await db.pdvStopa.create({data:{agencija_id:agency.id,sifra:'R21',naziv:'21%',procenat:'21'}});
  const kind=await db.racunVrsta.create({data:{agencija_id:agency.id,firma_id:firm.id,dokument_tip:'KIF',sifra:'TEST',naziv:'Concurrent book',vrsta_naloga_id:type.id}});
- for(const [field,direction,account] of [['UKUPAN_IZNOS','D','201'],['OSNOVICA_R21','P','600'],['PDV_R21','P','260']]) await db.racunKontiranjePravilo.create({data:{racun_vrsta_id:kind.id,polje_sifra:field,polje_naziv:field,smjer:direction,konto_izvor:'FIXED',sifra_konta:account}});
+ for(const [field,direction,account] of [['UKUPAN_IZNOS','D','2010'],['OSNOVICA_R21','P','6000'],['PDV_R21','P','2600']]) await db.racunKontiranjePravilo.create({data:{racun_vrsta_id:kind.id,polje_sifra:field,polje_naziv:field,smjer:direction,konto_izvor:'FIXED',sifra_konta:account}});
  const book=await db.kifBook.create({data:{...scope,racun_vrsta_id:kind.id,redni_broj:1,internal_kif_number:'CQ',mjesec:6,kif_date:new Date('2026-06-15')}});
  const entry=await db.kifEntry.create({data:{...scope,kif_book_id:book.id,kupac_id:partner.id,redni_broj:1,internal_kif_number:'CQ-1',customer_invoice_number:'1',invoice_date:new Date('2026-06-15'),total_base:'100',total_output_vat:'21',total_gross:'121',tax_lines:{create:{vat_rate_id:rate.id,vat_rate_code:'R21',vat_rate_name:'21%',vat_rate_percent:'21',tax_base:'100',output_vat_amount:'21',total_with_vat:'121'}}}});
  const books=await Promise.all([response(invoices.postInvoiceBook,{dokument_tip:'KIF',book_id:book.id}),response(invoices.postInvoiceBook,{dokument_tip:'KIF',book_id:book.id})]);

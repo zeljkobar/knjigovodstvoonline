@@ -30,7 +30,7 @@ async function response(action,data) {
   const partner=await tx.komitent.create({data:{agencija_id:agency.id,firma_id:firm.id,naziv:'Buyer fixture',is_foreign:true}});
   const type=await tx.vrstaNaloga.create({data:{sifra:randomUUID(),naziv:'Fixture journal',prefiks:'TEST',agencija_id:agency.id}});
   const accounts={};
-  for(const code of ['201','430','600','500','260','270','241']) accounts[code]=await tx.firmaKonto.create({data:{firma_id:firm.id,sifra:code,naziv:'Fixture '+code,tip_konta:'analiticko',analitika_obavezna:code==='201'||code==='430'}});
+  for(const code of ['2010','4300','6000','5000','2600','2700','2410']) accounts[code]=await tx.firmaKonto.create({data:{firma_id:firm.id,sifra:code,naziv:'Fixture '+code,tip_konta:'analiticko',analitika_obavezna:code==='2010'||code==='4300'}});
   const scope={agencija_id:agency.id,firma_id:firm.id,poslovna_godina_id:year.id};
   let user=admin,context={firmaId:firm.id,poslovnaGodinaId:year.id};
   const load=sourceLoader({
@@ -48,15 +48,15 @@ async function response(action,data) {
   const pdv=load('src/lib/pdv-service.ts');
   const permissions=load('src/lib/permissions.ts');
   let number=0;
-  const makeJournal=(overrides={},lines=[['201','121','0',partner.id],['600','0','100'],['260','0','21']])=>tx.nalog.create({data:{...scope,vrsta_naloga_id:type.id,broj:++number,sifra:'TEST-'+number,datum:date('2026-06-15'),status:'DRAFT',kreirao_korisnik_id:admin.id,...overrides,stavke:{create:lines.map(([code,d,p,partnerId],i)=>({konto_id:accounts[code].id,duguje:d,potrazuje:p,komitent_id:partnerId||null,redni_broj:i+1}))}}});
+  const makeJournal=(overrides={},lines=[['2010','121','0',partner.id],['6000','0','100'],['2600','0','21']])=>tx.nalog.create({data:{...scope,vrsta_naloga_id:type.id,broj:++number,sifra:'TEST-'+number,datum:date('2026-06-15'),status:'DRAFT',kreirao_korisnik_id:admin.id,...overrides,stavke:{create:lines.map(([code,d,p,partnerId],i)=>({konto_id:accounts[code].id,duguje:d,potrazuje:p,komitent_id:partnerId||null,redni_broj:i+1}))}}});
   const balance=async code=>{const sums=await tx.stavkaNaloga.aggregate({where:{konto_id:accounts[code].id,nalog:{...scope,status:'POSTED',is_deleted:false}},_sum:{duguje:true,potrazuje:true}});return Math.round(Number(sums._sum.duguje)*100)-Math.round(Number(sums._sum.potrazuje)*100);};
   const original=await makeJournal();
-  assert.equal(await balance('201'),0);
+  assert.equal(await balance('2010'),0);
   assert.match(await response(journals.postJournal,{nalog_id:original.id}),/nalog_proknjizen/);
-  assert.equal(await balance('201'),12100);
+  assert.equal(await balance('2010'),12100);
   assert.match(await response(journals.postJournal,{nalog_id:original.id}),/nalog_greska/);
   assert.equal(await tx.auditLog.count({where:{entitet_id:original.id,akcija:'post'}}),1);
-  const unbalanced=await makeJournal({},[['201','122','0',partner.id],['600','0','100']]);
+  const unbalanced=await makeJournal({},[['2010','122','0',partner.id],['6000','0','100']]);
   assert.match(await response(journals.postJournal,{nalog_id:unbalanced.id}),/nalog_nije_balansiran/);
   const empty=await makeJournal({},[]);
   assert.match(await response(journals.postJournal,{nalog_id:empty.id}),/nalog_nije_balansiran/);
@@ -84,14 +84,14 @@ async function response(action,data) {
   assert.match(await response(journals.postJournal,{nalog_id:blocked.id}),/pdv_period_zakljucan/);
   assert.equal((await tx.nalog.findUniqueOrThrow({where:{id:blocked.id}})).status,'DRAFT');
   await tx.pdvPeriod.update({where:{id:lockedPeriod.id},data:{status:'OPEN'}});
-  const missingPartner=await makeJournal({},[['201','121','0'],['600','0','121']]);
+  const missingPartner=await makeJournal({},[['2010','121','0'],['6000','0','121']]);
   assert.match(await response(journals.postJournal,{nalog_id:missingPartner.id}),/partner_obavezan/);
   console.log('PASS journals: draft/posted, balanced/empty, repeat, roles, tenant, year');
 
   // Actual report renderer excludes draft and soft-deleted journals.
-  await makeJournal({status:'POSTED',is_deleted:true},[['201','999','0',partner.id],['600','0','999']]);
+  await makeJournal({status:'POSTED',is_deleted:true},[['2010','999','0',partner.id],['6000','0','999']]);
   const report=load('src/app/agencija/_components/BrutoBilansPage.tsx');
-  const html=renderToStaticMarkup(await report.BrutoBilansPage({searchParams:Promise.resolve({konto:accounts['201'].id})}));
+  const html=renderToStaticMarkup(await report.BrutoBilansPage({searchParams:Promise.resolve({konto:accounts['2010'].id})}));
   assert.match(html,/121,00/);assert.doesNotMatch(html,/999,00|122,00/);
 
   const rate=await tx.pdvStopa.create({data:{agencija_id:agency.id,sifra:'R21',naziv:'21%',procenat:'21'}});
@@ -99,7 +99,7 @@ async function response(action,data) {
   const makeBook=async(kind,month=6,deleted=false)=>{
    const isKif=kind==='KIF';
    const rt=await tx.racunVrsta.create({data:{agencija_id:agency.id,firma_id:firm.id,dokument_tip:kind,sifra:randomUUID(),naziv:kind,vrsta_naloga_id:type.id}});
-   const rules=[['UKUPAN_IZNOS',isKif?'D':'P',isKif?'201':'430'],['OSNOVICA_R21',isKif?'P':'D',isKif?'600':'500'],['PDV_R21',isKif?'P':'D',isKif?'260':'270']];
+   const rules=[['UKUPAN_IZNOS',isKif?'D':'P',isKif?'2010':'4300'],['OSNOVICA_R21',isKif?'P':'D',isKif?'6000':'5000'],['PDV_R21',isKif?'P':'D',isKif?'2600':'2700']];
    for(const [field,direction,account] of rules) await tx.racunKontiranjePravilo.create({data:{racun_vrsta_id:rt.id,polje_sifra:field,polje_naziv:field,smjer:direction,konto_izvor:'FIXED',sifra_konta:account}});
    const n=++bookNumber;return tx[isKif?'kifBook':'kufBook'].create({data:{...scope,racun_vrsta_id:rt.id,redni_broj:n,mjesec:month,[isKif?'internal_kif_number':'internal_kuf_number']:kind+n,[isKif?'kif_date':'kuf_date']:date(`2026-${String(month).padStart(2,'0')}-15`),is_deleted:deleted}});
   };
@@ -151,21 +151,21 @@ async function response(action,data) {
   // Posting real bank statements reduces the same GL customer balance.
   const bankType=await tx.vrstaNaloga.findFirst({where:{sifra:'BANK_STATEMENT',aktivan:true}})||await tx.vrstaNaloga.create({data:{sifra:'BANK_STATEMENT',naziv:'Izvod',prefiks:'IZ',sistemska:true}});
   const bank=await tx.firmaBankovniRacun.create({data:{agencija_id:agency.id,firma_id:firm.id,broj_racuna:'530-999-01',naziv_banke:'Test'}});
-  await tx.bankStatementAccountSetting.create({data:{agencija_id:agency.id,firma_id:firm.id,company_bank_account_id:bank.id,bank_account_konto_id:accounts['241'].id,journal_type_id:bankType.id}});
+  await tx.bankStatementAccountSetting.create({data:{agencija_id:agency.id,firma_id:firm.id,company_bank_account_id:bank.id,bank_account_konto_id:accounts['2410'].id,journal_type_id:bankType.id}});
   const statements=load('src/lib/bank-statement-service.ts');
   for(const [i,amount,expected] of [[1,40,8100],[2,81,0],[3,10,-1000]]) {
-   const statement=await tx.bankStatement.create({data:{...scope,company_bank_account_id:bank.id,bank_account_konto_id:accounts['241'].id,statement_number:String(i),statement_date:date('2026-06-20'),status:'READY',total_inflow:String(amount),closing_balance:String(amount),lines:{create:{line_number:1,posting_date:date('2026-06-20'),description:'Payment',direction:'INFLOW',inflow_amount:String(amount),credit_account_id:accounts['201'].id,partner_id:partner.id,posting_status:'READY'}}}});
+   const statement=await tx.bankStatement.create({data:{...scope,company_bank_account_id:bank.id,bank_account_konto_id:accounts['2410'].id,statement_number:String(i),statement_date:date('2026-06-20'),status:'READY',total_inflow:String(amount),closing_balance:String(amount),lines:{create:{line_number:1,posting_date:date('2026-06-20'),description:'Payment',direction:'INFLOW',inflow_amount:String(amount),credit_account_id:accounts['2010'].id,partner_id:partner.id,posting_status:'READY'}}}});
    const paymentLine=await tx.bankStatementLine.findFirstOrThrow({where:{bank_statement_id:statement.id}});
-   const allocationForm={statement_id:statement.id,line_id:paymentLine.id,line_direction:'INFLOW',partner_id:partner.id,credit_account_code:'201',allocation_target:'KIF:'+sale.id};
+   const allocationForm={statement_id:statement.id,line_id:paymentLine.id,line_direction:'INFLOW',partner_id:partner.id,credit_account_code:'2010',allocation_target:'KIF:'+sale.id};
    await response(statements.updateBankStatementLines,allocationForm);
    await response(statements.updateBankStatementLines,allocationForm);
    assert.equal(await tx.bankStatementLineAllocation.count({where:{bank_statement_line_id:paymentLine.id}}),1);
    assert.equal((await tx.kifEntry.findUniqueOrThrow({where:{id:sale.id}})).payment_status,['PARTIALLY_PAID','PAID','OVERPAID'][i-1]);
    await response(statements.postSelectedBankStatements,{statement_id:statement.id});
-   assert.equal(await balance('201'),expected);
+   assert.equal(await balance('2010'),expected);
    const saved=await tx.bankStatement.findUniqueOrThrow({where:{id:statement.id}});assert.ok(saved.journal_id);
    await response(statements.postSelectedBankStatements,{statement_id:statement.id});
-   assert.equal(await balance('201'),expected);
+   assert.equal(await balance('2010'),expected);
    assert.equal(await tx.nalog.count({where:{izvorni_dokument_id:statement.id}}),1);
    assert.match(await response(statements.deleteBankStatement,{statement_id:statement.id}),/izvod_greska/);
    assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:statement.id}})).status,'POSTED');
