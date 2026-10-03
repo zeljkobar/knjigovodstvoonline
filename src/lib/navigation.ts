@@ -274,7 +274,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
   ],
   plate: [
     { href: "/agencija/plate", label: "Zaposleni" },
-    { href: "/agencija/plate/ugovori", label: "Ugovori" },
+    { href: "/agencija/plate/ugovori", label: "Ugovori o radu" },
     { href: "/agencija/plate/obracun", label: "Obračun plata" },
     {
       href: "/agencija/plate/obrasci",

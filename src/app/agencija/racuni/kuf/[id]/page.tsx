@@ -646,12 +646,12 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
         ) : null}
 
         <form
-          key={editingEntry?.id ?? "new-kuf-entry"}
+          key={editingEntry?.id ?? `new-kuf-entry-${kufBook.entries.length}`}
           id="kuf-entry-form"
           className="admin-form kuf-entry-form"
           action={formAction}
         >
-          <KufEntryFormShortcuts formId="kuf-entry-form" />
+          <KufEntryFormShortcuts formId="kuf-entry-form" focusAfterSave={!editingEntry && !isLocked && query?.poruka === "kuf_sacuvan"} />
           <input name="kuf_book_id" type="hidden" value={kufBook.id} />
           {editingEntry ? <input name="kuf_entry_id" type="hidden" value={editingEntry.id} /> : null}
           <input name="fiscal_iic" type="hidden" defaultValue={editingEntry?.fiscal_iic ?? ""} />

@@ -1,0 +1,8 @@
+.page,.page>section{min-width:0}.page :global(.admin-form)>*{min-width:0}.page :global(.admin-form) select{max-width:100%}.page :global(.table-wrap){max-width:100%}.page :global(.admin-form-section){min-width:0}
+.page :global(.payroll-deactivate-form){display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:10px;align-items:end;max-width:560px;width:100%;padding:12px;border:1px solid #d5e3f0;border-radius:10px}
+.page :global(.payroll-deactivate-form label){display:grid;gap:5px;font-size:12px;font-weight:600;min-width:0}
+.page :global(.payroll-deactivate-form label:first-of-type){grid-column:1/-1}
+.page :global(.payroll-deactivate-form .single-checkbox){display:flex;grid-column:1/-1;align-items:center}
+.page :global(.payroll-deactivate-form input[type="checkbox"]){width:18px;min-height:18px;height:18px}
+@media(max-width:700px){.page :global(.payroll-deactivate-form){grid-template-columns:minmax(180px,1fr)}}
+.page :global(.payroll-deactivate-form button){grid-column:1/-1;justify-self:start;white-space:normal;width:auto;max-width:100%}

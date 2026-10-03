@@ -147,6 +147,8 @@ export function FiskalniLinkInput({ formId }: { formId: string }) {
         <span>Fiskalni link (QR kod)</span>
         <input
           ref={inputRef}
+          id={`${formId}-fiscal-link`}
+          style={{ scrollMarginTop: "80px" }}
           autoComplete="off"
           placeholder="Nalijepite ili skenirajte fiskalni link..."
           type="url"

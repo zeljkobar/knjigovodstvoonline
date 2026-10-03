@@ -1851,3 +1851,28 @@ DB regresija provjerava poredak, smjer salda, avanse i ukupne iznose.
   preskočen, 12 DB skripti). Regresije pokrivaju prelazak mjeseca/godine,
   SSR tabova, ranije obaveze, validaciju i nezavisnost kontrolne liste od predaje.
 - Bez emailova/dokumentacije/ostalih zadataka. Bez commit-a i push-a.
+
+
+## 2026-10-03 — Radna mjesta i ugovori o radu
+- Dodati globalni šifarnik platform admina, agencijski unosi i izolovane verzije.
+- Proširena postojeća kartica zaposlenog; pet rasporeda uključujući 1/5 sati.
+  Server određuje procenat, čuva ranije prilagođene vrijednosti i razdvaja istek od odjave.
+- Sačuvani ugovori nastaju iz kartice radnika uz broj/datum; nacrt, potvrda,
+  poništenje, snapshot i print predložak od 25 članova sa starog sajta.
+- Migracija lokalno i izdvojena test baza; dev restartovan. TypeScript/ciljani lint,
+  139 unit testova (jedan preskočen) i 13 DB skripti prolaze; purge pokriva 75 tabela.
+- Provjeren desktop unos i prikaz ugovora; dodato ograničenje mobilnog overflow-a.
+  Bez commit-a/push-a. Pravna revizija fiksnog teksta nije dio implementacije.
+
+### Ispravka potvrde ugovora o radu — 03.10.2026.
+- Čuvanje, potvrda i poništavanje imaju zasebne forme sa skrivenom oznakom radnje; potvrda ne zavisi od vrijednosti submit dugmeta.
+- Regresiona provjera šalje podatke iz renderovane forme bez submittera i provjerava status CONCLUDED u testnoj bazi uz rollback. TSC i ciljani lint prolaze.
+
+### Otkazi zaposlenih — 03.10.2026.
+- Zamijenjen slobodni razlog izborom tri vrste prestanka. Kreira se nepromjenjiv dokument, uz atomsku odjavu i audit; istorija se čuva nakon reaktivacije.
+- Pregledani predlošci moj-sajt; uklonjeni zastarjeli članci i tvrdnje da su zarade već isplaćene. Zakonska referenca: https://amrrs.gov.me/wp-content/uploads/2026/03/Zakon-o-radu-1.pdf.
+- Migracija primijenjena lokalno i u testnoj bazi; purge pokriva 76 tabela. DB regresija pokriva tri vrste, kraći rok, datume, scope, prava, zaključavanje, duplu odjavu i rollback audita.
+
+### KUF uzastopni unos — 03.10.2026.
+- Poslije uspješnog dodavanja račun vraća fokus i skrol na fiskalni link. Nova forma se ponovo montira poslije dodavanja da resetuje stanje prethodnog QR računa. Greške i ostale radnje zadržavaju postojeće preusmjeravanje.
+- Provjeren položaj i fokus u pregledniku bez upisa stvarnog računa; TSC i ciljani lint.

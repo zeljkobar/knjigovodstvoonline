@@ -8,6 +8,29 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Radna mjesta, podaci zaposlenih i ugovori o radu — 2026-10-03
+
+- Globalna radna mjesta uređuje platform admin na `/admin/radna-mjesta`.
+  Admin agencije dodaje svoja i prilagođava globalna na `/agencija/plate/ugovori/radna-mjesta`;
+  agencijska verzija ne mijenja globalnu ni druge agencije. Deaktivacija bez brisanja.
+- Postojeća kartica `plate_radnici` proširena: veza radnog mjesta, adresa,
+  mjesto rada, određeno/neodređeno vrijeme i ugovoreni istek (odvojen od odjave).
+  Jedan zaposleni služi obračunu i ugovoru; nema duplog unosa.
+- Radno vrijeme 8/40, 6/30, 4/20, 2/10, 1/5 automatski određuje procenat
+  100/75/50/25/12,5. Postojeći procenti ostaju nepromijenjeni; nestandardni
+  procenat se zadržava do izričitog izbora. Promjena izbora u formi prazni
+  ručne mjesečne sate; mjesečni fond i dalje određuje konkretan obračun.
+- `/agencija/plate/ugovori`: nacrt iz kartice radnika uz broj/datum, osvježavanje
+  nacrta, potvrda i poništenje bez fizičkog brisanja. Zaključeni ugovori čuvaju
+  snapshot podataka i renderovanog teksta. Štampa `/stampa/plate/ugovori/[id]`.
+  Predložak od 25 članova preuzet iz korisnikovog moj-sajt; pravna ažurnost
+  fiksnog teksta nije provjeravana u ovoj implementaciji.
+- Prava plate/create/update/delete/view, scope firme/agencije, zaključana godina,
+  verzije i transakcioni audit. Migracija `20261003150000_radna_mjesta_ugovori`
+  primijenjena lokalno; purge briše ugovore prije radnika, šifarnik ostaje.
+- Testovi: pet rasporeda, 1h obračun, izvor/override izolacija, stvarni unos radnika,
+  ugovor/snapshot/štampa, nedozvoljeni podaci, role, zaključavanje, audit rollback i purge.
+
 ## Rokovi po firmama — 2026-10-03
 
 - `/agencija/rokovi`: PDV i plate 15. za prethodni mjesec; završni račun
@@ -1545,3 +1568,8 @@ je od samodeaktivacije i samostalne rotacije.
   Prisma poruke za `127.0.0.1:5432` tokom prerenderinga su očekivane kada baza
   nije dostupna.
 - Kod čudnog `.next` runtime errora: `rm -rf .next && npm run dev`.
+
+### Prestanak radnog odnosa (03.10.2026.)
+- Odjava zaposlenog koristi izbor: sporazumni raskid, istek ugovora ili jednostrani raskid radnika. Odvojeni su datum dokumenta i datum prestanka.
+- `otkazi_o_radu` čuva snapshot i HTML dokumenta; odjava, kreiranje i audit su jedna transakcija. Štampa iz neaktivnih/bivših ostaje dostupna i poslije reaktivacije.
+- Provjeravaju se prava, firma/agencija, otvorena godina, verzija radnika, datumi i određeno vrijeme za istek. Izjava radnika provjerava 30 dana ili evidentirani dogovor o kraćem roku. Ovo je evidencija u programu, bez slanja odjave organima.

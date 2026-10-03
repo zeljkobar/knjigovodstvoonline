@@ -4,6 +4,10 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Radna mjesta i ugovori o radu implementirani. Pri deployu primijeniti
+  `20261003150000_radna_mjesta_ugovori`. Dopuniti podatke zaposlenih i opise
+  radnih mjesta; fiksni tekst ugovora preuzet iz starog sajta, pravna revizija
+  predloška ostaje odvojena od tehničke implementacije. Aneksi nisu uključeni.
 - Rokovi implementirani bez emailova. Pri deployu primijeniti migraciju
   `20261003090000_rokovi` i `20261003110000_rokovi_kontrolna_lista`; administrator provjerava obaveze i početni mjesec
   praćenja po firmama. Ranije nezavršene obaveze imaju upozorenje i poseban pregled.
@@ -256,6 +260,8 @@
   produkcijski početni depozit i djelimični povrat kada ga Fiscal API podrži.
 
 ## Nije implementirano
+- Dokumenta za obradu: postoji samo placeholder stranica. Prijem slika/PDF-ova,
+  QR linkovi i prenos u KUF odloženi su do nove odluke korisnika.
 - Klijentski portal: read-only partneri/kartice, robno i PDV su implementirani.
   Sljedeće: interaktivni QA prijavljenog klijenta, štampa/izvoz, opcioni pregledi
   plata i rezultata po jedinicama; unos robnih dokumenata tek nakon dogovora.
@@ -270,3 +276,5 @@
 - PDV koristi KIF/KUF, ne direktno fakture.
 - Komitent kao ino samo *predlaže* tip prometa; dokument čuva konačnu vrijednost.
 - Analitički konto mora imati partnera; `duguje = potražuje` na nalogu.
+
+- Pri deployu primijeniti i migraciju `20261003170000_otkazi_o_radu`. Predlošci otkaza prilagođeni su iz moj-sajt uz ispravke pozivanja na zakon (čl. 164–166); potpisivanje/ovjera i dostavljanje obavljaju se van programa.

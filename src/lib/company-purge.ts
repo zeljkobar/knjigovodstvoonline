@@ -331,6 +331,9 @@ export async function purgeCompanyData(
     "plate_obracuni",
     Prisma.sql`DELETE FROM plate_obracuni WHERE firma_id = ${firmaId}::uuid`
   );
+  await izvrsi("otkazi_o_radu", Prisma.sql`DELETE FROM otkazi_o_radu WHERE firma_id = ${firmaId}::uuid`);
+  await izvrsi("ugovori_o_radu", Prisma.sql`DELETE FROM ugovori_o_radu WHERE firma_id = ${firmaId}::uuid`);
+  // Globalna/agencijska radna mjesta ostaju; brisanje radnika uklanja njihove reference.
   await izvrsi(
     "plate_radnici",
     Prisma.sql`DELETE FROM plate_radnici WHERE firma_id = ${firmaId}::uuid`

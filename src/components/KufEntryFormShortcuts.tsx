@@ -23,7 +23,22 @@ function focusNextField(form: HTMLFormElement, current: HTMLElement) {
   nextField?.focus();
 }
 
-export function KufEntryFormShortcuts({ formId }: { formId: string }) {
+export function KufEntryFormShortcuts({ formId, focusAfterSave = false }: {
+  formId: string;
+  focusAfterSave?: boolean;
+}) {
+  useEffect(() => {
+    if (!focusAfterSave) return;
+    const frame = requestAnimationFrame(() => {
+      const form = document.getElementById(formId);
+      const input = form?.querySelector<HTMLInputElement>('input[type="url"]');
+      if (input && !input.disabled) {
+        input.focus({ preventScroll: true });
+        form?.scrollIntoView({ block: "start", behavior: "instant" });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [formId, focusAfterSave]);
   useEffect(() => {
     const form = document.getElementById(formId) as HTMLFormElement | null;
     if (!form) {

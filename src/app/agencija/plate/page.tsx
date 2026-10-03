@@ -1,3 +1,8 @@
+import {TerminationFields} from "./TerminationFields";
+import {terminationTypes,type TerminationType} from "@/lib/employment-termination";
+import styles from "./employees.module.css";
+import {jobPositions} from "@/lib/job-positions";
+import {EmploymentFields} from "./EmploymentFields";
 import {
   createPayrollEmployee,
   deactivatePayrollEmployee,
@@ -22,8 +27,12 @@ const messages: Record<string, string> = {
   radnik_izmijenjen: "Podaci zaposlenog su sačuvani.",
   radnik_odjavljen: "Radnik je odjavljen i premješten u neaktivne/bivše.",
   radnik_reaktiviran: "Radnik je reaktiviran.",
-  radnik_nevalidan: "Ime, prezime i ispravni iznosi su obavezni.",
-  odjava_nevalidna: "Za odjavu je obavezan datum prestanka.",
+  radnik_nevalidan: "Provjerite ime, prezime, iznose, radno mjesto, radno vrijeme i datume ugovora.",
+  odjava_nevalidna: "Izaberite vrstu prestanka i ispravne datume u izabranoj godini. Datum dokumenta ne može biti poslije prestanka ni prije zaposlenja.",
+  otkaz_rok: "Za otkaz radnika unesite najmanje 30 dana između datuma izjave i prestanka ili označite dogovoreni kraći rok.",
+  otkaz_istek: "Istek je moguć samo za ugovor na određeno vrijeme, na datum isteka upisan na kartici zaposlenog.",
+  otkaz_zastarjelo: "Zaposleni je već odjavljen ili su mu podaci promijenjeni. Osvježite stranicu.",
+  otkaz_podaci: "Za dokument dopunite PIB, adresu, grad i direktora firme, te JMBG, adresu i radno mjesto zaposlenog.",
   kontekst: "Izaberite firmu i poslovnu godinu.",
   prava: "Nemate pravo za rad sa platama.",
   godina_zakljucena: "Poslovna godina je zaključana."
@@ -101,6 +110,10 @@ export default async function PlatePage({ searchParams }: PageProps) {
       }
     })
   ]);
+  const jobs = await jobPositions(context.user.agencija_id);
+  const terminationAccess = await getPlateContext("delete");
+  const terminations = await prisma.otkazORadu.findMany({where:{agencija_id:context.user.agencija_id,firma_id:context.firma.id},orderBy:{created_at:"desc"},select:{id:true,radnik_id:true,vrsta:true,datum_prestanka:true}});
+  const terminationLinks=(employeeId:string)=>terminations.filter(t=>t.radnik_id===employeeId).map(t=><a key={t.id} className="table-button" href={`/stampa/plate/otkazi/${t.id}`} target="_blank" rel="noreferrer">{terminationTypes[t.vrsta as TerminationType]} · {dateInputValue(t.datum_prestanka)} — štampa</a>);
   const editedEmployee = params?.edit
     ? employees.find((employee) => employee.id === params.edit) ?? null
     : null;
@@ -120,7 +133,7 @@ export default async function PlatePage({ searchParams }: PageProps) {
   const openCreateHref = `/agencija/plate?tab=${activeTab}&novi=1`;
 
   return (
-    <div className="admin-stack">
+    <div className={`admin-stack ${styles.page}`}>
       <header className="admin-header">
         <div>
           <h2>Plate - zaposleni</h2>
@@ -146,6 +159,9 @@ export default async function PlatePage({ searchParams }: PageProps) {
             ) : null}
           </div>
           <form className="admin-form" action={editedEmployee ? updatePayrollEmployee : createPayrollEmployee}>
+            <input type="hidden" name="firma_id" value={context.firma.id}/>
+            <input type="hidden" name="godina_id" value={context.godina.id}/>
+            <input type="hidden" name="verzija" value={editedEmployee?.updated_at.toISOString()??""}/>
             {editedEmployee ? <input name="radnik_id" type="hidden" value={editedEmployee.id} /> : null}
             <label>
               <span>Ime</span>
@@ -195,25 +211,12 @@ export default async function PlatePage({ searchParams }: PageProps) {
               <span>Datum zaposlenja</span>
               <input name="datum_pocetka" type="date" defaultValue={dateInputValue(editedEmployee?.datum_pocetka)} />
             </label>
-            <label>
-              <span>Radno mjesto</span>
-              <input name="radno_mjesto" defaultValue={editedEmployee?.radno_mjesto ?? ""} />
-            </label>
-            <label>
-              <span>Radno vrijeme %</span>
-              <input
-                name="procenat_radnog_vremena"
-                type="number"
-                defaultValue={decimalInput(editedEmployee?.procenat_radnog_vremena) || "100"}
-                min="1"
-                max="100"
-                step="0.01"
-              />
-            </label>
-            <label>
-              <span>Mjesecni sati</span>
-              <input name="mjesecni_sati" type="number" placeholder="prazno = fond x %" defaultValue={editedEmployee?.mjesecni_sati ?? ""} />
-            </label>
+            <EmploymentFields jobs={jobs} employee={editedEmployee ? {
+              jobId:editedEmployee.radno_mjesto_id??"",jobName:editedEmployee.radno_mjesto??"",
+              address:editedEmployee.adresa??"",location:editedEmployee.mjesto_rada??"",type:editedEmployee.tip_ugovora??"",
+              end:dateInputValue(editedEmployee.ugovoreni_istek),schedule:editedEmployee.vrsta_radnog_vremena??"",
+              percentage:editedEmployee.procenat_radnog_vremena.toString(),monthly:editedEmployee.mjesecni_sati?.toString()??""
+            }:undefined}/>
             <label>
               <span>Neto iznos</span>
               <input name="neto_iznos" defaultValue={editedEmployee ? moneyInput(editedEmployee.neto_iznos_cent) : "0,00"} />
@@ -364,14 +367,16 @@ export default async function PlatePage({ searchParams }: PageProps) {
                           <a className="table-button" href={`/agencija/plate?tab=aktivni&edit=${employee.id}`}>
                             Izmijeni
                           </a>
-                          <form className="table-inline-form payroll-deactivate-form" action={deactivatePayrollEmployee}>
+                          <a className="table-button" href={`/agencija/plate/ugovori?radnik=${employee.id}`}>Ugovor o radu</a>
+                          {terminationAccess.allowed&&!context.godina!.zakljucena?<form className="table-inline-form payroll-deactivate-form" action={deactivatePayrollEmployee}>
                             <input name="radnik_id" type="hidden" value={employee.id} />
-                            <input name="datum_prestanka" type="date" required />
-                            <input name="razlog_prestanka" placeholder="Razlog" />
+                            <input type="hidden" name="firma_id" defaultValue={context.firma!.id}/><input type="hidden" name="godina_id" defaultValue={context.godina!.id}/><input type="hidden" name="verzija" defaultValue={employee.updated_at.toISOString()}/>
+                            <TerminationFields expiry={dateInputValue(employee.ugovoreni_istek)}/>
                             <button className="table-button table-button-danger" type="submit">
-                              Odjavi
+                              Odjavi i napravi dokument
                             </button>
-                          </form>
+                          </form>:null}
+                          {terminationLinks(employee.id)}
                         </div>
                       </td>
                     </tr>
@@ -418,6 +423,7 @@ export default async function PlatePage({ searchParams }: PageProps) {
                           <a className="table-button" href={`/agencija/plate?tab=neaktivni&edit=${employee.id}`}>
                             Izmijeni
                           </a>
+                          {terminationLinks(employee.id)}
                           <form action={reactivatePayrollEmployee}>
                             <input name="radnik_id" type="hidden" value={employee.id} />
                             <button className="table-button" type="submit">

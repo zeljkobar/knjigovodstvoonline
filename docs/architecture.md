@@ -316,3 +316,18 @@ zadatka; raniji dospjeli nezavršeni zadaci ostaju dostupni. `kontrola` je niz
 ključeva godišnje kontrolne liste u `firma_rok_zadaci`, bez podređenih tabela.
 Akcija kontrolne liste čuva potvrdu predaje; predaja čuva kontrolnu listu.
 Obje koriste postojeće scope, transakcioni audit i provjeru verzije.
+
+
+### Radna mjesta i ugovori o radu
+`radna_mjesta` ima globalni red (agencija null), agencijski red ili override preko
+`globalno_id`; unique agencija/globalno sprečava duple verzije. Zaposleni referencira
+osnovni identitet, čitanje razrješava agencijsku verziju. Šifarnik nema firma_id i
+ostaje poslije purge firme. `ugovori_o_radu` referencira zaposlenog i firmu; purge
+briše ugovore prije zaposlenih. Snapshot čuva podatke i bezbjedno renderovan HTML
+predloška, pa promjene šifarnika/zarade/firme ne mijenjaju već sačuvane dokumente.
+Raspored određuje procenat na serveru; ugovoreni istek ne mijenja datum odjave niti
+automatski zaustavlja obračun. Prava i zaključavanja važe na backendu, promjene
+podataka zaposlenog/ugovora i audit se izvršavaju u jednoj transakciji.
+
+### Dokumenti prestanka radnog odnosa
+`otkazi_o_radu` je vezan za agenciju, firmu i postojećeg `plate_radnici` radnika. Snapshot (verzija predloška, podaci i escaped HTML) se snima zajedno sa odjavom u transakciji koja zaključava godinu i radnika. Sačuvani dokument nije elektronski potpis niti podnesena odjava. Reaktivacija ne briše istorijske dokumente; company-purge briše otkaze prije radnika. Štampa `/stampa/plate/otkazi/[id]` ponovo provjerava scope firme, dodjelu i pravo pregleda plata.

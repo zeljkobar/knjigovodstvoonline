@@ -1,4 +1,7 @@
 "use server";
+import {createEmploymentTermination,TerminationError} from "@/lib/create-employment-termination";
+import {employeeContractFields} from "@/lib/employee-contract-fields";
+import {auditLogInTransaction} from "@/lib/audit";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -1311,24 +1314,27 @@ export async function saveM4MonthlyPayment(formData: FormData) {
   redirect(`/agencija/plate/obrasci/m4?poruka=${message}&mjesec=${month}`);
 }
 
-export async function createPayrollEmployee(formData: FormData) {
-  const context = await requirePlateActionContext("create", "/agencija/plate");
-  const ime = text(formData.get("ime"));
-  const prezime = text(formData.get("prezime"));
-  const neto = parseMoneyToCents(formData.get("neto_iznos"));
-  const bruto = parseMoneyToCents(formData.get("bruto_iznos"));
-  const fiksniDio = parseMoneyToCents(formData.get("fiksni_dio"));
-
-  if (!ime || !prezime || neto === null || bruto === null || fiksniDio === null) {
-    redirect("/agencija/plate?poruka=radnik_nevalidan");
-  }
-
-  const employee = await prisma.plateRadnik.create({
-    data: {
-      agencija_id: context.agencijaId,
-      firma_id: context.firma.id,
-      ime,
-      prezime,
+export async function createPayrollEmployee(formData: FormData) { return savePayrollEmployee(formData,false); }
+export async function updatePayrollEmployee(formData: FormData) { return savePayrollEmployee(formData,true); }
+async function savePayrollEmployee(formData:FormData,editing:boolean) {
+ const context=await requirePlateActionContext(editing?"update":"create","/agencija/plate");
+ const ime=text(formData.get("ime")),prezime=text(formData.get("prezime"));
+ const neto=parseMoneyToCents(formData.get("neto_iznos")),bruto=parseMoneyToCents(formData.get("bruto_iznos")),fiksniDio=parseMoneyToCents(formData.get("fiksni_dio"));
+ if(!ime||!prezime||neto===null||bruto===null||fiksniDio===null||neto<0||bruto<0||fiksniDio<0)redirect("/agencija/plate?poruka=radnik_nevalidan");
+ if(text(formData.get("firma_id"))!==context.firma.id||text(formData.get("godina_id"))!==context.godina.id)redirect("/agencija/plate?poruka=kontekst");
+ try {
+ await prisma.$transaction(async tx=>{
+  await tx.$queryRaw`SELECT id FROM poslovne_godine WHERE id=${context.godina.id}::uuid FOR UPDATE`;
+  const year=await tx.poslovnaGodina.findFirst({where:{id:context.godina.id,firma_id:context.firma.id,zakljucena:false}});
+  const firm=await tx.firma.findFirst({where:{id:context.firma.id,agencija_id:context.agencijaId,is_deleted:false,aktivan:true,...(context.user.rola==="admin_agencije"?{}:{korisnici:{some:{korisnik_id:context.user.id,is_deleted:false}}})}});
+  if(!year||!firm)throw new Error("EMPLOYEE_FIELDS");
+  const id=text(formData.get("radnik_id"));
+  if(editing&&!/^[0-9a-f-]{36}$/i.test(id))throw new Error("EMPLOYEE_FIELDS");
+  if(editing)await tx.$queryRaw`SELECT id FROM plate_radnici WHERE id=${id}::uuid FOR UPDATE`;
+  const previous=editing?await tx.plateRadnik.findFirst({where:{id,agencija_id:context.agencijaId,firma_id:context.firma.id,is_deleted:false}}):null;
+  if(editing&&(!previous||text(formData.get("verzija"))!==previous.updated_at.toISOString()))throw new Error("EMPLOYEE_FIELDS");
+  const contractFields=await employeeContractFields(formData,context.agencijaId,tx,previous??undefined);
+  const data={ime,prezime,
       ime_roditelja: text(formData.get("ime_roditelja")) || null,
       jmbg: text(formData.get("jmbg")) || null,
       licni_broj_osiguranika: text(formData.get("licni_broj_osiguranika")) || null,
@@ -1337,9 +1343,6 @@ export async function createPayrollEmployee(formData: FormData) {
       poreska_opstina: text(formData.get("poreska_opstina")) || null,
       tekuci_racun: text(formData.get("tekuci_racun")) || null,
       datum_pocetka: dateValue(formData.get("datum_pocetka")),
-      radno_mjesto: text(formData.get("radno_mjesto")) || null,
-      procenat_radnog_vremena: decimalValue(formData.get("procenat_radnog_vremena"), 100),
-      mjesecni_sati: numberValue(formData.get("mjesecni_sati"), 0) || null,
       koristi_minuli_rad: formData.get("koristi_minuli_rad") === "on",
       minuli_rad_godina: numberValue(formData.get("minuli_rad_godina")),
       koeficijent_minuli_rad: decimalValue(formData.get("koeficijent_minuli_rad")),
@@ -1349,171 +1352,24 @@ export async function createPayrollEmployee(formData: FormData) {
       bruto_iznos_cent: bruto,
       podrazumijevana_sifra_id: text(formData.get("podrazumijevana_sifra_id")) || null,
       podrazumijevana_vrsta_id: text(formData.get("podrazumijevana_vrsta_id")) || null,
-      created_by: context.user.id,
-      updated_by: context.user.id
-    },
-    select: {
-      id: true,
-      ime: true,
-      prezime: true
-    }
-  });
-
-  await auditLog({
-    korisnikId: context.user.id,
-    agencijaId: context.agencijaId,
-    firmaId: context.firma.id,
-    modul: "plate",
-    akcija: "create_employee",
-    tipEntiteta: "PlateRadnik",
-    entitetId: employee.id,
-    novaVrijednost: employee
-  });
-
-  revalidatePath("/agencija/plate");
-  redirect("/agencija/plate?poruka=radnik_dodat");
-}
-
-export async function updatePayrollEmployee(formData: FormData) {
-  const context = await requirePlateActionContext("update", "/agencija/plate");
-  const employeeId = text(formData.get("radnik_id"));
-  const ime = text(formData.get("ime"));
-  const prezime = text(formData.get("prezime"));
-  const neto = parseMoneyToCents(formData.get("neto_iznos"));
-  const bruto = parseMoneyToCents(formData.get("bruto_iznos"));
-  const fiksniDio = parseMoneyToCents(formData.get("fiksni_dio"));
-
-  if (!employeeId || !ime || !prezime || neto === null || bruto === null || fiksniDio === null) {
-    redirect("/agencija/plate?poruka=radnik_nevalidan");
-  }
-
-  const previous = await prisma.plateRadnik.findFirst({
-    where: {
-      id: employeeId,
-      agencija_id: context.agencijaId,
-      firma_id: context.firma.id,
-      is_deleted: false
-    }
-  });
-
-  if (!previous) {
-    redirect("/agencija/plate?poruka=radnik_nevalidan");
-  }
-
-  const updated = await prisma.plateRadnik.update({
-    where: {
-      id: previous.id
-    },
-    data: {
-      ime,
-      prezime,
-      ime_roditelja: text(formData.get("ime_roditelja")) || null,
-      jmbg: text(formData.get("jmbg")) || null,
-      licni_broj_osiguranika: text(formData.get("licni_broj_osiguranika")) || null,
-      m4_oznaka_staza: text(formData.get("m4_oznaka_staza")) || "01",
-      opstina: text(formData.get("opstina")) || null,
-      poreska_opstina: text(formData.get("poreska_opstina")) || null,
-      tekuci_racun: text(formData.get("tekuci_racun")) || null,
-      datum_pocetka: dateValue(formData.get("datum_pocetka")),
-      datum_prestanka: dateValue(formData.get("datum_prestanka")),
-      radno_mjesto: text(formData.get("radno_mjesto")) || null,
-      procenat_radnog_vremena: decimalValue(formData.get("procenat_radnog_vremena"), 100),
-      mjesecni_sati: numberValue(formData.get("mjesecni_sati"), 0) || null,
-      koristi_minuli_rad: formData.get("koristi_minuli_rad") === "on",
-      minuli_rad_godina: numberValue(formData.get("minuli_rad_godina")),
-      koeficijent_minuli_rad: decimalValue(formData.get("koeficijent_minuli_rad")),
-      koeficijent_slozenosti: decimalValue(formData.get("koeficijent_slozenosti")) || null,
-      fiksni_dio_cent: fiksniDio,
-      neto_iznos_cent: neto,
-      bruto_iznos_cent: bruto,
-      podrazumijevana_sifra_id: text(formData.get("podrazumijevana_sifra_id")) || null,
-      podrazumijevana_vrsta_id: text(formData.get("podrazumijevana_vrsta_id")) || null,
-      aktivan: formData.get("aktivan") === "on",
-      zaposlen: formData.get("zaposlen") === "on",
-      updated_by: context.user.id
-    },
-    select: {
-      id: true,
-      ime: true,
-      prezime: true,
-      aktivan: true,
-      zaposlen: true
-    }
-  });
-
-  await auditLog({
-    korisnikId: context.user.id,
-    agencijaId: context.agencijaId,
-    firmaId: context.firma.id,
-    modul: "plate",
-    akcija: "update_employee",
-    tipEntiteta: "PlateRadnik",
-    entitetId: updated.id,
-    staraVrijednost: previous,
-    novaVrijednost: updated
-  });
-
-  revalidatePath("/agencija/plate");
-  redirect(`/agencija/plate?tab=${updated.aktivan && updated.zaposlen ? "aktivni" : "neaktivni"}&poruka=radnik_izmijenjen`);
+      ...contractFields,updated_by:context.user.id};
+  const employee=previous?await tx.plateRadnik.update({where:{id:previous.id},data:{...data,datum_prestanka:dateValue(formData.get("datum_prestanka")),aktivan:formData.get("aktivan")==="on",zaposlen:formData.get("zaposlen")==="on"}}):await tx.plateRadnik.create({data:{...data,agencija_id:context.agencijaId,firma_id:context.firma.id,created_by:context.user.id}});
+  await auditLogInTransaction(tx,{korisnikId:context.user.id,agencijaId:context.agencijaId,firmaId:context.firma.id,modul:"plate",akcija:editing?"update_employee":"create_employee",tipEntiteta:"PlateRadnik",entitetId:employee.id,staraVrijednost:previous,novaVrijednost:employee});
+ });
+ }catch(e){if(e instanceof Error&&e.message==="EMPLOYEE_FIELDS")redirect("/agencija/plate?poruka=radnik_nevalidan");throw e;}
+ revalidatePath("/agencija/plate");
+ redirect(`/agencija/plate?poruka=${editing?"radnik_izmijenjen":"radnik_dodat"}`);
 }
 
 export async function deactivatePayrollEmployee(formData: FormData) {
-  const context = await requirePlateActionContext("delete", "/agencija/plate");
-  const employeeId = text(formData.get("radnik_id"));
-  const endDate = dateValue(formData.get("datum_prestanka"));
-  const reason = text(formData.get("razlog_prestanka"));
-
-  if (!employeeId || !endDate) {
-    redirect("/agencija/plate?tab=aktivni&poruka=odjava_nevalidna");
+  let id: string;
+  try { id=await createEmploymentTermination(formData); }
+  catch(error) {
+    if(error instanceof TerminationError)redirect(`/agencija/plate?tab=aktivni&poruka=${error.message}`);
+    throw error;
   }
-
-  const previous = await prisma.plateRadnik.findFirst({
-    where: {
-      id: employeeId,
-      agencija_id: context.agencijaId,
-      firma_id: context.firma.id,
-      is_deleted: false
-    }
-  });
-
-  if (!previous) {
-    redirect("/agencija/plate?tab=aktivni&poruka=radnik_nevalidan");
-  }
-
-  const updated = await prisma.plateRadnik.update({
-    where: {
-      id: previous.id
-    },
-    data: {
-      zaposlen: false,
-      datum_prestanka: endDate,
-      razlog_prestanka: reason || null,
-      updated_by: context.user.id
-    },
-    select: {
-      id: true,
-      ime: true,
-      prezime: true,
-      datum_prestanka: true,
-      razlog_prestanka: true,
-      zaposlen: true
-    }
-  });
-
-  await auditLog({
-    korisnikId: context.user.id,
-    agencijaId: context.agencijaId,
-    firmaId: context.firma.id,
-    modul: "plate",
-    akcija: "deactivate_employee",
-    tipEntiteta: "PlateRadnik",
-    entitetId: updated.id,
-    staraVrijednost: previous,
-    novaVrijednost: updated
-  });
-
   revalidatePath("/agencija/plate");
-  redirect("/agencija/plate?tab=neaktivni&poruka=radnik_odjavljen");
+  redirect(`/agencija/plate?tab=neaktivni&poruka=radnik_odjavljen&otkaz=${id}`);
 }
 
 export async function reactivatePayrollEmployee(formData: FormData) {

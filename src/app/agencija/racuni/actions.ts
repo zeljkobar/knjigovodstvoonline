@@ -298,7 +298,8 @@ function redirectKufEntry(kufBookId: string, message: string): never {
     poruka: message
   });
 
-  redirect(`/agencija/racuni/kuf/${kufBookId}?${params.toString()}`);
+  const anchor = message === "kuf_sacuvan" ? "#kuf-entry-form-fiscal-link" : "";
+  redirect(`/agencija/racuni/kuf/${kufBookId}?${params.toString()}${anchor}`);
 }
 
 function redirectKifEntry(kifBookId: string, message: string): never {

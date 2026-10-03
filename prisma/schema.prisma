@@ -34,6 +34,9 @@ enum KomitentScope {
 }
 
 model Agencija {
+  radna_mjesta RadnoMjesto[]
+  ugovori_o_radu UgovorORadu[]
+  otkazi_o_radu OtkazORadu[]
   rok_planovi FirmaRokPlan[]
   rok_zadaci FirmaRokZadatak[]
   pdv_broj                   String?
@@ -174,6 +177,8 @@ model AgencijaBankovniRacun {
 }
 
 model Firma {
+  ugovori_o_radu UgovorORadu[]
+  otkazi_o_radu OtkazORadu[]
   rok_plan FirmaRokPlan?
   rok_zadaci FirmaRokZadatak[]
   osPoreskeGodine OsPoreskaGodina[]
@@ -3125,6 +3130,13 @@ model PlateOsnovaStopa {
 }
 
 model PlateRadnik {
+  radno_mjesto_id String? @db.Uuid
+  radno_mjesto_ref RadnoMjesto? @relation(fields:[radno_mjesto_id],references:[id])
+  tip_ugovora String?
+  ugovoreni_istek DateTime? @db.Date
+  mjesto_rada String?
+  ugovori_o_radu UgovorORadu[]
+  otkazi_o_radu OtkazORadu[]
   id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id              String    @db.Uuid
   firma_id                 String    @db.Uuid
@@ -3667,4 +3679,61 @@ model FirmaRokZadatak {
   @@unique([firma_id,vrsta,godina_roka,mjesec_roka])
   @@index([agencija_id,godina_roka,mjesec_roka])
   @@map("firma_rok_zadaci")
+}
+
+model RadnoMjesto {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ agencija_id String? @db.Uuid
+ agencija Agencija? @relation(fields:[agencija_id],references:[id])
+ globalno_id String? @db.Uuid
+ globalno RadnoMjesto? @relation("JobOverride",fields:[globalno_id],references:[id])
+ izmjene RadnoMjesto[] @relation("JobOverride")
+ naziv String
+ opis_poslova String
+ aktivno Boolean @default(true)
+ created_at DateTime @default(now())
+ updated_at DateTime @updatedAt
+ radnici PlateRadnik[]
+ @@unique([agencija_id,globalno_id])
+ @@index([agencija_id,aktivno])
+ @@map("radna_mjesta")
+}
+model UgovorORadu {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ agencija_id String @db.Uuid
+ agencija Agencija @relation(fields:[agencija_id],references:[id])
+ firma_id String @db.Uuid
+ firma Firma @relation(fields:[firma_id],references:[id])
+ radnik_id String @db.Uuid
+ radnik PlateRadnik @relation(fields:[radnik_id],references:[id])
+ broj String
+ datum DateTime @db.Date
+ status String @default("DRAFT")
+ snapshot Json
+ verzija_predloska String
+ created_at DateTime @default(now())
+ created_by String @db.Uuid
+ updated_at DateTime @updatedAt
+ updated_by String @db.Uuid
+ @@unique([firma_id,broj])
+ @@index([agencija_id,firma_id,radnik_id])
+ @@map("ugovori_o_radu")
+}
+
+model OtkazORadu {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ agencija_id String @db.Uuid
+ agencija Agencija @relation(fields:[agencija_id],references:[id])
+ firma_id String @db.Uuid
+ firma Firma @relation(fields:[firma_id],references:[id])
+ radnik_id String @db.Uuid
+ radnik PlateRadnik @relation(fields:[radnik_id],references:[id])
+ vrsta String
+ datum DateTime @db.Date
+ datum_prestanka DateTime @db.Date
+ snapshot Json
+ created_at DateTime @default(now())
+ created_by String @db.Uuid
+ @@index([agencija_id,firma_id,radnik_id])
+ @@map("otkazi_o_radu")
 }
