@@ -138,7 +138,10 @@ type CalculationType = {
   algoritam: string;
 };
 
+export type PayrollTaxHistory = { baseCents: number; taxCents: number; surtaxCents: number };
+
 export type PayrollLineInput = {
+  monthlyTaxHistory?: PayrollTaxHistory;
   calculationDate: Date;
   incomeType: IncomeFlags;
   calculationType: CalculationType;
@@ -344,13 +347,15 @@ function calculateFromGross({
   rates,
   taxBrackets,
   incomeType,
-  surtaxRate
+  surtaxRate,
+  monthlyTaxHistory
 }: {
   grossCents: number;
   rates: RateLike[];
   taxBrackets: TaxBracketLike[];
   incomeType: IncomeFlags;
   surtaxRate: number;
+  monthlyTaxHistory?: PayrollTaxHistory;
 }) {
   const employeePioCents = incomeType.koristi_zaposleni_pio
     ? roundedRateAmount(grossCents, rateByCode(rates, contributionCodes.employeePio))
@@ -362,9 +367,11 @@ function calculateFromGross({
     ? roundedRateAmount(grossCents, rateByCode(rates, contributionCodes.employeeUnemployment))
     : 0;
   const personalIncomeTaxCents = incomeType.koristi_porez
-    ? calculateTax(grossCents, taxBrackets)
+    ? Math.max(0, calculateTax(grossCents + (monthlyTaxHistory?.baseCents ?? 0), taxBrackets) - (monthlyTaxHistory?.taxCents ?? 0))
     : 0;
-  const surtaxCents = roundedRateAmount(personalIncomeTaxCents, surtaxRate);
+  const surtaxCents = incomeType.koristi_porez
+    ? Math.max(0, roundedRateAmount(personalIncomeTaxCents + (monthlyTaxHistory?.taxCents ?? 0), surtaxRate) - (monthlyTaxHistory?.surtaxCents ?? 0))
+    : 0;
   const employerPioCents = incomeType.koristi_poslodavac_pio
     ? roundedRateAmount(grossCents, rateByCode(rates, contributionCodes.employerPio))
     : 0;
@@ -431,7 +438,7 @@ function basisAmount({
     return Math.round((grossCents * percentNumber(percent)) / 100);
   }
 
-  return 0;
+  throw new Error(`PAYROLL_UNSUPPORTED_BASIS: ${tip}`);
 }
 
 function basisForRate(rate: BasisRateLike, bases: Record<string, number>) {
@@ -560,7 +567,7 @@ function calculateFromBasisRule({
   return {
     netAmountCents,
     grossAmountCents: grossCents,
-    taxableGrossCents: bases.porez || grossCents,
+    taxableGrossCents: bases.porez,
     personalIncomeTaxCents,
     surtaxCents,
     employeePioCents,
@@ -610,13 +617,15 @@ function grossFromNet({
   rates,
   taxBrackets,
   incomeType,
-  surtaxRate
+  surtaxRate,
+  monthlyTaxHistory
 }: {
   targetNetCents: number;
   rates: RateLike[];
   taxBrackets: TaxBracketLike[];
   incomeType: IncomeFlags;
   surtaxRate: number;
+  monthlyTaxHistory?: PayrollTaxHistory;
 }) {
   return grossFromNetWithCalculator(targetNetCents, (grossCents) =>
     calculateFromGross({
@@ -624,13 +633,14 @@ function grossFromNet({
       rates,
       taxBrackets,
       incomeType,
-      surtaxRate
+      surtaxRate,
+      monthlyTaxHistory
     }).netAmountCents
   );
 }
 
 async function activeBasisRuleForIncomeType(incomeType: IncomeFlags, calculationDate: Date) {
-  if (incomeType.sifra === "001" || (!incomeType.osnova_obracuna_id && !incomeType.sifra)) {
+  if (incomeType.sifra?.split(".")[0] === "001" || (!incomeType.osnova_obracuna_id && !incomeType.sifra)) {
     return null;
   }
 
@@ -738,7 +748,7 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
   ]);
   const surtaxRate = rateNumber(surtax);
   const ruleBasedCalculation =
-    input.incomeType.sifra !== "001" && basisRule && basisRule.stope.length > 0
+    input.incomeType.sifra?.split(".")[0] !== "001" && basisRule && basisRule.stope.length > 0
       ? basisRule
       : null;
   const workingHours = input.workingHours || input.workingHoursFund;
@@ -805,7 +815,8 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
           rates,
           taxBrackets,
           incomeType: input.incomeType,
-          surtaxRate
+          surtaxRate,
+          monthlyTaxHistory: input.monthlyTaxHistory
         });
   } else {
     grossCents = amountForCalculationCents;
@@ -829,7 +840,8 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
         rates,
         taxBrackets,
         incomeType: input.incomeType,
-        surtaxRate
+        surtaxRate,
+        monthlyTaxHistory: input.monthlyTaxHistory
       });
   const basisRuleBases = "bases" in result ? result.bases : null;
 
@@ -841,6 +853,7 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
     seniorityCoefficient,
     seniorityAmountCents,
     details: {
+      monthlyProgressiveTax: !ruleBasedCalculation && input.incomeType.koristi_porez,
       inputType: input.calculationType.input_type,
       algorithm: input.calculationType.algoritam,
       workingHours,

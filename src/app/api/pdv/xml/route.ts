@@ -61,21 +61,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "PDV prijava nije generisana." }, { status: 404 });
   }
 
-  await prisma.pdvPrijava.update({
-    where: {
-      id: prijava.id
-    },
-    data: {
-      xml_generated_at: new Date()
-    }
-  });
-
-  const valueByRow = new Map(
-    prijava.stavke.map((row) => [
-      row.sifra,
-      rowAmount(row.rucna_vrijednost ?? row.sistemska_vrijednost)
-    ])
-  );
+  const versionId=request.nextUrl.searchParams.get("verzija");
+  const version=versionId?await prisma.pdvVerzija.findFirst({where:{id:versionId,pdv_period_id:prijava.pdv_period_id}}):null;
+  if(versionId&&!version) return NextResponse.json({error:"Verzija ne postoji u izabranom periodu."},{status:404});
+  if(!version) await prisma.pdvPrijava.update({where:{id:prijava.id},data:{xml_generated_at:new Date()}});
+  const rows=version?(version.snapshot as {prijava:{stavke:Array<{sifra:string;rucna_vrijednost:string|null;sistemska_vrijednost:string}>}}).prijava.stavke:prijava.stavke;
+  const valueByRow=new Map(rows.map(row=>[row.sifra,rowAmount(row.rucna_vrijednost??row.sistemska_vrijednost)]));
   const value = (row: string) => valueByRow.get(row) ?? 0;
   const amountTag = (name: string, row: string, fallback = 0) =>
     `  <${name}>${amountText(valueByRow.has(row) ? value(row) : fallback)}</${name}>`;
@@ -108,8 +99,8 @@ ${amountTag("Iznos29", "29")}
 </PR_PDV_2025>
 `;
   const fileMonth = String(month).padStart(2, "0");
-  const fileName = `pdv ${filenamePart(context.firma.naziv)} ${fileMonth}-${context.poslovnaGodina.godina}.xml`;
-  const asciiFileName = fallbackFilename(fileName) || `pdv ${fileMonth}-${context.poslovnaGodina.godina}.xml`;
+  const fileName = `pdv ${filenamePart(context.firma.naziv)} ${fileMonth}-${context.poslovnaGodina.godina}${version ? ` v${version.broj}` : ""}.xml`;
+  const asciiFileName = fallbackFilename(fileName) || `pdv ${fileMonth}-${context.poslovnaGodina.godina}${version ? ` v${version.broj}` : ""}.xml`;
 
   return new Response(xml, {
     headers: {

@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { getCurrentUser, requireAnyRole } from "./auth";
 import { hasPermission, type PermissionAction } from "./permissions";
@@ -55,6 +56,8 @@ export async function requirePdvContext(akcija: PermissionAction = "view") {
   if (!firma || !poslovnaGodina) {
     redirect("/agencija/pdv?poruka=pdv_kontekst");
   }
+
+  if (!["view", "export"].includes(akcija) && poslovnaGodina.zakljucena) redirect("/agencija/pdv/prijava?poruka=godina_zakljucana");
 
   return {
     user,
@@ -150,11 +153,7 @@ export async function findOrCreatePdvPeriod({
         mjesec
       }
     },
-    update: {
-      datum_od: dateFrom,
-      datum_do: dateTo,
-      updated_by: userId ?? null
-    },
+    update: {},
     create: {
       agencija_id: agencijaId,
       firma_id: firmaId,
@@ -180,11 +179,11 @@ export async function loadPdvBooks({
   poslovnaGodinaId: string;
   godina: number;
   mjesec: number;
-}) {
+}, db: Prisma.TransactionClient = prisma) {
   const { dateFrom, dateTo } = periodDateRange(godina, mjesec);
 
   const [kifBooks, kufBooks] = await Promise.all([
-    prisma.kifBook.findMany({
+    db.kifBook.findMany({
       where: {
         agencija_id: agencijaId,
         firma_id: firmaId,
@@ -238,7 +237,7 @@ export async function loadPdvBooks({
         }
       }
     }),
-    prisma.kufBook.findMany({
+    db.kufBook.findMany({
       where: {
         agencija_id: agencijaId,
         firma_id: firmaId,
@@ -313,8 +312,8 @@ export async function calculatePdvReturn(input: {
   poslovnaGodinaId: string;
   godina: number;
   mjesec: number;
-}) {
-  const books = await loadPdvBooks(input);
+}, db: Prisma.TransactionClient = prisma) {
+  const books = await loadPdvBooks(input, db);
   const calculation = buildPdvReturnRows(books.kifBooks, books.kufBooks);
 
   return {

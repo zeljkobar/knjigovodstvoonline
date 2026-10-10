@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { auditLog } from "@/lib/audit";
+import { auditLog, auditLogInTransaction } from "@/lib/audit";
 import { requireRole } from "@/lib/auth";
 import { accountOverrideTypes } from "@/lib/account-plan";
 import {
@@ -39,116 +39,42 @@ export async function saveCalculationPostingSettings(formData: FormData) {
   const returnPath = "/agencija/robno/podesavanja";
   const context = await getInventoryContext("manage");
   const firmaId = text(formData.get("firma_id"));
-
-  if (
-    !context.allowed ||
-    !context.firma ||
-    !context.user.agencija_id ||
-    context.firma.id !== firmaId
-  ) {
-    redirect(`${returnPath}?poruka=prava`);
+  if (!context.allowed || !context.firma || !context.user.agencija_id || context.firma.id !== firmaId) redirect(`${returnPath}?poruka=prava`);
+  let entries: Array<{namjena:string;pdv_stopa_sifra:string;sifra_konta:string;smjer:string}>;
+  try {
+    const parsed: unknown = JSON.parse(text(formData.get("calculation_rules")));
+    if (!Array.isArray(parsed) || parsed.length>100 || parsed.some(r=>!r || ["namjena","pdv_stopa_sifra","sifra_konta","smjer"].some(k=>typeof r[k]!=="string"))) throw new Error("rules");
+    entries = parsed;
+  } catch { redirect(`${returnPath}?poruka=neispravna_konta`); }
+  const rates = await prisma.pdvStopa.findMany({where:{agencija_id:context.user.agencija_id},select:{sifra:true}});
+  const allowedRates=new Set(["GENERAL",...rates.map(r=>r.sifra)]);
+  const purposes=new Set<string>(calculationPostingFields.map(f=>f.purpose));
+  const keys=new Set<string>();
+  for (const entry of entries) {
+    const key=`${entry.namjena}:${entry.pdv_stopa_sifra}`;
+    if (!purposes.has(entry.namjena) || !allowedRates.has(entry.pdv_stopa_sifra) || keys.has(key) ||
+      !["D","P"].includes(entry.smjer)) redirect(`${returnPath}?poruka=neispravna_konta`);
+    keys.add(key);
   }
-
-  const entries = calculationPostingFields.map((field) => ({
-    ...field,
-    accountCode: text(formData.get(`konto_${field.purpose}`)),
-    direction: text(formData.get(`smjer_${field.purpose}`))
-  }));
-  const codes = [...new Set(entries.map((entry) => entry.accountCode).filter(Boolean))];
-
-  const [baseAccounts, companyAccounts] = await Promise.all([
-    prisma.konto.findMany({
-      where: {
-        sifra: { in: codes },
-        tip_konta: "analiticko",
-        aktivan: true
-      },
-      select: { sifra: true }
-    }),
-    prisma.firmaKonto.findMany({
-      where: {
-        firma_id: firmaId,
-        sifra: { in: codes },
-        tip_konta: "analiticko",
-        aktivan: true,
-        override_type: { not: accountOverrideTypes.deactivated }
-      },
-      select: { sifra: true }
-    })
+  const codes=[...new Set(entries.map(r=>r.sifra_konta).filter(Boolean))];
+  const [base,company]=await Promise.all([
+    prisma.konto.findMany({where:{sifra:{in:codes},tip_konta:"analiticko",aktivan:true},select:{sifra:true}}),
+    prisma.firmaKonto.findMany({where:{firma_id:firmaId,sifra:{in:codes}},select:{sifra:true,aktivan:true,tip_konta:true,override_type:true}})
   ]);
-  const validCodes = new Set([
-    ...baseAccounts.map((account) => account.sifra),
-    ...companyAccounts.map((account) => account.sifra)
-  ]);
-
-  if (
-    entries.some(
-      (entry) =>
-        (entry.accountCode && !validCodes.has(entry.accountCode)) ||
-        !["D", "P"].includes(entry.direction)
-    )
-  ) {
-    redirect(`${returnPath}?poruka=neispravna_konta`);
-  }
-
-  await prisma.$transaction(async (tx) => {
-    for (const entry of entries) {
-      const where = {
-        firma_id_namjena_dokument_tip_podvrsta_pdv_stopa_sifra: {
-          firma_id: firmaId,
-          namjena: entry.purpose,
-          dokument_tip: calculationPostingScope.documentType,
-          podvrsta: calculationPostingScope.subtype,
-          pdv_stopa_sifra: calculationPostingScope.vatRate
-        }
-      };
-
-      if (!entry.accountCode) {
-        await tx.firmaPodrazumijevanoKonto.deleteMany({
-          where: where.firma_id_namjena_dokument_tip_podvrsta_pdv_stopa_sifra
-        });
-        continue;
-      }
-
-      await tx.firmaPodrazumijevanoKonto.upsert({
-        where,
-        create: {
-          ...where.firma_id_namjena_dokument_tip_podvrsta_pdv_stopa_sifra,
-          sifra_konta: entry.accountCode,
-          smjer: entry.direction,
-          napomena: entry.description,
-          created_by: context.user.id,
-          updated_by: context.user.id
-        },
-        update: {
-          sifra_konta: entry.accountCode,
-          smjer: entry.direction,
-          napomena: entry.description,
-          updated_by: context.user.id
-        }
-      });
-    }
+  const valid=new Set(base.map(r=>r.sifra));
+  for(const row of company) {if(row.aktivan && row.tip_konta==="analiticko" && row.override_type!==accountOverrideTypes.deactivated)valid.add(row.sifra);else valid.delete(row.sifra);}
+  if(entries.some(r=>r.sifra_konta && (r.sifra_konta.length<4 || !valid.has(r.sifra_konta))))redirect(`${returnPath}?poruka=neispravna_konta`);
+  await prisma.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT id FROM firme WHERE id=${firmaId}::uuid FOR UPDATE`;
+    const scope={firma_id:firmaId,dokument_tip:calculationPostingScope.documentType,podvrsta:calculationPostingScope.subtype};
+    const previous=await tx.firmaPodrazumijevanoKonto.findMany({where:scope});
+    await tx.firmaPodrazumijevanoKonto.deleteMany({where:scope});
+    await tx.firmaPodrazumijevanoKonto.createMany({data:entries.map(entry=>({...scope,...entry,created_by:context.user.id,updated_by:context.user.id}))});
+    await auditLogInTransaction(tx,{korisnikId:context.user.id,agencijaId:context.user.agencija_id!,firmaId,modul:inventoryModule,akcija:"save_calculation_posting_settings",tipEntiteta:"FirmaPodrazumijevanoKonto",entitetId:firmaId,staraVrijednost:previous,novaVrijednost:entries});
   });
-
-  await auditLog({
-    korisnikId: context.user.id,
-    agencijaId: context.user.agencija_id,
-    firmaId,
-    modul: inventoryModule,
-    akcija: "save_calculation_posting_settings",
-    tipEntiteta: "FirmaPodrazumijevanoKonto",
-    entitetId: firmaId,
-    novaVrijednost: entries.map((entry) => ({
-      namjena: entry.purpose,
-      konto: entry.accountCode,
-      smjer: entry.direction
-    }))
-  });
-
-  revalidatePath(returnPath);
-  revalidatePath("/agencija/robno/kalkulacije");
-  redirect(`${returnPath}?poruka=sacuvano`);
+  revalidatePath(returnPath); redirect(`${returnPath}?poruka=sacuvano`);
 }
+
 
 export async function saveOutgoingInvoicePostingSettings(formData: FormData) {
   await requireRole("admin_agencije");
@@ -156,16 +82,38 @@ export async function saveOutgoingInvoicePostingSettings(formData: FormData) {
   const context = await getInventoryContext("manage");
   const firmaId = text(formData.get("firma_id"));
   if (!context.allowed || !context.firma || !context.user.agencija_id || context.firma.id !== firmaId) redirect(`${returnPath}?poruka=prava`);
-  const entries = outgoingInvoicePostingFields.map((field) => ({ ...field, accountCode: text(formData.get(`konto_${field.purpose}`)), direction: text(formData.get(`smjer_${field.purpose}`)) }));
-  const codes = [...new Set(entries.map((entry) => entry.accountCode).filter(Boolean))];
-  const [base, company] = await Promise.all([
-    prisma.konto.findMany({ where: { sifra: { in: codes }, tip_konta: "analiticko", aktivan: true }, select: { sifra: true } }),
-    prisma.firmaKonto.findMany({ where: { firma_id: firmaId, sifra: { in: codes }, tip_konta: "analiticko", aktivan: true, override_type: { not: accountOverrideTypes.deactivated } }, select: { sifra: true } })
+  let entries: Array<{namjena:string;pdv_stopa_sifra:string;sifra_konta:string;smjer:string}>;
+  try {
+    const parsed: unknown = JSON.parse(text(formData.get("invoice_rules")));
+    if (!Array.isArray(parsed) || parsed.length>100 || parsed.some(r=>!r || ["namjena","pdv_stopa_sifra","sifra_konta","smjer"].some(k=>typeof r[k]!=="string"))) throw new Error("rules");
+    entries = parsed;
+  } catch { redirect(`${returnPath}?poruka=neispravna_konta`); }
+  const rates = await prisma.pdvStopa.findMany({where:{agencija_id:context.user.agencija_id},select:{sifra:true}});
+  const allowedRates=new Set(["GENERAL",...rates.map(r=>r.sifra)]);
+  const purposes=new Set<string>(outgoingInvoicePostingFields.map(f=>f.purpose));
+  const keys=new Set<string>();
+  for (const entry of entries) {
+    const key=`${entry.namjena}:${entry.pdv_stopa_sifra}`;
+    if (!purposes.has(entry.namjena) || !allowedRates.has(entry.pdv_stopa_sifra) || keys.has(key) ||
+      (!["INVOICE_REVENUE","INVOICE_OUTPUT_VAT"].includes(entry.namjena) && entry.pdv_stopa_sifra!=="GENERAL") || !["D","P"].includes(entry.smjer)) redirect(`${returnPath}?poruka=neispravna_konta`);
+    keys.add(key);
+  }
+  const codes=[...new Set(entries.map(r=>r.sifra_konta).filter(Boolean))];
+  const [base,company]=await Promise.all([
+    prisma.konto.findMany({where:{sifra:{in:codes},tip_konta:"analiticko",aktivan:true},select:{sifra:true}}),
+    prisma.firmaKonto.findMany({where:{firma_id:firmaId,sifra:{in:codes}},select:{sifra:true,aktivan:true,tip_konta:true,override_type:true}})
   ]);
-  const valid = new Set([...base, ...company].map((item) => item.sifra));
-  if (entries.some((entry) => !entry.accountCode || !valid.has(entry.accountCode) || !["D", "P"].includes(entry.direction))) redirect(`${returnPath}?poruka=neispravna_konta`);
-  await prisma.$transaction(async (tx) => { for (const entry of entries) { const key = { firma_id: firmaId, namjena: entry.purpose, dokument_tip: outgoingInvoicePostingScope.documentType, podvrsta: outgoingInvoicePostingScope.subtype, pdv_stopa_sifra: outgoingInvoicePostingScope.vatRate }; await tx.firmaPodrazumijevanoKonto.upsert({ where: { firma_id_namjena_dokument_tip_podvrsta_pdv_stopa_sifra: key }, create: { ...key, sifra_konta: entry.accountCode, smjer: entry.direction, napomena: entry.description, created_by: context.user.id, updated_by: context.user.id }, update: { sifra_konta: entry.accountCode, smjer: entry.direction, napomena: entry.description, updated_by: context.user.id } }); } });
-  await auditLog({ korisnikId: context.user.id, agencijaId: context.user.agencija_id, firmaId, modul: inventoryModule, akcija: "save_outgoing_invoice_posting_settings", tipEntiteta: "FirmaPodrazumijevanoKonto", entitetId: firmaId, novaVrijednost: entries.map((entry) => ({ namjena: entry.purpose, konto: entry.accountCode, smjer: entry.direction })) });
+  const valid=new Set(base.map(r=>r.sifra));
+  for(const row of company) {if(row.aktivan && row.tip_konta==="analiticko" && row.override_type!==accountOverrideTypes.deactivated)valid.add(row.sifra);else valid.delete(row.sifra);}
+  if(entries.some(r=>r.sifra_konta && (r.sifra_konta.length<4 || !valid.has(r.sifra_konta))))redirect(`${returnPath}?poruka=neispravna_konta`);
+  await prisma.$transaction(async tx=>{
+    await tx.$queryRaw`SELECT id FROM firme WHERE id=${firmaId}::uuid FOR UPDATE`;
+    const scope={firma_id:firmaId,dokument_tip:outgoingInvoicePostingScope.documentType,podvrsta:outgoingInvoicePostingScope.subtype};
+    const previous=await tx.firmaPodrazumijevanoKonto.findMany({where:scope});
+    await tx.firmaPodrazumijevanoKonto.deleteMany({where:scope});
+    await tx.firmaPodrazumijevanoKonto.createMany({data:entries.map(entry=>({...scope,...entry,created_by:context.user.id,updated_by:context.user.id}))});
+    await auditLogInTransaction(tx,{korisnikId:context.user.id,agencijaId:context.user.agencija_id!,firmaId,modul:inventoryModule,akcija:"save_outgoing_invoice_posting_settings",tipEntiteta:"FirmaPodrazumijevanoKonto",entitetId:firmaId,staraVrijednost:previous,novaVrijednost:entries});
+  });
   revalidatePath(returnPath); redirect(`${returnPath}?poruka=faktura_sacuvano`);
 }
 

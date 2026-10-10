@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test:payroll": "tsc -p tests/tsconfig.payroll.json && node --test .test-build/tests/payroll-hours.test.js",
+    "test:payroll": "tsc -p tests/tsconfig.payroll.json && node --test .test-build/tests/payroll-hours.test.js tests/payroll-calculation.test.cjs",
     "test:inventory-transfer": "tsc -p tests/tsconfig.inventory-transfer.json && node --test .test-build/tests/inventory-transfer.test.js",
     "test:inventory-count": "tsc -p tests/tsconfig.inventory-count.json && node --test .test-build/tests/inventory-count.test.js",
     "test:inventory-write-off": "tsc -p tests/tsconfig.inventory-write-off.json && node --test .test-build/tests/inventory-write-off.test.js",

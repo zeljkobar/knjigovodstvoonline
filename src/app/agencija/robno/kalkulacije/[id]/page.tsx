@@ -363,10 +363,10 @@ export default async function CalculationDetailPage({ params, searchParams }: Pa
         {calculation.zavisniTroskovi.length ? <div className="compact-list">{calculation.zavisniTroskovi.map((cost) => <div className="compact-list-row" key={cost.id}><span><strong>{cost.vrsta}</strong>{cost.opis ? ` · ${cost.opis}` : ""}</span><span>{decimal(cost.iznos)} EUR</span>{editable ? <form action={deleteDependentCost}><input type="hidden" name="firma_id" value={firmaId} /><input type="hidden" name="kalkulacija_id" value={id} /><input type="hidden" name="trosak_id" value={cost.id} /><button className="table-action danger-action" type="submit">Obriši</button></form> : null}</div>)}</div> : <p className="empty-state">Nema zavisnih troškova.</p>}
       </section>
 
-      {editable ? (
+      {!calculation.poslovna_godina.zakljucena ? (
         <section className="danger-zone">
-          <div><h3>Brisanje nacrta</h3><p>Brisanje je soft delete i ostaje evidentirano u audit logu.</p></div>
-          <form action={deleteCalculation}><input type="hidden" name="firma_id" value={firmaId} /><input type="hidden" name="kalkulacija_id" value={id} /><input name="delete_reason" placeholder="Razlog brisanja" /><button className="danger-button" type="submit">Obriši nacrt</button></form>
+          <div><h3>Brisanje kalkulacije</h3><p>Uklanja kalkulaciju i povezani račun iz KUF-a, poništava njen nalog i ulaz robe. Evidencija brisanja ostaje sačuvana.</p></div>
+          <form action={deleteCalculation}><input type="hidden" name="firma_id" value={firmaId} /><input type="hidden" name="kalkulacija_id" value={id} /><input name="delete_reason" placeholder="Razlog brisanja" required /><label><input type="checkbox" name="potvrda_brisanja" required /> Potvrđujem brisanje kalkulacije i povezanih knjiženja</label><button className="danger-button" type="submit">Obriši kalkulaciju</button></form>
         </section>
       ) : null}
     </div>

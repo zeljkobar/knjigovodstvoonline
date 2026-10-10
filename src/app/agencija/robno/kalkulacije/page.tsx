@@ -32,7 +32,7 @@ const messages: Record<string, string> = {
   mapr_pdv_artikal: "PDV stopa izabranog artikla ne odgovara MAPR stavci.",
   iznos_van_opsega:
     "Jedna od unesenih cijena daje iznos ili procenat van dozvoljenog opsega. Provjerite prodajne cijene.",
-  obrisana: "Nacrt kalkulacije je obrisan.",
+  obrisana: "Kalkulacija je obrisana; povezana knjiženja, KUF i zalihe su usklađeni.",
   zakljucana_godina: "Poslovna godina je zaključana.",
   prava: "Nemate pravo za ovu akciju."
 };

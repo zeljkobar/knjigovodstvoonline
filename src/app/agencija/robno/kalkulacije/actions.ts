@@ -3,12 +3,14 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { deleteCalculationInTransaction, CalculationDeletionError } from "@/lib/calculation-deletion";
 import { auditLog } from "@/lib/audit";
 import { accountOverrideTypes } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import {
   allocateByValue,
   calculateLineAmounts,
+  buildCalculationPostingLines,
   calculationPostingFields,
   calculationPostingScope,
   calculationSaleTypes,
@@ -1430,6 +1432,9 @@ export async function postCalculation(formData: FormData) {
   const context = await requireCalculationContext("post", firmaId, path);
 
   const result = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM poslovne_godine WHERE id=${context.godina.id}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM kalkulacije WHERE id=${id}::uuid AND firma_id=${firmaId}::uuid FOR UPDATE`;
+    if ((await tx.poslovnaGodina.findUnique({ where: { id: context.godina.id } }))?.zakljucena) return { ok: false as const, reason: "zakljucana_godina" };
     const calculation = await tx.kalkulacija.findFirst({
       where: {
         id,
@@ -1487,7 +1492,6 @@ export async function postCalculation(formData: FormData) {
           firma_id: firmaId,
           dokument_tip: calculationPostingScope.documentType,
           podvrsta: calculationPostingScope.subtype,
-          pdv_stopa_sifra: calculationPostingScope.vatRate,
           namjena: { in: calculationPostingFields.map((field) => field.purpose) }
         }
       })
@@ -1526,62 +1530,12 @@ export async function postCalculation(formData: FormData) {
       groups.set(rate.sifra, group);
     }
 
-    const totalBase = [...groups.values()].reduce((sum, group) => sum + group.base, BigInt(0));
-    const totalVat = [...groups.values()].reduce((sum, group) => sum + group.vat, BigInt(0));
-    const totalDeductible = [...groups.values()].reduce(
-      (sum, group) => sum + group.deductible,
-      BigInt(0)
-    );
-    const totalGross = totalBase + totalVat;
     const isRetail = calculation.tip_prodaje === calculationSaleTypes.retail;
-    const settingMap = new Map(
-      postingSettings.map((setting) => [setting.namjena, setting])
-    );
-    const postingAmounts = new Map<string, bigint>([
-      [
-        "CALCULATION_GOODS",
-        isRetail
-          ? decimalToScaled(calculation.ukupno_prodajna_vrijednost_sa_pdv, 2)
-          : decimalToScaled(calculation.ukupno_nabavna_vrijednost, 2)
-      ],
-      ["CALCULATION_INPUT_VAT", totalDeductible],
-      ["CALCULATION_SUPPLIER", totalGross],
-      [
-        "CALCULATION_PRICE_DIFFERENCE",
-        isRetail ? decimalToScaled(calculation.ukupno_razlika_u_cijeni, 2) : BigInt(0)
-      ],
-      [
-        "CALCULATION_INCLUDED_VAT",
-        isRetail ? decimalToScaled(calculation.ukupno_ukalkulisani_pdv, 2) : BigInt(0)
-      ],
-      [
-        "CALCULATION_DEPENDENT_COSTS",
-        decimalToScaled(calculation.ukupno_zavisni_troskovi, 2)
-      ]
-    ]);
-    const postingLines: Array<{
-      accountCode: string;
-      direction: "D" | "P";
-      amount: bigint;
-    }> = [];
-
-    for (const field of calculationPostingFields) {
-      const amount = postingAmounts.get(field.purpose) ?? BigInt(0);
-      if (amount === BigInt(0)) continue;
-      const setting = settingMap.get(field.purpose);
-      if (!setting?.sifra_konta) {
-        throw new CalculationPostError("knjizenje_podesavanja");
-      }
-      const configuredDirection = setting.smjer === "P" ? "P" : "D";
-      postingLines.push({
-        accountCode: setting.sifra_konta,
-        direction:
-          amount < BigInt(0)
-            ? configuredDirection === "D" ? "P" : "D"
-            : configuredDirection,
-        amount: amount < BigInt(0) ? -amount : amount
-      });
-    }
+    const postingLines = buildCalculationPostingLines({
+      settings: postingSettings, retail: isRetail, vatPayer: context.firma.pdv_obveznik,
+      lines: calculation.stavke.map(line=>({...line,rateCode:vatRates.find(rate=>decimalToScaled(rate.procenat,2)===decimalToScaled(line.ulazni_pdv_stopa,2))!.sifra}))
+    });
+    if(!postingLines)throw new CalculationPostError("knjizenje_podesavanja");
 
     const debit = postingLines
       .filter((line) => line.direction === "D")
@@ -1810,29 +1764,25 @@ export async function deleteCalculation(formData: FormData) {
   const id = text(formData.get("kalkulacija_id"));
   const firmaId = text(formData.get("firma_id"));
   const context = await requireCalculationContext("delete", firmaId, detailPath(id));
-  const current = await editableCalculation(id, firmaId, context.agencijaId, context.godina.id);
-  if (!current) calculationRedirect(detailPath(id), "nije_nacrt");
-  await prisma.kalkulacija.update({
-    where: { id },
-    data: {
-      status: calculationStatuses.deleted,
-      is_deleted: true,
-      deleted_at: new Date(),
-      deleted_by: context.user.id,
-      delete_reason: nullableText(formData.get("delete_reason")) ?? "Obrisan nacrt kalkulacije",
-      updated_by: context.user.id
-    }
-  });
-  await auditLog({
-    korisnikId: context.user.id,
-    agencijaId: context.agencijaId,
-    firmaId,
-    modul: inventoryModule,
-    akcija: "delete_calculation",
-    tipEntiteta: "Kalkulacija",
-    entitetId: id,
-    staraVrijednost: current
-  });
+  const reason = nullableText(formData.get("delete_reason"));
+  if (!reason || formData.get("potvrda_brisanja") !== "on") calculationRedirect(detailPath(id), "Unesite razlog i potvrdite brisanje kalkulacije i povezanih knjiženja.");
+  const current = await prisma.kalkulacija.findFirst({ where: { id, firma_id: firmaId, agencija_id: context.agencijaId, poslovna_godina_id: context.godina.id } });
+  if (!current) calculationRedirect(detailPath(id), "Kalkulacija nije pronađena.");
+  if (current.status !== "DRAFT") {
+    const allowed = await Promise.all(["nalozi", "ulazni_racuni"].map(modul => hasPermission(context.user, { firmaId, modul, akcija: "delete" })));
+    if (allowed.some(value => !value)) calculationRedirect(detailPath(id), "Za poništavanje su potrebna prava brisanja naloga i ulaznih računa.");
+  }
+  try {
+    await prisma.$transaction(tx => deleteCalculationInTransaction(tx, { id, firmaId, agencijaId: context.agencijaId, godinaId: context.godina.id, userId: context.user.id, reason }), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
+  } catch (error) {
+    if (error instanceof CalculationDeletionError) calculationRedirect(detailPath(id), error.message);
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") calculationRedirect(detailPath(id), "Podaci su istovremeno izmijenjeni. Osvježite stranicu i ponovite brisanje.");
+    throw error;
+  }
   revalidateCalculation(id);
+  revalidatePath("/agencija/racuni", "layout");
+  revalidatePath("/agencija/nalozi", "layout");
+  revalidatePath("/agencija/izvjestaji", "layout");
+  revalidatePath("/agencija/pdv", "layout");
   calculationRedirect("/agencija/robno/kalkulacije", "obrisana");
 }

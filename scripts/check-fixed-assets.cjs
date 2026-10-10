@@ -148,7 +148,7 @@ const checks = [];
       await tx.poslovnaGodina.update({ where: { id: year.id }, data: { zakljucena: false } });
       const pdv = await tx.pdvPeriod.create({ data: { agencija_id: agency.id, firma_id: company.id, poslovna_godina_id: year.id, mjesec: 1, datum_od: new Date('2026-01-01'), datum_do: new Date('2026-01-31'), status: 'LOCKED' } });
       await redirected(() => actions.createFixedAsset(form()), /pdv_zakljucan/);
-      await tx.pdvPeriod.delete({ where: { id: pdv.id } });
+      await tx.pdvPeriod.update({where:{id:pdv.id},data:{status:'OPEN'}});await tx.pdvPeriod.delete({ where: { id: pdv.id } });
       const before = await tx.osnovnoSredstvo.count({ where: { firma_id: company.id } });
       failAudit = true;
       await redirected(() => actions.createFixedAsset(form()), /sredstvo_greska/);

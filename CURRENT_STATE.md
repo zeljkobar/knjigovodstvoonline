@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-10-03. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-10-07. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -1485,7 +1485,7 @@ je od samodeaktivacije i samostalne rotacije.
 - Završni račun: Bilans uspjeha, Bilans stanja, Statistički aneks, trajne ručne
   korekcije po AOP/koloni, predlog zaključnog naloga za klase 5/6 i arhiva
   snimljenih obrazaca postoje; XML izvoz BS/BU/SA je dodat, ostaje portal QA.
-- PDV zaključavanje perioda i finalni ručni QA XML-a na portalu nisu implementirani.
+- PDV zaključavanje/otključavanje implementirano 2026-10-07; finalni ručni QA XML-a na portalu ostaje otvoren.
 
 ## Zadnje provjere
 - Objedinjena serija 23–31.08.2026. prolazi `npx tsc --noEmit`, portal testove
@@ -1587,3 +1587,47 @@ je od samodeaktivacije i samostalne rotacije.
 - Migracija `20261003200000_agency_financial_templates` promoviše jedinu raniju prilagođenu šemu po tipu; kod više različitih šema prekida radi eksplicitnog usklađivanja. Lokalni A216 sa 5290 sačuvan. Arhivirani rezultati ostaju snapshotovi.
 - Serijalizovano čuvanje, parcijalni jedinstveni indeks i transakcioni audit; sve firme koriste zajedničku šemu. Brisanje firme čuva agencijske šeme i njihove pozicije.
 - DB rollback regresija: tri tipa, više firmi, izolacija, admin prava, stranice bez konteksta, ponovljeno čuvanje i audit. TypeScript i purge provjera prolaze.
+
+## Brisanje završene kalkulacije — 2026-10-04
+
+- Detalj kalkulacije nudi brisanje uz obavezan razlog i potvrdu. Nacrt i završena kalkulacija prolaze transakcioni tok; završena traži robno/delete, nalozi/delete i ulazni_racuni/delete.
+- Povezani zasebni CALCULATION nalog i izvorni KUF račun soft-delete, druge stavke KUF knjige ostaju. Negativni IN promet CALCULATION_REVERSAL poništava originalni ulaz i njegove vrijednosti; stanje/ponderisana cijena se usklađuju, cijene kreirane kalkulacijom povlače i vraća prethodna. Audit ostaje sa povezanim dokumentima.
+- Zabrane: zaključana godina/PDV, nepouzdana veza naloga/KUF-a, raspodjela plaćanja na izvodu, naknadni aktivni promet robe ili neispravno preostalo stanje. Zavisni dokumenti se prvo razrješavaju.
+- Serializable brisanje, zaključavanje godine/kalkulacije/naloga/KUF-a/stanja, ponovljeni klik bez duplog poništenja; finalizacija i KUF preuzimanje dijele zaključavanje godine. Bez nove šeme ili migracije.
+- DB rollback regresija obuhvata nacrt/WAITING_KUF/POSTED, VP/MP zalihe, nalog, KUF, cijene, druge račune, prava/scope/period/zavisnosti, ponavljanje i simuliranu grešku audita.
+
+## Regresioni testovi plata — 2026-10-04
+
+- Dodati testovi bruto/neto računanja sa fiksnim testnim stopama, poreskih pragova, pet rasporeda sati, minulog rada, koeficijenta, linearnih osnovica i IOPPD nulte osnovice. Pokreću se i kroz `npm test` i `npm run test:payroll`.
+- Izolovana DB regresija pokriva pripremu/računanje/knjiženje, dokumente, IOPPD XML, OPP-ND, M4 i virmane, prava i scope, zaključavanje, ponovljeno knjiženje i rollback pri grešci audita. Konkurentni test provjerava dva stvarna knjiženja i zatvaranje godine nakon čitanja konteksta. `npm run test:db` zahtijeva TEST_DATABASE_URL sa _test u nazivu baze.
+- Ispravljeno: nepodržana osnovica prekida obračun umjesto tihe nule; eksplicitna nulta poreska osnovica ostaje nula i u IOPPD-u; nevalidni datumi/periodi obračuna se odbijaju; audit računanja/knjiženja je u istoj transakciji; knjiženje zaključava i ponovo provjerava poslovnu godinu.
+- Ranije otkriven problem zbirnog poreza riješen 2026-10-06; raniji TODO sada prolazi (vidi nastavak).
+- Testne stope nijesu potvrda važećih propisa; prihvat XML-a na stvarnom poreskom portalu i ručni pregled svih štampi nijesu dio ovog izvršavanja.
+
+## Zbirni mjesečni porez na zaradu — 2026-10-06
+
+- Stavke radnika obrađuju se redosljedom u obračunu: svaka koristi zbirnu poresku osnovicu prethodnih stavki i ranijih aktivnih proknjiženih obračuna iste firme/radnika/mjeseca/godine. Porez i prirez su razlika ukupne obaveze i već obračunatih iznosa; zaokruživanje u centima.
+- Neto→bruto koristi istu kumulativnu osnovicu. Linearna primanja i neoporezive stavke ne troše pragove zarade. Podšifre 001.04/001.05 koriste progresivni obračun zarade; IOPPD prikazuje osnovnu šifru 001 sa izdvajanjem poreza na 097.
+- Snapshot stavke čuva oznaku progresivnog poreza i stanje prethodnih proknjiženih stavki. Ako se ono promijeni prije knjiženja, korisnik mora ponovo obračunati. Računanje i knjiženje zaključavaju poslovnu godinu; ne uključuju sopstveni obračun ni druge nacrte. Nema migracije.
+- Stari proknjiženi obračuni nijesu automatski mijenjani. Postojeće neproknjižene obračune bez novog snapshota program blokira do ponovnog obračuna.
+
+
+## PDV zaključavanje i kontrolisano otključavanje — 2026-10-07
+- Na PDV prijavi: zaključavanje poslije kontrola, admin-only otključavanje uz razlog/potvrdu i vraćanje proknjižene prijave u pripremu. Stari PDV nalog se atomarno soft-delete poništava, prijava vraća u nacrt, audit i istorija ostaju.
+- Nepromjenjive `pdv_verzije` imaju pregled i XML. Zaključavanje i izmjene izvora dijele DB lock godine; DB okidači pokrivaju KIF/KUF knjige, stavke, poreze, prijave i povezane/PDV naloge. Nulta prijava se zaključava bez praznog naloga.
+- Nije zaključavanje cijelog mjeseca: nepovezani nalozi i statusi plaćanja ostaju dozvoljeni. Predaja ostaje samo u Rokovima, sa upozorenjem poslije otključavanja već predatog perioda.
+- Tri ručne migracije `20261007120000`, `20261007123000`, `20261007124500`; purge usklađen za indirektnu tabelu verzija. Deploy zahtijeva migrate deploy i regeneraciju Prisma klijenta.
+- Testovi stvarne baze pokrivaju lifecycle, kontrole, razloge, scope/prava, godinu, audit rollback, zaključavanje naspram konkurentnog unosa, verzije, plaćanja, Rokove i purge. Ručni IRMS upload i štampa prijave ostaju odvojeni zadaci.
+
+
+## Dinamička šema izlazne fakture po PDV stopama — 2026-10-07
+- Robno/Podešavanja: korisnik dodaje/uklanja redove i bira namjenu, stopu iz agencijskog šifarnika, smjer i konto. Prihod i izlazni PDV podržavaju zasebne redove po stopama bez hardkodovanih procenata.
+- Posebna stopa ima prednost nad GENERAL pravilom (sve ostale stope), bez dupliranja. Knjiženje koristi sačuvanu osnovicu i PDV stavki za OFFICE i POS virman; postojeći nalozi se ne mijenjaju. Storno zadržava vezu sa izvornim knjiženjem.
+- Backend odbija duple kombinacije i tuđe stope/konta; čuvanje šeme i audit su atomarni. Migracija `20261007140000_invoice_rate_posting_rules` uklanja zaostali jedinstveni indeks firma+namjena; postojeći složeni indeks i Prisma model već podržavaju stopu. Nema novih tabela, purge ostaje isti.
+- Regresija: proizvoljna stopa, mješoviti prihodi/PDV, fallback, nedostajuća pravila, negativni iznosi; stvarno knjiženje i storno na testnoj bazi.
+
+### Dinamička šema kalkulacije po PDV stopama — 2026-10-07
+
+- Robno / Podešavanja: dodavanje i uklanjanje redova sa izborom stavke, stope iz šifarnika, smjera i konta. Sve stavke kalkulacije podržavaju stopu; GENERAL pokriva samo stope bez posebnog reda.
+- Knjiženje koristi sačuvane iznose stavki u centima, uključujući odvojeni ulazni i ukalkulisani PDV u maloprodaji. Nedostajuća konta i neuravnotežen nalog blokiraju knjiženje. Postojeći nalozi ostaju neizmijenjeni.
+- Unit regresije i stvarno maloprodajno knjiženje u izolovanoj DB transakciji pokrivaju raspodjelu stopa, GENERAL fallback, duplikate i ravnotežu. Koristi postojeću migraciju `20261007140000_invoice_rate_posting_rules`; nema nove promjene šeme.

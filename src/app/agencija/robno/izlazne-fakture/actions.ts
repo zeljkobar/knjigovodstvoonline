@@ -14,7 +14,7 @@ import {
 } from "@/lib/journals";
 import {
   outgoingInvoiceFiscalModes,
-  outgoingInvoicePostingFields,
+  buildOutgoingInvoicePostingLines,
   outgoingInvoicePostingScope,
   outgoingInvoiceStatuses
 } from "@/lib/outgoing-invoice";
@@ -245,8 +245,7 @@ export async function finalizeOutgoingInvoice(formData: FormData) {
         where: {
           firma_id: firmaId,
           dokument_tip: outgoingInvoicePostingScope.documentType,
-          podvrsta: outgoingInvoicePostingScope.subtype,
-          pdv_stopa_sifra: outgoingInvoicePostingScope.vatRate
+          podvrsta: outgoingInvoicePostingScope.subtype
         }
       }),
       tx.vrstaNaloga.findFirst({
@@ -368,34 +367,9 @@ export async function finalizeOutgoingInvoice(formData: FormData) {
       });
     }
 
-    const amounts = new Map<string, bigint>([
-      ["INVOICE_CUSTOMER", decimalToScaled(invoice.ukupno_sa_pdv, 2)],
-      ["INVOICE_REVENUE", decimalToScaled(invoice.ukupno_osnovica, 2)],
-      ["INVOICE_OUTPUT_VAT", decimalToScaled(invoice.ukupno_izlazni_pdv, 2)],
-      ["INVOICE_COGS", cogs],
-      ["INVOICE_INVENTORY", cogs]
-    ]);
-    const settingMap = new Map(
-      settings.map((setting) => [setting.namjena, setting])
-    );
-    const postingLines: Array<{
-      amount: bigint;
-      direction: "D" | "P";
-      code: string;
-    }> = [];
-    for (const field of outgoingInvoicePostingFields) {
-      const amount = amounts.get(field.purpose) ?? BigInt(0);
-      if (!amount) continue;
-      const setting = settingMap.get(field.purpose);
-      if (!setting?.sifra_konta) {
-        return { ok: false as const, reason: "podesavanja" };
-      }
-      postingLines.push({
-        amount,
-        direction: setting.smjer === "P" ? "P" : "D",
-        code: setting.sifra_konta
-      });
-    }
+    const postingLines = buildOutgoingInvoicePostingLines({settings, lines: invoice.stavke,
+      gross: decimalToScaled(invoice.ukupno_sa_pdv, 2), cogs});
+    if (!postingLines) return { ok: false as const, reason: "podesavanja" };
     const debit = postingLines
       .filter((line) => line.direction === "D")
       .reduce((sum, line) => sum + line.amount, BigInt(0));

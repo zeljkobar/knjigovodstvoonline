@@ -18,7 +18,7 @@ export default async function PdvArhivaPage() {
       }
     },
     include: {
-      pdv_period: true,
+      pdv_period: {include:{verzije:{orderBy:{broj:"desc"}}}},
       journal: {
         select: {
           id: true,
@@ -85,6 +85,7 @@ export default async function PdvArhivaPage() {
                       <Link className="secondary-button" href={`/agencija/pdv/prijava?mjesec=${prijava.pdv_period.mjesec}`}>
                         Otvori
                       </Link>
+                      {prijava.pdv_period.verzije.map(v=><div key={v.id}><Link href={`/agencija/pdv/arhiva/${v.id}`}>Verzija {v.broj}</Link></div>)}
                     </td>
                   </tr>
                 );

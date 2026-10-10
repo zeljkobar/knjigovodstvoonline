@@ -64,6 +64,8 @@ export async function purgeCompanyData(
     throw new CompanyPurgeError("COMPANY_NAME_MISMATCH");
   }
 
+  // Scoped bypass only for the explicitly authorised permanent company purge.
+  await tx.$queryRaw(Prisma.sql`SELECT set_config('app.purge_company', ${firmaId}, true)`);
   const obrisano: Record<string, number> = {};
   const izvrsi = async (tabela: string, query: Prisma.Sql) => {
     obrisano[tabela] = await tx.$executeRaw(query);
@@ -86,6 +88,8 @@ export async function purgeCompanyData(
     Prisma.sql`DELETE FROM bank_statement_line_allocations WHERE firma_id = ${firmaId}::uuid`
   );
 
+  // pdv_verzije belongs indirectly to the company through pdv_periodi; remove before periods.
+  await izvrsi("pdv_verzije", Prisma.sql`DELETE FROM pdv_verzije WHERE pdv_period_id IN (SELECT id FROM pdv_periodi WHERE firma_id=${firmaId}::uuid)`);
   // PDV prijave i podešavanja imaju sopstvene podređene stavke sa CASCADE vezom.
   await izvrsi(
     "pdv_prijave",

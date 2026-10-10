@@ -1,4 +1,4 @@
-import { postPdvReturn, refreshPdvReturn, savePdvReturn } from "../actions";
+import { lockPdvPeriod, reopenPdvPeriod, postPdvReturn, refreshPdvReturn, savePdvReturn } from "../actions";
 import { PdvMonthForm, PdvReturnActions, PdvStatusPill } from "../_components";
 import { PdvReturnForm } from "@/components/PdvReturnForm";
 import { money, pdvMonths } from "@/lib/pdv";
@@ -6,6 +6,7 @@ import { findOrCreatePdvPeriod, normalizePdvMonth, requirePdvContext } from "@/l
 import { prisma } from "@/lib/prisma";
 
 const poruke: Record<string, string> = {
+  godina_zakljucana: "Poslovna godina je zaključana.",
   period_zakljucan: "PDV period je zaključan.",
   prijava_osvjezena: "PDV prijava je osvježena iz KIF/KUF.",
   prijava_sacuvana: "PDV prijava je sačuvana.",
@@ -22,6 +23,7 @@ type PageProps = {
   searchParams?: Promise<{
     mjesec?: string;
     poruka?: string;
+    info?: string;
   }>;
 };
 
@@ -59,7 +61,9 @@ export default async function PdvPrijavaPage({ searchParams }: PageProps) {
   const activeJournal = prijava?.journal && !prijava.journal.is_deleted ? prijava.journal : null;
   const status =
     prijava?.status === "POSTED" && !activeJournal ? period.status : prijava?.status ?? period.status;
-  const canPost = Boolean(prijava && !activeJournal && prijava.status !== "LOCKED");
+  const frozen = period.status === "LOCKED" || context.poslovnaGodina.zakljucena;
+  const canPost = Boolean(prijava && !activeJournal && !frozen);
+  const versions = await prisma.pdvVerzija.findMany({where:{pdv_period_id:period.id},orderBy:{broj:"desc"}});
 
   return (
     <div className="admin-stack">
@@ -71,6 +75,7 @@ export default async function PdvPrijavaPage({ searchParams }: PageProps) {
         <PdvStatusPill status={status} />
       </header>
 
+      {params?.info ? <p className="admin-message" role="status">{params.info}</p> : null}
       {params?.poruka && poruke[params.poruka] ? (
         <p className="admin-message">{poruke[params.poruka]}</p>
       ) : null}
@@ -80,11 +85,35 @@ export default async function PdvPrijavaPage({ searchParams }: PageProps) {
           <PdvMonthForm action="/agencija/pdv/prijava" month={month} />
           <form action={refreshPdvReturn}>
             <input name="mjesec" type="hidden" value={month} />
-            <button className="secondary-button" type="submit">
+            <button className="secondary-button" type="submit" disabled={frozen || Boolean(activeJournal)}>
               Osvježi iz KIF/KUF
             </button>
           </form>
         </div>
+      </section>
+
+      <section className="admin-panel">
+        <h3>PDV period — <PdvStatusPill status={period.status} /></h3>
+        <p>Zaključavanje štiti PDV evidenciju. Predaju prijave evidentirajte u <a href="/agencija/rokovi">Rokovima</a>.</p>
+        {period.reopen_reason ? <p>Posljednje otključavanje: {period.reopen_reason}</p> : null}
+        {!context.poslovnaGodina.zakljucena && prijava ? (period.status === "LOCKED" || activeJournal) ? context.user.rola === "admin_agencije" ?
+          <form action={reopenPdvPeriod} className="admin-form">
+            <input type="hidden" name="mjesec" value={month} /><input type="hidden" name="prijava_id" value={prijava.id} />
+            <label>Razlog otključavanja<textarea name="razlog" required minLength={5} maxLength={1000} /></label>
+            <label><input type="checkbox" name="potvrda" value="DA" required /> Potvrđujem otključavanje i uklanjanje starog PDV naloga iz aktivnih knjiženja. Prethodna verzija ostaje sačuvana.</label>
+            <button className="danger-button">{period.status === "LOCKED" ? "Otključaj PDV period" : "Vrati prijavu u pripremu"}</button>
+          </form> : <p>Period može otključati samo administrator agencije.</p> :
+          <form action={lockPdvPeriod} className="admin-form">
+            <input type="hidden" name="mjesec" value={month} /><input type="hidden" name="prijava_id" value={prijava.id} />
+            <label><input type="checkbox" name="potvrda" value="DA" required /> Potvrđujem završetak kontrole PDV perioda.</label>
+            <button>Zaključaj PDV period</button>
+          </form> : null}
+        {!frozen && activeJournal && prijava ? <form action={lockPdvPeriod} className="admin-form">
+          <input type="hidden" name="mjesec" value={month} /><input type="hidden" name="prijava_id" value={prijava.id} />
+          <label><input type="checkbox" name="potvrda" value="DA" required /> Potvrđujem završetak kontrole PDV perioda.</label>
+          <button>Zaključaj PDV period</button>
+        </form> : null}
+        {versions.length ? <><h4>Sačuvane verzije</h4><ul>{versions.map(v=><li key={v.id}><a href={`/agencija/pdv/arhiva/${v.id}`}>Verzija {v.broj}</a> · {v.created_at.toLocaleString("sr-Latn")} · {v.korisnik_ime}</li>)}</ul></> : null}
       </section>
 
       {!prijava ? (
@@ -137,11 +166,12 @@ export default async function PdvPrijavaPage({ searchParams }: PageProps) {
                   <h3>Obrazac PDV prijave</h3>
                   <p>Polja se mogu dopuniti ručno; zbirna polja i PDV po stopama se preračunavaju automatski.</p>
                 </div>
-                <PdvReturnActions month={month} prijavaId={prijava.id} canPost={canPost} />
+                <PdvReturnActions month={month} prijavaId={prijava.id} canPost={canPost} canSave={!frozen && !activeJournal} />
               </div>
 
+              {!frozen && !activeJournal ? <label>Razlog ručne korekcije<input name="razlog" minLength={5} maxLength={1000} placeholder="Obavezno ako mijenjate obračunate iznose" /></label> : null}
               <PdvReturnForm
-                locked={Boolean(activeJournal)}
+                locked={frozen || Boolean(activeJournal)}
                 month={month}
                 prijavaId={prijava.id}
                 rows={prijava.stavke.map((row) => ({

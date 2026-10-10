@@ -3507,6 +3507,8 @@ export async function importCalculationsToKuf(formData: FormData) {
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM poslovne_godine WHERE id=${poslovnaGodina.id}::uuid FOR UPDATE`;
+    if ((await tx.poslovnaGodina.findUnique({ where: { id: poslovnaGodina.id } }))?.zakljucena) return { ok: false as const, reason: "godina_zakljucena" };
     const calculations = await tx.kalkulacija.findMany({
       where: {
         id: {

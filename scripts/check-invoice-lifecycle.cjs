@@ -27,6 +27,10 @@ async function response(fn,data){try{await fn(form(data));throw new Error('Missi
    accounts[code]=await tx.firmaKonto.create({data:{firma_id:firm.id,sifra:code,naziv:code,tip_konta:'analiticko',analitika_obavezna:code==='2010'}});
    await tx.firmaPodrazumijevanoKonto.create({data:{firma_id:firm.id,dokument_tip:'OUTGOING_INVOICE',podvrsta:'GENERAL',pdv_stopa_sifra:'GENERAL',namjena:'INVOICE_'+purpose,sifra_konta:code,smjer:direction}});
   }
+  for(const [purpose,code] of [['REVENUE','6010'],['OUTPUT_VAT','2601']]){
+   accounts[code]=await tx.firmaKonto.create({data:{firma_id:firm.id,sifra:code,naziv:code,tip_konta:'analiticko'}});
+   await tx.firmaPodrazumijevanoKonto.create({data:{firma_id:firm.id,dokument_tip:'OUTGOING_INVOICE',podvrsta:'GENERAL',pdv_stopa_sifra:'R21',namjena:'INVOICE_'+purpose,sifra_konta:code,smjer:'P'}});
+  }
   const remoteCompany=randomUUID(),unitId=randomUUID(),remotes=new Map();let submits=0,creates=0;
   await tx.fiscalCompanyLink.create({data:{agencija_id:agency.id,firma_id:firm.id,fiscal_api_company_id:remoteCompany,fiscal_environment:'Test'}});
   const api={
@@ -65,6 +69,10 @@ async function response(fn,data){try{await fn(form(data));throw new Error('Missi
   const finalReply=await response(actions.finalizeOutgoingInvoice,{faktura_id:draft.invoiceId,firma_id:firm.id});
   assert.match(finalReply,/zavrsena/,finalReply);
   const original=await tx.fiskalniIzlazniRacun.findUniqueOrThrow({where:{id:draft.invoiceId}});assert.ok(original.nalog_id);
+  const postedLines=await tx.stavkaNaloga.findMany({where:{nalog_id:original.nalog_id}});
+  assert.equal(postedLines.find(r=>r.konto_id===accounts['2601'].id).potrazuje.toString(),'21');
+  assert.equal(postedLines.find(r=>r.konto_id===accounts['6010'].id).potrazuje.toString(),'100');
+  assert.ok(!postedLines.some(r=>r.konto_id===accounts['2600'].id||r.konto_id===accounts['6000'].id));
   const stock=()=>tx.stanjeZaliha.findFirstOrThrow({where:{firma_id:firm.id,artikal_id:item.id}});
   assert.equal((await stock()).kolicina.toString(),'8');
   assert.match(await response(journals.postJournal,{nalog_id:original.nalog_id}),/nalog_proknjizen/);

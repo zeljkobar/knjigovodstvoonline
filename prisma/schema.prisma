@@ -815,6 +815,7 @@ model FirmaPodrazumijevanoKonto {
   updated_at      DateTime @updatedAt
   updated_by      String?  @db.Uuid
 
+  // Multiple revenue/VAT rules are distinguished by the selected VAT rate.
   @@unique([firma_id, namjena, dokument_tip, podvrsta, pdv_stopa_sifra])
   @@map("firma_podrazumijevana_konta")
 }
@@ -2701,10 +2702,27 @@ model PdvPeriod {
   updated_at         DateTime       @updatedAt
   updated_by         String?        @db.Uuid
   prijave            PdvPrijava[]
+  verzije            PdvVerzija[]
+  reopened_at        DateTime?
+  reopened_by        String? @db.Uuid
+  reopen_reason      String?
 
   @@unique([firma_id, poslovna_godina_id, mjesec])
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@map("pdv_periodi")
+}
+
+model PdvVerzija {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pdv_period_id String @db.Uuid
+  pdv_period PdvPeriod @relation(fields: [pdv_period_id], references: [id], onDelete: Cascade)
+  broj Int
+  snapshot Json
+  created_at DateTime @default(now())
+  created_by String @db.Uuid
+  korisnik_ime String
+  @@unique([pdv_period_id, broj])
+  @@map("pdv_verzije")
 }
 
 model PdvPrijava {
@@ -2718,6 +2736,7 @@ model PdvPrijava {
   pdv_period_id      String             @db.Uuid
   pdv_period         PdvPeriod          @relation(fields: [pdv_period_id], references: [id])
   status             String             @default("DRAFT")
+  izvor_hash         String?
   total_output_vat   Decimal            @default(0) @db.Decimal(14, 2)
   total_input_vat    Decimal            @default(0) @db.Decimal(14, 2)
   deductible_vat     Decimal            @default(0) @db.Decimal(14, 2)

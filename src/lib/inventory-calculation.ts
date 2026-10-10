@@ -240,3 +240,41 @@ export function calculationStatusLabel(status: string) {
     }[status] ?? status
   );
 }
+
+/** Select a per-rate rule first; GENERAL covers only the remaining rates. */
+export function buildCalculationPostingLines(input: {
+  settings: Array<{namjena:string;pdv_stopa_sifra:string;sifra_konta:string;smjer:string}>;
+  retail: boolean;
+  vatPayer: boolean;
+  lines: Array<{
+    rateCode:string;
+    neto_fakturna_vrijednost:{toString():string}; ulazni_pdv_iznos:{toString():string};
+    prodajna_vrijednost_sa_pdv:{toString():string}; nabavna_vrijednost:{toString():string};
+    razlika_u_cijeni:{toString():string}; ukalkulisani_pdv_iznos:{toString():string}; zavisni_trosak:{toString():string};
+  }>;
+}) {
+  const sums = new Map<(typeof input.settings)[number],bigint>();
+  for(const line of input.lines) {
+    const vat=decimalToScaled(line.ulazni_pdv_iznos,2);
+    const amounts: Record<string,bigint> = {
+      CALCULATION_GOODS:decimalToScaled(input.retail?line.prodajna_vrijednost_sa_pdv:line.nabavna_vrijednost,2),
+      CALCULATION_INPUT_VAT:input.vatPayer?vat:BigInt(0),
+      CALCULATION_SUPPLIER:decimalToScaled(line.neto_fakturna_vrijednost,2)+vat,
+      CALCULATION_PRICE_DIFFERENCE:input.retail?decimalToScaled(line.razlika_u_cijeni,2):BigInt(0),
+      CALCULATION_INCLUDED_VAT:input.retail?decimalToScaled(line.ukalkulisani_pdv_iznos,2):BigInt(0),
+      CALCULATION_DEPENDENT_COSTS:decimalToScaled(line.zavisni_trosak,2)
+    };
+    for(const [purpose,amount] of Object.entries(amounts)) {
+      if(!amount)continue;
+      const rule=input.settings.find(r=>r.namjena===purpose && r.pdv_stopa_sifra===line.rateCode)
+        ?? input.settings.find(r=>r.namjena===purpose && r.pdv_stopa_sifra==="GENERAL");
+      if(!rule?.sifra_konta || !["D","P"].includes(rule.smjer))return null;
+      sums.set(rule,(sums.get(rule)??BigInt(0))+amount);
+    }
+  }
+  return [...sums].filter(([,amount])=>amount!==BigInt(0)).map(([rule,amount])=>({
+    accountCode:rule.sifra_konta,
+    amount:amount<BigInt(0)?-amount:amount,
+    direction:(amount<BigInt(0)?(rule.smjer==="D"?"P":"D"):rule.smjer) as "D"|"P"
+  }));
+}

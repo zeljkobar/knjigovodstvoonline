@@ -53,7 +53,7 @@ export default async function DeadlinesPage({searchParams}:{searchParams?:Promis
     return <tr key={`${t.company.id}-${t.kind}-${t.year}-${t.month}`}>
      <td><strong>{t.company.naziv}</strong><small>{t.period}</small></td>
      <td>{t.due.toLocaleDateString("sr-Latn",{timeZone:"UTC"})}<small><span className={t.state==="Kasni"?styles.late:t.saved?.zavrseno_at?styles.done:styles.pending}>{t.saved?.zavrseno_at?"Predato":t.state}</span></small></td>
-     <td>{main.length?main.map(k=>k.korisnik.korisnicko_ime).join(", "):"Bez glavnog radnika"}<small>{t.evidence}</small></td>
+     <td>{main.length?main.map(k=>k.korisnik.korisnicko_ime).join(", "):"Bez glavnog radnika"}<small>{t.evidence}</small>{t.reopenWarning?<p className={styles.warning}>PDV period je ponovo otvoren nakon predaje — provjerite potrebu za izmijenjenom prijavom.</p>:null}</td>
      {kind==="ZAVRSNI"?<td><details className={styles.checklist}><summary>Provjere · {t.saved?.kontrola.length??0}/{Object.keys(annualChecklist).length}</summary><form action={updateDeadline}>{fields}<input type="hidden" name="napomena" value={t.saved?.napomena??""}/>{Object.entries(annualChecklist).map(([key,label])=><label key={key}><input type="checkbox" name="kontrola" value={key} defaultChecked={t.saved?.kontrola.includes(key)??false}/><span>{label}</span></label>)}<button className="table-button" name="akcija" value="kontrola">Sačuvaj provjere</button></form></details></td>:null}
      <td><form action={updateDeadline} className={styles.taskForm}>{fields}
       {t.saved?.zavrseno_at?<small>Potvrdio/la {t.saved.zavrseno_ime??"korisnik"}<br/>{t.saved.zavrseno_at.toLocaleString("sr-Latn",{timeZone:"Europe/Podgorica"})}</small>:null}

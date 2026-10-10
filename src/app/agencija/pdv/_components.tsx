@@ -54,11 +54,13 @@ export function PdvEmptyContext() {
 export function PdvReturnActions({
   month,
   prijavaId,
-  canPost
+  canPost,
+  canSave = true
 }: {
   month: number;
   prijavaId?: string;
   canPost: boolean;
+  canSave?: boolean;
 }) {
   return (
     <div className="button-row">
@@ -67,7 +69,7 @@ export function PdvReturnActions({
           XML izvoz
         </Link>
       ) : null}
-      <button className="primary-button" form="pdv-return-form" type="submit">
+      <button className="primary-button" form="pdv-return-form" type="submit" disabled={!canSave}>
         Sačuvaj nacrt
       </button>
       <button

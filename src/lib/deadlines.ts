@@ -13,7 +13,7 @@ export async function loadDeadlines(user:DeadlineUser,year:number,includeEarlier
  const rights=user.rola==="admin_agencije"?[]:await prisma.korisnikPravo.findMany({where:{agencija_id:user.agencija_id,korisnik_id:user.id,firma_id:{in:companies.map(c=>c.id)},akcija:"view",dozvoljeno:true},select:{firma_id:true,modul:true}});
  const allowed=(moduleName:string)=>companies.filter(c=>user.rola==="admin_agencije"||rights.some(r=>r.firma_id===c.id&&r.modul===moduleName)).map(c=>c.id);
  const [vat,payroll,reports]=await Promise.all([
-  prisma.pdvPrijava.findMany({where:{agencija_id:user.agencija_id,firma_id:{in:allowed("pdv")},poslovna_godina:{godina:{gte:includeEarlier?1999:year-1,lte:year}}},select:{firma_id:true,pdv_period:{select:{mjesec:true}},poslovna_godina:{select:{godina:true}}}}),
+  prisma.pdvPrijava.findMany({where:{agencija_id:user.agencija_id,firma_id:{in:allowed("pdv")},poslovna_godina:{godina:{gte:includeEarlier?1999:year-1,lte:year}}},select:{firma_id:true,pdv_period:{select:{mjesec:true,reopened_at:true}},poslovna_godina:{select:{godina:true}}}}),
   prisma.plateObracun.findMany({where:{agencija_id:user.agencija_id,firma_id:{in:allowed("plate")},godina:{gte:includeEarlier?1999:year-1,lte:year},kategorija:"REDOVAN_RAD",is_deleted:false,status:{in:["CALCULATED","REVIEWED","POSTED","LOCKED"]}},select:{firma_id:true,godina:true,mjesec:true}}),
   prisma.finansijskiIzvjestajArhiva.findMany({where:{agencija_id:user.agencija_id,firma_id:{in:allowed("zavrsni_racun")},poslovna_godina:{godina:{gte:includeEarlier?1999:year-1,lte:year-1}}},select:{firma_id:true,poslovna_godina:{select:{godina:true}}}})
  ]);
@@ -32,7 +32,9 @@ export async function loadDeadlines(user:DeadlineUser,year:number,includeEarlier
    const periodYear=month===1?year-1:year,periodMonth=month===1?12:month-1;
    const moduleName=kind==="PDV"?"pdv":kind==="PLATE"?"plate":"zavrsni_racun";
    const evidence=!allowed(moduleName).includes(company.id)?"Bez prava pregleda obračuna":kind==="PDV"?(vat.some(v=>v.firma_id===company.id&&v.pdv_period.mjesec===periodMonth&&v.poslovna_godina.godina===periodYear)?"Postoji PDV prijava":"Nema sačuvane PDV prijave"):kind==="PLATE"?(payroll.some(p=>p.firma_id===company.id&&p.godina===periodYear&&p.mjesec===periodMonth)?"Postoji obračun plata":"Nema obračuna plata"):(reports.some(r=>r.firma_id===company.id&&r.poslovna_godina.godina===year-1)?"Postoji arhiviran izvještaj":"Nema arhiviranog izvještaja");
-   return [{company,kind,year,month,due,evidence,period:deadlinePeriod(kind,year,month),saved,state:deadlineState(due,Boolean(saved?.zavrseno_at))}];
+   const reopened = kind === "PDV" ? vat.find(v=>v.firma_id===company.id&&v.pdv_period.mjesec===periodMonth&&v.poslovna_godina.godina===periodYear)?.pdv_period.reopened_at : null;
+   const reopenWarning = Boolean(saved?.zavrseno_at && reopened && reopened > saved.zavrseno_at);
+   return [{company,kind,year,month,due,evidence,reopenWarning,period:deadlinePeriod(kind,year,month),saved,state:deadlineState(due,Boolean(saved?.zavrseno_at))}];
   }));
   });
  });

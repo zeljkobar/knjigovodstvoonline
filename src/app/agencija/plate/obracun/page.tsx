@@ -55,6 +55,8 @@ const messages: Record<string, string> = {
   obracun_obavezan: "Izaberite obračun.",
   obracun_zakljucan: "Zaključan ili proknjižen obračun nije moguće mijenjati.",
   obracun_obrisan: "Obračun je obrisan.",
+  obracun_porez_promijenjen: "Potrebno je osvježiti mjesečni obračun poreza. Kliknite Obračunaj, pa ponovite knjiženje.",
+  osnovica_nepodrzana: "Izabrana osnova zahtijeva nepodržan način računanja. Obračun nije sačuvan; provjerite pravila osnove.",
   kontrole_greske: "Obračun nije moguće obraditi dok postoje blokirajuće kontrole.",
   radnici_prazno: "Nema aktivnih zaposlenih za obračun.",
   radnik_dodat_u_obracun: "Radnik je dodat u obračun. Obračun je vraćen u nacrt.",

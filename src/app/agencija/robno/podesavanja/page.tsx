@@ -1,12 +1,12 @@
+import { InvoicePostingForm } from "./InvoicePostingForm";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireRole } from "@/lib/auth";
 import {
-  calculationPostingFields,
   calculationPostingScope
 } from "@/lib/inventory-calculation";
 import { prisma } from "@/lib/prisma";
 import { inventoryCountPostingFields, inventoryCountPostingScope } from "@/lib/inventory-count";
-import { outgoingInvoicePostingFields, outgoingInvoicePostingScope } from "@/lib/outgoing-invoice";
+import { outgoingInvoicePostingScope } from "@/lib/outgoing-invoice";
 import { inventoryTransferPostingFields, inventoryTransferPostingScope } from "@/lib/inventory-transfer";
 import { inventoryWriteOffPostingFields, inventoryWriteOffPostingScope } from "@/lib/inventory-write-off";
 import { inventoryPriceAdjustmentPostingFields, inventoryPriceAdjustmentPostingScope } from "@/lib/inventory-price-adjustment";
@@ -15,7 +15,7 @@ import {
   InventoryAccessDenied,
   MissingInventoryContext
 } from "../_shared";
-import { saveCalculationPostingSettings, saveInventoryCountPostingSettings, saveInventoryPriceAdjustmentPostingSettings, saveInventoryTransferPostingSettings, saveInventoryWriteOffPostingSettings, saveOutgoingInvoicePostingSettings } from "./actions";
+import { saveInventoryCountPostingSettings, saveInventoryPriceAdjustmentPostingSettings, saveInventoryTransferPostingSettings, saveInventoryWriteOffPostingSettings } from "./actions";
 
 type PageProps = {
   searchParams: Promise<{ poruka?: string }>;
@@ -41,7 +41,7 @@ export default async function InventorySettingsPage({ searchParams }: PageProps)
   if (!context.firma) return <MissingInventoryContext title="Podešavanja robnog" />;
   if (!context.allowed) return <InventoryAccessDenied title="Podešavanja robnog" />;
 
-  const [baseAccounts, companyAccounts, settings, invoiceSettings, transferSettings, countSettings, writeOffSettings, adjustmentSettings] = await Promise.all([
+  const [baseAccounts, companyAccounts, settings, invoiceSettings, transferSettings, countSettings, writeOffSettings, adjustmentSettings, invoiceVatRates] = await Promise.all([
     prisma.konto.findMany({ where: { aktivan: true }, orderBy: { sifra: "asc" } }),
     prisma.firmaKonto.findMany({
       where: { firma_id: context.firma.id },
@@ -51,21 +51,20 @@ export default async function InventorySettingsPage({ searchParams }: PageProps)
       where: {
         firma_id: context.firma.id,
         dokument_tip: calculationPostingScope.documentType,
-        podvrsta: calculationPostingScope.subtype,
-        pdv_stopa_sifra: calculationPostingScope.vatRate
+        podvrsta: calculationPostingScope.subtype
       }
     }),
-    prisma.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: context.firma.id, dokument_tip: outgoingInvoicePostingScope.documentType, podvrsta: outgoingInvoicePostingScope.subtype, pdv_stopa_sifra: outgoingInvoicePostingScope.vatRate } }),
+    prisma.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: context.firma.id, dokument_tip: outgoingInvoicePostingScope.documentType, podvrsta: outgoingInvoicePostingScope.subtype } }),
     prisma.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: context.firma.id, dokument_tip: inventoryTransferPostingScope.documentType, podvrsta: inventoryTransferPostingScope.subtype, pdv_stopa_sifra: inventoryTransferPostingScope.vatRate } }),
     prisma.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: context.firma.id, dokument_tip: inventoryCountPostingScope.documentType, podvrsta: inventoryCountPostingScope.subtype, pdv_stopa_sifra: inventoryCountPostingScope.vatRate } }),
     prisma.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: context.firma.id, dokument_tip: inventoryWriteOffPostingScope.documentType, podvrsta: inventoryWriteOffPostingScope.subtype, pdv_stopa_sifra: inventoryWriteOffPostingScope.vatRate } }),
     prisma.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: context.firma.id, dokument_tip: inventoryPriceAdjustmentPostingScope.documentType, podvrsta: inventoryPriceAdjustmentPostingScope.subtype, pdv_stopa_sifra: inventoryPriceAdjustmentPostingScope.vatRate } })
+,
+    prisma.pdvStopa.findMany({where:{agencija_id:context.user.agencija_id!},orderBy:{procenat:"desc"},select:{sifra:true,naziv:true}})
   ]);
   const accounts = mergeCompanyAccountPlan(baseAccounts, companyAccounts).filter(
     (account) => account.aktivan && account.tip_konta === "analiticko"
   );
-  const settingMap = new Map(settings.map((setting) => [setting.namjena, setting]));
-  const invoiceSettingMap = new Map(invoiceSettings.map((setting) => [setting.namjena, setting]));
   const transferSettingMap = new Map(transferSettings.map((setting) => [setting.namjena, setting]));
   const countSettingMap = new Map(countSettings.map((setting) => [setting.namjena, setting]));
   const writeOffSettingMap = new Map(writeOffSettings.map((setting) => [setting.namjena, setting]));
@@ -94,63 +93,8 @@ export default async function InventorySettingsPage({ searchParams }: PageProps)
           </div>
           <span>{context.firma.naziv}</span>
         </div>
-        <form action={saveCalculationPostingSettings} className="admin-form">
-          <input type="hidden" name="firma_id" value={context.firma.id} />
-          <div className="form-wide table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Stavka knjiženja</th>
-                  <th>Smjer</th>
-                  <th>Konto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {calculationPostingFields.map((field) => {
-                  const current = settingMap.get(field.purpose);
-                  return (
-                    <tr key={field.purpose}>
-                      <td>
-                        <strong>{field.label}</strong>
-                        <small className="table-secondary">{field.description}</small>
-                      </td>
-                      <td>
-                        <select
-                          name={`smjer_${field.purpose}`}
-                          defaultValue={current?.smjer ?? field.defaultDirection}
-                        >
-                          <option value="D">Duguje</option>
-                          <option value="P">Potražuje</option>
-                        </select>
-                      </td>
-                      <td>
-                        <select
-                          name={`konto_${field.purpose}`}
-                          defaultValue={current?.sifra_konta ?? ""}
-                        >
-                          <option value="">Nije podešeno</option>
-                          {accounts.map((account) => (
-                            <option key={account.sifra} value={account.sifra}>
-                              {account.sifra} · {account.naziv}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p className="admin-hint form-wide">
-            Za veleprodaju se koriste roba, ulazni PDV, dobavljač i zavisni troškovi.
-            Maloprodaja dodatno koristi razliku u cijeni i ukalkulisani PDV. Konto je obavezno
-            samo kada pripadajući iznos postoji.
-          </p>
-          <div className="form-actions form-wide">
-            <button className="primary-button" type="submit">Sačuvaj podešavanja</button>
-          </div>
-        </form>
+        <InvoicePostingForm key={`calculation-${context.firma.id}`} kind="calculation" firmaId={context.firma.id} settings={settings.map(({namjena,pdv_stopa_sifra,sifra_konta,smjer})=>({namjena,pdv_stopa_sifra,sifra_konta,smjer}))} accounts={accounts.map(({sifra,naziv})=>({sifra,naziv}))} rates={invoiceVatRates}/>
+        <p className="admin-hint">U maloprodaji se dodatno knjiže razlika u cijeni i ukalkulisani PDV. Iznosi se raspoređuju po PDV stopi stavke kalkulacije.</p>
       </section>
       <section className="admin-panel">
         <div className="panel-header"><div><h3>Šema knjiženja popisa robe</h3><p className="muted-text">Višak zadužuje zalihe i odobrava prihod, a manjak zadužuje trošak i odobrava zalihe.</p></div><span>{context.firma.naziv}</span></div>
@@ -170,7 +114,8 @@ export default async function InventorySettingsPage({ searchParams }: PageProps)
       </section>
       <section className="admin-panel">
         <div className="panel-header"><div><h3>Šema knjiženja izlazne fakture</h3><p className="muted-text">Jedan nalog obuhvata kupca, prihod, izlazni PDV i razduženje robe.</p></div><span>{context.firma.naziv}</span></div>
-        <form action={saveOutgoingInvoicePostingSettings} className="admin-form"><input type="hidden" name="firma_id" value={context.firma.id} /><div className="form-wide table-wrap"><table className="admin-table"><thead><tr><th>Stavka knjiženja</th><th>Smjer</th><th>Konto</th></tr></thead><tbody>{outgoingInvoicePostingFields.map((field) => { const current = invoiceSettingMap.get(field.purpose); return <tr key={field.purpose}><td><strong>{field.label}</strong><small className="table-secondary">{field.description}</small></td><td><select name={`smjer_${field.purpose}`} defaultValue={current?.smjer ?? field.defaultDirection}><option value="D">Duguje</option><option value="P">Potražuje</option></select></td><td><select name={`konto_${field.purpose}`} defaultValue={current?.sifra_konta ?? ""}><option value="">Nije podešeno</option>{accounts.map((account) => <option key={account.sifra} value={account.sifra}>{account.sifra} · {account.naziv}</option>)}</select></td></tr>; })}</tbody></table></div><div className="form-actions form-wide"><button className="primary-button" type="submit">Sačuvaj šemu fakture</button></div></form>
+        <InvoicePostingForm key={`invoice-${context.firma.id}`} firmaId={context.firma.id} settings={invoiceSettings.map(({namjena,pdv_stopa_sifra,sifra_konta,smjer})=>({namjena,pdv_stopa_sifra,sifra_konta,smjer}))} accounts={accounts.map(({sifra,naziv})=>({sifra,naziv}))} rates={invoiceVatRates}/>
+
       </section>
     </div>
   );

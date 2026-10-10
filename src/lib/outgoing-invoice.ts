@@ -1,4 +1,4 @@
-import { parseScaledInteger, roundDivision, scaledToDecimal } from "@/lib/inventory-calculation";
+import { decimalToScaled, parseScaledInteger, roundDivision, scaledToDecimal } from "@/lib/inventory-calculation";
 
 export const outgoingInvoiceStatuses = { draft: "DRAFT", waitingKif: "WAITING_KIF", posted: "POSTED", cancelled: "CANCELLED" } as const;
 export const outgoingInvoiceFiscalModes = { summa: "SUMMA", externalOrNone: "EXTERNAL_OR_NONE" } as const;
@@ -6,10 +6,36 @@ export const outgoingInvoicePostingScope = { documentType: "OUTGOING_INVOICE", s
 export const outgoingInvoicePostingFields = [
   { purpose: "INVOICE_CUSTOMER", label: "Kupac", defaultDirection: "D", description: "Ukupan iznos potraživanja od kupca." },
   { purpose: "INVOICE_REVENUE", label: "Prihod", defaultDirection: "P", description: "Ukupna poreska osnovica/prihod fakture." },
-  { purpose: "INVOICE_OUTPUT_VAT", label: "Izlazni PDV", defaultDirection: "P", description: "Ukupan obračunati izlazni PDV." },
+  { purpose: "INVOICE_OUTPUT_VAT", label: "Izlazni PDV", defaultDirection: "P", description: "Obračunati izlazni PDV po izabranoj stopi." },
   { purpose: "INVOICE_COGS", label: "Nabavna vrijednost prodate robe", defaultDirection: "D", description: "Trošak robe razdužene sa lagera." },
   { purpose: "INVOICE_INVENTORY", label: "Zalihe robe", defaultDirection: "P", description: "Smanjenje nabavne vrijednosti zaliha." }
 ] as const;
+
+export type InvoicePostingRule = { namjena: string; pdv_stopa_sifra: string; sifra_konta: string; smjer: string };
+/** Specific rate overrides GENERAL; GENERAL covers only rates without an explicit row. */
+export function buildOutgoingInvoicePostingLines(input: {
+  settings: InvoicePostingRule[];
+  lines: Array<{pdv_stopa_sifra: string; osnovica: {toString(): string}; pdv_iznos: {toString(): string}}>;
+  gross: bigint; cogs: bigint; correction?: boolean;
+}) {
+  const amounts = new Map<InvoicePostingRule, bigint>();
+  const add = (purpose: string, rate: string, amount: bigint) => {
+    if (!amount) return true;
+    const rule = input.settings.find(r=>r.namjena===purpose && r.pdv_stopa_sifra===rate)
+      ?? input.settings.find(r=>r.namjena===purpose && r.pdv_stopa_sifra==="GENERAL");
+    if (!rule?.sifra_konta || !["D","P"].includes(rule.smjer)) return false;
+    amounts.set(rule,(amounts.get(rule)??BigInt(0))+amount);
+    return true;
+  };
+  if (!add("INVOICE_CUSTOMER","GENERAL",input.gross) || !add("INVOICE_COGS","GENERAL",input.cogs) || !add("INVOICE_INVENTORY","GENERAL",input.cogs)) return null;
+  for (const line of input.lines) {
+    if (!add("INVOICE_REVENUE",line.pdv_stopa_sifra,decimalToScaled(line.osnovica.toString(),2)) ||
+        !add("INVOICE_OUTPUT_VAT",line.pdv_stopa_sifra,decimalToScaled(line.pdv_iznos.toString(),2))) return null;
+  }
+  return [...amounts].filter(([,amount])=>amount!==BigInt(0)).map(([rule,amount])=>({
+    amount, direction: rule.smjer as "D"|"P", code: rule.sifra_konta
+  }));
+}
 
 export function calculateOutgoingInvoiceLine(input: {
   quantity: string;

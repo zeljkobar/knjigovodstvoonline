@@ -89,6 +89,7 @@ export function inventoryMovementSign(direction: string) {
 }
 
 export function inventoryDocumentLabel(type: string) {
+  if (type === "CALCULATION_REVERSAL") return "Poništenje kalkulacije";
   const labels: Record<string, string> = {
     CALCULATION: "Kalkulacija",
     OUTGOING_INVOICE: "Izlazna faktura",

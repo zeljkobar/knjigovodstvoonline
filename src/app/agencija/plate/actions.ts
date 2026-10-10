@@ -3,6 +3,7 @@ import {createEmploymentTermination,TerminationError} from "@/lib/create-employm
 import {employeeContractFields} from "@/lib/employee-contract-fields";
 import {auditLogInTransaction} from "@/lib/audit";
 
+import { appendPayrollTax, payrollTaxHistory, payrollHistoryKey, postedMonthlyPayrollLines } from "@/lib/payroll-monthly-tax";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma, type PlateObracun, type PlateRadnik } from "@prisma/client";
@@ -65,7 +66,7 @@ function dateValue(value: FormDataEntryValue | null) {
 
   const parsed = new Date(`${raw}T00:00:00.000Z`);
 
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== raw ? null : parsed;
 }
 
 function centsToDecimal(cents: number) {
@@ -898,6 +899,10 @@ export async function postPayrollCalculation(formData: FormData) {
 
   try {
     result = await prisma.$transaction(async (tx) => {
+      const years = await tx.$queryRaw<Array<{ zakljucena: boolean }>>(
+        Prisma.sql`SELECT zakljucena FROM poslovne_godine WHERE id = ${context.godina.id}::uuid AND firma_id = ${context.firma.id}::uuid FOR UPDATE`
+      );
+      if (!years.length || years[0].zakljucena) throw new Error("godina_zakljucena");
       const locked = await tx.$queryRaw<Array<{ id: string }>>(
         Prisma.sql`
           SELECT "id"
@@ -948,6 +953,14 @@ export async function postPayrollCalculation(formData: FormData) {
         )
       ) {
         throw new Error("obracun_nije_obradjen");
+      }
+
+      const monthlyHistory = await postedMonthlyPayrollLines(tx, calculation);
+      for (const line of calculation.stavke) {
+        const details = line.detalji as Record<string, unknown> | null;
+        if (details?.monthlyHistoryKey !== payrollHistoryKey(monthlyHistory, line.radnik_id)) {
+          throw new Error("obracun_porez_promijenjen");
+        }
       }
 
       if (calculation.stavke.length === 0) {
@@ -1163,6 +1176,21 @@ export async function postPayrollCalculation(formData: FormData) {
         }
       });
 
+      await auditLogInTransaction(tx, {
+        korisnikId: context.user.id,
+        agencijaId: context.agencijaId,
+        firmaId: context.firma.id,
+        modul: "plate",
+        akcija: "post_payroll",
+        tipEntiteta: "PlateObracun",
+        entitetId: postedCalculation.id,
+        novaVrijednost: {
+          obracun: postedCalculation,
+          nalog: journal,
+          dugujeCent: debitTotalCents,
+          potrazujeCent: creditTotalCents
+        }
+      });
       return {
         journal,
         calculation: postedCalculation,
@@ -1172,6 +1200,8 @@ export async function postPayrollCalculation(formData: FormData) {
     });
   } catch (error) {
     const knownMessages = new Set([
+      "godina_zakljucena",
+      "obracun_porez_promijenjen",
       "obracun_ne_postoji",
       "obracun_vec_proknjizen",
       "obracun_nije_obradjen",
@@ -1191,22 +1221,6 @@ export async function postPayrollCalculation(formData: FormData) {
       `${returnPath}?obracun=${calculationId}&poruka=${message}`
     );
   }
-
-  await auditLog({
-    korisnikId: context.user.id,
-    agencijaId: context.agencijaId,
-    firmaId: context.firma.id,
-    modul: "plate",
-    akcija: "post_payroll",
-    tipEntiteta: "PlateObracun",
-    entitetId: result.calculation.id,
-    novaVrijednost: {
-      obracun: result.calculation,
-      nalog: result.journal,
-      dugujeCent: result.debitTotalCents,
-      potrazujeCent: result.creditTotalCents
-    }
-  });
 
   revalidatePath(returnPath);
   revalidatePath("/agencija/nalozi");
@@ -1442,6 +1456,13 @@ export async function createPayrollCalculation(formData: FormData) {
   const requestedBusinessUnitId = text(formData.get("poslovna_jedinica_id")) || null;
 
   if (!isPayrollCategory(category) || month < 1 || month > 12 || !datumOd || !datumDo || !datumObracuna || fondSati <= 0) {
+    redirect("/agencija/plate/obracun?poruka=obracun_nevalidan");
+  }
+
+  if (year !== context.godina.godina || datumOd > datumDo ||
+      datumOd.getUTCFullYear() !== year || datumDo.getUTCFullYear() !== year ||
+      datumOd.getUTCMonth() + 1 !== month || datumDo.getUTCMonth() + 1 !== month ||
+      datumObracuna < context.godina.datum_od || datumObracuna > context.godina.datum_do) {
     redirect("/agencija/plate/obracun?poruka=obracun_nevalidan");
   }
 
@@ -2514,7 +2535,16 @@ export async function calculatePayrollCalculation(formData: FormData) {
     redirect(`/agencija/plate/obracun?obracun=${calculation.id}&poruka=kontrole_greske`);
   }
 
-  const createdLines = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
+    const years = await tx.$queryRaw<Array<{ zakljucena: boolean }>>(
+      Prisma.sql`SELECT zakljucena FROM poslovne_godine WHERE id = ${context.godina.id}::uuid FOR UPDATE`
+    );
+    if (!years.length || years[0].zakljucena) throw new Error("godina_zakljucena");
+    await tx.$queryRaw(Prisma.sql`SELECT id FROM plate_obracuni WHERE id = ${calculation.id}::uuid FOR UPDATE`);
+    const current = await tx.plateObracun.findUniqueOrThrow({where: {id: calculation.id}});
+    if (current.is_deleted || ["POSTED", "LOCKED"].includes(current.status)) throw new Error("obracun_zakljucan");
+    const monthlyHistory = await postedMonthlyPayrollLines(tx, calculation);
+    const histories = new Map(lines.map(line => [line.radnik_id, payrollTaxHistory(monthlyHistory, line.radnik_id)]));
     let lineCount = 0;
 
     for (const existingLine of lines) {
@@ -2538,6 +2568,7 @@ export async function calculatePayrollCalculation(formData: FormData) {
         referenceDate: calculation.datum_do
       });
       const line = await calculatePayrollLine({
+        monthlyTaxHistory: histories.get(existingLine.radnik_id),
         calculationDate: calculation.datum_obracuna,
         incomeType,
         calculationType,
@@ -2555,6 +2586,8 @@ export async function calculatePayrollCalculation(formData: FormData) {
         municipality: employee.poreska_opstina ?? employee.opstina
       });
 
+      appendPayrollTax(histories.get(existingLine.radnik_id)!, line);
+      line.details.monthlyHistoryKey = payrollHistoryKey(monthlyHistory, existingLine.radnik_id);
       lineCount += 1;
 
       await tx.plateObracunStavka.update({
@@ -2603,20 +2636,27 @@ export async function calculatePayrollCalculation(formData: FormData) {
       }
     });
 
+    await auditLogInTransaction(tx, {
+      korisnikId: context.user.id,
+      agencijaId: context.agencijaId,
+      firmaId: context.firma.id,
+      modul: "plate",
+      akcija: "calculate_payroll",
+      tipEntiteta: "PlateObracun",
+      entitetId: calculation.id,
+      novaVrijednost: {
+        lines: lineCount
+      }
+    });
     return lineCount;
-  });
-
-  await auditLog({
-    korisnikId: context.user.id,
-    agencijaId: context.agencijaId,
-    firmaId: context.firma.id,
-    modul: "plate",
-    akcija: "calculate_payroll",
-    tipEntiteta: "PlateObracun",
-    entitetId: calculation.id,
-    novaVrijednost: {
-      lines: createdLines
+  }).catch((error: unknown) => {
+    if (error instanceof Error && ["godina_zakljucena", "obracun_zakljucan"].includes(error.message)) {
+      redirect(`/agencija/plate/obracun?obracun=${calculation.id}&poruka=${error.message}`);
     }
+    if (error instanceof Error && error.message.startsWith("PAYROLL_UNSUPPORTED_BASIS")) {
+      redirect(`/agencija/plate/obracun?obracun=${calculation.id}&poruka=osnovica_nepodrzana`);
+    }
+    throw error;
   });
 
   revalidatePath("/agencija/plate/obracun");

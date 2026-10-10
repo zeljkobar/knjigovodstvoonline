@@ -117,7 +117,7 @@ const checks = [];
       await tx.poslovnaGodina.update({where:{id:year.id},data:{zakljucena:true}});await failure(actions.confirmTaxDepreciation,form({obracun_id:batch.id}),/zaključana/);await tx.poslovnaGodina.update({where:{id:year.id},data:{zakljucena:false}});
       const pdv=await tx.pdvPeriod.create({data:{agencija_id:agency.id,firma_id:company.id,poslovna_godina_id:year.id,mjesec:1,datum_od:new Date('2026-01-01'),datum_do:new Date('2026-01-31'),status:'LOCKED'}});
       await failure(actions.confirmTaxDepreciation,form({obracun_id:batch.id}),/PDV/);
-      await tx.pdvPeriod.delete({where:{id:pdv.id}});
+      await tx.pdvPeriod.update({where:{id:pdv.id},data:{status:'OPEN'}});await tx.pdvPeriod.delete({where:{id:pdv.id}});
       await success(actions.confirmTaxDepreciation,form({obracun_id:batch.id}));await success(actions.confirmTaxDepreciation,form({obracun_id:batch.id}));
       const reopenForm=()=>form({obracun_id:batch.id,potvrda_vracanja:'DA',razlog_vracanja:'Ispravka poreskog obračuna'});
       const deleteForm=()=>form({obracun_id:batch.id,potvrda_brisanja:'DA',razlog_brisanja:'Pogrešan poreski obračun'});

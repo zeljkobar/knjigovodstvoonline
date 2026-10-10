@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { accountOverrideTypes } from "@/lib/account-plan";
 import { decimalToScaled, scaledToDecimal } from "@/lib/inventory-calculation";
 import { formatJournalCode, journalStatuses, standardJournalTypes } from "@/lib/journals";
-import { outgoingInvoicePostingFields, outgoingInvoicePostingScope } from "@/lib/outgoing-invoice";
+import { buildOutgoingInvoicePostingLines, outgoingInvoicePostingScope } from "@/lib/outgoing-invoice";
 import { prisma } from "@/lib/prisma";
 
 async function resolveAccount(tx: Prisma.TransactionClient, firmaId: string, code: string) {
@@ -38,24 +38,18 @@ export async function finalizePosTransferAccounting(input: {
     if (period?.status === "LOCKED") return { ok: false as const, reason: "pdv_period" };
 
     const [settings, journalType] = await Promise.all([
-      tx.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: input.firmaId, dokument_tip: outgoingInvoicePostingScope.documentType, podvrsta: outgoingInvoicePostingScope.subtype, pdv_stopa_sifra: outgoingInvoicePostingScope.vatRate } }),
+      tx.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: input.firmaId, dokument_tip: outgoingInvoicePostingScope.documentType, podvrsta: outgoingInvoicePostingScope.subtype } }),
       tx.vrstaNaloga.findFirst({ where: { sifra: standardJournalTypes[2][0], aktivan: true, OR: [{ sistemska: true }, { agencija_id: input.agencijaId }, { firma_id: input.firmaId }] }, select: { id: true, prefiks: true } })
     ]);
     if (!journalType) return { ok: false as const, reason: "vrsta_naloga" };
     const correction = invoice.document_type === "POS_RETURN";
     const absolute = (value: bigint) => value < BigInt(0) ? -value : value;
     const cogs = absolute(invoice.stavke.filter((line) => !line.artikal.usluga && line.artikal.prati_zalihe).reduce((sum, line) => sum + (line.nabavna_vrijednost ? decimalToScaled(line.nabavna_vrijednost, 2) : BigInt(0)), BigInt(0)));
-    const amounts = new Map<string, bigint>([["INVOICE_CUSTOMER", absolute(decimalToScaled(invoice.ukupno_sa_pdv, 2))], ["INVOICE_REVENUE", absolute(decimalToScaled(invoice.ukupno_osnovica, 2))], ["INVOICE_OUTPUT_VAT", absolute(decimalToScaled(invoice.ukupno_izlazni_pdv, 2))], ["INVOICE_COGS", cogs], ["INVOICE_INVENTORY", cogs]]);
-    const settingMap = new Map(settings.map((setting) => [setting.namjena, setting]));
-    const journalLines: Array<{ amount: bigint; direction: "D" | "P"; code: string }> = [];
-    for (const field of outgoingInvoicePostingFields) {
-      const amount = amounts.get(field.purpose) ?? BigInt(0);
-      if (!amount) continue;
-      const setting = settingMap.get(field.purpose);
-      if (!setting?.sifra_konta) return { ok: false as const, reason: "podesavanja" };
-      const configuredDirection = setting.smjer === "P" ? "P" : "D";
-      journalLines.push({ amount, direction: correction ? (configuredDirection === "D" ? "P" : "D") : configuredDirection, code: setting.sifra_konta });
-    }
+    const postingLines = buildOutgoingInvoicePostingLines({settings, lines: invoice.stavke,
+      gross: decimalToScaled(invoice.ukupno_sa_pdv, 2), cogs: correction ? -cogs : cogs});
+    if (!postingLines) return { ok: false as const, reason: "podesavanja" };
+    const journalLines = postingLines.map(line => ({...line, amount: absolute(line.amount),
+      direction: line.amount < BigInt(0) ? (line.direction === "D" ? "P" as const : "D" as const) : line.direction}));
     const debit = journalLines.filter((line) => line.direction === "D").reduce((sum, line) => sum + line.amount, BigInt(0));
     const credit = journalLines.filter((line) => line.direction === "P").reduce((sum, line) => sum + line.amount, BigInt(0));
     if (debit !== credit) return { ok: false as const, reason: "balans" };

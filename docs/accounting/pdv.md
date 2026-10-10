@@ -48,12 +48,11 @@ KIF i KUF su zato poseban modul i osnova PDV-a, a ne dio PDV modula.
 - ✅ XML izvoz `PR_PDV_2025` preko `/api/pdv/xml`.
 - ✅ Kontrole neproknjiženih KIF/KUF računa i poređenje evidencije sa glavnom
   knjigom po kontima PDV šeme.
-- ⛔ Zaključavanje/otključavanje perioda i završni ručni QA XML-a na IRMS
-  portalu još nisu implementirani/potvrđeni.
+- ✅ Zaključavanje i kontrolisano otključavanje sa nepromjenjivim verzijama, auditom i DB zaštitom.
+- ⛔ Završni ručni QA XML-a na IRMS portalu ostaje otvoren.
 
 ## Sljedeći koraci
-Vidi [`NEXT_STEPS.md`](../../NEXT_STEPS.md): zaključavanje/otključavanje perioda,
-štampa prijave, testovi knjiženja i ručni QA XML upload-a na IRMS portalu.
+Vidi [`NEXT_STEPS.md`](../../NEXT_STEPS.md): štampa prijave i ručni QA XML upload-a na IRMS portalu. Tok knjiženja i zaključavanja pokriven je izolovanim DB testovima.
 
 ---
 
@@ -64,7 +63,7 @@ Period ima firmu, poslovnu godinu, mjesec, datum od, datum do, status, polja za
 datum/korisnika predaje i zaključavanja i napomenu.
 
 Model podržava statuse `OPEN`, `READY`, `SUBMITTED`, `LOCKED` i `REOPENED`;
-korisnički tok zaključavanja/otključavanja ostaje da se implementira.
+tok koristi OPEN/LOCKED/REOPENED. Predaja se evidentira isključivo kroz Rokove; zaključavanje nije oznaka predaje.
 
 U UI se ne bira firma/godina na PDV ekranima jer to već dolazi iz globalnog
 konteksta u gornjoj traci. Na PDV ekranima se bira samo **mjesec / PDV period**.
@@ -115,7 +114,7 @@ Stranica **PDV prijava** prati obrazac IRMS/poreskog portala:
   kredit;
 - implementirane akcije: **Osvježi iz KIF/KUF**, **Sačuvaj nacrt**,
   **XML izvoz** i **Proknjiži**;
-- akcije **Zaključaj/Označi kao predato** ostaju za naredni korak.
+- **Zaključaj PDV period**, admin-only **Otključaj PDV period** i **Vrati prijavu u pripremu** dostupni su na istoj stranici. Predaja se označava u Rokovima.
 
 `XML izvoz` nije posebna osnovna stranica u MVP-u; to je akcija na PDV prijavi
 i u arhivi već napravljenih prijava. Export generiše XML format
@@ -160,15 +159,18 @@ Trenutno su implementirane kontrole koje:
 - porede ulazni/izlazni PDV iz KIF/KUF evidencije sa `POSTED` glavnom knjigom
   po kontima iz PDV šeme, uz izuzimanje closing naloga `PDV_RETURN`.
 
-Prije završetka zaključavanja perioda treba potvrditi/dodati i kontrole za
-nedostajući period ili PDV stopu, odbitni/neodbitni PDV, partnera, status PDV
-obveznika, `KIF EXPORT` sa izlaznim PDV-om i obavezne carinske/JCI podatke za
-`KUF IMPORT`.
+Knjiženje i zaključavanje ponavljaju kontrole pod transakcionim zaključavanjem godine: PDV obveznik, knjiženi računi i aktivni nalozi, računi bez knjige, promijenjeni izvori, izvoz sa PDV-om, uvoz bez JCI, validna konta i balans, slaganje evidencije sa glavnom knjigom i naloga sa prijavom. Detaljna validacija poreske razrade ostaje u unosu KIF/KUF.
 
-## Zaključavanje (nije završeno)
-- KIF/KUF stavke iz perioda se ne smiju mijenjati bez posebnog prava.
-- Svaka izmjena ide kroz audit log.
-- Period dobija status `LOCKED` ili `SUBMITTED`.
+## Zaključavanje i kontrolisano otključavanje — 2026-10-07
+- Zaključavanje zahtijeva `pdv/update`, potvrdu i uspješne kontrole. Prijava sa iznosima mora imati odgovarajući POSTED nalog; nulta prijava ne pravi prazan nalog.
+- DB okidači štite knjige, račune, poreske stavke, prijavu i povezane naloge, uključujući pomjeranje iz/u period. Svi ovi pisci i zaključavanje koriste isti lock poslovne godine.
+- Zaključan je PDV, ne cijeli računovodstveni mjesec: nepovezani nalozi i statusi plaćanja računa ostaju dostupni. Plaćanje na kontu PDV obaveze/kredita je dozvoljeno; konta ulaznog/izlaznog PDV-a su zaštićena.
+- Pri zaključavanju `pdv_verzije` čuva prijavu, izvorne evidencije i nalog. Verzije imaju pregled i XML; izmjena/brisanje je blokirano osim u potvrđenom trajnom brisanju firme.
+- Samo administrator agencije može otključati, uz razlog i potvrdu. U istoj transakciji stari PDV nalog postaje DELETED, prijava DRAFT, period REOPENED, uz audit. Zaključana godina blokira otključavanje.
+- Proknjižena prijava se može vratiti u pripremu i prije zaključavanja, uz isti kontrolisani tok i čuvanje verzije. Poslije ispravki obavezno osvježavanje, ponovno knjiženje i zaključavanje.
+- Osvježavanje uklanja ručne korekcije; ručna korekcija traži razlog, a zbirovi se računaju na serveru.
+- Rokovi čuvaju prvobitnu potvrdu predaje. Ako se period naknadno otključa, prikazuju upozorenje da treba provjeriti predatu prijavu; ne brišu datum ni korisnika predaje.
+- Migracije: `20261007120000_pdv_period_lock`, `20261007123000_pdv_lock_integrity`, `20261007124500_pdv_account_guard`. Testovi: `check-pdv-periods.cjs` i `check-pdv-concurrency.cjs`.
 
 ## Ručne korekcije
 Svaki red prijave čuva sistemsku vrijednost, opcionu ručnu vrijednost i razlog

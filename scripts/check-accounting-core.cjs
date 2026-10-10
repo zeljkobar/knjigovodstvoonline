@@ -60,7 +60,8 @@ async function response(action,data) {
   assert.match(await response(journals.postJournal,{nalog_id:unbalanced.id}),/nalog_nije_balansiran/);
   const empty=await makeJournal({},[]);
   assert.match(await response(journals.postJournal,{nalog_id:empty.id}),/nalog_nije_balansiran/);
-  const blocked=await makeJournal();
+  const blocked=await makeJournal({},[['2700','21','0'],['2410','0','21']]);
+  const ordinary=await makeJournal({},[['5000','10','0'],['2410','0','10']]);
   user=worker;
   assert.match(await response(journals.postJournal,{nalog_id:blocked.id}),/prava/);
   user=client;await assert.rejects(()=>journals.postJournal(form({nalog_id:blocked.id})),/DENIED_ROLE/);
@@ -83,6 +84,7 @@ async function response(action,data) {
   const lockedPeriod=await tx.pdvPeriod.create({data:{...scope,mjesec:6,datum_od:date('2026-06-01'),datum_do:date('2026-06-30'),status:'LOCKED'}});
   assert.match(await response(journals.postJournal,{nalog_id:blocked.id}),/pdv_period_zakljucan/);
   assert.equal((await tx.nalog.findUniqueOrThrow({where:{id:blocked.id}})).status,'DRAFT');
+  assert.match(await response(journals.postJournal,{nalog_id:ordinary.id}),/nalog_proknjizen/);
   await tx.pdvPeriod.update({where:{id:lockedPeriod.id},data:{status:'OPEN'}});
   const missingPartner=await makeJournal({},[['2010','121','0'],['6000','0','121']]);
   assert.match(await response(journals.postJournal,{nalog_id:missingPartner.id}),/partner_obavezan/);

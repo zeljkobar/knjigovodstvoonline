@@ -4,6 +4,9 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Deploy: `20261007140000_invoice_rate_posting_rules`; šema izlazne fakture sada podržava redove prihoda/PDV-a po stopama. Agencija podešava konta; promjena ne prepravlja stare naloge.
+- Plate: zasebno provjeriti stvarne poreske postavke, ostale vrste osnovica i prihvat IOPPD XML-a na portalu; fiksne testne stope i tehnički XML test to ne potvrđuju.
+- Brisanje završene kalkulacije implementirano uz poništenje lagera i uklanjanje zasebnog naloga/KUF računa iz aktivnih evidencija. Nije potrebno mijenjati bazu. Naknadni promet i raspodjele plaćanja moraju se prethodno razriješiti.
 - Deploy: `20261003200000_agency_financial_templates` prenosi šeme završnog računa na agenciju. Ako postoje višestruke šeme istog tipa unutar agencije, potrebno je prvo usklađivanje; migracija ih ne bira proizvoljno.
 - Pri deployu primijeniti `20261003190000_minimum_posting_account_length`, generisati Prisma klijent i restartovati aplikaciju. Kratka konta su sintetička; sistemske šeme koriste 5220/5250. Postojeće korisničke šeme sa kratkim kontima treba ručno uskladiti prije sljedećeg knjiženja.
 - Radna mjesta i ugovori o radu implementirani. Pri deployu primijeniti
@@ -25,7 +28,7 @@
   datum zaključenja, početak primjene, cijenu, način plaćanja i nadležni sud.
 - Računovodstvena regresija i objedinjeni runner su dodati. Nakon push-a provjeriti
   prvi GitHub Linux/PostgreSQL i Windows/XSD run. Dalje širiti browser E2E,
-  testove PDV prijave/ručnih korekcija i zaključavanja svih edit/delete tokova;
+  ručni browser QA PDV prijave i svih tokova koji mogu naići na zaključan period;
   postojeći novi testovi pokrivaju navedene tokove knjiženja, ne svaki endpoint.
 - OFFICE potpuni storno je implementiran. Nakon deploya provjeriti stvarni Fiscal
   API Test tok: kreiranje, potvrdu, prekid odgovora i nastavak istog storna,
@@ -153,9 +156,7 @@
   šemi. Sljedeće je ručni end-to-end QA sva četiri dokumenta `Prometa robe`.
   Uvozna kalkulacija i povrati ostaju odvojeni otvoreni tokovi.
 - **PDV prijava — završni QA.** Prva verzija perioda, evidencija, prijave,
-  podešavanja, XML `PR_PDV_2025` i knjiženja postoji. Ostaje zaključavanje
-  perioda, ručni QA XML upload-a na portalu i provjera knjiženja na kontima
-  2700/4700. Detalji: [`docs/accounting/pdv.md`](docs/accounting/pdv.md).
+  podešavanja, XML `PR_PDV_2025`, knjiženja i kontrolisano zaključavanje postoje. DB lifecycle i konkurentnost prolaze. Ostaju ručni QA XML upload-a na portalu i browser QA. Detalji: [`docs/accounting/pdv.md`](docs/accounting/pdv.md).
 - **Plate i zaposleni:** prva MVP osnova postoji: zaposleni, sistemski šifarnici
   za IOPPD/vrste obračuna/poreze/doprinose/prirez, kategorije obračuna (redovan
   rad, ugovor o djelu, zakup, ostali ugovori), redovan obračun zarade 001 i
@@ -212,10 +213,8 @@
 - **Modul 5/7 Izvodi:** dodati parsere za ostale banke, dodatne uslove pravila
   po formatima banaka, split alokacije jedne uplate na više KIF/KUF računa i
   vraćanje proknjiženog izvoda u nacrt.
-- **Modul 6:** blokiranje izmjena KIF/KUF dok je PDV period zaključan;
-  cache MAPR odgovora; bolji QA štampe na mnogo redova.
-- **Modul 8:** ručni QA postojećeg IRMS XML-a, zaključavanje/otključavanje PDV perioda,
-  štampa prijave i testovi knjiženja PDV prijave.
+- **Modul 6:** cache MAPR odgovora; bolji QA štampe na mnogo redova.
+- **Modul 8:** ručni QA postojećeg IRMS XML-a i štampa prijave. Zaključavanje/otključavanje, verzije i DB testovi knjiženja završeni 2026-10-07.
 - **Modul 9 Plate:** doraditi obustave, opisna pravila osnova koja traže ručne
   parametre, ručni QA IOPPD XML upload-a na portalu, probnu štampu virmana na
   stvarnom obrascu, posebna pravila minulog rada po
@@ -280,3 +279,5 @@
 - Analitički konto mora imati partnera; `duguje = potražuje` na nalogu.
 
 - Pri deployu primijeniti i migraciju `20261003170000_otkazi_o_radu`. Predlošci otkaza prilagođeni su iz moj-sajt uz ispravke pozivanja na zakon (čl. 164–166); potpisivanje/ovjera i dostavljanje obavljaju se van programa.
+
+- Završeno: dinamička šema kalkulacije po PDV stopama (uključujući ulazni i ukalkulisani PDV); pri deployu primijeniti već dodatu migraciju `20261007140000_invoice_rate_posting_rules`.

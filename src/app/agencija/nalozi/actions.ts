@@ -700,7 +700,14 @@ export async function postJournal(formData: FormData) {
     if (journal.poslovna_godina.zakljucena) return "godina_zakljucena";
     if (journal.datum < journal.poslovna_godina.datum_od || journal.datum > journal.poslovna_godina.datum_do) return "nalog_datum";
     const periods = await tx.$queryRaw<{status: string}[]>`SELECT status FROM pdv_periodi WHERE firma_id=${journal.firma_id}::uuid AND datum_od<=${journal.datum} AND datum_do>=${journal.datum} FOR UPDATE`;
-    if (periods.some(period => period.status === "LOCKED")) return "pdv_period_zakljucan";
+    if (periods.some(period => period.status === "LOCKED")) {
+      const protectedJournal = await tx.$queryRaw<Array<{ protected: boolean }>>`SELECT
+        EXISTS(SELECT 1 FROM stavke_naloga s WHERE s.nalog_id=${journal.id}::uuid AND pdv_account_protected(${journal.firma_id}::uuid,s.konto_id))
+        OR EXISTS(SELECT 1 FROM kif_entries WHERE journal_id=${journal.id}::uuid)
+        OR EXISTS(SELECT 1 FROM kuf_entries WHERE journal_id=${journal.id}::uuid)
+        OR EXISTS(SELECT 1 FROM pdv_prijave WHERE journal_id=${journal.id}::uuid) AS protected`;
+      if (protectedJournal[0]?.protected) return "pdv_period_zakljucan";
+    }
     const totalDebit = journal.stavke.reduce((sum, line) => sum.add(line.duguje), new Prisma.Decimal(0));
     const totalCredit = journal.stavke.reduce((sum, line) => sum.add(line.potrazuje), new Prisma.Decimal(0));
     if (totalDebit.isZero() || !totalDebit.equals(totalCredit)) return "nalog_nije_balansiran";
