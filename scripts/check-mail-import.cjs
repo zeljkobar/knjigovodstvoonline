@@ -30,7 +30,7 @@ const previousImapAgency = process.env.IMAP_AGENCY_ID;
       let mailEnabled = true;
       let discovered = 0;
       let xml = '<stmtrs><acctid>530000000012345678</acctid><stmtnumber>186</stmtnumber><ledgerbal><balamt>10.00</balamt><dtasof>2026-09-25</dtasof></ledgerbal><availbal><balamt>15.00</balamt><dtasof>2026-09-25</dtasof></availbal><stmttrn><benefit>credit</benefit><trnamt>5.00</trnamt><dtposted>2026-09-25</dtposted><purpose>Test</purpose></stmttrn></stmtrs>';
-      const fixture = () => [{ index: 0, filename: 'statement.xml', content: Buffer.from(xml), contentType: 'application/xml' }];
+      let fixture = () => [{ index: 0, filename: 'statement.xml', content: Buffer.from(xml), contentType: 'application/xml' }];
       const proxy = require('../tests/helpers/source-loader.cjs').transactionProxy(tx);
       const mocks = {
         'server-only': {},
@@ -75,6 +75,15 @@ const previousImapAgency = process.env.IMAP_AGENCY_ID;
       assert.equal(secondRead.contentHash, policy.attachmentHash(secondPdf));
       assert.notEqual(firstRead.contentHash, secondRead.contentHash);
       const ref = { firmaId: firma.id, yearId: year.id, folder: 'INBOX', validity: '1', uid: 1 };
+      const originalFixture = fixture;
+      const beforeNoise = await tx.mailIzvodObrada.count({where:{firma_id:firma.id}});
+      fixture = () => [{index:0,filename:'logo.png',content:Buffer.from('logo'),contentType:'image/png'}];
+      assert.equal((await actions.importBankStatementMailMessage({...ref,uid:900}))[0].status,'SKIPPED');
+      fixture = () => [];
+      assert.equal((await actions.importBankStatementMailMessage({...ref,uid:901}))[0].status,'SKIPPED');
+      assert.equal(await tx.mailIzvodObrada.count({where:{firma_id:firma.id}}),beforeNoise);
+      fixture = originalFixture;
+      downloads = 0;
       let result = await actions.importBankStatementMailMessage(ref);
       assert.equal(result[0].status, 'IMPORTED');
       const statementId = result[0].statementId;

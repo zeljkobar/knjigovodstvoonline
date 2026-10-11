@@ -4087,19 +4087,15 @@ export async function importBankStatementMailMessage(input: { firmaId: string; y
     results.push({ filename, status, reason, statementId });
   };
   try {
-    // Persist an incomplete marker before downloading, so interruption cannot make
-    // a message with only some imported attachments look completed.
+    const attachments = (await getMailImportAttachments(input.uid, input.validity, input.folder, config))
+      .filter(attachment => supportedStatementAttachment(attachment.filename));
+    // Logos/body-only messages are not import attempts: no persistent record or audit.
+    if (attachments.length === 0) return [{ filename: "Poruka", status: "SKIPPED", reason: "Nema PDF, XML ili HTM/HTML priloga za uvoz.", statementId: null }];
+    // Mark before importing any supported attachment so partial imports remain retryable.
     await record(-1, "Poruka", null, "ERROR", "Obrada nije završena. Ponovite uvoz.", null);
     results.pop();
-    const attachments = await getMailImportAttachments(input.uid, input.validity, input.folder, config);
-
-    if (attachments.length === 0) await record(-1, "Poruka", null, "REVIEW", "Poruka nema priloga.", null);
     for (const attachment of attachments) {
       const hash = attachmentHash(attachment.content);
-      if (!supportedStatementAttachment(attachment.filename)) {
-        await record(attachment.index, attachment.filename, hash, "SKIPPED", "Podržani su PDF, XML i HTM/HTML izvodi.", null);
-        continue;
-      }
       try {
         const data = new FormData();
         data.set("statement_file", new File([new Uint8Array(attachment.content)], attachment.filename, { type: attachment.contentType }));

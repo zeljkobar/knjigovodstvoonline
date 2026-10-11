@@ -1949,3 +1949,9 @@ DB regresija provjerava poredak, smjer salda, avanse i ukupne iznose.
 - Plaćanja/raspodjele i veze osnovnih sredstava blokiraju brisanje. Računi preuzeti iz kalkulacije brišu se kroz kalkulaciju. Potrebna prava ulazni_racuni/delete i za povezani nalog nalozi/delete.
 - Stariji nalozi bez pouzdanih veza ne brišu se prepoznavanjem teksta ili iznosa: jednom ih vratiti u nacrt, obrisati nacrt naloga i ponovo knjižiti KUF.
 - Migracija `20261011120000_kuf_journal_line_link`; purge redoslijed usklađen. Izolovana DB regresija provjerava stvarno knjiženje, scope/prava, zaključavanja, ravnotežu, audit rollback, očuvanje drugih računa i idempotentnost.
+
+## 2026-10-11 — Preskakanje mailova bez izvoda
+
+- Uvoz filtrira nepodržane priloge (npr. logo) prije upisa evidencije. Poruka bez PDF/XML/HTM/HTML priloga vraća privremeni SKIPPED rezultat, bez mail_izvod_obrade i pojedinačnog IMAP_IMPORT audita. Body izvoda se ne uvozi.
+- Marker nepotpune obrade ostaje prije prvog podržanog priloga; postojeći uspješni uvozi i zaštita duplikata ostaju. Ranije evidencije na serveru nijesu obrisane.
+- Izolovana DB regresija sa sintetičkim logom i porukom bez priloga prolazi, kao i postojeći import lifecycle; sve testne izmjene rollback.

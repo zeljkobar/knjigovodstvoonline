@@ -4,6 +4,7 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Mail import više ne bilježi logotipe i poruke bez podržanih priloga. Stare SKIPPED evidencije na produkciji ostaju do zasebnog čišćenja.
 - Deploy KUF brisanja: primijeniti `20261011120000_kuf_journal_line_link`, generisati Prisma klijent i restartovati aplikaciju. Stara knjiženja bez veze sa računima zahtijevaju ponovno knjiženje KUF-a prije pojedinačnog brisanja.
 - Deploy: `20261007140000_invoice_rate_posting_rules`; šema izlazne fakture sada podržava redove prihoda/PDV-a po stopama. Agencija podešava konta; promjena ne prepravlja stare naloge.
 - Plate: zasebno provjeriti stvarne poreske postavke, ostale vrste osnovica i prihvat IOPPD XML-a na portalu; fiksne testne stope i tehnički XML test to ne potvrđuju.
