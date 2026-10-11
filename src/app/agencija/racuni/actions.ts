@@ -1,4 +1,5 @@
 "use server";
+import { deleteKufEntryInTransaction, KufDeletionError } from "@/lib/kuf-entry-deletion";
 import { lockAssetLifecycle } from "@/lib/fixed-assets-lifecycle";
 import { fixedAssetContextMatches } from "@/lib/fixed-assets";
 import { auditLogInTransaction } from "@/lib/audit";
@@ -1423,6 +1424,7 @@ type PostingRule = {
 };
 
 type PostingLineInput = {
+  kufEntryId?: string;
   accountCode: string;
   direction: "D" | "P";
   amountCents: number;
@@ -1948,6 +1950,7 @@ export async function postInvoiceBook(formData: FormData) {
             }
 
             lines.push({
+              kufEntryId: entry.id,
               accountCode,
               direction,
               amountCents,
@@ -2024,6 +2027,7 @@ export async function postInvoiceBook(formData: FormData) {
           }
 
           entryLines.push({
+            kufEntryId: entry.id,
             accountCode,
             direction: (rule?.smjer ?? field.direction) as "D" | "P",
             amountCents,
@@ -2143,6 +2147,7 @@ export async function postInvoiceBook(formData: FormData) {
         await tx.stavkaNaloga.create({
           data: {
             nalog_id: journal.id,
+            kuf_entry_id: line.kufEntryId,
             konto_id: account.id,
             komitent_id: line.partnerId,
             poslovna_jedinica_id: line.businessUnitId,
@@ -4184,109 +4189,25 @@ export async function updateKufEntry(formData: FormData) {
   redirectKufEntry(kufBook.id, "kuf_izmijenjen");
 }
 
-export async function deleteKufEntry(formData: FormData) {
+export async function deleteKufEntry(_state: { error?: string; success?: boolean }, formData: FormData): Promise<{ error?: string; success?: boolean }> {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
-  const workContext = await readWorkContext();
-
-  if (!user.agencija_id || !workContext.firmaId || !workContext.poslovnaGodinaId) {
-    redirectKuf("kuf_kontekst");
+  const work = await readWorkContext();
+  const id = value(formData, "kuf_entry_id"), bookId = value(formData, "kuf_book_id");
+  const reason = value(formData, "reason");
+  if (!user.agencija_id || !work.firmaId || !work.poslovnaGodinaId) return {error:"Izaberite firmu i poslovnu godinu."};
+  if (!id || !bookId || formData.get("confirmed") !== "yes" || !reason || reason.length>1000) return {error:"Potvrdite brisanje i unesite razlog (do 1000 znakova)."};
+  const company = await prisma.firma.findFirst({where:{id:work.firmaId,agencija_id:user.agencija_id,is_deleted:false,aktivan:true,...(user.rola==="admin_agencije"?{}:{korisnici:{some:{korisnik_id:user.id,is_deleted:false}}})}});
+  if (!company || !await hasPermission(user,{firmaId:work.firmaId,modul:"ulazni_racuni",akcija:"delete"})) return {error:"Nemate pravo brisanja računa ove firme."};
+  const canDeleteJournal = await hasPermission(user,{firmaId:work.firmaId,modul:"nalozi",akcija:"delete"});
+  try {
+    await prisma.$transaction(tx=>deleteKufEntryInTransaction(tx,{id,bookId,firmaId:work.firmaId!,agencijaId:user.agencija_id!,godinaId:work.poslovnaGodinaId!,userId:user.id,reason,canDeleteJournal}),{isolationLevel:"Serializable",timeout:30000});
+  } catch (error) {
+    if (error instanceof KufDeletionError) return {error:error.message};
+    if ((error as {code?:string}).code === "P2034") return {error:"Podaci su upravo izmijenjeni. Osvježite stranicu i ponovite provjeru."};
+    return {error:"Brisanje nije izvršeno. Osvježite stranicu i provjerite zaključavanje perioda i povezane dokumente."};
   }
-
-  const kufBookId = value(formData, "kuf_book_id");
-  const kufEntryId = value(formData, "kuf_entry_id");
-
-  if (!kufBookId || !kufEntryId) {
-    redirectKufEntry(kufBookId, "kuf_greska");
-  }
-
-  const [poslovnaGodina, kufBook, entry] = await Promise.all([
-    prisma.poslovnaGodina.findFirst({
-      where: {
-        id: workContext.poslovnaGodinaId,
-        firma_id: workContext.firmaId
-      },
-      select: {
-        id: true,
-        zakljucena: true
-      }
-    }),
-    prisma.kufBook.findFirst({
-      where: {
-        id: kufBookId,
-        agencija_id: user.agencija_id,
-        firma_id: workContext.firmaId,
-        poslovna_godina_id: workContext.poslovnaGodinaId,
-        is_deleted: false
-      },
-      select: {
-        id: true,
-        status: true
-      }
-    }),
-    prisma.kufEntry.findFirst({
-      where: {
-        id: kufEntryId,
-        kuf_book_id: kufBookId,
-        agencija_id: user.agencija_id,
-        firma_id: workContext.firmaId,
-        poslovna_godina_id: workContext.poslovnaGodinaId,
-        is_deleted: false
-      },
-      select: {
-        id: true,
-        posting_status: true,
-        posting_mode: true,
-        journal_id: true,
-        internal_kuf_number: true
-      }
-    })
-  ]);
-
-  if (
-    !poslovnaGodina ||
-    poslovnaGodina.zakljucena ||
-    !kufBook ||
-    kufBook.status !== "OPEN" ||
-    !entry ||
-    entry.posting_mode !== "KUF_RULES" ||
-    entry.posting_status !== "UNPOSTED" ||
-    entry.journal_id
-  ) {
-    redirectKufEntry(kufBookId, "kuf_greska");
-  }
-
-  await requireInvoicePermission(
-    user,
-    workContext.firmaId,
-    invoicePostingDocumentTypes.kuf,
-    "delete",
-    (message) => redirectKufEntry(kufBookId, message)
-  );
-
-  await auditLog({
-    korisnikId: user.id,
-    agencijaId: user.agencija_id,
-    firmaId: workContext.firmaId,
-    modul: "agencija.racuni.kuf",
-    akcija: "delete",
-    tipEntiteta: "KufEntry",
-    entitetId: entry.id,
-    staraVrijednost: {
-      id: entry.id,
-      internal_kuf_number: entry.internal_kuf_number
-    }
-  });
-
-  await prisma.kufEntry.delete({
-    where: {
-      id: entry.id
-    }
-  });
-
-  revalidatePath("/agencija/racuni/kuf");
-  revalidatePath("/agencija/racuni/pregled-kuf");
-  revalidatePath(`/agencija/racuni/kuf/${kufBook.id}`);
-  redirectKufEntry(kufBook.id, "kuf_obrisan");
+  for (const path of ["/agencija/racuni/kuf",`/agencija/racuni/kuf/${bookId}`,"/agencija/racuni/pregled-kuf","/agencija/nalozi","/agencija/pdv","/agencija/izvjestaji"]) revalidatePath(path,"layout");
+  return {success:true};
 }
 
 export async function deleteKufBook(formData: FormData) {

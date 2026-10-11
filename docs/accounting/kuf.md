@@ -106,3 +106,11 @@ partner:
 
 ## Štampa
 Čista HTML/CSS print stranica knjige bez menija.
+
+## Direktno brisanje KUF računa — 2026-10-11
+
+- Kantica u redu računa otvara modal sa razlogom i potvrdom. Zaključana godina ili PDV period prikazuju objašnjenje zabrane. Backend ponavlja provjere.
+- Nova veza `stavke_naloga.kuf_entry_id` tačno određuje stavke računa. U jednoj transakciji uklanjaju se samo njegove stavke; preostali nalog mora biti izbalansiran. Posljednji račun soft-deleteuje prazan nalog. Proknjiženi račun je soft-deleted, neproknjiženi bez naloga fizički obrisan. Audit čuva prethodni račun i uklonjene stavke.
+- Plaćanja/raspodjele i veze osnovnih sredstava blokiraju brisanje. Računi preuzeti iz kalkulacije brišu se kroz kalkulaciju. Potrebna prava ulazni_racuni/delete i za povezani nalog nalozi/delete.
+- Stariji nalozi bez pouzdanih veza ne brišu se prepoznavanjem teksta ili iznosa: jednom ih vratiti u nacrt, obrisati nacrt naloga i ponovo knjižiti KUF.
+- Migracija `20261011120000_kuf_journal_line_link`; purge redoslijed usklađen. Izolovana DB regresija provjerava stvarno knjiženje, scope/prava, zaključavanja, ravnotežu, audit rollback, očuvanje drugih računa i idempotentnost.

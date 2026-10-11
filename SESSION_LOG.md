@@ -1936,3 +1936,16 @@ DB regresija provjerava poredak, smjer salda, avanse i ukupne iznose.
 - Robno / Podešavanja: dodavanje i uklanjanje redova sa izborom stavke, stope iz šifarnika, smjera i konta. Sve stavke kalkulacije podržavaju stopu; GENERAL pokriva samo stope bez posebnog reda.
 - Knjiženje koristi sačuvane iznose stavki u centima, uključujući odvojeni ulazni i ukalkulisani PDV u maloprodaji. Nedostajuća konta i neuravnotežen nalog blokiraju knjiženje. Postojeći nalozi ostaju neizmijenjeni.
 - Unit regresije i stvarno maloprodajno knjiženje u izolovanoj DB transakciji pokrivaju raspodjelu stopa, GENERAL fallback, duplikate i ravnotežu. Koristi postojeću migraciju `20261007140000_invoice_rate_posting_rules`; nema nove promjene šeme.
+
+### PDV kontrole praznih evidencija — 2026-10-11
+- Kontrole sada provjeravaju podešena ulazna/izlazna PDV konta i kada je KIF/KUF iznos nula, pa prikazuju knjiženi PDV fakture koja još nije prenesena u KIF. Obaveza/kredit i PDV_RETURN nalozi izuzeti su iz poređenja. Dva regresiona testa renderuju stvarnu stranicu sa praznim evidencijama.
+
+- PDV Kontrole: tabela po kontima sa KIF/KUF evidencijom, glavnom knjigom i razlikom (GK minus evidencija). Nulta razlika prikazuje zeleno „Slaže se”, odstupanja crveni iznos sa znakom; zbirni status iznad i ostala upozorenja ispod. Poređenje i sabiranje rade u centima; regresije pokrivaju nulu i oba znaka razlike.
+
+## Direktno brisanje KUF računa — 2026-10-11
+
+- Kantica u redu računa otvara modal sa razlogom i potvrdom. Zaključana godina ili PDV period prikazuju objašnjenje zabrane. Backend ponavlja provjere.
+- Nova veza `stavke_naloga.kuf_entry_id` tačno određuje stavke računa. U jednoj transakciji uklanjaju se samo njegove stavke; preostali nalog mora biti izbalansiran. Posljednji račun soft-deleteuje prazan nalog. Proknjiženi račun je soft-deleted, neproknjiženi bez naloga fizički obrisan. Audit čuva prethodni račun i uklonjene stavke.
+- Plaćanja/raspodjele i veze osnovnih sredstava blokiraju brisanje. Računi preuzeti iz kalkulacije brišu se kroz kalkulaciju. Potrebna prava ulazni_racuni/delete i za povezani nalog nalozi/delete.
+- Stariji nalozi bez pouzdanih veza ne brišu se prepoznavanjem teksta ili iznosa: jednom ih vratiti u nacrt, obrisati nacrt naloga i ponovo knjižiti KUF.
+- Migracija `20261011120000_kuf_journal_line_link`; purge redoslijed usklađen. Izolovana DB regresija provjerava stvarno knjiženje, scope/prava, zaključavanja, ravnotežu, audit rollback, očuvanje drugih računa i idempotentnost.

@@ -10859,3 +10859,29 @@ td small {
 .client-dashboard-note { margin: 0; font-size: .8rem; line-height: 1.6; }
 @media (max-width: 1100px) { .client-balance-panels { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .client-balance-panel { padding: 20px; } .client-ranking-label { flex-direction: column; gap: 4px; } .client-dashboard-tabs a { padding: 10px 12px; } }
+
+/* PDV reconciliation: amount columns stay aligned on narrow screens. */
+.pdv-reconciliation-table { min-width: 680px; }
+.pdv-reconciliation-table th:not(:first-child),
+.pdv-reconciliation-table td { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pdv-reconciliation-table tbody th { text-align: left; font-weight: 600; }
+.pdv-reconciliation-status { display: inline-block; border-radius: 999px; padding: 0.35rem 0.7rem; font-weight: 700; }
+.pdv-reconciliation-ok { color: #166534; background: #ecfdf3; }
+.pdv-reconciliation-error { color: #b42318; background: #fff1f0; }
+
+button.kuf-delete-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; min-width: 34px; padding: 0; border: 1px solid #fecaca; border-radius: 9px; color: #b42318; background: #fff5f5; cursor: pointer; }
+button.kuf-delete-icon:hover { background: #fee2e2; border-color: #f87171; }
+button.kuf-delete-icon:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.kuf-delete-dialog { width: min(520px, calc(100vw - 32px)); max-height: 85vh; overflow: auto; padding: 28px; border: 1px solid #dbe6f2; border-radius: 18px; color: #15304d; background: white; box-shadow: 0 24px 80px #102a4350; }
+.kuf-delete-dialog::backdrop { background: #102a4366; }
+.kuf-delete-dialog h3 { margin: 0 0 12px; }
+.kuf-delete-dialog p { white-space: normal; line-height: 1.5; }
+.kuf-delete-label { color: #61758a; overflow-wrap: anywhere; }
+.kuf-delete-dialog label { display: block; white-space: normal; margin-top: 16px; }
+.kuf-delete-dialog textarea { width: 100%; box-sizing: border-box; margin-top: 8px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font: inherit; resize: vertical; }
+.kuf-delete-dialog .kuf-delete-confirm { display: flex; gap: 10px; align-items: center; }
+.kuf-delete-dialog .kuf-delete-confirm input { width: 18px; height: 18px; margin: 0; flex: 0 0 18px; }
+.kuf-delete-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+.kuf-delete-error { color: #b42318; background: #fff1f0; padding: 12px; border-radius: 8px; }
+
+.kuf-delete-actions > button { margin: 0; min-height: 44px; padding: 10px 16px; align-self: stretch; }

@@ -157,7 +157,8 @@ Trenutno su implementirane kontrole koje:
 - upozoravaju na KIF/KUF račune u periodu koji nisu proknjiženi ili su
   rasknjiženi (`posting_status != POSTED` ili bez aktivnog `journal_id`);
 - porede ulazni/izlazni PDV iz KIF/KUF evidencije sa `POSTED` glavnom knjigom
-  po kontima iz PDV šeme, uz izuzimanje closing naloga `PDV_RETURN`.
+  po kontima iz PDV šeme, uključujući nulte KIF/KUF iznose; konta obaveze/kredita
+  i closing nalozi `PDV_RETURN` izuzeti su iz ovog poređenja.
 
 Knjiženje i zaključavanje ponavljaju kontrole pod transakcionim zaključavanjem godine: PDV obveznik, knjiženi računi i aktivni nalozi, računi bez knjige, promijenjeni izvori, izvoz sa PDV-om, uvoz bez JCI, validna konta i balans, slaganje evidencije sa glavnom knjigom i naloga sa prijavom. Detaljna validacija poreske razrade ostaje u unosu KIF/KUF.
 

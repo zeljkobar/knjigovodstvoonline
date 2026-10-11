@@ -1,7 +1,7 @@
+import { KufDeleteButton } from "../KufDeleteButton";
 import Link from "next/link";
 import {
   createKufEntry,
-  deleteKufEntry,
   importCalculationsToKuf,
   postInvoiceBook,
   updateKufEntry
@@ -453,6 +453,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
       gross: 0
     }
   );
+  const lockedPdvPeriods = await prisma.pdvPeriod.findMany({where:{firma_id:activeCompany.id,status:"LOCKED"},select:{datum_od:true,datum_do:true}});
   const isLocked = activeYear.zakljucena || kufBook.status !== "OPEN";
   const editingEntry = query?.edit
     ? kufBook.entries.find(
@@ -992,17 +993,19 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
                           <Link className="table-button" href={`/agencija/racuni/kuf/${kufBook.id}?edit=${entry.id}#kuf-entry-form`}>
                             Izmijeni
                           </Link>
-                          <form action={deleteKufEntry}>
-                            <input type="hidden" name="kuf_book_id" value={kufBook.id} />
-                            <input type="hidden" name="kuf_entry_id" value={entry.id} />
-                            <button className="table-button table-button-danger" type="submit">
-                              Obriši
-                            </button>
-                          </form>
+
                         </div>
-                      ) : (
-                        "-"
-                      )}
+                      ) : null}
+                      <KufDeleteButton id={entry.id} bookId={kufBook.id}
+                        label={`${entry.internal_kuf_number} · ${entry.dobavljac.naziv} · ${entry.supplier_invoice_number}`}
+                        posted={entry.posting_status === "POSTED" || !!entry.journal_id}
+                        blockedReason={activeYear.zakljucena
+                          ? "Poslovna godina je zaključana. Brisanje je moguće tek nakon otključavanja godine."
+                          : lockedPdvPeriods.some(period => [kufBook.kuf_date, entry.invoice_date, entry.receipt_date].some(date => date >= period.datum_od && date <= period.datum_do))
+                            ? "PDV mjesec je zaključan. Administrator agencije prvo mora otključati odgovarajući period u PDV prijavi, uz razlog."
+                            : kufBook.status !== "OPEN" ? "KUF knjiga je zaključana. Prvo je otvorite za izmjene."
+                              : entry.posting_mode !== "KUF_RULES" ? "Račun je preuzet iz kalkulacije. Otvorite izvornu kalkulaciju i tamo pokrenite brisanje, kako bi se uskladile i zalihe."
+                                : undefined}/>
                     </td>
                   </tr>
                 ))

@@ -72,6 +72,10 @@ Ova pravila su rezultat odluka u specifikaciji i ne smiju se kršiti:
    u nacrt, njegov nalog, stavke i pokrića fizički se brišu u istoj transakciji;
    sam nacrt obračuna zatim se može fizički izbrisati. Prije ovih brisanja moraju
    proći scope, prava, status, zaključavanje, zavisnosti i audit provjere toka.
+   Dodatni uski izuzetak: direktno brisanje KUF računa uklanja njegove tačno
+   povezane stavke zajedničkog naloga fizički u istoj transakciji sa audit
+   snimkom. Proknjiženi račun i eventualno prazan nalog ostaju soft-deleted;
+   ravnoteža ostalih stavki, prava, zaključavanja i zavisnosti su obavezni.
 5. **Audit log.** Svaka bitna akcija se upisuje (ko, kada, agencija, firma, modul,
    zapis, tip, stara/nova vrijednost). Vidi `audit.ts`.
 6. **Globalni kontekst.** Agencija, firma i poslovna godina se biraju gore i svi

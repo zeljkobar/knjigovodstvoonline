@@ -279,6 +279,17 @@ export async function purgeCompanyData(
     Prisma.sql`DELETE FROM grupe_artikala WHERE firma_id = ${firmaId}::uuid`
   );
 
+  // Stavke naloga imaju i FK na KUF račun; brišu se prije KUF-a i naloga.
+  await izvrsi(
+    "stavke_naloga",
+    Prisma.sql`
+      DELETE FROM stavke_naloga
+      WHERE nalog_id IN (
+        SELECT id FROM nalozi WHERE firma_id = ${firmaId}::uuid
+      )
+    `
+  );
+
   // KIF/KUF poreske stavke se brišu kaskadno zajedno sa računima.
   await izvrsi(
     "kif_entries",
@@ -381,16 +392,6 @@ export async function purgeCompanyData(
     Prisma.sql`DELETE FROM os_kategorije WHERE firma_id = ${firmaId}::uuid`
   );
 
-  // Stavke naloga moraju biti obrisane prije samih naloga i konta firme.
-  await izvrsi(
-    "stavke_naloga",
-    Prisma.sql`
-      DELETE FROM stavke_naloga
-      WHERE nalog_id IN (
-        SELECT id FROM nalozi WHERE firma_id = ${firmaId}::uuid
-      )
-    `
-  );
   await izvrsi(
     "nalozi",
     Prisma.sql`DELETE FROM nalozi WHERE firma_id = ${firmaId}::uuid`

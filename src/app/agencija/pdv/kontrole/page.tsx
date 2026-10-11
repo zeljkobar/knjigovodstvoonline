@@ -24,7 +24,7 @@ function ledgerBalanceForPdvKind(kind: "INPUT" | "OUTPUT", line: { duguje: unkno
   const debit = decimalNumber(line.duguje as Parameters<typeof decimalNumber>[0]);
   const credit = decimalNumber(line.potrazuje as Parameters<typeof decimalNumber>[0]);
 
-  return kind === "OUTPUT" ? credit - debit : debit - credit;
+  return kind === "OUTPUT" ? cents(credit) - cents(debit) : cents(debit) - cents(credit);
 }
 
 export default async function PdvKontrolePage({ searchParams }: PageProps) {
@@ -159,7 +159,9 @@ export default async function PdvKontrolePage({ searchParams }: PageProps) {
     const account = rule?.konto;
     const amount = amountMap.get(field.code) ?? 0;
 
-    if (!account || amount === 0) {
+    // Even an empty KIF/KUF must be reconciled against posted VAT balances.
+    // Settlement accounts are not input/output VAT evidence.
+    if (!account || ["VAT_PAYABLE", "VAT_CREDIT"].includes(field.code)) {
       continue;
     }
 
@@ -167,11 +169,13 @@ export default async function PdvKontrolePage({ searchParams }: PageProps) {
     const previous = expectedByAccount.get(account.id);
 
     expectedByAccount.set(account.id, {
-      amount: (previous?.amount ?? 0) + amount,
+      amount: (previous?.amount ?? 0) + cents(amount),
       kind,
-      label: previous ? `${previous.label}, ${field.label}` : `${account.sifra} - ${account.naziv}`
+      label: previous ? `${previous.label}, ${field.label}` : `${account.sifra} - ${account.naziv} · ${field.label}`
     });
   }
+
+  const comparisons: Array<{ id: string; label: string; evidence: number; ledger: number; difference: number }> = [];
 
   if (expectedByAccount.size > 0) {
     const ledgerLines = await prisma.stavkaNaloga.findMany({
@@ -217,11 +221,13 @@ export default async function PdvKontrolePage({ searchParams }: PageProps) {
     for (const [accountId, expected] of expectedByAccount.entries()) {
       const ledgerAmount = ledgerByAccount.get(accountId) ?? 0;
 
-      if (cents(expected.amount) !== cents(ledgerAmount)) {
-        issues.push(
-          `${expected.label}: PDV evidencija ${money(expected.amount)}, glavna knjiga ${money(ledgerAmount)}.`
-        );
-      }
+      comparisons.push({
+        id: accountId,
+        label: expected.label,
+        evidence: expected.amount,
+        ledger: ledgerAmount,
+        difference: ledgerAmount - expected.amount
+      });
     }
   }
 
@@ -237,6 +243,8 @@ export default async function PdvKontrolePage({ searchParams }: PageProps) {
     }
   }
 
+  const mismatchCount = comparisons.filter(row => row.difference !== 0).length;
+
   return (
     <div className="admin-stack">
       <header className="admin-header">
@@ -249,9 +257,40 @@ export default async function PdvKontrolePage({ searchParams }: PageProps) {
       <PdvMonthForm action="/agencija/pdv/kontrole" month={month} />
 
       <section className="admin-panel">
-        <h3>Rezultat kontrole</h3>
+        <div className="panel-header">
+          <h3>Usklađenost PDV evidencije i glavne knjige</h3>
+          {comparisons.length > 0 ? (
+            <span className={`pdv-reconciliation-status ${mismatchCount ? "pdv-reconciliation-error" : "pdv-reconciliation-ok"}`}>
+              {mismatchCount ? `Odstupanja na kontima: ${mismatchCount}` : "✓ Sva konta su usklađena"}
+            </span>
+          ) : null}
+        </div>
+        <p className="muted-text">Razlika = glavna knjiga − PDV evidencija (KIF/KUF). Ručne korekcije prijave nisu uključene u ovo poređenje.</p>
+        {comparisons.length === 0 ? (
+          <p className="admin-message">Nema podešenih PDV konta za poređenje. Provjerite upozorenja ispod.</p>
+        ) : (
+          <div className="table-wrap">
+            <table className="admin-table pdv-reconciliation-table">
+              <thead><tr><th scope="col">PDV konto / stavka</th><th scope="col">PDV evidencija (KIF/KUF)</th><th scope="col">Glavna knjiga</th><th scope="col">Razlika</th></tr></thead>
+              <tbody>{comparisons.map(row => (
+                <tr key={row.id}>
+                  <th scope="row">{row.label}</th>
+                  <td>{money(row.evidence / 100)} €</td>
+                  <td>{money(row.ledger / 100)} €</td>
+                  <td><span className={`pdv-reconciliation-status ${row.difference === 0 ? "pdv-reconciliation-ok" : "pdv-reconciliation-error"}`}>
+                    {row.difference === 0 ? "✓ Slaže se" : `${row.difference > 0 ? "+" : ""}${money(row.difference / 100)} €`}
+                  </span></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="admin-panel">
+        <h3>Ostala upozorenja</h3>
         {issues.length === 0 ? (
-          <p className="admin-message">Nema pronađenih grešaka za izabrani mjesec.</p>
+          <p className="admin-message">Nema ostalih upozorenja za izabrani mjesec.</p>
         ) : (
           <ul className="admin-list">
             {issues.map((issue) => (

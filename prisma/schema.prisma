@@ -1670,6 +1670,7 @@ model KufEntry {
   created_by                 String?                       @db.Uuid
   updated_at                 DateTime                      @updatedAt
   updated_by                 String?                       @db.Uuid
+  stavke_naloga              StavkaNaloga[]
   tax_lines                  KufEntryTaxLine[]
   bankStatementAllocations   BankStatementLineAllocation[]
 
@@ -3448,6 +3449,8 @@ model PlateObracunStavka {
 
 /// DB triggers reject short account codes on new/changed lines and when posting existing drafts.
 model StavkaNaloga {
+  kuf_entry_id         String?           @db.Uuid
+  kuf_entry            KufEntry?         @relation(fields: [kuf_entry_id], references: [id], onDelete: Restrict)
   id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nalog_id             String            @db.Uuid
   nalog                Nalog             @relation(fields: [nalog_id], references: [id])
@@ -3470,6 +3473,7 @@ model StavkaNaloga {
   updated_at           DateTime          @updatedAt
   updated_by           String?           @db.Uuid
 
+  @@index([kuf_entry_id])
   @@unique([nalog_id, redni_broj])
   @@index([poslovna_jedinica_id])
   @@map("stavke_naloga")
