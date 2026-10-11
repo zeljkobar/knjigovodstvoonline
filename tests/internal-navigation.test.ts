@@ -61,10 +61,19 @@ test("KIF/KUF je vidljiv sa pregledom bilo koje od dvije knjige", () => {
 test("admin agencije zadržava kompletan meni bez eksplicitne matrice", () => {
   const navigation = getAgencyNavigation("admin_agencije");
 
-  assert.equal(navigation.length, 14);
+  assert.equal(navigation.length, 15);
   assert.equal(navigation.some((item) => item.section === "osnovna-sredstva"), true);
   assert.equal(navigation.some((item) => item.section === "zavrsni-racun"), true);
   assert.equal(navigation.some((item) => item.section === "korisnici"), true);
+});
+
+test("blagajna traži pregled putnih naloga; klijent nema ovaj meni", () => {
+  assert.equal(getAgencyNavigation("korisnik_agencije", new Set(["putni_nalozi:view"])).some(i => i.section === "blagajna"), true);
+  assert.equal(getAgencyNavigation("korisnik_agencije", new Set(["putni_nalozi:create"])).some(i => i.section === "blagajna"), false);
+  assert.equal(getAgencyNavigation("klijent", new Set(["putni_nalozi:view"])).some(i => i.section === "blagajna"), false);
+  const children = getSubNavigation("blagajna", "korisnik_agencije", new Set(["putni_nalozi:view"]))[0].children!;
+  assert.equal(children.some(i => i.href.includes("podesavanja")), false);
+  assert.equal(children.some(i => i.href.includes("novi=1")), false);
 });
 
 test("radnik vidi osnovna sredstva samo sa pravom pregleda", () => {

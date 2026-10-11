@@ -331,3 +331,46 @@ podataka zaposlenog/ugovora i audit se izvršavaju u jednoj transakciji.
 
 ### Dokumenti prestanka radnog odnosa
 `otkazi_o_radu` je vezan za agenciju, firmu i postojećeg `plate_radnici` radnika. Snapshot (verzija predloška, podaci i escaped HTML) se snima zajedno sa odjavom u transakciji koja zaključava godinu i radnika. Sačuvani dokument nije elektronski potpis niti podnesena odjava. Reaktivacija ne briše istorijske dokumente; company-purge briše otkaze prije radnika. Štampa `/stampa/plate/otkazi/[id]` ponovo provjerava scope firme, dodjelu i pravo pregleda plata.
+
+
+### Blagajna i putni nalozi
+`putni_nalozi` pripada agenciji, firmi i poslovnoj godini. JSON čuva validirane
+stavke, cente i snapshot podataka firme/zaposlenog bez JMBG-a. `putni_podesavanja`
+pripada firmi; `putne_relacije` je zajednički agencijski override nad početnim
+relacijama iz Excel GRADOVI lista. Kanonski ključ uključuje državu svakog grada
+(`ME:BAR|RS:NOVI SAD`) i radi u oba smjera. Stari nepoznati gradovi ostaju bez
+klasifikacije do ručne korekcije. Novi grad
+nastaje unosom relacije; nema spoljnog servisa ni poziva naplate.
+Zvanične strane dnevnice su statički prilog sa izvorom u `travel-countries.ts`;
+firmine korekcije i domaća dnevnica su u JSON podešavanjima. Dokument čuva izabranu
+državu i iznos. Gorivo je u centima, stopa sopstvenog vozila je gorivo × 25 u
+jedinicama 1/10000 EUR/km, službenog 0; zaokružuje se tek iznos stavke. Nema
+slobodnog teksta za vrstu vozila. Stari JSON obračuni se ne preračunavaju pri čitanju.
+Mutacije zaključavaju firmu, relevantne godine i po potrebi agenciju za šifarnik;
+provjeravaju izvorni kontekst, prava i reviziju. Audit je dio iste transakcije.
+Purge uklanja dokumente i podešavanja prije firme/godine, a relacije ostaju.
+Šema knjiženja je u firmi (`podaci.knjizenje`): šifre konta za dnevnice,
+kilometražu i ostale troškove D, obavezu P i ID vrste naloga. Firmin override ima
+prednost nad globalnim kontom. Knjiženje materijalizuje konta, validira partnera
+(async izbor zaposlenog kao komitenta), jedinicu i period, i u istoj transakciji
+kreira POSTED `TRAVEL_ORDER` / `PUTNI_NALOZI` nalog i jedinstveni FK `nalog_id`.
+Godina naloga se određuje po datumu knjiženja od povratka nadalje; izvor zadržava
+svoju poslovnu godinu. Puna obaveza se knjiži bez oduzimanja akontacije. Knjiženje
+zahtijeva i `nalozi:post` i `putni_nalozi:post`. Povezani dokument/nalog je zaštićen
+od direktnih izmjena i vraćanja u nacrt. Purge uklanja putne naloge prije naloga
+za knjiženje. Nema KUF/PDV izvora niti evidencije gotovinske isplate u ovom obimu.
+
+
+### Sačuvani MAPR podaci KUF batch importa
+`mapr_import_podaci` čuva uspješan normalizovan serverski odgovor po agenciji,
+firmi, godini i fiskalnom identitetu (IIC/PIB/vrijeme). Snapshot se upisuje prije
+pokušaja KUF kreiranja, pa izbor konta ili popravka PDV postavki ne ponavlja mrežni
+poziv. Neuspjeli odgovori se ne pamte. Jedinstveni ključ i createMany skipDuplicates
+čuvaju prvi odgovor pri konkurentnim upisima, sa transakcionim auditom.
+Čitanje je iza postojećih scope/prava/year/book provjera; browser šalje linkove
+i konta, nikada pouzdane podatke računa. Keš nije poslovni dokument i nema
+uobičajeni tok poslovnog brisanja. Uspješan KUF upis u istoj transakciji fizički
+uklanja snapshot, a rollback ga zadržava. Duplicate putanja čisti ranije zaostatke.
+Audit čuva broj uklonjenih redova bez payload-a. Purge briše preostale redove prije
+firme/godine. Nema djece/FK prema KUF zapisu. Ponovni uvoz nakon brisanja KUF
+nacrta zahtijeva novo MAPR čitanje jer je privremeni snapshot već potrošen.

@@ -201,7 +201,8 @@ export default async function NalogDetailPage({
     0
   );
   const balanced = Math.round(totalDebit * 100) === Math.round(totalCredit * 100);
-  const isFixedAssetJournal = nalog.source_module === "OSNOVNA_SREDSTVA";
+  const isTravelJournal = nalog.source_module === "PUTNI_NALOZI";
+  const isProtectedSourceJournal = nalog.source_module === "OSNOVNA_SREDSTVA" || isTravelJournal;
   const depreciationBatchHref =
     nalog.source_type === "DEPRECIATION" && nalog.izvorni_dokument_id
       ? `/agencija/osnovna-sredstva/obracuni/${nalog.izvorni_dokument_id}`
@@ -399,7 +400,7 @@ export default async function NalogDetailPage({
       </section>
 
       {canUpdate && nalog.status === journalStatuses.draft &&
-      !nalog.poslovna_godina.zakljucena && !isFixedAssetJournal ? (
+      !nalog.poslovna_godina.zakljucena && !isProtectedSourceJournal ? (
         <section className="admin-panel">
           <div className="panel-header">
             <h3>Izmijeni stavke</h3>
@@ -431,18 +432,18 @@ export default async function NalogDetailPage({
           <div className="panel-header">
             <h3>Akcije</h3>
             <span>
-              {isFixedAssetJournal
-                ? "Nalog kontroliše modul osnovnih sredstava"
+              {isProtectedSourceJournal
+                ? isTravelJournal ? "Nalog kontroliše modul putnih naloga" : "Nalog kontroliše modul osnovnih sredstava"
                 : "Izmjene su dostupne dok je godina otvorena"}
             </span>
           </div>
           <div className="journal-actions">
-            {isFixedAssetJournal ? (
+            {isProtectedSourceJournal ? (
               <>
                 <p className="admin-hint">
-                  Nalog amortizacije se ne vraća direktno u nacrt jer je vezan za
-                  proknjiženi obračun i pokriće perioda.
+                  {isTravelJournal ? "Nalog je vezan za proknjiženi putni nalog i zaštićen je od direktnih izmjena." : "Nalog amortizacije se ne vraća direktno u nacrt jer je vezan za proknjiženi obračun i pokriće perioda."}
                 </p>
+                {isTravelJournal && nalog.izvorni_dokument_id ? <Link className="secondary-button" href={`/agencija/blagajna/putni-nalozi?id=${nalog.izvorni_dokument_id}`}>Otvori putni nalog</Link> : null}
                 {depreciationBatchHref ? (
                   <Link className="secondary-button" href={depreciationBatchHref}>
                     Otvori obračun amortizacije
@@ -450,14 +451,14 @@ export default async function NalogDetailPage({
                 ) : null}
               </>
             ) : null}
-            {canPost && nalog.status === journalStatuses.draft && !isFixedAssetJournal ? (
+            {canPost && nalog.status === journalStatuses.draft && !isProtectedSourceJournal ? (
               <form action={postJournal} data-journal-post-form="true">
                 <input name="nalog_id" type="hidden" value={nalog.id} />
                 <button type="submit">Proknjiži nalog (F9)</button>
               </form>
             ) : null}
             {canUpdate && nalog.status === journalStatuses.posted &&
-            !["PLATE", "OSNOVNA_SREDSTVA"].includes(nalog.source_module ?? "") ? (
+            !["PLATE", "OSNOVNA_SREDSTVA", "PUTNI_NALOZI"].includes(nalog.source_module ?? "") ? (
               <form action={reopenJournal}>
                 <input name="nalog_id" type="hidden" value={nalog.id} />
                 <button className="secondary-button" type="submit">

@@ -62,6 +62,17 @@ KUF razlikuje ukupni ulazni PDV, odbitni i neodbitni:
   ručni unos svakog računa. Neuspjeli računi se grupišu po PIB-u dobavljača,
   konto se bira jednom za cijelu grupu, a ponovni import ga primjenjuje na sve
   račune i pamti kao `default_kuf_konto_sifra` za firmu i dobavljača.
+- Uspješan MAPR odgovor se čuva u `mapr_import_podaci` prije provjera konta.
+  Ponovni uvoz poslije izbora konta koristi sačuvane podatke, bez MAPR poziva;
+  provjere prava, firme/godine, otvorene knjige, konta, PDV razrade i duplikata
+  ostaju. Identitet je IIC + PIB + fiskalni datum; promjena zapisa URL-a ne
+  znači novi račun. Snapshot je server-side, ne uzima iznose iz browsera.
+  Neuspjeli MAPR odgovori se ne čuvaju. Cache preživljava osvježavanje stranice;
+  uspješan KUF upis fizički ga uklanja u istoj transakciji. Greška zadržava podatke
+  za nastavak, a duplikat čisti zaostali snapshot. Audit ne kopira payload.
+  Migracija čisti ranije duplirane podatke; purge briše preostale privremene podatke.
+  Ranije preuzimanje koje nije
+  imalo snapshot zahtijeva još jedan poziv. Import ne knjiži knjigu automatski.
 
 ## Tip PDV prometa (`vat_transaction_type`)
 > Implementirano u `src/lib/vat-transaction.ts`.

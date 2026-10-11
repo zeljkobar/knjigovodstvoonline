@@ -1,0 +1,677 @@
+[
+  {
+    "kod": "ME",
+    "naziv": "Crna Gora",
+    "dnevnica": null
+  },
+  {
+    "kod": "AL",
+    "naziv": "Albanija",
+    "dnevnica": 6300
+  },
+  {
+    "kod": "AO",
+    "naziv": "Angola",
+    "dnevnica": 12355
+  },
+  {
+    "kod": "AR",
+    "naziv": "Argentina",
+    "dnevnica": 11865
+  },
+  {
+    "kod": "AU",
+    "naziv": "Australija",
+    "dnevnica": 8890
+  },
+  {
+    "kod": "AT",
+    "naziv": "Austrija",
+    "dnevnica": 7875
+  },
+  {
+    "kod": "AF",
+    "naziv": "Avganistan",
+    "dnevnica": 8120
+  },
+  {
+    "kod": "AZ",
+    "naziv": "Azerbejdžan",
+    "dnevnica": 7630
+  },
+  {
+    "kod": "BH",
+    "naziv": "Bahrein",
+    "dnevnica": 10675
+  },
+  {
+    "kod": "BD",
+    "naziv": "Bangladeš",
+    "dnevnica": 3605
+  },
+  {
+    "kod": "BE",
+    "naziv": "Belgija",
+    "dnevnica": 8120
+  },
+  {
+    "kod": "BJ",
+    "naziv": "Benin",
+    "dnevnica": 4690
+  },
+  {
+    "kod": "BO",
+    "naziv": "Bolivija",
+    "dnevnica": 6055
+  },
+  {
+    "kod": "BA",
+    "naziv": "Bosna i Hercegovina",
+    "dnevnica": 5075
+  },
+  {
+    "kod": "BR",
+    "naziv": "Brazil",
+    "dnevnica": 6475
+  },
+  {
+    "kod": "BG",
+    "naziv": "Bugarska",
+    "dnevnica": 7945
+  },
+  {
+    "kod": "BI",
+    "naziv": "Burundi",
+    "dnevnica": 6755
+  },
+  {
+    "kod": "CF",
+    "naziv": "Centralnoafrička Republika",
+    "dnevnica": 4305
+  },
+  {
+    "kod": "TD",
+    "naziv": "Čad",
+    "dnevnica": 9380
+  },
+  {
+    "kod": "CL",
+    "naziv": "Čile",
+    "dnevnica": 8330
+  },
+  {
+    "kod": "CZ",
+    "naziv": "Češka",
+    "dnevnica": 8050
+  },
+  {
+    "kod": "DK",
+    "naziv": "Danska",
+    "dnevnica": 9450
+  },
+  {
+    "kod": "CD",
+    "naziv": "Demokratska Republika Kongo",
+    "dnevnica": 9205
+  },
+  {
+    "kod": "VI",
+    "naziv": "Djevičanska ostrva",
+    "dnevnica": 12075
+  },
+  {
+    "kod": "DO",
+    "naziv": "Dominikanska Republika",
+    "dnevnica": 8400
+  },
+  {
+    "kod": "EG",
+    "naziv": "Egipat",
+    "dnevnica": 9065
+  },
+  {
+    "kod": "EC",
+    "naziv": "Ekvador",
+    "dnevnica": 6790
+  },
+  {
+    "kod": "EE",
+    "naziv": "Estonija",
+    "dnevnica": 6335
+  },
+  {
+    "kod": "ET",
+    "naziv": "Etiopija",
+    "dnevnica": 6405
+  },
+  {
+    "kod": "PH",
+    "naziv": "Filipini",
+    "dnevnica": 7245
+  },
+  {
+    "kod": "FI",
+    "naziv": "Finska",
+    "dnevnica": 8540
+  },
+  {
+    "kod": "FR",
+    "naziv": "Francuska",
+    "dnevnica": 8575
+  },
+  {
+    "kod": "GA",
+    "naziv": "Gabon",
+    "dnevnica": 8715
+  },
+  {
+    "kod": "GH",
+    "naziv": "Gana",
+    "dnevnica": 10535
+  },
+  {
+    "kod": "GR",
+    "naziv": "Grčka",
+    "dnevnica": 7770
+  },
+  {
+    "kod": "GY",
+    "naziv": "Gvajana",
+    "dnevnica": 7280
+  },
+  {
+    "kod": "GT",
+    "naziv": "Gvatemala",
+    "dnevnica": 5670
+  },
+  {
+    "kod": "GN",
+    "naziv": "Gvineja",
+    "dnevnica": 8820
+  },
+  {
+    "kod": "GW",
+    "naziv": "Gvineja Bisao",
+    "dnevnica": 5880
+  },
+  {
+    "kod": "HT",
+    "naziv": "Haiti",
+    "dnevnica": 7350
+  },
+  {
+    "kod": "NL",
+    "naziv": "Holandija",
+    "dnevnica": 9205
+  },
+  {
+    "kod": "HN",
+    "naziv": "Honduras",
+    "dnevnica": 6475
+  },
+  {
+    "kod": "HR",
+    "naziv": "Hrvatska",
+    "dnevnica": 6300
+  },
+  {
+    "kod": "IN",
+    "naziv": "Indija",
+    "dnevnica": 5320
+  },
+  {
+    "kod": "ID",
+    "naziv": "Indonezija",
+    "dnevnica": 6755
+  },
+  {
+    "kod": "IQ",
+    "naziv": "Irak",
+    "dnevnica": 7805
+  },
+  {
+    "kod": "IR",
+    "naziv": "Iran",
+    "dnevnica": 6510
+  },
+  {
+    "kod": "IE",
+    "naziv": "Irska",
+    "dnevnica": 8890
+  },
+  {
+    "kod": "IS",
+    "naziv": "Island",
+    "dnevnica": 8680
+  },
+  {
+    "kod": "IT",
+    "naziv": "Italija",
+    "dnevnica": 8050
+  },
+  {
+    "kod": "IL",
+    "naziv": "Izrael",
+    "dnevnica": 12460
+  },
+  {
+    "kod": "JM",
+    "naziv": "Jamajka",
+    "dnevnica": 9695
+  },
+  {
+    "kod": "JP",
+    "naziv": "Japan",
+    "dnevnica": 7840
+  },
+  {
+    "kod": "YE",
+    "naziv": "Jemen",
+    "dnevnica": 4340
+  },
+  {
+    "kod": "JO",
+    "naziv": "Jordan",
+    "dnevnica": 7840
+  },
+  {
+    "kod": "ZA",
+    "naziv": "Južna Afrika",
+    "dnevnica": 6090
+  },
+  {
+    "kod": "KH",
+    "naziv": "Kambodža",
+    "dnevnica": 4095
+  },
+  {
+    "kod": "CM",
+    "naziv": "Kamerun",
+    "dnevnica": 6825
+  },
+  {
+    "kod": "CA",
+    "naziv": "Kanada",
+    "dnevnica": 10080
+  },
+  {
+    "kod": "KZ",
+    "naziv": "Kazahstan",
+    "dnevnica": 9590
+  },
+  {
+    "kod": "KE",
+    "naziv": "Kenija",
+    "dnevnica": 9660
+  },
+  {
+    "kod": "CN",
+    "naziv": "Kina",
+    "dnevnica": 8610
+  },
+  {
+    "kod": "CY",
+    "naziv": "Kipar",
+    "dnevnica": 8330
+  },
+  {
+    "kod": "CO",
+    "naziv": "Kolumbija",
+    "dnevnica": 4760
+  },
+  {
+    "kod": "KR",
+    "naziv": "Koreja",
+    "dnevnica": 12880
+  },
+  {
+    "kod": "XK",
+    "naziv": "Kosovo",
+    "dnevnica": 6500
+  },
+  {
+    "kod": "CU",
+    "naziv": "Kuba",
+    "dnevnica": 6755
+  },
+  {
+    "kod": "KW",
+    "naziv": "Kuvajt",
+    "dnevnica": 10150
+  },
+  {
+    "kod": "LS",
+    "naziv": "Lesoto",
+    "dnevnica": 3920
+  },
+  {
+    "kod": "LV",
+    "naziv": "Letonija",
+    "dnevnica": 7385
+  },
+  {
+    "kod": "LB",
+    "naziv": "Liban",
+    "dnevnica": 9100
+  },
+  {
+    "kod": "LR",
+    "naziv": "Liberija",
+    "dnevnica": 7595
+  },
+  {
+    "kod": "LT",
+    "naziv": "Litvanija",
+    "dnevnica": 6405
+  },
+  {
+    "kod": "LU",
+    "naziv": "Luksemburg",
+    "dnevnica": 8295
+  },
+  {
+    "kod": "HU",
+    "naziv": "Mađarska",
+    "dnevnica": 7770
+  },
+  {
+    "kod": "MK",
+    "naziv": "Sjeverna Makedonija",
+    "dnevnica": 5600
+  },
+  {
+    "kod": "MW",
+    "naziv": "Malavi",
+    "dnevnica": 7070
+  },
+  {
+    "kod": "MY",
+    "naziv": "Malezija",
+    "dnevnica": 6370
+  },
+  {
+    "kod": "MT",
+    "naziv": "Malta",
+    "dnevnica": 7175
+  },
+  {
+    "kod": "MR",
+    "naziv": "Mauritanija",
+    "dnevnica": 4935
+  },
+  {
+    "kod": "MX",
+    "naziv": "Meksiko",
+    "dnevnica": 10500
+  },
+  {
+    "kod": "MD",
+    "naziv": "Moldavija",
+    "dnevnica": 5985
+  },
+  {
+    "kod": "MC",
+    "naziv": "Monako",
+    "dnevnica": 10150
+  },
+  {
+    "kod": "MN",
+    "naziv": "Mongolija",
+    "dnevnica": 6580
+  },
+  {
+    "kod": "NA",
+    "naziv": "Namibija",
+    "dnevnica": 5180
+  },
+  {
+    "kod": "NP",
+    "naziv": "Nepal",
+    "dnevnica": 5320
+  },
+  {
+    "kod": "NG",
+    "naziv": "Nigerija",
+    "dnevnica": 7035
+  },
+  {
+    "kod": "NI",
+    "naziv": "Nikaragva",
+    "dnevnica": 6545
+  },
+  {
+    "kod": "DE",
+    "naziv": "Njemačka",
+    "dnevnica": 7280
+  },
+  {
+    "kod": "NO",
+    "naziv": "Norveška",
+    "dnevnica": 8575
+  },
+  {
+    "kod": "NZ",
+    "naziv": "Novi Zeland",
+    "dnevnica": 10535
+  },
+  {
+    "kod": "OM",
+    "naziv": "Oman",
+    "dnevnica": 10255
+  },
+  {
+    "kod": "PK",
+    "naziv": "Pakistan",
+    "dnevnica": 6930
+  },
+  {
+    "kod": "PA",
+    "naziv": "Panama",
+    "dnevnica": 7245
+  },
+  {
+    "kod": "PG",
+    "naziv": "Papua Nova Gvineja",
+    "dnevnica": 13160
+  },
+  {
+    "kod": "PY",
+    "naziv": "Paragvaj",
+    "dnevnica": 7840
+  },
+  {
+    "kod": "PE",
+    "naziv": "Peru",
+    "dnevnica": 7035
+  },
+  {
+    "kod": "PL",
+    "naziv": "Poljska",
+    "dnevnica": 7595
+  },
+  {
+    "kod": "PR",
+    "naziv": "Portoriko",
+    "dnevnica": 11200
+  },
+  {
+    "kod": "PT",
+    "naziv": "Portugalija",
+    "dnevnica": 7140
+  },
+  {
+    "kod": "RW",
+    "naziv": "Ruanda",
+    "dnevnica": 6580
+  },
+  {
+    "kod": "RO",
+    "naziv": "Rumunija",
+    "dnevnica": 7770
+  },
+  {
+    "kod": "RU",
+    "naziv": "Rusija",
+    "dnevnica": 14350
+  },
+  {
+    "kod": "US",
+    "naziv": "Sjedinjene Američke Države",
+    "dnevnica": 11235
+  },
+  {
+    "kod": "ST",
+    "naziv": "Sao Tome i Principe",
+    "dnevnica": 5950
+  },
+  {
+    "kod": "SA",
+    "naziv": "Saudijska Arabija",
+    "dnevnica": 13860
+  },
+  {
+    "kod": "SC",
+    "naziv": "Sejšeli",
+    "dnevnica": 10290
+  },
+  {
+    "kod": "SL",
+    "naziv": "Sijera Leone",
+    "dnevnica": 8365
+  },
+  {
+    "kod": "SG",
+    "naziv": "Singapur",
+    "dnevnica": 13685
+  },
+  {
+    "kod": "SK",
+    "naziv": "Slovačka",
+    "dnevnica": 7175
+  },
+  {
+    "kod": "SI",
+    "naziv": "Slovenija",
+    "dnevnica": 6300
+  },
+  {
+    "kod": "SO",
+    "naziv": "Somalija",
+    "dnevnica": 5355
+  },
+  {
+    "kod": "RS",
+    "naziv": "Srbija",
+    "dnevnica": 5530
+  },
+  {
+    "kod": "SD",
+    "naziv": "Sudan",
+    "dnevnica": 7105
+  },
+  {
+    "kod": "LK",
+    "naziv": "Šri Lanka",
+    "dnevnica": 6580
+  },
+  {
+    "kod": "ES",
+    "naziv": "Španija",
+    "dnevnica": 7420
+  },
+  {
+    "kod": "CH",
+    "naziv": "Švajcarska",
+    "dnevnica": 12635
+  },
+  {
+    "kod": "SE",
+    "naziv": "Švedska",
+    "dnevnica": 8995
+  },
+  {
+    "kod": "TH",
+    "naziv": "Tajland",
+    "dnevnica": 6895
+  },
+  {
+    "kod": "TZ",
+    "naziv": "Tanzanija",
+    "dnevnica": 6686
+  },
+  {
+    "kod": "TG",
+    "naziv": "Togo",
+    "dnevnica": 7840
+  },
+  {
+    "kod": "TT",
+    "naziv": "Trinidad i Tobago",
+    "dnevnica": 10535
+  },
+  {
+    "kod": "TN",
+    "naziv": "Tunis",
+    "dnevnica": 4970
+  },
+  {
+    "kod": "TR",
+    "naziv": "Turska",
+    "dnevnica": 6125
+  },
+  {
+    "kod": "UG",
+    "naziv": "Uganda",
+    "dnevnica": 6965
+  },
+  {
+    "kod": "AE",
+    "naziv": "Ujedinjeni Arapski Emirati",
+    "dnevnica": 11445
+  },
+  {
+    "kod": "GB",
+    "naziv": "Ujedinjeno Kraljevstvo",
+    "dnevnica": 9660
+  },
+  {
+    "kod": "UA",
+    "naziv": "Ukrajina",
+    "dnevnica": 10010
+  },
+  {
+    "kod": "UY",
+    "naziv": "Urugvaj",
+    "dnevnica": 8295
+  },
+  {
+    "kod": "UZ",
+    "naziv": "Uzbekistan",
+    "dnevnica": 5950
+  },
+  {
+    "kod": "VE",
+    "naziv": "Venecuela",
+    "dnevnica": 12950
+  },
+  {
+    "kod": "VN",
+    "naziv": "Vijetnam",
+    "dnevnica": 5355
+  },
+  {
+    "kod": "ZM",
+    "naziv": "Zambija",
+    "dnevnica": 7315
+  },
+  {
+    "kod": "ZW",
+    "naziv": "Zimbabve",
+    "dnevnica": 6230
+  },
+  {
+    "kod": "OTHER",
+    "naziv": "Ostale države / mjesta",
+    "dnevnica": 6500
+  }
+]

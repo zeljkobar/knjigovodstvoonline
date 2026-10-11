@@ -1,12 +1,96 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-10-07. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-10-12. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## KUF import bez ponovnog MAPR čitanja — 2026-10-12
+
+- Uspješan serverski MAPR odgovor čuva se prije pokušaja kreiranja KUF računa,
+  u `mapr_import_podaci`, izolovano po agenciji, firmi i poslovnoj godini.
+  Ključ je IIC + PIB prodavca + normalizovan fiskalni datum, nezavisno od URL zapisa.
+- „Uvezi sve spremne”, pojedinačni dobavljač i ponovni pokušaj koriste sačuvane
+  pune podatke, ponovo provjeravaju trenutno konto/PDV postavke i duplikate.
+  Promjena konta ne ponavlja MAPR poziv. Radi i nakon osvježavanja ili novog procesa.
+- Neuspjeli/nepotpuni MAPR odgovori se ne čuvaju; njihovi linkovi ostaju za retry.
+  Browser ne šalje pouzdane iznose. KIF i ručna MAPR forma nisu mijenjani.
+- Prvi odgovor ostaje sačuvan samo dok čeka konto/ispravku. Uspješan KUF upis
+  fizički uklanja privremeni MAPR zapis u istoj transakciji; rollback čuva podatke.
+  Duplikat takođe uklanja zaostali privremeni zapis istog fiskalnog računa/firme.
+  Audit pamti samo broj uklonjenih zapisa, bez kopiranja JSON podataka računa.
+  Purge briše preostale privremene zapise prije firme/godine; nema podređenih tabela.
+- Migracija `20261012090000_mapr_import_cleanup` primijenjena lokalno: uklanja
+  ranije sačuvane snapshot-e samo ako isti fiskalni račun već postoji u aktivnom
+  KUF-u iste firme/agencije. Neobrađeni računi i drugi scope ostaju netaknuti.
+  DB regresija provjerava i atomarnost pri grešci audita i samo čišćenje migracijom.
+- Migracija `20261011170000_mapr_import_podaci` primijenjena lokalno, Prisma
+  regenerisan i dev restartovan. Raniji neuspjeli uvozi nemaju rekonstruisane podatke
+  i zahtijevaju još jedno čitanje ako nije već sačuvan novim tokom.
+- Stvarna rollback DB regresija sa simuliranim MAPR-om potvrđuje jedan poziv,
+  nastavak bez dostupnog MAPR-a nakon izbora konta/PDV korekcije, identične podatke,
+  URL varijante, prava/scope/zaključavanje, duplikate, audit i trajno brisanje firme.
+  Import i dalje kreira KUF zapise; knjiženje knjige u nalog ostaje postojeći zasebni korak.
+
+## Blagajna → Putni nalozi — 2026-10-11
+
+- Ispravljen redirect poslije čuvanja: poruka „Sačuvano” URL-kodirana je za
+  HTTP zaglavlje; DB regresija provjerava `x-action-redirect` za sve akcije.
+- Novi meni sa spiskom (pretraga po broju/paginacija), jednim unosom naloga i obračuna,
+  nacrtom prije puta, naknadnim unosom, izmjenom, soft-delete i štampom.
+- Zaposleni iz postojeće evidencije; snapshot naziva firme, zaposlenog, radnog mjesta,
+  relacija, dnevnica i iznosa. Nema JMBG-a ni podataka o zaradi u putnom nalogu.
+- 27 smjernih redova lista GRADOVI čini 15 relacija u oba smjera, preuzetih u
+  `src/lib/travel-routes.json`. Izvor je dostavljeni `zadaci/PUTNI NALOG.xls`.
+  Agencijski override i nove relacije važe za sve njene firme. Dokument čuva vlastite km.
+- Kontrolisani izbor sopstvenog/službenog vozila za odlazak, povratak i stavke.
+  Cijena litra goriva u centima; privatno vozilo 25% cijene po km, službeno 0.
+  Stopa se čuva kao cijeli broj 1/10000 EUR/km; konačna stavka se zaokružuje na cent.
+- Država prije grada; ključ relacije sadrži države i radi u oba smjera, bez miješanja
+  istoimenih gradova. Početni Excel gradovi razvrstani su po državama. Stari nepoznati
+  gradovi zahtijevaju izbor države u šifarniku, bez automatskog nagađanja.
+- Zvanični prilog Uredbe (Skupština CG, objava 5.3.2026, verzija kroz Sl.list 7/2026)
+  daje 133 imenovana odredišta + ostala mjesta, ukupno 134 strane tarifne stavke.
+  Srbija 55,30 EUR, Albanija 63 EUR. Podešavanja firme imaju pojedinačne korekcije;
+  domaća dnevnica unosi se zasebno. Izvor povezan u podešavanjima.
+- Pragovi 8/12 sati su podesivi prijedlog, broj dnevnica automatski ili ručni.
+  Sačuvani dokument zadržava državu, gorivo, stopu, dnevnicu i pragove; stari JSON
+  ostaje nepromijenjen do eksplicitnog čuvanja novog obračuna. Jedna država odredišta
+  određuje osnovnu dnevnicu; višedržavni obračun po trajanju nije automatizovan.
+- Trajanje koristi Europe/Podgorica i ljetnje računanje vremena. Datum izdavanja je
+  odvojen od putovanja i stvarnog created_at. Polazak i izdavanje su u aktivnoj godini;
+  povratak može preći u narednu otvorenu poslovnu godinu (ona mora postojati).
+- HTML/CSS A4 landscape štampa prema listu pn: račun lijevo, nalog desno, crno,
+  bez Excel mreže. Opcioni izvještaj se štampa na posebnoj strani. Polja stvarne
+  isplate/prijema ostaju prazna za potpisivanje; dokument ne evidentira isplatu.
+- Prava `putni_nalozi` view/create/update/delete/manage/post, tenant i dodjela firme,
+  zaključavanje relevantnih godina, revizije, audit u transakciji. Podešavanja i
+  ručna izmjena zajedničkog šifarnika dostupni su administratoru agencije.
+- Migracije `20261011120000_putni_nalozi` i `20261011150000_putne_relacije_drzave`
+  primijenjene lokalno; Prisma regenerisan
+  i dev restartovan. Purge uklanja naloge/podešavanja prije godina/firme; agencijske
+  relacije ostaju. Stavke su u JSON-u dokumenta, nema podređenih tabela.
+- Provjere: TypeScript, fokusirani lint, obračun primjera 75110 centi, prava/scope,
+  zaključavanje, revizije, snapshot, rollback relacija, soft-delete, audit i purge;
+  browser kilometraža Bar–Beograd 500 km i vizuelni pregled A4 obrasca.
+- Šema knjiženja po firmi: dnevnice/kilometraža/ostali troškovi duguju, puna
+  obaveza prema zaposlenom potražuje. Vrsta naloga i konta biraju se u podešavanjima.
+  Akontacija ne umanjuje knjiženu obavezu: isplata/poravnanje knjiže se zasebno.
+- „Proknjiži” zahtijeva završen sačuvani obračun, prava `putni_nalozi:post` i
+  `nalozi:post`, važeća konta, partnera/jedinicu gdje su obavezni i otvorene godine/PDV.
+  Datum knjiženja je od povratka nadalje; nalog pripada firmi i godini tog datuma,
+  uključujući putovanje preko dvije godine. Kreira se odmah balansiran POSTED nalog.
+- Jedinstveni FK `nalog_id`, zaključavanje i audit u istoj transakciji štite od
+  duplog knjiženja. Proknjiženi dokument i povezani nalog zaštićeni su od izmjena,
+  brisanja i direktnog vraćanja u nacrt. Storno nije dio ovog toka.
+- Migracija `20261012100000_putni_nalozi_knjizenje` primijenjena lokalno; Prisma
+  regenerisan i dev restartovan. Purge briše putni nalog prije povezanog naloga.
+  DB rollback regresija pokriva knjiženje punog iznosa, službeno vozilo bez kilometraže,
+  ponovni klik, prava, konta, zaključavanja, prelaz godine, grešku audita i purge.
+- Nalozi blagajne za uplatu/isplatu ostaju za naknadni rad.
 
 ## Radna mjesta, podaci zaposlenih i ugovori o radu — 2026-10-03
 
@@ -1066,7 +1150,8 @@ je od samodeaktivacije i samostalne rotacije.
 - Ako KUF MAPR import pronađe dobavljača bez zapamćenog konta knjiženja,
   rezultati se grupišu po PIB-u dobavljača. Korisnik jednom bira konto za sve
   njegove neuspjele račune, može ih zajedno ponovo uvesti, a izabrano konto se
-  pamti na vezi firme i dobavljača za naredne importe.
+  pamti na vezi firme i dobavljača za naredne importe. Već preuzeti podaci
+  su trajno sačuvani za firmu/godinu i ne čitaju se ponovo samo zbog konta.
 - Cijela knjiga se knjiži odjednom u jedan nalog; naknadni računi se dopunjavaju.
 - Pri automatskom knjiženju KUF-a balans se kontroliše po svakom računu.
   Razlika od tačno jednog centa zbog zaokruživanja koriguje se na najvećoj

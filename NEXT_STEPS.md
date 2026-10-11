@@ -4,6 +4,13 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- KUF cache implementiran: pri deployu primijeniti `20261011170000_mapr_import_podaci` i `20261012090000_mapr_import_cleanup`,
+  generisati Prisma klijent i restartovati aplikaciju. Raniji pokušaji bez punog
+  snapshot-a još jednom zahtijevaju MAPR; novi nastavljaju iz baze nakon izbora konta.
+- Putni nalozi implementirani pod Blagajnom. Pri deployu primijeniti
+  `20261011120000_putni_nalozi`, `20261011150000_putne_relacije_drzave` i `20261012100000_putni_nalozi_knjizenje`, generisati Prisma klijent i restartovati aplikaciju.
+  Podesiti domaću dnevnicu/cijenu goriva i eventualne korekcije stranih dnevnica po firmi, šemu knjiženja i dodijeliti radnicima prava `putni_nalozi:post` + `nalozi:post`.
+  Nalozi blagajne za uplatu/isplatu i povezivanje isplata ostaju za naknadni rad, po odluci korisnika.
 - Mail import više ne bilježi logotipe i poruke bez podržanih priloga. Stare SKIPPED evidencije na produkciji ostaju do zasebnog čišćenja.
 - Deploy KUF brisanja: primijeniti `20261011120000_kuf_journal_line_link`, generisati Prisma klijent i restartovati aplikaciju. Stara knjiženja bez veze sa računima zahtijevaju ponovno knjiženje KUF-a prije pojedinačnog brisanja.
 - Deploy: `20261007140000_invoice_rate_posting_rules`; šema izlazne fakture sada podržava redove prihoda/PDV-a po stopama. Agencija podešava konta; promjena ne prepravlja stare naloge.
@@ -215,7 +222,8 @@
 - **Modul 5/7 Izvodi:** dodati parsere za ostale banke, dodatne uslove pravila
   po formatima banaka, split alokacije jedne uplate na više KIF/KUF računa i
   vraćanje proknjiženog izvoda u nacrt.
-- **Modul 6:** cache MAPR odgovora; bolji QA štampe na mnogo redova.
+- **Modul 6:** KUF batch MAPR cache završen; bolji QA štampe na mnogo redova.
+  Cache ručne MAPR forme i KIF-a ostaje van ovog popravljenog toka.
 - **Modul 8:** ručni QA postojećeg IRMS XML-a i štampa prijave. Zaključavanje/otključavanje, verzije i DB testovi knjiženja završeni 2026-10-07.
 - **Modul 9 Plate:** doraditi obustave, opisna pravila osnova koja traže ručne
   parametre, ručni QA IOPPD XML upload-a na portalu, probnu štampu virmana na

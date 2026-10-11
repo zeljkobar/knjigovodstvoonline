@@ -71,7 +71,16 @@ export async function purgeCompanyData(
     obrisano[tabela] = await tx.$executeRaw(query);
   };
 
+  // Pending MAPR snapshots have no children; consumed snapshots are already removed.
+  // Delete remaining staging data before company/year.
+  await izvrsi("mapr_import_podaci", Prisma.sql`DELETE FROM mapr_import_podaci WHERE firma_id = ${firmaId}::uuid`);
+
   // Kontrolna lista je dio reda zadatka; nema dodatnih zavisnih tabela.
+  // Putni nalozi imaju FK nalog_id: uklanjaju se prije nalozi/stavke_naloga.
+  // Relacije su zajedničke agenciji; stavke putnog naloga su u njegovom JSON-u.
+  // Country-qualified routes remain agency-wide; no new company child/FK tables.
+  await izvrsi("putni_nalozi", Prisma.sql`DELETE FROM putni_nalozi WHERE firma_id = ${firmaId}::uuid`);
+  await izvrsi("putni_podesavanja", Prisma.sql`DELETE FROM putni_podesavanja WHERE firma_id = ${firmaId}::uuid`);
   await izvrsi("firma_rok_zadaci", Prisma.sql`DELETE FROM firma_rok_zadaci WHERE firma_id = ${firmaId}::uuid`);
   await izvrsi("firma_rok_planovi", Prisma.sql`DELETE FROM firma_rok_planovi WHERE firma_id = ${firmaId}::uuid`);
 

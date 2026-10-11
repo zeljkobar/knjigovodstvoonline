@@ -3,6 +3,65 @@
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 
+## 2026-10-12 — Čuvanje putnog naloga / redirect
+
+Serverski log potvrdio `ERR_INVALID_CHAR` u `x-action-redirect`: uspješno čuvanje
+slalo je nekodirano „Sačuvano” u URL-u. Poruka kodirana u akcijama naloga i
+podešavanja/relacija. Rollback DB test sada koristi Node `validateHeaderValue`
+u redirect adapteru, pa pokriva i HTTP ograničenje koje stari mock nije provjeravao.
+
+## 2026-10-12 — MAPR podaci samo do uspješnog KUF upisa
+
+Privremeni MAPR JSON fizički se uklanja u istoj transakciji sa uspješnim KUF upisom;
+greška ili rollback zadržavaju staging podatke. Oba puta prepoznavanja duplikata
+uklanjaju zaostale snapshot-e samo istog računa/firme/agencije. Audit čuva broj,
+bez dupliranja payload-a. Ručna migracija `20261012090000_mapr_import_cleanup`
+očistila je postojeće snapshot-e samo za aktivne KUF račune sa tačnim fiskalnim
+identitetom. Nema novih tabela/FK; purge komentar usklađen, 79 tabela pokriveno.
+Stvarna rollback DB regresija prošla: uklanjanje nakon uspjeha, očuvanje kod
+nedostajućeg konta/PDV-a i simulirane audit greške, duplicate cleanup, migracija
+uz očuvanje neobrađenih/tuđih podataka, prava, zaključavanje i purge.
+
+## 2026-10-12 — Nastavak KUF importa iz sačuvanih MAPR podataka
+
+Uspješno očitan fiskalni račun dobija serverski snapshot prije pokušaja KUF upisa.
+Nedostajući/neaktivan konto ili PDV konfiguracija više ne odbacuju taj odgovor.
+Ponovni pokušaj koristi firmu/godinu i kanonski fiskalni identitet, bez povjerenja
+u iznose browsera; postojeći računi ostaju duplikati. Neuspjeli MAPR poziv ostaje
+retryable. Ažurirane poruke o uvozu pripremljenih računa. Ručna migracija primijenjena,
+Prisma regenerisan, dev restartovan; purge uključuje snapshot-e prije firme/godine,
+bez podređenih tabela. `check-mapr-import-cache.cjs` izvršava stvarnu rutu i DB
+u rollback transakciji: jedan poziv, offline nastavak, konto/PDV korekcija,
+URL varijante, izolacija, duplikati, prava/zaključavanje, audit i purge. Raniji
+pokušaji bez sačuvanih podataka još jednom zahtijevaju MAPR. KIF/ručni unos i
+postojeći odvojeni korak knjiženja knjige nisu mijenjani.
+
+## 2026-10-11 — Gorivo, kontrolisani prevoz i dnevnice po državama
+
+Dodati izbor sopstvenog/službenog vozila, cijena litra goriva i automatska stopa
+25% samo za sopstveno vozilo. Cjelobrojna stopa 1/10000 EUR/km sprečava rano
+zaokruživanje. Država prethodi gradu, relacije razlikuju istoimene gradove po državi.
+Ugrađene 134 strane tarifne stavke iz zvaničnog priloga Uredbe (Skupština CG,
+5.3.2026, tekst kroz 7/2026), vizuelno provjerene sve stranice priloga. Firmine
+korekcije u podešavanjima; domaća dnevnica zasebna. Štampa čuva državu/gorivo/stopu.
+Ručna migracija primijenjena, Prisma regenerisan, dev restartovan. Purge pregledan:
+relacije ostaju agencijske, nema novih firmi podređenih tabela/FK. Unit i rollback DB
+provjere uključuju četvrtinu centa, službeno vozilo, nevažeći prevoz/državu/gorivo,
+Albaniju i nepromijenjene stare iznose. Browser potvrđuje 565 km, 55,30 EUR,
+235,89 EUR pri gorivu 1,67 i nultu naknadu za službeno vozilo.
+
+## 2026-10-11 — Blagajna / putni nalozi
+
+Implementirani spisak, zajednički unos naloga/obračuna, nacrt i naknadni unos,
+šifarnik agencije sa 15 dvosmjernih relacija iz GRADOVI, podešavanja po firmi,
+automatski/ručni broj dnevnica, troškovi i akontacija. Snapshot dokumenta i
+A4 landscape štampa po korisničkom pn obrascu; izvještaj na dodatnoj strani.
+Backend ima zasebna prava, tenant/dodjelu, zaključavanje godina, revizije i audit.
+Ručna migracija primijenjena lokalno, klijent regenerisan i dev restartovan.
+Purge pokriva nove firmine tabele; agencijski šifarnik ostaje. Dodati unit i
+rollback DB testovi, uključujući stvarne akcije, štampu i purge; browser potvrđuje
+500 km Bar–Beograd i raspored štampe. Uplatni/isplatni nalozi blagajne odloženi.
+
 ## 2026-10-07 — PDV periodi i kontrolisano otključavanje
 
 Dodati UI i transakcioni tok zaključavanja, verzije prijava sa XML izvozom,
@@ -1955,3 +2014,14 @@ DB regresija provjerava poredak, smjer salda, avanse i ukupne iznose.
 - Uvoz filtrira nepodržane priloge (npr. logo) prije upisa evidencije. Poruka bez PDF/XML/HTM/HTML priloga vraća privremeni SKIPPED rezultat, bez mail_izvod_obrade i pojedinačnog IMAP_IMPORT audita. Body izvoda se ne uvozi.
 - Marker nepotpune obrade ostaje prije prvog podržanog priloga; postojeći uspješni uvozi i zaštita duplikata ostaju. Ranije evidencije na serveru nijesu obrisane.
 - Izolovana DB regresija sa sintetičkim logom i porukom bez priloga prolazi, kao i postojeći import lifecycle; sve testne izmjene rollback.
+
+### 2026-10-12 — Prazna stranica pri štampi putnog naloga
+- Print CSS dodjeljuje pnTravel i korijenskim html/body elementima samo na stranici putnog naloga, uz reset minimalne visine. Time se izbjegava povratak na globalnu A4 portrait stranicu nakon sadržaja naloga.
+- `npx tsc --noEmit` prolazi. Stvarna stranica naloga otvorena; pregled broja štampanih stranica nije potvrđen jer native Chrome prikaz nije bio dostupan tokom provjere.
+
+### 2026-10-12 — Knjiženje putnih naloga
+- Firmine postavke imaju vrstu naloga i konta za dnevnice, kilometražu, ostale troškove i punu obavezu prema zaposlenom. Završeni sačuvani obračun knjiži se dugmetom Proknjiži; akontacija/isplata ostaju zasebno.
+- Transakcija zaključava scope/godine/dokument/vrstu, provjerava prava oba modula, reviziju, konta, partnera/jedinicu i PDV period, kreira balansiran POSTED nalog i jedinstvenu vezu. Datum određuje godinu knjiženja i podržava prelaz godine. Dupliranje i direktne izmjene/brisanje/vraćanje u nacrt su blokirani.
+- Ručna migracija 20261012100000_putni_nalozi_knjizenje primijenjena, Prisma regenerisan, dev restartovan. Purge redoslijed usklađen; stvarni rollback purge test prolazi i za proknjižene putne naloge.
+- DB regresija: puni iznos uprkos akontaciji, službeno vozilo bez kilometraže, analitika, neaktivno konto, revizija, prava, zaključana godina/PDV, ponovljeno knjiženje, generičke zaštite naloga, prelaz godine i rollback kada audit zakaže. Browser potvrdio šemu i dugme na postojećem nalogu; poslovni podaci korisnika nisu knjiženi u provjeri.
+- Završno: `npx tsc --noEmit`, fokusirani ESLint, `git diff --check` i purge coverage prolaze. DB regresija potvrđuje i sva četiri kontiranja, ostale troškove i obaveznu jedinicu. Planer CSV/Excel regenerisan.

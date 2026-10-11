@@ -177,6 +177,9 @@ model AgencijaBankovniRacun {
 }
 
 model Firma {
+  mapr_import_podaci MaprImportPodatak[]
+  putni_nalozi PutniNalog[]
+  putni_podesavanja PutniPodesavanje?
   ugovori_o_radu UgovorORadu[]
   otkazi_o_radu OtkazORadu[]
   rok_plan FirmaRokPlan?
@@ -544,6 +547,8 @@ model AktivnostDogadjaj {
 }
 
 model PoslovnaGodina {
+  mapr_import_podaci MaprImportPodatak[]
+  putni_nalozi PutniNalog[]
   osPoreskeGodine OsPoreskaGodina[]
   osPoreskiObracuni OsPoreskiObracun[]
   osObracuni OsObracun[]
@@ -2252,6 +2257,7 @@ model VrstaNaloga {
 }
 
 model Nalog {
+  putniNalog PutniNalog?
   osObracun OsObracun?
   id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id          String?              @db.Uuid
@@ -3762,4 +3768,72 @@ model OtkazORadu {
  created_by String @db.Uuid
  @@index([agencija_id,firma_id,radnik_id])
  @@map("otkazi_o_radu")
+}
+
+
+model PutniNalog {
+  nalog_id String? @unique @db.Uuid
+  nalog Nalog? @relation(fields:[nalog_id],references:[id],onDelete:Restrict)
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  firma_id String @db.Uuid
+  firma Firma @relation(fields:[firma_id],references:[id])
+  poslovna_godina_id String @db.Uuid
+  poslovna_godina PoslovnaGodina @relation(fields:[poslovna_godina_id],references:[id])
+  broj String
+  datum DateTime @db.Date
+  status String @default("DRAFT")
+  podaci Json
+  is_deleted Boolean @default(false)
+  deleted_at DateTime?
+  deleted_by String? @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  created_by String @db.Uuid
+  updated_by String @db.Uuid
+  @@unique([firma_id,poslovna_godina_id,broj])
+  @@index([agencija_id,firma_id,poslovna_godina_id])
+  @@map("putni_nalozi")
+}
+
+model PutnaRelacija {
+  polazak_drzava String @default("")
+  odrediste_drzava String @default("")
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  kljuc String
+  polazak String
+  odrediste String
+  km Decimal @db.Decimal(10,2)
+  updated_at DateTime @updatedAt
+  @@unique([agencija_id,kljuc])
+  @@map("putne_relacije")
+}
+
+model PutniPodesavanje {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  firma_id String @unique @db.Uuid
+  firma Firma @relation(fields:[firma_id],references:[id])
+  podaci Json
+  updated_at DateTime @updatedAt
+  @@map("putni_podesavanja")
+}
+
+// Temporary server-fetched fiscal snapshots, removed atomically after successful KUF import.
+model MaprImportPodatak {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  firma_id String @db.Uuid
+  poslovna_godina_id String @db.Uuid
+  firma Firma @relation(fields: [firma_id], references: [id])
+  poslovna_godina PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  fiskalni_kljuc String
+  verzija Int @default(1)
+  podaci Json
+  created_at DateTime @default(now())
+  created_by String @db.Uuid
+  @@unique([agencija_id, firma_id, poslovna_godina_id, fiskalni_kljuc], map: "mapr_import_podaci_scope_kljuc_key")
+  @@index([firma_id])
+  @@map("mapr_import_podaci")
 }

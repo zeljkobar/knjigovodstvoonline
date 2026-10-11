@@ -83,6 +83,7 @@ export const agencyNavigation: NavigationItem[] = [
     section: "izvodi",
     permissions: [{ modul: "izvodi", akcija: "view" }]
   },
+  { href: "/agencija/blagajna", icon: "▤", label: "Blagajna", roles: agencyRoles, section: "blagajna", permissions: [{ modul: "putni_nalozi", akcija: "view" }] },
   {
     href: "/agencija/pos",
     icon: "▦",
@@ -148,6 +149,12 @@ export const agencyNavigation: NavigationItem[] = [
 ];
 
 export const subNavigation: Record<string, SubNavigationItem[]> = {
+  blagajna: [{ href: "/agencija/blagajna/putni-nalozi", label: "Putni nalozi", children: [
+    { href: "/agencija/blagajna/putni-nalozi", label: "Spisak naloga" },
+    { href: "/agencija/blagajna/putni-nalozi?novi=1", label: "Novi nalog", permissions: [{ modul: "putni_nalozi", akcija: "create" }] },
+    { href: "/agencija/blagajna/putni-nalozi/relacije", label: "Relacije i kilometraža" },
+    { href: "/agencija/blagajna/putni-nalozi/podesavanja", label: "Podešavanja", roles: adminOnly }
+  ] }],
   pos: [
     { href: "/agencija/pos", label: "Prodaja" },
     { href: "/agencija/pos/racuni", label: "Fiskalni računi" },

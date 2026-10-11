@@ -1,0 +1,122 @@
+[
+  {
+    "kljuc": "ME:BAR|RS:BEOGRAD",
+    "polazak": "BEOGRAD",
+    "odrediste": "BAR",
+    "km": 500,
+    "polazak_drzava": "RS",
+    "odrediste_drzava": "ME"
+  },
+  {
+    "kljuc": "ME:BAR|ME:PODGORICA",
+    "polazak": "PODGORICA",
+    "odrediste": "BAR",
+    "km": 50,
+    "polazak_drzava": "ME",
+    "odrediste_drzava": "ME"
+  },
+  {
+    "kljuc": "ME:BAR|RS:NOVI SAD",
+    "polazak": "BAR",
+    "odrediste": "NOVI SAD",
+    "km": 565,
+    "polazak_drzava": "ME",
+    "odrediste_drzava": "RS"
+  },
+  {
+    "kljuc": "ME:BAR|RS:ZRENJANIN",
+    "polazak": "ZRENJANIN",
+    "odrediste": "BAR",
+    "km": 595,
+    "polazak_drzava": "RS",
+    "odrediste_drzava": "ME"
+  },
+  {
+    "kljuc": "BA:SARAJEVO|ME:BAR",
+    "polazak": "SARAJEVO",
+    "odrediste": "BAR",
+    "km": 292,
+    "polazak_drzava": "BA",
+    "odrediste_drzava": "ME"
+  },
+  {
+    "kljuc": "ME:BAR|RS:NIS",
+    "polazak": "NIS",
+    "odrediste": "BAR",
+    "km": 542,
+    "polazak_drzava": "RS",
+    "odrediste_drzava": "ME"
+  },
+  {
+    "kljuc": "ME:BAR|RS:SUBOTICA",
+    "polazak": "SUBOTICA",
+    "odrediste": "BAR",
+    "km": 660,
+    "polazak_drzava": "RS",
+    "odrediste_drzava": "ME"
+  },
+  {
+    "kljuc": "ME:BAR|RS:LESKOVAC",
+    "polazak": "LESKOVAC",
+    "odrediste": "BAR",
+    "km": 403,
+    "polazak_drzava": "RS",
+    "odrediste_drzava": "ME"
+  },
+  {
+    "kljuc": "ME:BAR|RS:KRUSEVAC",
+    "polazak": "KRUSEVAC",
+    "odrediste": "BAR",
+    "km": 415,
+    "polazak_drzava": "RS",
+    "odrediste_drzava": "ME"
+  },
+  {
+    "kljuc": "BA:MOSTAR|ME:BAR",
+    "polazak": "MOSTAR",
+    "odrediste": "BAR",
+    "km": 260,
+    "polazak_drzava": "BA",
+    "odrediste_drzava": "ME"
+  },
+  {
+    "kljuc": "ME:BAR|SI:LJUBLJANA",
+    "polazak": "LJUBLJANA",
+    "odrediste": "BAR",
+    "km": 790,
+    "polazak_drzava": "SI",
+    "odrediste_drzava": "ME"
+  },
+  {
+    "kljuc": "AL:TIRANA|ME:BAR",
+    "polazak": "TIRANA",
+    "odrediste": "BAR",
+    "km": 160,
+    "polazak_drzava": "AL",
+    "odrediste_drzava": "ME"
+  },
+  {
+    "kljuc": "IT:TRST|SI:LJUBLJANA",
+    "polazak": "LJUBLJANA",
+    "odrediste": "TRST",
+    "km": 99,
+    "polazak_drzava": "SI",
+    "odrediste_drzava": "IT"
+  },
+  {
+    "kljuc": "IT:MILANO|IT:TRST",
+    "polazak": "TRST",
+    "odrediste": "MILANO",
+    "km": 420,
+    "polazak_drzava": "IT",
+    "odrediste_drzava": "IT"
+  },
+  {
+    "kljuc": "IT:MILANO|ME:BAR",
+    "polazak": "MILANO",
+    "odrediste": "BAR",
+    "km": 1238,
+    "polazak_drzava": "IT",
+    "odrediste_drzava": "ME"
+  }
+]

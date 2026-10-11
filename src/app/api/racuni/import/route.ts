@@ -11,6 +11,7 @@ import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { vatTransactionTypes } from "@/lib/vat-transaction";
+import { auditLogInTransaction } from "@/lib/audit";
 import { readWorkContext } from "@/lib/work-context";
 
 const batchSize = 5;
@@ -178,9 +179,9 @@ async function verifyMaprInvoice(qrUrl: string): Promise<MaprInvoice | { success
   formBody.append("tin", tin);
   formBody.append("dateTimeCreated", dateTimeForMapr(crtd));
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), maprTimeoutMs);
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), maprTimeoutMs);
     const maprRes = await fetch("https://mapr.tax.gov.me/ic/api/verifyInvoice", {
       method: "POST",
       headers: {
@@ -190,7 +191,6 @@ async function verifyMaprInvoice(qrUrl: string): Promise<MaprInvoice | { success
       body: formBody,
       signal: controller.signal
     });
-    clearTimeout(timeout);
 
     if (!maprRes.ok) {
       return { success: false, message: "MAPR servis nije dostupan." };
@@ -226,6 +226,8 @@ async function verifyMaprInvoice(qrUrl: string): Promise<MaprInvoice | { success
     };
   } catch {
     return { success: false, message: "Greška pri komunikaciji sa MAPR-om." };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -303,6 +305,33 @@ async function resolveCompanyAccount(
   });
 }
 
+// A staging snapshot is needed only until the fiscal invoice exists in KUF.
+// Do not copy its payload into audit: that would retain the duplicate data.
+async function removeImportedMaprData(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  agencijaId: string,
+  firmaId: string,
+  keys: string[]
+) {
+  if (!keys.length) return;
+  const removed = await tx.maprImportPodatak.deleteMany({
+    where: { agencija_id: agencijaId, firma_id: firmaId, fiskalni_kljuc: { in: keys } }
+  });
+  if (removed.count) {
+    await auditLogInTransaction(tx, {
+      korisnikId: userId,
+      agencijaId,
+      firmaId,
+      modul: "ulazni_racuni",
+      akcija: "mapr_cache_consumed",
+      tipEntiteta: "MaprImportPodatak",
+      novaVrijednost: { uklonjeno: removed.count },
+      napomena: "Privremeni MAPR podaci uklonjeni nakon potvrđenog KUF upisa."
+    });
+  }
+}
+
 async function saveKufInvoice(
   userId: string,
   agencijaId: string,
@@ -332,6 +361,9 @@ async function saveKufInvoice(
     });
 
     if (duplicate) {
+      await removeImportedMaprData(tx, userId, agencijaId, firmaId, [
+        fiscalIdentityKey({ iic: invoice.identifiers.iic, tin: sellerTin, dateTimeCreated: fiscalDateTime })
+      ]);
       return {
         link: invoice.identifiers.qrUrl,
         status: "duplicate",
@@ -572,6 +604,10 @@ async function saveKufInvoice(
         internal_kuf_number: true
       }
     });
+
+    await removeImportedMaprData(tx, userId, agencijaId, firmaId, [
+      fiscalIdentityKey({ iic: invoice.identifiers.iic, tin: sellerTin, dateTimeCreated: fiscalDateTime })
+    ]);
 
     return {
       link: invoice.identifiers.qrUrl,
@@ -1135,6 +1171,7 @@ export async function POST(req: NextRequest) {
           ])
       );
 
+      const duplicateKeys: string[] = [];
       for (const [link, identity] of identitiesByLink) {
         const existing = existingByIdentity.get(fiscalIdentityKey(identity));
 
@@ -1142,6 +1179,7 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
+        duplicateKeys.push(fiscalIdentityKey(identity));
         resultByLink.set(link, {
           link,
           status: "duplicate",
@@ -1154,11 +1192,48 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      if (duplicateKeys.length) {
+        await prisma.$transaction((tx) =>
+          removeImportedMaprData(tx, user.id, user.agencija_id!, firma.id, duplicateKeys)
+        );
+      }
       linksForMapr = links.filter((link) => !resultByLink.has(link));
     }
   }
 
   const verified: Array<{ link: string; invoice: MaprInvoice | null; error?: string }> = [];
+  // Reuse trusted server snapshots, never invoice amounts supplied by the browser.
+  // The key is fiscal identity, so equivalent QR URLs share the same snapshot.
+  const cacheScope = {
+    agencija_id: user.agencija_id,
+    firma_id: firma.id,
+    poslovna_godina_id: godina.id
+  };
+  if (documentType === invoicePostingDocumentTypes.kuf && linksForMapr.length) {
+    const keys = linksForMapr.flatMap((link) => {
+      const identity = fiscalLinkIdentity(link);
+      return identity ? [fiscalIdentityKey(identity)] : [];
+    });
+    const stored = keys.length
+      ? await prisma.maprImportPodatak.findMany({
+          where: { ...cacheScope, verzija: 1, fiskalni_kljuc: { in: keys } },
+          select: { fiskalni_kljuc: true, podaci: true }
+        })
+      : [];
+    const savedByKey = new Map(
+      stored.map((row) => [row.fiskalni_kljuc, row.podaci as unknown as MaprInvoice])
+    );
+    linksForMapr = linksForMapr.filter((link) => {
+      const identity = fiscalLinkIdentity(link);
+      const saved = identity ? savedByKey.get(fiscalIdentityKey(identity)) : undefined;
+      if (!saved) return true;
+      verified.push({
+        link,
+        invoice: { ...saved, identifiers: { ...saved.identifiers, qrUrl: link } }
+      });
+      return false;
+    });
+  }
 
   for (let index = 0; index < linksForMapr.length; index += batchSize) {
     const batch = linksForMapr.slice(index, index + batchSize);
@@ -1170,6 +1245,63 @@ export async function POST(req: NextRequest) {
           return { link, invoice: null, error: invoice.message };
         }
 
+        if (documentType === invoicePostingDocumentTypes.kuf) {
+          const identity = fiscalLinkIdentity(link);
+          const receivedAt = new Date(
+            invoice.identifiers.dateTimeCreated.trim().replace(/ (\d{2}:\d{2})$/, "+$1")
+          );
+          if (
+            !identity ||
+            invoice.identifiers.iic !== identity.iic ||
+            normalizePib(invoice.seller.tin) !== identity.tin ||
+            receivedAt.getTime() !== identity.dateTimeCreated.getTime() ||
+            !Number.isFinite(invoice.total) ||
+            !invoice.taxes.length ||
+            invoice.taxes.some((tax) =>
+              ![tax.vatRate, tax.priceBeforeVat, tax.vatAmount].every(Number.isFinite)
+            )
+          ) {
+            return {
+              link,
+              invoice: null,
+              error: "MAPR nije vratio potpune podatke koji odgovaraju fiskalnom linku."
+            };
+          }
+          // Commit the read before attempting KUF creation: missing account/PDV setup
+          // must not throw away a successful, potentially slow external response.
+          const fiskalni_kljuc = fiscalIdentityKey(identity);
+          const saved = await prisma.$transaction(async (tx) => {
+            const created = await tx.maprImportPodatak.createMany({
+              data: {
+                ...cacheScope,
+                fiskalni_kljuc,
+                podaci: invoice as unknown as Prisma.InputJsonValue,
+                created_by: user.id
+              },
+              skipDuplicates: true
+            });
+            const row = await tx.maprImportPodatak.findFirstOrThrow({
+              where: { ...cacheScope, fiskalni_kljuc }
+            });
+            if (created.count) {
+              await auditLogInTransaction(tx, {
+                korisnikId: user.id,
+                agencijaId: cacheScope.agencija_id,
+                firmaId: firma.id,
+                modul: "ulazni_racuni",
+                akcija: "mapr_read",
+                tipEntiteta: "MaprImportPodatak",
+                entitetId: row.id,
+                novaVrijednost: { fiskalni_kljuc, verzija: 1 }
+              });
+            }
+            return row.podaci as unknown as MaprInvoice;
+          });
+          return {
+            link,
+            invoice: { ...saved, identifiers: { ...saved.identifiers, qrUrl: link } }
+          };
+        }
         return { link, invoice };
       })
     );

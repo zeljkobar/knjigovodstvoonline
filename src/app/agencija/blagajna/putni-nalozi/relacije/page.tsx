@@ -1,0 +1,14 @@
+import Link from "next/link";
+import { travelContext, travelPath } from "../context";
+import { travelRoutes } from "@/lib/travel-route-store";
+import { saveTravelConfiguration } from "../actions";
+import CountrySelect from "../CountrySelect";
+import { travelCountries } from "@/lib/travel-countries";
+export default async function RoutesPage({searchParams}:{searchParams:Promise<{poruka?:string}>}) {
+ const c=await travelContext(),rows=await travelRoutes(c.agencyId),p=await searchParams;
+ const admin=c.user.rola==="admin_agencije"&&!c.godina.zakljucena;
+ const fields=<><input type="hidden" name="firma_id" value={c.firma.id}/><input type="hidden" name="godina_id" value={c.godina.id}/><input type="hidden" name="vrsta" value="relacija"/></>;
+ return <div className="admin-stack"><header className="admin-header"><h1>Relacije i kilometraža</h1><Link href={travelPath}>Putni nalozi</Link></header>{p.poruka?<p role="status">{p.poruka}</p>:null}<p>Šifarnik važi za sve firme vaše agencije, u oba smjera. Početne udaljenosti preuzete su iz lista GRADOVI dostavljenog Excela. Izmjena ne mijenja već sačuvane naloge.</p>
+ {admin?<section className="admin-panel"><h2>Nova relacija</h2><form action={saveTravelConfiguration} className="admin-form">{fields}<input type="hidden" name="verzija" value=""/><label>Država polaska<CountrySelect name="polazak_drzava" defaultValue="ME"/></label><label>Polazak<input name="polazak" maxLength={80} required/></label><label>Država odredišta<CountrySelect name="odrediste_drzava" defaultValue=""/></label><label>Odredište<input name="odrediste" maxLength={80} required/></label><label>Kilometri<input name="km" type="number" min="0.01" max="100000" step="0.01" required/></label><button>Sačuvaj relaciju</button></form></section>:null}
+ <section className="admin-panel"><div className="table-wrap"><table><thead><tr><th>Grad</th><th>Grad</th><th>km</th><th>Izmjena</th></tr></thead><tbody>{rows.map(r=><tr key={r.kljuc}><td>{r.polazak}<br/>{travelCountries.find(c=>c.kod===r.polazak_drzava)?.naziv??"Država nije određena"}</td><td>{r.odrediste}<br/>{travelCountries.find(c=>c.kod===r.odrediste_drzava)?.naziv??"Država nije određena"}</td><td>{r.km}</td><td>{admin?<form className="table-actions" action={saveTravelConfiguration}>{fields}<input type="hidden" name="verzija" value={r.verzija}/><input type="hidden" name="relacija_id" value={r.id}/><CountrySelect aria-label={`Država polaska ${r.polazak}`} name="polazak_drzava" defaultValue={r.polazak_drzava}/><CountrySelect aria-label={`Država odredišta ${r.odrediste}`} name="odrediste_drzava" defaultValue={r.odrediste_drzava}/><input type="hidden" name="polazak" value={r.polazak}/><input type="hidden" name="odrediste" value={r.odrediste}/><input aria-label={`Kilometri ${r.polazak} ${r.odrediste}`} name="km" type="number" min="0.01" max="100000" step="0.01" defaultValue={r.km} required/><button>Sačuvaj</button></form>:"—"}</td></tr>)}</tbody></table></div></section></div>;
+}

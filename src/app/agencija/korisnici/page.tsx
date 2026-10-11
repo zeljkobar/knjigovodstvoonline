@@ -37,6 +37,7 @@ const poruke: Record<string, string> = {
 };
 
 const moduli = [
+  "putni_nalozi",
   "pos",
   "nalozi",
   "robno",

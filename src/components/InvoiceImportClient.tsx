@@ -654,14 +654,14 @@ export function InvoiceImportClient({
 
     setStatus("loading");
     const { operationResults } = await importInBatches(retryLinks, {
-      label: "Ponovni import dobavljača",
+      label: "Uvoz pripremljenih računa",
       replaceResults: false,
       documentType: "KUF",
       supplierAccountCodes: selectedCodes
     });
     setStatus("done");
     setMessage(
-      `Ponovni import je završen: ${operationResults.filter(
+      `Uvoz pripremljenih računa je završen: ${operationResults.filter(
         (result) => result.status === "success"
       ).length} uspješno.`
     );
@@ -1027,7 +1027,7 @@ export function InvoiceImportClient({
                 <h4>Dobavljači bez konta knjiženja</h4>
                 <p>
                   Konto se bira jednom po PIB-u i primjenjuje na sve prikazane
-                  račune tog dobavljača.
+                  račune tog dobavljača. Već učitani podaci koriste se bez ponovnog čitanja sa MAPR-a.
                 </p>
               </div>
               {suppliersRequiringAccount.length > 1 ? (

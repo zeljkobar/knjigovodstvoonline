@@ -27,7 +27,7 @@ if(dbOnly||all) {
   const url=new URL(process.env.TEST_DATABASE_URL);
   if(!/_test(?:_|$)/i.test(url.pathname)) throw new Error('Naziv testne baze mora sadržati _test.');
   process.env.DATABASE_URL=process.env.TEST_DATABASE_URL;
-  for(const name of ['pdv-periods','pdv-concurrency','payroll-concurrency','payroll-lifecycle','calculation-deletion','kuf-entry-deletion','calculation-rates','agency-financial-templates','account-length','employment-contracts','deadlines','agency-statistics','bank-statement-warnings','agency-profile','accounting-core','accounting-concurrency','invoice-lifecycle','office-storno','client-portal','fixed-assets','fixed-assets-tax','mail-import']) {
+  for(const name of ['mapr-import-cache','travel-orders','pdv-periods','pdv-concurrency','payroll-concurrency','payroll-lifecycle','calculation-deletion','kuf-entry-deletion','calculation-rates','agency-financial-templates','account-length','employment-contracts','deadlines','agency-statistics','bank-statement-warnings','agency-profile','accounting-core','accounting-concurrency','invoice-lifecycle','office-storno','client-portal','fixed-assets','fixed-assets-tax','mail-import']) {
     run(['scripts/check-'+name+'.cjs']);
   }
 }
