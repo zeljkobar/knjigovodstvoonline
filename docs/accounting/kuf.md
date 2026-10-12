@@ -125,3 +125,7 @@ partner:
 - Plaćanja/raspodjele i veze osnovnih sredstava blokiraju brisanje. Računi preuzeti iz kalkulacije brišu se kroz kalkulaciju. Potrebna prava ulazni_racuni/delete i za povezani nalog nalozi/delete.
 - Stariji nalozi bez pouzdanih veza ne brišu se prepoznavanjem teksta ili iznosa: jednom ih vratiti u nacrt, obrisati nacrt naloga i ponovo knjižiti KUF.
 - Migracija `20261011120000_kuf_journal_line_link`; purge redoslijed usklađen. Izolovana DB regresija provjerava stvarno knjiženje, scope/prava, zaključavanja, ravnotežu, audit rollback, očuvanje drugih računa i idempotentnost.
+
+### Filteri unutar KUF knjige — 2026-10-12
+- Pregled pojedinačne KUF knjige ima kombinovane URL/GET filtere po dobavljaču iz te knjige, dobavljačevom/internom broju računa, kontu (uključujući bez konta), knjiženju, datumu računa ili prijema od/do i bruto iznosu od/do. Negativni iznosi podržavaju storno.
+- Zbirne kartice i broj redova prate filtrirane račune; status knjige ostaje status cijele knjige. Poništi filtere vraća cijelu knjigu. Nevalidni rasponi imaju poruku. Scope/prava ostaju nepromijenjeni; nema masovnog učitavanja globalnih partnera.

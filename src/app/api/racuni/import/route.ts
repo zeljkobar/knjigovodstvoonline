@@ -221,7 +221,7 @@ async function verifyMaprInvoice(qrUrl: string): Promise<MaprInvoice | { success
         priceBeforeVat: Number(tax.priceBeforeVat),
         vatAmount: Number(tax.vatAmount)
       })),
-      total: Number(invoice.totalPriceToPay ?? invoice.totalPrice ?? 0),
+      total: Number(invoice.totalPrice ?? invoice.totalPriceToPay ?? 0),
       invoiceNumber: normalizeFiscalInvoiceNumber(String(invoice.invoiceNumber ?? ""))
     };
   } catch {
@@ -1227,6 +1227,11 @@ export async function POST(req: NextRequest) {
       const identity = fiscalLinkIdentity(link);
       const saved = identity ? savedByKey.get(fiscalIdentityKey(identity)) : undefined;
       if (!saved) return true;
+      // Older snapshots used amount due (zero for returns). Recover the signed
+      // gross from trusted MAPR tax rows without downloading the invoice again.
+      const cachedGross = saved.taxes.reduce((sum, tax) =>
+        sum + cents(tax.priceBeforeVat) + cents(tax.vatAmount), 0);
+      if (saved.total === 0 && cachedGross < 0) saved.total = cachedGross / 100;
       verified.push({
         link,
         invoice: { ...saved, identifiers: { ...saved.identifiers, qrUrl: link } }
@@ -1254,7 +1259,7 @@ export async function POST(req: NextRequest) {
             !identity ||
             invoice.identifiers.iic !== identity.iic ||
             normalizePib(invoice.seller.tin) !== identity.tin ||
-            receivedAt.getTime() !== identity.dateTimeCreated.getTime() ||
+            !Number.isFinite(receivedAt.getTime()) ||
             !Number.isFinite(invoice.total) ||
             !invoice.taxes.length ||
             invoice.taxes.some((tax) =>
@@ -1267,6 +1272,9 @@ export async function POST(req: NextRequest) {
               error: "MAPR nije vratio potpune podatke koji odgovaraju fiskalnom linku."
             };
           }
+          // MAPR may return a registration time different from the QR issuing time.
+          // IIC + seller identify the invoice; keep QR time canonical for cache/duplicates.
+          invoice.identifiers.dateTimeCreated = identity.dateTimeCreated.toISOString();
           // Commit the read before attempting KUF creation: missing account/PDV setup
           // must not throw away a successful, potentially slow external response.
           const fiskalni_kljuc = fiscalIdentityKey(identity);

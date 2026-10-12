@@ -2025,3 +2025,21 @@ DB regresija provjerava poredak, smjer salda, avanse i ukupne iznose.
 - Ručna migracija 20261012100000_putni_nalozi_knjizenje primijenjena, Prisma regenerisan, dev restartovan. Purge redoslijed usklađen; stvarni rollback purge test prolazi i za proknjižene putne naloge.
 - DB regresija: puni iznos uprkos akontaciji, službeno vozilo bez kilometraže, analitika, neaktivno konto, revizija, prava, zaključana godina/PDV, ponovljeno knjiženje, generičke zaštite naloga, prelaz godine i rollback kada audit zakaže. Browser potvrdio šemu i dugme na postojećem nalogu; poslovni podaci korisnika nisu knjiženi u provjeri.
 - Završno: `npx tsc --noEmit`, fokusirani ESLint, `git diff --check` i purge coverage prolaze. DB regresija potvrđuje i sva četiri kontiranja, ostale troškove i obaveznu jedinicu. Planer CSV/Excel regenerisan.
+
+### 2026-10-12 — KUF filteri računa
+- Dodati GET filteri u pregled pojedinačne knjige: dobavljač, broj/KUF broj, konto, knjiženje, datum računa/prijema i bruto raspon (uključujući negativne iznose). Zbirovi računati u centima nad filtriranim redovima; status cijele knjige ostaje nepromijenjen. Poništavanje filtera i prazni/neispravni rezultati su jasno prikazani.
+- Browser provjera na postojećoj knjizi: 78 računa → 1 po broju, osnovica 47,10 + PDV 3,30 i ukupno 50,40. Nema migracije ni izmjene poslovnih podataka.
+- Završna provjera: TypeScript, fokusirani ESLint i `git diff --check` prolaze. Planer regenerisan.
+
+## 2026-10-12 — MAPR VOLI i izvori Excel redova
+
+- Provjeren stvarni VOLI 570661/2026 (48,76 EUR): QR 19:46:31+02,
+  MAPR 17:47:24 UTC. Uklonjena pogrešna jednakost ova dva vremena;
+  IIC/PIB/validnost podataka ostaju provjereni, QR datum je kanonski za KUF/cache.
+- Naziv dokumenta iz Excel reda/hyperlinka koristi se u greškama i CSV-u;
+  nedostajući naziv zadržava fallback na naziv uvezenog fajla.
+- Regresija cache toka sada simulira MAPR vrijeme pomjereno 53 sekunde.
+
+## 2026-10-12 — Negativni MAPR račun
+
+- BAR TRADE 31636/2026: totalPrice -15,12, totalPriceToPay 0. Import i zajednički čitač daju prednost ukupnoj vrijednosti. Stari negativni snapshot-i nastavljaju bez MAPR poziva iz poreske razrade. Dodata DB rollback regresija povrata i starog cache-a.

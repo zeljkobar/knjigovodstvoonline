@@ -8,6 +8,23 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## MAPR negativni računi — 2026-10-12
+
+- Batch import i zajednički MAPR čitač koriste `totalPrice` prije
+  `totalPriceToPay`: povrat ima negativnu vrijednost i može imati nulu za plaćanje.
+- Stari privremeni snapshot sa nulom i negativnom poreskom razradom dobija
+  bruto iz pouzdanih MAPR poreskih redova bez ponovnog spoljašnjeg čitanja.
+- Rollback regresija provjerava povrat -15,12 EUR i nastavak starog snapshot-a offline.
+
+## MAPR vrijeme i naziv izvornog dokumenta — 2026-10-12
+
+- KUF import prihvata MAPR registraciono vrijeme različito od QR vremena uz
+  provjeru IIC-a, PIB-a, validnog vremena i poreskih podataka. Fiskalni ključ
+  i datum sačuvanog KUF-a koriste QR vrijeme, dosljedno provjeri duplikata.
+- Excel import čuva naziv dokumenta po redu (naziv dokumenta/fajla ili ime
+  PDF/TIFF/slike), uključujući hyperlink ćelije; greške i CSV koriste taj naziv.
+  Naziv Excel fajla je rezervni izvor kada ime dokumenta nije navedeno.
+
 ## KUF import bez ponovnog MAPR čitanja — 2026-10-12
 
 - Uspješan serverski MAPR odgovor čuva se prije pokušaja kreiranja KUF računa,
@@ -1735,3 +1752,7 @@ je od samodeaktivacije i samostalne rotacije.
 - Uvoz filtrira nepodržane priloge (npr. logo) prije upisa evidencije. Poruka bez PDF/XML/HTM/HTML priloga vraća privremeni SKIPPED rezultat, bez mail_izvod_obrade i pojedinačnog IMAP_IMPORT audita. Body izvoda se ne uvozi.
 - Marker nepotpune obrade ostaje prije prvog podržanog priloga; postojeći uspješni uvozi i zaštita duplikata ostaju. Ranije evidencije na serveru nijesu obrisane.
 - Izolovana DB regresija sa sintetičkim logom i porukom bez priloga prolazi, kao i postojeći import lifecycle; sve testne izmjene rollback.
+
+### Filteri unutar KUF knjige — 2026-10-12
+- Pregled pojedinačne KUF knjige ima kombinovane URL/GET filtere po dobavljaču iz te knjige, dobavljačevom/internom broju računa, kontu (uključujući bez konta), knjiženju, datumu računa ili prijema od/do i bruto iznosu od/do. Negativni iznosi podržavaju storno.
+- Zbirne kartice i broj redova prate filtrirane račune; status knjige ostaje status cijele knjige. Poništi filtere vraća cijelu knjigu. Nevalidni rasponi imaju poruku. Scope/prava ostaju nepromijenjeni; nema masovnog učitavanja globalnih partnera.

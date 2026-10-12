@@ -21,7 +21,7 @@ const originalFetch=global.fetch;
   assert.equal(url,'https://mapr.tax.gov.me/ic/api/verifyInvoice');calls++;
   if(offline) throw Error('MAPR unavailable');
   const q=new URLSearchParams(options.body);
-  return Response.json({seller:{name:'QA supplier',idNum:q.get('tin')},iic:q.get('iic'),dateTimeCreated:'2026-06-12T10:00:00+02:00',invoiceNumber:q.get('iic')+'/2026',sameTaxes:[{vatRate:21,priceBeforeVat:100,vatAmount:21}],totalPriceToPay:121});
+  return Response.json({seller:{name:'QA supplier',idNum:q.get('tin')},iic:q.get('iic'),dateTimeCreated:'2026-06-12T08:00:53.000+0000',invoiceNumber:q.get('iic')+'/2026',sameTaxes:[{vatRate:21,priceBeforeVat:100,vatAmount:21}],totalPriceToPay:121});
  };
  const mocks={'server-only':{},'@/lib/prisma':{prisma:transactionProxy(tx)},'@/lib/auth':{getCurrentUser:async()=>user,isDirectFiscalTenantUser:()=>false},'@/lib/work-context':{readWorkContext:async()=>context},'@/lib/permissions':{hasPermission:async()=>allowed},'next/headers':{headers:async()=>new Map()}};
  // New loader instances emulate independent requests/workers: nothing depends on process memory.
@@ -91,6 +91,16 @@ const originalFetch=global.fetch;
  context={firmaId:firm.id,poslovnaGodinaId:randomUUID()};assert.equal((await request([link('C')])).status,400);context={firmaId:firm.id,poslovnaGodinaId:year.id};
  assert.equal(calls,6);
  assert.equal(await tx.auditLog.count({where:{firma_id:firm.id,akcija:'mapr_read'}}),4);
+ // Negative return: amount due is zero, signed invoice gross must be retained.
+ global.fetch=async()=>Response.json({seller:{name:'QA supplier',idNum:'01234567'},iic:'RETURN',dateTimeCreated:'2026-06-12T08:00:53.000+0000',invoiceNumber:'RETURN/2026',sameTaxes:[{vatRate:21,priceBeforeVat:-12.4956,vatAmount:-2.6241}],totalPrice:-15.12,totalPriceToPay:0});
+ assert.equal((await request([link('RETURN')])).results[0].status,'success');
+ const returned=await tx.kufEntry.findFirstOrThrow({where:{firma_id:firm.id,fiscal_iic:'RETURN'}});
+ assert.equal(String(returned.total_gross),'-15.12');
+ const legacyLink=link('LEGACY-RETURN');
+ await tx.maprImportPodatak.create({data:{agencija_id:agency.id,firma_id:firm.id,poslovna_godina_id:year.id,fiskalni_kljuc:'LEGACY-RETURN|01234567|2026-06-12T08:00:00.000Z',podaci:{success:true,seller:{name:'QA supplier',tin:'01234567'},buyer:null,identifiers:{iic:'LEGACY-RETURN',fic:'',tin:'01234567',dateTimeCreated:'2026-06-12T08:00:00.000Z',qrUrl:legacyLink},invoiceNumber:'LEGACY-RETURN/2026',total:0,taxes:[{vatRate:21,priceBeforeVat:-12.4956,vatAmount:-2.6241}]},created_by:admin.id}});
+ global.fetch=async()=>{throw Error('offline legacy retry');};
+ assert.equal((await request([legacyLink])).results[0].status,'success');
+ assert.equal(String((await tx.kufEntry.findFirstOrThrow({where:{firma_id:firm.id,fiscal_iic:'LEGACY-RETURN'}})).total_gross),'-15.12');
  await sourceLoader(mocks)('src/lib/company-purge.ts').purgeCompanyData(tx,{agencijaId:agency.id,firmaId:firm.id,potvrdaNaziva:firm.naziv,korisnikId:admin.id});
  assert.equal(await tx.maprImportPodatak.count({where:{firma_id:firm.id}}),0);
  assert.equal(await tx.kufEntry.count({where:{firma_id:firm.id}}),0);

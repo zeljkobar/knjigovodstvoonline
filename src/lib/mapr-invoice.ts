@@ -225,7 +225,7 @@ export async function fetchMaprInvoice(qrUrl: string, timeoutMs = 20000): Promis
     })),
     totalWithoutVat: number(invoice.totalPriceWithoutVAT),
     totalVat: number(invoice.totalVATAmount),
-    total: number(invoice.totalPriceToPay ?? invoice.totalPrice),
+    total: number(invoice.totalPrice ?? invoice.totalPriceToPay),
     invoiceNumber: normalizeFiscalInvoiceNumber(String(invoice.invoiceNumber ?? "")),
     items
   };

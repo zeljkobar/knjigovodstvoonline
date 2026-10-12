@@ -4,6 +4,7 @@ import {
   decodeInvoiceQrFile,
   invoiceQrFileAccept
 } from "@/components/InvoiceQrUpload";
+import { excelLinkSources } from "@/lib/invoice-import-sources";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
@@ -390,6 +391,7 @@ export function InvoiceImportClient({
     const extension = file.name.split(".").pop()?.toLowerCase();
     let text = "";
     let nextMetadata: ImportMetadata[] = [];
+    let rowSources: { link: string; name: string }[] = [];
 
     if (extension === "xlsx" || extension === "xls") {
       const buffer = await file.arrayBuffer();
@@ -425,12 +427,25 @@ export function InvoiceImportClient({
           blankrows: false
         });
         text = rows.flat().filter(Boolean).join("\n");
+        rowSources = excelLinkSources(rows, file.name);
+        // Include hyperlinks whose displayed text is a document name.
+        for (const [address, cell] of Object.entries(firstSheet)) {
+          if (address.startsWith("!") || !cell?.l?.Target) continue;
+          const rowIndex = XLSX.utils.decode_cell(address).r;
+          const row = XLSX.utils.sheet_to_json<string[]>(firstSheet, {
+            header: 1, raw: false, blankrows: true
+          })[rowIndex] ?? [];
+          rowSources.push(...excelLinkSources([rows[0] ?? [], [...row, cell.l.Target]], file.name));
+        }
+        text = appendText(text, rowSources.map((source) => source.link).join("\n"));
       }
     } else {
       text = await file.text();
     }
 
-    rememberLinkSources(extractLinks(text), file.name);
+    for (const source of rowSources) rememberLinkSources([source.link], source.name);
+    const namedLinks = new Set(rowSources.map((source) => source.link));
+    rememberLinkSources(extractLinks(text).filter((link) => !namedLinks.has(link)), file.name);
     setLinksText((current) => appendText(current, text));
     setMetadata((current) => [...current, ...nextMetadata]);
     setMessage(

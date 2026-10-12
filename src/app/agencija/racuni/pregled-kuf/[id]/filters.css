@@ -1,0 +1,1 @@
+.kuf-book-filters{grid-template-columns:repeat(auto-fit,minmax(210px,1fr));align-items:end;gap:12px}.kuf-book-filters label{min-width:0}.kuf-book-filters select,.kuf-book-filters input{width:100%;min-width:0}.kuf-book-filters .table-actions{flex-wrap:wrap}
