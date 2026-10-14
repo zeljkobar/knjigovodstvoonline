@@ -4,6 +4,13 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- SEP web pristup potvrđen lokalno: sertifikat je u `/agencija/sep`, a Excel
+  preuzimanje u KIF/KUF → Preuzmi sa SEP-a (`/agencija/racuni/sep`).
+  Pri produkcijskom deployu primijeniti `20261014120000_agencija_sep_sertifikati`,
+  regenerisati Prisma i restartovati aplikaciju; podesiti trajan zaseban
+  `SEP_ENCRYPTION_KEY` (32 nasumična bajta u base64) i čuvati ga izvan baze.
+  Testirati na Linuxu bez Fiscal API-ja. Ne prepisivati lokalni ključ/sertifikat
+  u git; novi web tok ne čuva JSON niti automatski uvozi KIF.
 - KUF cache implementiran: pri deployu primijeniti `20261011170000_mapr_import_podaci` i `20261012090000_mapr_import_cleanup`,
   generisati Prisma klijent i restartovati aplikaciju. Raniji pokušaji bez punog
   snapshot-a još jednom zahtijevaju MAPR; novi nastavljaju iz baze nakon izbora konta.

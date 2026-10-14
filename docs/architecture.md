@@ -12,6 +12,13 @@
 - **Mejl:** nodemailer. **Excel:** xlsx. **PDF čitanje:** pdfjs-dist.
 - Fiskalizacija ide preko zasebnog Summa Fiscal API-ja; ovaj sajt koristi samo
   serverske klijente i ne implementira PU XML/potpis u Next.js aplikaciji.
+- SEP preuzimanje je nezavisno od fiskalizacije: `/agencija/sep` podešava lični
+  sertifikat, a `/agencija/racuni/sep` preuzima Excel. Servis koristi lični
+  sertifikat administratora agencije, direktni mTLS prema `sep.tax.gov.me` i
+  privremene sesije samo u memoriji. Vraća Excel bez arhiviranja računa/JSON-a.
+  `SEP_ENCRYPTION_KEY` šifruje PFX, lozinku i JMBG u `agencija_sep_sertifikati`,
+  sa AAD scope-om agencije i korisnika. Pri deployu sačuvati i obezbijediti ključ
+  nezavisno od baze; njegova zamjena zahtijeva ponovni upload ili re-enkripciju.
 
 ## Okruženje i baza
 - PostgreSQL na `127.0.0.1:5432`, baza `knjigovodstvoonline`.

@@ -1,12 +1,35 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-10-12. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-10-14. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Zaseban SEP pristup — 2026-10-14
+
+- Podešavanja → SEP sertifikat (`/agencija/sep`) omogućava administratoru agencije
+  upload vlastitog PFX/P12; KIF/KUF → Preuzmi sa SEP-a (`/agencija/racuni/sep`)
+  omogućava preuzimanje Excel računa izabrane firme za period
+  po datumu fiskalizacije. Fiscal API se ne koristi; nema automatskog KIF uvoza.
+- `agencija_sep_sertifikati` je scoped po agenciji i korisniku. PFX, lozinka i
+  JMBG se šifruju AES-256-GCM sa scope AAD-om i zasebnim `SEP_ENCRYPTION_KEY`.
+  Ključ nije u bazi/git-u; isti ključ mora ostati sačuvan pri deployu/obnovi.
+- Backend provjerava rolu, firmu i export pravo, SEP ovlašćenje, period,
+  sve stranice i fiskalne datume; ponovo provjerava pristup i verziju sertifikata
+  prije odgovora. Audit ne sadrži ključ, JMBG, lozinku ili račune.
+- Uklanjanje pristupa soft-delete-uje metapodatke i uklanja šifrovane tajne.
+  Sertifikat je na nivou administratora/agencije, pa ostaje pri brisanju firme.
+- Skriptna lokalna proba potvrdila je 168 računa identičnih ručnom SEP Excelu.
+  Korisnik je potvrdio stvarni upload i preuzimanje septembra kroz web UI.
+  Linux produkciju još treba potvrditi. JSON se ne čuva u web toku.
+- Migracija `20261014120000_agencija_sep_sertifikati` primijenjena je lokalno,
+  zajedno sa prethodno nepovučenim migracijama; Prisma je regenerisan.
+- `test:sep` provjerava šifrovanje/scope, periode, kompletnost izvoza i prava;
+  `test:sep-db` koristi sintetički PFX i PostgreSQL rollback za pravi upload,
+  odbijanje lozinke, audit rollback, uklanjanje tajni i ponovno dodavanje.
 
 ## MAPR negativni računi — 2026-10-12
 

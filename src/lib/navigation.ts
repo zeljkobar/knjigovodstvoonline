@@ -246,6 +246,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/robno/podesavanja", label: "Podešavanja", roles: adminOnly }
   ],
   racuni: [
+    { href: "/agencija/racuni/sep", label: "Preuzmi sa SEP-a", roles: adminOnly },
     { href: "/agencija/racuni/kif", label: "KIF", permissions: [{ modul: "izlazni_racuni", akcija: "view" }] },
     { href: "/agencija/racuni/kuf", label: "KUF", permissions: [{ modul: "ulazni_racuni", akcija: "view" }] },
     { href: "/agencija/racuni/pregled-kif", label: "Pregled KIF", permissions: [{ modul: "izlazni_racuni", akcija: "view" }] },
@@ -347,6 +348,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/korisnici/audit-log", label: "Dnevnik aktivnosti" }
   ],
   podesavanja: [
+    { href: "/agencija/sep", label: "SEP sertifikat", roles: adminOnly },
     { href: "/agencija/podesavanja/agencija", label: "Agencija", roles: adminOnly },
     { href: "/agencija/podesavanja/kontni-plan", label: "Kontni plan" },
     { href: "/agencija/podesavanja/podrazumijevana-konta", label: "Podrazumijevana konta" },

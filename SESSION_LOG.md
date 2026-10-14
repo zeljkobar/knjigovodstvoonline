@@ -1,5 +1,24 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-10-14 — Zaseban SEP pristup administratora agencije
+
+- Korisnik je potvrdio upload ličnog sertifikata i uspješno preuzimanje septembra
+  kroz web UI. Preuzimanje je zatim premješteno u KIF/KUF → Preuzmi sa SEP-a;
+  Podešavanja → SEP sertifikat zadržavaju samo upravljanje pristupom.
+
+- Dodati admin upload, šifrovano čuvanje ličnog sertifikata i JMBG-a te Excel
+  preuzimanje za izabranu firmu/period, bez Fiscal API-ja i upisa KIF-a.
+- Scope izolacija, prava, CSRF, ograničenja podataka/vremena, provjera svih
+  stranica i datuma, audit bez tajni i ponovno provjeravanje konteksta.
+- Prva skriptna proba: 168 računa za period 01–14.10, sve zajedničke vrijednosti
+  identične ručnom Excelu. Web upload i stvarno preuzimanje ostaju korisnički QA.
+- Lokalno su povučeni novi main commitovi, primijenjene zaostale migracije i SEP
+  migracija, generisani Prisma klijent i lokalni zaštićeni ključ. Produkcija nije mijenjana.
+- Sedam SEP regresionih testova, stvarni DB rollback sa sintetičkim PFX-om,
+  TypeScript, lint novih fajlova i company-purge provjera prolaze. Lokalni dev
+  server je pokrenut poslije migracija; `/agencija/sep` se kompajlira i bez sesije
+  preusmjerava na prijavu. Planer je regenerisan iz CSV izvora; nema commita/push-a.
+
 > Kratke bilješke (datum + šta je urađeno) poslije svake veće sesije. Najnovije
 > gore. Detaljno stanje je u [`CURRENT_STATE.md`](CURRENT_STATE.md).
 

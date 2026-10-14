@@ -34,6 +34,7 @@ enum KomitentScope {
 }
 
 model Agencija {
+  sepSertifikati AgencijaSepSertifikat[]
   radna_mjesta RadnoMjesto[]
   ugovori_o_radu UgovorORadu[]
   otkazi_o_radu OtkazORadu[]
@@ -115,6 +116,7 @@ model Agencija {
 }
 
 model Korisnik {
+  sepSertifikati AgencijaSepSertifikat[]
   id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   korisnicko_ime      String              @unique
   email               String?             @unique
@@ -143,6 +145,23 @@ model Korisnik {
   zatvorenePosSmjene  PosSmjena[]         @relation("PosSmjenuZatvorio")
 
   @@map("korisnici")
+}
+
+model AgencijaSepSertifikat {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  korisnik_id String @db.Uuid
+  agencija Agencija @relation(fields: [agencija_id], references: [id])
+  korisnik Korisnik @relation(fields: [korisnik_id], references: [id])
+  naziv String
+  sifrovani_podaci String?
+  is_deleted Boolean @default(false)
+  deleted_at DateTime?
+  deleted_by String? @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  @@unique([agencija_id, korisnik_id])
+  @@map("agencija_sep_sertifikati")
 }
 
 model Pozivnica {

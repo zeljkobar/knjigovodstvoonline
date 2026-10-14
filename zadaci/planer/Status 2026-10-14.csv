@@ -1,0 +1,2 @@
+Modul,Status,Implementirano,Otvoreno,Napomena
+SEP portal,Lokalni web tok potvrđen,"Lični sertifikat u Podešavanjima; preuzimanje Excel-a u KIF/KUF; šifrovano čuvanje PFX/lozinke/JMBG; direktna SEP prijava i Excel po firmi/periodu; audit i scope prava","Linux produkcijski deploy sa zasebnim ključem","Korisnik potvrdio upload i Excel za septembar; bez Fiscal API-ja i automatskog KIF uvoza; JSON se ne čuva."

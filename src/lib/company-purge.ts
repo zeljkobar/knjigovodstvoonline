@@ -34,6 +34,8 @@ type LockedCompany = {
  * zaključava i ponovo provjerava kroz agencijski scope, pa tek onda počinje
  * brisanje. Zajednički korisnici, kontni planovi i globalni/agencijski partneri
  * ostaju sačuvani.
+ * AgencijaSepSertifikat je lični pristup administratora na nivou agencije,
+ * bez FK ka firmi/godini ili podređenih tabela. Ne briše se sa jednom firmom.
  */
 export async function purgeCompanyData(
   tx: Prisma.TransactionClient,
