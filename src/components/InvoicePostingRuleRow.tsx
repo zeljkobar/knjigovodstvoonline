@@ -1,5 +1,8 @@
 "use client";
 
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
+
+
 import { useState } from "react";
 import { invoicePostingAccountSources } from "@/lib/account-plan";
 
@@ -53,7 +56,7 @@ export function InvoicePostingRuleRow({
         </select>
       </td>
       <td>
-        <select
+        <AccountSearchSelect
           name={`sifra_konta_${code}`}
           defaultValue={accountValue}
           disabled={!needsFixedAccount}
@@ -65,7 +68,7 @@ export function InvoicePostingRuleRow({
               {account.sifra} - {account.naziv}
             </option>
           ))}
-        </select>
+        </AccountSearchSelect>
       </td>
     </tr>
   );

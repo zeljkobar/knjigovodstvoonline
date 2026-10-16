@@ -1,3 +1,4 @@
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
@@ -39,7 +40,7 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
     {query?.greska ? <p className="admin-note" role="alert">{query.greska}</p> : null}
     <section className="metric-grid"><article className="metric"><span>Sredstava</span><strong>{snapshot.coverage.length}</strong></article><article className="metric"><span>Ukupna amortizacija</span><strong>{fixedAssetCentsMoney(snapshot.totalCents)}</strong></article></section>
     {editable && canUpdate ? <section className="admin-panel"><h3>Kontiranje i ponovno računanje</h3><form action={calculateDepreciation} className="admin-form inline-filter-form">{inputs}
-      {[["konto_troska_sifra", "Duguje — trošak amortizacije", snapshot.debitOverride], ["konto_ispravke_sifra", "Potražuje — ispravka vrijednosti", snapshot.creditOverride]].map(([name, label, current]) => <label key={name!}>{label}<select name={name!} defaultValue={accounts.find(account => account.companyAccountId === current)?.sifra ?? ""}><option value="">Prema parametrima svakog sredstva</option>{accounts.map(a => <option key={`${a.source}:${a.id}`} value={a.sifra}>{a.sifra} · {a.naziv}</option>)}</select></label>)}
+      {[["konto_troska_sifra", "Duguje — trošak amortizacije", snapshot.debitOverride], ["konto_ispravke_sifra", "Potražuje — ispravka vrijednosti", snapshot.creditOverride]].map(([name, label, current]) => <label key={name!}>{label}<AccountSearchSelect name={name!} defaultValue={accounts.find(account => account.companyAccountId === current)?.sifra ?? ""}><option value="">Prema parametrima svakog sredstva</option>{accounts.map(a => <option key={`${a.source}:${a.id}`} value={a.sifra}>{a.sifra} · {a.naziv}</option>)}</AccountSearchSelect></label>)}
       <button type="submit">Ponovo obračunaj nacrt</button></form><p className="muted-text">Izbor konta ovdje važi za sva sredstva ovog obračuna. Ponovno računanje zamjenjuje nacrt i čuva novu reviziju.</p></section> : null}
     {snapshot.postingErrors.length ? <section className="admin-panel"><h3>Prije knjiženja</h3>{snapshot.postingErrors.map(e => <p key={e} className="admin-note">{e}</p>)}</section> : null}
     {editable && canPost ? <form action={postDepreciation}>{inputs}<button type="submit" disabled={snapshot.postingErrors.length > 0}>{snapshot.totalCents ? "Proknjiži" : "Potvrdi nulti obračun"}</button></form> : null}

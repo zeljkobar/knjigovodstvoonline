@@ -4,13 +4,9 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
-- SEP web pristup potvrđen lokalno: sertifikat je u `/agencija/sep`, a Excel
-  preuzimanje u KIF/KUF → Preuzmi sa SEP-a (`/agencija/racuni/sep`).
-  Pri produkcijskom deployu primijeniti `20261014120000_agencija_sep_sertifikati`,
-  regenerisati Prisma i restartovati aplikaciju; podesiti trajan zaseban
-  `SEP_ENCRYPTION_KEY` (32 nasumična bajta u base64) i čuvati ga izvan baze.
-  Testirati na Linuxu bez Fiscal API-ja. Ne prepisivati lokalni ključ/sertifikat
-  u git; novi web tok ne čuva JSON niti automatski uvozi KIF.
+- Teme su implementirane: pri produkcijskom deployu primijeniti `20261016060000_korisnicka_tema`, regenerisati Prisma i restartovati aplikaciju. Birač uz korisnika čuva sopstvenu paletu/režim. Stvarna browser prijava admin/klijentskim/fiskalnim nalogom ostaje dopunski QA tih uloga; postojeća agencijska sesija korišćena je za detaljan prolaz modula.
+- SEP automatika je implementirana u Podešavanja na `/agencija/podesavanja/sep-automatika` (rezultati u Dashboard → Automatski obrađena dokumenta): opt-in po firmi, redni noćni rad, IKOF preflight, mjesečni KIF i konačno knjiženje/dopuna istog naloga. Na produkciji primijeniti `20261016040000_sep_automatika` i prethodnu `20261014120000_agencija_sep_sertifikati`, regenerisati Prisma i restartovati. Osigurati trajan `SEP_ENCRYPTION_KEY` izvan baze; podaci sertifikata i lokalni ključ se ne prepisuju u git. `SEP_AUTOMATION_ENABLED=false` gasi timer; production ga podrazumijevano pokreće, a `true` omogućava i dev timer.
+  Administrator zatim bira firme/sertifikat/KIF vrstu; nijedna firma nije automatski uključena. Prvi živi Linux/SEP prolaz i nadzor noćnog rezultata ostaju produkcijski QA. Testovi koriste simuliranu mrežu i stvarni DB rollback. Excel se ne arhivira niti automatski preuzima na korisnički računar.
 - KUF cache implementiran: pri deployu primijeniti `20261011170000_mapr_import_podaci` i `20261012090000_mapr_import_cleanup`,
   generisati Prisma klijent i restartovati aplikaciju. Raniji pokušaji bez punog
   snapshot-a još jednom zahtijevaju MAPR; novi nastavljaju iz baze nakon izbora konta.
@@ -68,7 +64,7 @@
 - Uvoz filtriranih mail priloga na klik, statusi i zaštita od ponavljanja/
   premještanja su implementirani. Sljedeće: korisnička provjera uvoza za banke,
   dnevna obrada u 10:00 i knjiženje spremnih mail izvoda su implementirani.
-  Deployovati i provjeriti prvi rezultat u Izvodi → Automatska obrada.
+  Deployovati i provjeriti prvi rezultat u Dashboard → Automatski obrađena dokumenta.
   Produkcijski BANK_AUTOMATION_ENABLED=true; deploy skripta ga postavlja pri restartu.
   Šifrovana konfiguracija više sandučića ostaje buduća faza.
 - Na produkciji primijeniti migraciju `20260923120000_opsti_virmani`, dodijeliti

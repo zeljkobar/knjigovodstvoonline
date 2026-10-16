@@ -1,5 +1,8 @@
 "use client";
 
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
+
+
 import { useMemo, useState } from "react";
 import {
   pazarPaymentMethods,
@@ -247,7 +250,7 @@ export function KifPazarForm({
       {revenueAccountRequired ? (
         <label>
           <span>Konto prihoda/osnovice</span>
-          <select
+          <AccountSearchSelect
             name="revenue_account_code"
             defaultValue={initial?.revenueAccountCode ?? defaultRevenueAccount}
             required
@@ -259,7 +262,7 @@ export function KifPazarForm({
                 {account.sifra} - {account.naziv}
               </option>
             ))}
-          </select>
+          </AccountSearchSelect>
         </label>
       ) : (
         <input

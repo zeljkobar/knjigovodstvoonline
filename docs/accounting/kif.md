@@ -61,6 +61,23 @@ KIF dokument čuva konačni tip prometa. Dozvoljene vrijednosti za KIF:
   SEP fajla se prave MAPR linkovi i puni KIF).
 - Normalizacija fiskalnog broja: `pt385eg871/1/2026/dl426pc243` → `1/2026`.
 
+## Automatski SEP uvoz
+
+Konfiguracija firmi/sertifikata/KIF vrste nalazi se u Podešavanja → SEP automatika.
+
+- Administrator uključuje samo odabrane firme i bira sertifikat i KIF vrstu.
+- U 04:00 počinje redna obrada. Od 1. u mjesecu do juče; prvog dana novog
+  mjeseca cijeli prethodni mjesec. Excel je samo privremeni memorijski sadržaj.
+- IKOF + agencija + firma štite duplikate prije MAPR-a i pri upisu. Stari zapisi
+  bez IKOF-a prvo se provjeravaju; nejasno poklapanje ili različit iznos traži provjeru.
+- Jedna mjesečna knjiga izabrane vrste koristi jedan nalog: automatski prvi
+  upis je POSTED, kasniji računi ga dopunjavaju. Ručno ostavljen nacrt se ne
+  završava automatski. Računi sa lokalnim izvornim dokumentom koriste postojeći
+  SOURCE_DOCUMENT tok, bez drugog knjiženja kroz SEP.
+- Zatvorene godine/PDV periodi, prava, dimenzije, konta i ravnoteža provjeravaju
+  se prije promjena. Izvještaj i ponavljanje su u Dashboard → Automatski obrađena dokumenta; rezultat
+  pojedinačne firme ne zaustavlja red ostalih firmi.
+
 ## Pazar
 
 KIF može sadržati i zbirni pazar za firme koje promet evidentiraju preko
@@ -84,7 +101,8 @@ fiskalne kase, bez pojedinačnih izlaznih faktura za svaki promet.
 
 ## Knjiženje
 - Cijela knjiga se knjiži **odjednom u jedan nalog** po šemi.
-- Naknadno dodati računi dopunjavaju **samo neproknjižene** račune na isti nalog.
+- Naknadno dodati računi dopunjavaju **samo neproknjižene** račune na isti nalog, i kada je nalog već POSTED. Dopuna čuva status i prethodne stavke; zahtijeva i `nalozi:post`, otvorenu godinu/PDV period, validna konta/dimenzije i ravnotežu. Firma/nalog se zaključavaju; audit bilježi dodate račune.
+- Zaključan PDV period na pregledu knjige skriva dodavanje računa i prikazuje objašnjenje; direktna forma je onemogućena.
 - Statusi (srpski): **otvorena → djelimično knjižena → knjižena**.
 - Edit/delete moguć za neproknjižene račune.
 - Kod pazara prihod i izlazni PDV koriste šemu aktivne KIF knjige, dok se

@@ -54,6 +54,8 @@ export async function getCurrentUser() {
     select: {
       id: true,
       korisnicko_ime: true,
+      tema_paleta: true,
+      tema_rezim: true,
       rola: true,
       agencija_id: true,
       agencija: {

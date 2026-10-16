@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemePicker } from "@/components/ThemePicker";
 import { redirect } from "next/navigation";
 import { logout } from "@/app/actions";
 import { PortalNavigation } from "@/components/PortalNavigation";
@@ -148,7 +149,7 @@ export default async function PortalLayout({
             <span className={`portal-readiness ${readinessTone}`}>
               {context.readiness.label}
             </span>
-            <span className="portal-user">{context.user.korisnicko_ime}</span>
+            <span className="portal-user">{context.user.korisnicko_ime}</span><ThemePicker/>
           </div>
           <form className="portal-mobile-logout" action={logout}>
             <button type="submit">Odjava</button>

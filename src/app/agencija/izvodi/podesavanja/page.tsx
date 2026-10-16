@@ -1,3 +1,4 @@
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import { saveBankStatementAccountSettings } from "../actions";
 import { getIzvodiContext, MissingContext } from "../_shared";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
@@ -195,7 +196,7 @@ export default async function PodesavanjaIzvodaPage({
                           <input name="company_bank_account_id" type="hidden" value={bankAccount.id} />
                         </td>
                         <td data-label="Konto banke">
-                          <select
+                          <AccountSearchSelect
                             aria-label={`Konto banke za ${bankAccount.broj_racuna}`}
                             defaultValue={setting?.bank_account_konto?.sifra ?? ""}
                             name="bank_account_konto_code"
@@ -206,7 +207,7 @@ export default async function PodesavanjaIzvodaPage({
                                 {account.sifra} - {account.naziv}
                               </option>
                             ))}
-                          </select>
+                          </AccountSearchSelect>
                         </td>
                         <td data-label="Vrsta naloga">
                           <select aria-label={`Vrsta naloga za ${bankAccount.broj_racuna}`} defaultValue={setting?.journal_type?.id ?? ""} name="journal_type_id">

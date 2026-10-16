@@ -1,3 +1,4 @@
+import { loadInvoiceJournalStatuses, invoiceBookPostingLabel, invoiceEntryPostingLabel } from "@/lib/invoice-posting-status";
 import Link from "next/link";
 import { requireAnyRole } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
@@ -53,23 +54,6 @@ function pazarPeriodLabel(entry: {
   return from === to ? from : `${from} – ${to}`;
 }
 
-function bookPostingLabel(entries: Array<{ posting_status: string }>) {
-  if (entries.length === 0) {
-    return "Otvorena";
-  }
-
-  const posted = entries.filter((entry) => entry.posting_status === "POSTED").length;
-
-  if (posted === entries.length) {
-    return "Knjiženo";
-  }
-
-  if (posted > 0) {
-    return "Djelimično knjižena";
-  }
-
-  return "Otvorena";
-}
 
 function statusClass(label: string) {
   if (label === "Knjiženo") {
@@ -83,9 +67,6 @@ function statusClass(label: string) {
   return "status-pill";
 }
 
-function entryPostingLabel(status: string) {
-  return status === "POSTED" ? "Knjiženo" : "Otvorena";
-}
 
 export default async function PregledKifDetailPage({ params }: PregledKifDetailPageProps) {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
@@ -193,6 +174,7 @@ export default async function PregledKifDetailPage({ params }: PregledKifDetailP
           total_gross: true,
           status: true,
           posting_status: true,
+          journal_id: true,
           note: true,
           revenue_account: {
             select: {
@@ -245,7 +227,14 @@ export default async function PregledKifDetailPage({ params }: PregledKifDetailP
       gross: 0
     }
   );
-  const bookStatusLabel = bookPostingLabel(kifBook.entries);
+  const journalStatusesById = await loadInvoiceJournalStatuses(kifBook.entries, user.agencija_id);
+
+  const isPdvLocked = Boolean(await prisma.pdvPeriod.findFirst({
+    where: { agencija_id: user.agencija_id!, firma_id: activeCompany.id, status: "LOCKED", datum_od: { lte: kifBook.kif_date }, datum_do: { gte: kifBook.kif_date } },
+    select: { id: true }
+  }));
+
+  const bookStatusLabel = invoiceBookPostingLabel(kifBook.entries, journalStatusesById);
 
   return (
     <div className="admin-stack">
@@ -262,11 +251,13 @@ export default async function PregledKifDetailPage({ params }: PregledKifDetailP
           <Link className="secondary-button" href="/agencija/racuni/pregled-kif">
             Nazad
           </Link>
-          <Link className="secondary-button" href={`/agencija/racuni/kif/${kifBook.id}`}>
+          {!isPdvLocked ? <Link className="secondary-button" href={`/agencija/racuni/kif/${kifBook.id}`}>
             Dodaj račun/e
-          </Link>
+          </Link> : null}
         </div>
       </header>
+
+      {isPdvLocked ? <p className="admin-message">PDV period je zaključan. Za dodavanje računa prvo ga otključajte.</p> : null}
 
       <section className="metric-grid">
         <div className="metric">
@@ -314,7 +305,7 @@ export default async function PregledKifDetailPage({ params }: PregledKifDetailP
                 </tr>
               ) : (
                 kifBook.entries.map((entry) => {
-                  const entryStatus = entryPostingLabel(entry.posting_status);
+                  const entryStatus = invoiceEntryPostingLabel(entry, journalStatusesById);
 
                   return (
                   <tr key={entry.id}>

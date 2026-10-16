@@ -378,8 +378,10 @@ sprečava ponavljanje istog dana; nedovršen posao poslije pada pokušava ponovo
 postojeću zaštitu duplikata. Obrada firme ograničena je na oko 20 minuta; ostatak
 ostaje za sljedeći dan/ručni uvoz. Ako je server ugašen u 10:00, pokretanje istog
 dana poslije 10:00 nadoknađuje obradu. AUTO_POST audit se čuva u transakciji naloga.
-Ekran `/agencija/izvodi/automatska-obrada` pokazuje uključivanje, broj uvoza,
-knjiženja, potrebnih provjera i greške posljednjih 100 obrada povezane agencije.
+Dashboard → Automatski obrađena dokumenta (`/agencija/automatski-obradjena-dokumenta`)
+objedinjuje izvode i SEP rezultate uz filtere firme/izvora/statusa/datuma i linkove
+do izvoda/mailova. Mail rezultati ostaju ograničeni na ovlašćenu IMAP agenciju i
+izvodi:manage. Stari `/agencija/izvodi/automatska-obrada` preusmjerava na taj pregled.
 
 
 ## Kontinuitet brojeva — Upozorenja

@@ -1,5 +1,62 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-10-16 — Palete boja i svijetli/tamni režim
+
+- Uveden birač uz korisnika u svim layoutima i pet paleta × dva režima. Preferencije se čuvaju u korisniku, uz allowlist, provjeru aktivne sesije/role/agencije i transakcioni audit. Server HTML nosi početnu temu; client primjena je trenutna i vraća prethodnu vrijednost ako upis zakaže.
+- Semantičke CSS varijable primijenjene u zajedničkom i posebnim modulskim stilovima, uključujući konto dropdown u portalu. Statusi/grafikoni ostaju razumljivi; print stilovi nijesu mijenjani (1.511 deklaracija provjereno), stvarna štampa naloga ostaje bijela i u tamnoj temi.
+- Detaljan browser prolaz statičkih agencijskih ruta i podmenija, plus dostupni KUF/faktura/nalog; kontrast pregledan u tamnom režimu i reprezentativnim svijetlim ekranima, svih deset kombinacija na unosu naloga. M4 dugme i dugme štampe popravljeni; široke tabele i mobilni zbir naloga/forma popravljeni. Mobilni birač provjeren na 390px, viewport vraćen. Mail prikaz radi ali IMAP veza nije dostupna. Admin/klijent/portal provjereni u izvoru/tipovima bez promjene stvarnih prava ili tuđih prijava.
+- Migracija 20261016060000_korisnicka_tema primijenjena, Prisma regenerisan i dev restartovan. DB rollback potvrđuje sopstveni upis, deset kombinacija, zabranu anonimnog/neaktivnog naloga/agencije, audit rollback i očuvanje teme poslije brisanja povezane testne firme. Bez novih podređenih tabela/FK; purge pokriva 81 direktnu tabelu. Testna tema korisnika vraćena na plavu/svijetlu; firma/godina ostale početne.
+- Završno: `npm test` (uključuje nove provjere kontrasta deset kombinacija), `npx tsc --noEmit`, fokusirani ESLint, purge coverage i produkcijski build prolaze. Postojeće build napomene: CSS align-items:end i nekorišćeni _prev u admin/actions; nema novih grešaka. Build je rađen uz zaustavljen dev server, zatim je dev ponovo pokrenut. Planer CSV/Excel ažuriran.
+
+## 2026-10-16 — Potvrda promjene firme i godine
+
+- AgencyTopBar koristi kontrolisane birače i nativni dialog sa nazivom firme/PIB-om ili ciljnom godinom. Tek potvrda šalje postojeću kontekst formu; Odustani/Escape zadržavaju izbor i vraćaju fokus, trenutna vrijednost ne traži potvrdu. Modal blokira pozadinu i početno fokusira Odustani.
+- Browser potvrđuje otvaranje, odustajanje, Escape i stvarni potvrđeni prelazak firme; početni izbor firme vraćen nakon QA. U provjerenim firmama dostupna je samo 2026, pa druga godina nije potvrđivana nad stvarnim podacima. Bez migracije/izmjena poslovnih zapisa.
+- TypeScript, fokusirani ESLint i diff provjera prolaze. Planer CSV/Excel ažuriran.
+
+## 2026-10-16 — Razdvajanje postavki i rezultata automatike
+
+- SEP postavke premještene u Podešavanja → SEP automatika. Dashboard dobio zajednički pregled „Automatski obrađena dokumenta” za SEP i postojeću obradu izvoda; zamijenjen raniji placeholder. Stare adrese preusmjeravaju, KIF/KUF i izvodi nemaju duplirane tabove rezultata.
+- Dodati filteri, brojači/statusi/greške, SEP ponavljanje i kontekstualni linkovi do knjiga/izvoda. Agencijski scope, administratorski pristup, IMAP ovlašćenje i provjera firme pri ponavljanju sačuvani. Bez migracije i bez aktiviranja firmi ili izmjene rasporeda.
+- Provjere: objedinjeni `npm test`, TypeScript i fokusirani ESLint prolaze; DB rollback regresija potvrđuje premještene akcije i postojeći SEP tok. Render regresije provjeravaju objedinjavanje, filtere i izolaciju/mail ovlašćenje. Browser potvrđuje novu navigaciju, redirect, prikaz i poništavanje filtera bez promjena poslovnih podataka. Planer CSV/Excel regenerisan.
+
+## 2026-10-16 — Noćna SEP automatika po odabranim firmama
+
+- Uvedeni opt-in postavke, izbor certifikata/KIF vrste, evidencija rezultata i ponavljanje današnje/ranije neuspjele obrade. Raspored u 04:00 Europe/Podgorica radi redom po firmama; globalni PostgreSQL advisory lock i lokalni busy flag sprečavaju paralelni red. PENDING/RUNNING se nastavljaju, završeni dan se preskače. Vremensko ograničenje po firmi i izolovane greške čuvaju napredak drugih firmi.
+- Dogovor korisnika: od 1. u mjesecu do juče, prethodni mjesec samo prvog dana. Excel ostaje u memoriji i odbacuje se, bez diska/baze. KIF dobija IKOF/izvorni URL i unique zaštitu; duplikati se provjeravaju prije MAPR-a. Legacy i lokalni source dokumenti imaju zaštitu od nejasnog/duplog knjiženja.
+- Import i knjiženje izdvojeni u zajedničke server-only servise sa eksplicitnim kontekstom. Automatika kreira mjesečni KIF i atomarno POSTED nalog, dopunjava samo svoje nove račune, ne potvrđuje ručno ostavljen nacrt. Prava, aktivni vlasnik certifikata, scope, promjena konfiguracije/certifikata, godine/PDV, dimenzije, ravnoteža i audit provjeravaju se ponovo.
+- Ručna ruta zadržava tok; dopunjene provjere sesijske uloge i IKOF-a. Ručni prenosi lokalnih fiskalnih dokumenata čuvaju IKOF. Purge postavki/rezultata usklađen; nema novih podređenih tabela bez firma_id.
+- Migracija 20261016040000_sep_automatika primijenjena lokalno, Prisma regenerisan, dev restartovan. Lokalni timer uključen u ignorisanom .env, sve stvarne firme ostale isključene. Tajne nisu upisane u dokumentaciju/git.
+- Završno: `npm test`, `npx tsc --noEmit`, fokusirani ESLint i `git diff --check` prolaze. Nakon restarta browser potvrđuje aktivan lokalni raspored i praznu listu stvarnih postavki/obrada. CSV planer i Excel regenerisani.
+- Provjere: policy/Excel i postojeći unit suite; stvarni rollback DB za prvi POSTED, dopunu/salda, prekid/nastavak bez MAPR ponavljanja, zaključavanja, cert/korisnik revokaciju, audit failure, source zaštitu, dvije firme sekvencijalno, PENDING/RUNNING/DONE, postavke/revizije/retry i purge. Stvarni PostgreSQL konkurentni vlasnici potvrđuju globalni lock i oslobađanje. Postojeći računovodstveni i KUF MAPR cache DB tokovi provjereni. Novi ekran otvoren u browseru; produkcijski živi SEP/Linux QA ostaje nakon deploya i izbora firmi.
+
+## 2026-10-16 — Pretraga konta po šifri i nazivu
+
+- Zamijenjeno 29 postojećih izbora konta u 22 fajla zajedničkom komponentom; opcije, ID/šifra, prava i ograničenja ostaju postojeći. Padajuća lista sa pretragom bez dijakritike, tastaturom/mišem, provjerom izabrane opcije i prikazom naziva. Lista se prikazuje iznad tabela bez rezanja.
+- Sačuvani kontrolisani onChange, FormData, required/disabled, prazne opcije/filteri i reset. Automatsko konto dobavljača emituje promjenu da se osvježi vidljivi izbor. Nema migracije ni čuvanja poslovnih podataka tokom QA.
+- Browser provjerio KIF/KUF šemu, robnu kontrolisanu šemu i bruto bilans koji šalje UUID i automatski filtrira. Dodata regresija originalnih vrijednosti, fragmenata opcija i disabled/opcionih polja.
+
+## 2026-10-16 — Dopuna KIF naloga i objašnjenje zaključanog PDV perioda
+
+- KIF podržava istu kontrolisanu dopunu POSTED naloga kao KUF: isti nalog/status, prava oba modula, scope, zaključavanje, ravnoteža, dimenzije, transakcioni audit sa dodatim računima; POS batch status prati nalog.
+- Oba pregleda skrivaju dodavanje računa za zaključan PDV period uz kratko objašnjenje. Direktne forme onemogućene; dugme dopune skriveno dok je period zaključan.
+- Render regresija potvrđuje zaključavanje/otključavanje oba pregleda; DB regresija sa rollback-om pokriva KIF/KUF dopunu i trenutno stanje kupca. TypeScript i fokusirani lint čisti. Bez migracije i bez izmjene korisnikovih poslovnih podataka.
+
+## 2026-10-16 — Dopuna POSTED naloga iz KUF-a
+
+- Omogućena dopuna samo novim KUF računima uz očuvanje statusa i postojećih stavki istog naloga. Provjeravaju se prava, scope/izvor, otvorena godina i PDV na datum knjige/naloga, ravnoteža i dimenzije; firma/nalog zaključani u transakciji. Audit čuva status i dodate ID-jeve. KIF tok ostaje isti.
+- DB regresija sa rollback-om potvrđuje isti nalog, očuvanje stavki/statusa, dopunu, idempotentnost, prava i zaključavanja.
+
+## 2026-10-16 — Usklađen prikaz statusa KIF/KUF
+
+- Statusi knjiga i pojedinačnih računa koriste status povezanog naloga, umjesto oznake prenosa u nalog. Nacrt nije prikazan kao knjižen; miješani računi daju djelimično knjiženu knjigu. Bez promjene poslovnih zapisa, stavki i zaštita izmjena.
+- KUF filter i Neproknjiženo koriste isti prikaz; post/reopen osvježavaju prikaze računa. Regresija prati POSTED → DRAFT → POSTED uz očuvanje veze.
+
+## 2026-10-16 — SEP navigacija i lokalna konfiguracija
+
+- Sertifikat je na `/agencija/podesavanja/sep`, sa ispravnim menijem Podešavanja; stara putanja preusmjerava i čuva poruku. Linkovi i server actions koriste novu putanju.
+- Lokalno nedostajući ključ podešen u ignorisanom `.env`, nakon provjere da baza nema šifrovanih SEP sertifikata. Ključ nije upisan u dokumentaciju.
+
 ## 2026-10-14 — Zaseban SEP pristup administratora agencije
 
 - Korisnik je potvrdio upload ličnog sertifikata i uspješno preuzimanje septembra

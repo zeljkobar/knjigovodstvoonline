@@ -17,8 +17,8 @@ export default async function SepDownloadPage() {
   const enabled = sepKeyConfigured();
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Podgorica", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   return <div className="admin-stack">
-    <header className="admin-header"><div><p className="eyebrow">KIF/KUF</p><h1>Preuzmi sa SEP-a</h1><p className="muted-text">Excel fiskalizovanih računa izabrane firme.</p></div><Link className="table-button" href="/agencija/sep">Podešavanje sertifikata</Link></header>
-    {!record ? <p className="admin-message">Prvo dodajte svoj sertifikat kroz <Link href="/agencija/sep">Podešavanje sertifikata</Link>.</p> : null}
+    <header className="admin-header"><div><p className="eyebrow">KIF/KUF</p><h1>Preuzmi sa SEP-a</h1><p className="muted-text">Excel fiskalizovanih računa izabrane firme.</p></div><Link className="table-button" href="/agencija/podesavanja/sep">Podešavanje sertifikata</Link></header>
+    {!record ? <p className="admin-message">Prvo dodajte svoj sertifikat kroz <Link href="/agencija/podesavanja/sep">Podešavanje sertifikata</Link>.</p> : null}
     {!enabled ? <p className="admin-message">Serverski ključ za šifrovanje nije podešen. Obratite se administratoru servera.</p> : null}
     <section className="admin-panel"><div className="panel-header"><h2>Preuzmi račune</h2></div>
       {firm ? <p>{firm.naziv} · PIB {firm.pib}</p> : <p className="admin-message">Izaberite aktivnu firmu sa ispravnim PIB-om u gornjem biraču.</p>}

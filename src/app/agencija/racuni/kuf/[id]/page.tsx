@@ -1,3 +1,5 @@
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
+import { loadInvoiceJournalStatuses, invoiceBookPostingLabel, invoiceEntryPostingLabel } from "@/lib/invoice-posting-status";
 import { KufDeleteButton } from "../KufDeleteButton";
 import Link from "next/link";
 import {
@@ -59,7 +61,7 @@ const poruke: Record<string, string> = {
   knjizenje_vrsta_naloga: "Za ovu vrstu KUF knjige prvo izaberite vrstu naloga u podešavanjima.",
   knjizenje_sema: "Šema kontiranja nije kompletna za ovu vrstu knjige.",
   knjizenje_konto: "Neko konto iz šeme nije aktivno analitičko konto.",
-  knjizenje_nalog_zakljucan: "Postojeći nalog je već proknjižen i ne može se dopuniti.",
+  knjizenje_nalog_zakljucan: "Povezani nalog nije dostupan ili ne pripada ovoj KUF knjizi.",
   knjizenje_nema: "Nema neproknjiženih računa za ovu knjigu.",
   knjizenje_razlika_racuna: "KUF nije proknjižen jer jedan račun ima nedozvoljenu razliku.",
   knjizenje_nije_balansiran: "Šema knjiženja ne daje izbalansiran nalog.",
@@ -112,21 +114,6 @@ function displayDate(date: Date) {
   return date.toLocaleDateString("sr-Latn-ME");
 }
 
-function postingStatusLabel(total: number, posted: number, unposted: number) {
-  if (total === 0) {
-    return "Prazno";
-  }
-
-  if (posted > 0 && unposted > 0) {
-    return "Djelimično knjižena";
-  }
-
-  if (posted > 0 && unposted === 0) {
-    return "Knjiženo";
-  }
-
-  return "Otvorena";
-}
 
 function postingStatusClass(label: string) {
   if (label === "Knjiženo") {
@@ -454,7 +441,11 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
     }
   );
   const lockedPdvPeriods = await prisma.pdvPeriod.findMany({where:{firma_id:activeCompany.id,status:"LOCKED"},select:{datum_od:true,datum_do:true}});
-  const isLocked = activeYear.zakljucena || kufBook.status !== "OPEN";
+  const isPdvLocked = Boolean(await prisma.pdvPeriod.findFirst({
+    where: { agencija_id: user.agencija_id!, firma_id: activeCompany.id, status: "LOCKED", datum_od: { lte: kufBook.kuf_date }, datum_do: { gte: kufBook.kuf_date } },
+    select: { id: true }
+  }));
+  const isLocked = activeYear.zakljucena || kufBook.status !== "OPEN" || isPdvLocked;
   const editingEntry = query?.edit
     ? kufBook.entries.find(
         (entry) => entry.id === query.edit && entry.posting_mode === "KUF_RULES"
@@ -465,14 +456,15 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
     kufBook.entries.find(
       (entry) => entry.posting_mode === "KUF_RULES" && entry.journal_id
     )?.journal_id ?? null;
+  const journalStatusesById = await loadInvoiceJournalStatuses(kufBook.entries, user.agencija_id);
+
   const unpostedCount = kufBook.entries.filter(
     (entry) =>
       entry.posting_mode === "KUF_RULES" &&
       entry.posting_status === "UNPOSTED" &&
       !entry.journal_id
   ).length;
-  const postedCount = kufBook.entries.filter((entry) => entry.posting_status === "POSTED").length;
-  const postingLabel = postingStatusLabel(kufBook.entries.length, postedCount, unpostedCount);
+  const postingLabel = kufBook.entries.length ? invoiceBookPostingLabel(kufBook.entries, journalStatusesById) : "Prazno";
   const editingSupplier = editingEntry
     ? {
         id: editingEntry.dobavljac.id,
@@ -518,7 +510,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
                 Vidi nalog
               </Link>
             ) : null}
-            {unpostedCount > 0 ? (
+            {unpostedCount > 0 && !isPdvLocked ? (
               <form action={postInvoiceBook}>
                 <input type="hidden" name="dokument_tip" value="KUF" />
                 <input type="hidden" name="book_id" value={kufBook.id} />
@@ -610,6 +602,8 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
         )}
       </section>
 
+      {isPdvLocked ? <p className="admin-message">PDV period je zaključan. Za dodavanje računa prvo ga otključajte.</p> : null}
+
       <section className="metric-grid">
         <div className="metric">
           <span>Računa</span>
@@ -636,7 +630,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
           </span>
         </div>
 
-        {isLocked ? (
+        {isLocked && !isPdvLocked ? (
           <p className="admin-message">KUF knjiga ili poslovna godina su zaključani za unos.</p>
         ) : null}
 
@@ -825,7 +819,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
           </label>
           <label>
             <span>Konto knjiženja</span>
-            <select
+            <AccountSearchSelect
               name="expense_account_code"
               defaultValue={editingEntry?.expense_account?.sifra ?? ""}
               required
@@ -837,7 +831,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
                   {account.sifra} - {account.naziv}
                 </option>
               ))}
-            </select>
+            </AccountSearchSelect>
           </label>
           <label className="form-wide">
             <span>Napomena</span>
@@ -966,16 +960,14 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
                     <td>
                       <span
                         className={
-                          entry.posting_status === "POSTED"
+                          invoiceEntryPostingLabel(entry, journalStatusesById) === "Knjiženo"
                             ? "status-pill status-pill--success"
                             : "status-pill"
                         }
                       >
-                        {entry.posting_mode === "SOURCE_DOCUMENT"
+                        {entry.posting_mode === "SOURCE_DOCUMENT" && invoiceEntryPostingLabel(entry, journalStatusesById) === "Knjiženo"
                           ? "Knjiženo kroz kalkulaciju"
-                          : entry.posting_status === "POSTED"
-                            ? "Knjiženo"
-                            : "Otvorena"}
+                          : invoiceEntryPostingLabel(entry, journalStatusesById)}
                       </span>
                       {entry.source_type === "CALCULATION" && entry.source_id ? (
                         <small>

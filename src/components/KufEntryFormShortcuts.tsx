@@ -58,6 +58,10 @@ export function KufEntryFormShortcuts({ formId, focusAfterSave = false }: {
         return;
       }
 
+      if (target.getAttribute("data-account-search") && target.getAttribute("aria-expanded") === "true" && event.key === "Enter") {
+        return;
+      }
+
       if (event.key !== "Enter" || event.shiftKey) {
         return;
       }
@@ -80,6 +84,7 @@ export function KufEntryFormShortcuts({ formId, focusAfterSave = false }: {
       const accountField = form?.elements.namedItem("expense_account_code");
       if (accountField instanceof HTMLSelectElement) {
         accountField.value = defaultKufAccountCode;
+        accountField.dispatchEvent(new Event("change", { bubbles: true }));
       }
     }
 

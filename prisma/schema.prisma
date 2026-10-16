@@ -34,6 +34,9 @@ enum KomitentScope {
 }
 
 model Agencija {
+  sepAutomatika SepAutomatikaPodesavanje[]
+  sepObrade SepAutomatikaObrada[]
+
   sepSertifikati AgencijaSepSertifikat[]
   radna_mjesta RadnoMjesto[]
   ugovori_o_radu UgovorORadu[]
@@ -116,6 +119,8 @@ model Agencija {
 }
 
 model Korisnik {
+  tema_paleta String @default("blue")
+  tema_rezim String @default("light")
   sepSertifikati AgencijaSepSertifikat[]
   id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   korisnicko_ime      String              @unique
@@ -148,6 +153,8 @@ model Korisnik {
 }
 
 model AgencijaSepSertifikat {
+  automatike SepAutomatikaPodesavanje[]
+
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id String @db.Uuid
   korisnik_id String @db.Uuid
@@ -196,6 +203,9 @@ model AgencijaBankovniRacun {
 }
 
 model Firma {
+  sepAutomatika SepAutomatikaPodesavanje?
+  sepObrade SepAutomatikaObrada[]
+
   mapr_import_podaci MaprImportPodatak[]
   putni_nalozi PutniNalog[]
   putni_podesavanja PutniPodesavanje?
@@ -845,6 +855,8 @@ model FirmaPodrazumijevanoKonto {
 }
 
 model RacunVrsta {
+  sepAutomatike SepAutomatikaPodesavanje[]
+
   id                String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id       String                   @db.Uuid
   firma_id          String                   @db.Uuid
@@ -1808,6 +1820,9 @@ model KifEntry {
   source_id                 String?                       @db.Uuid
   status                    String                        @default("RECORDED")
   journal_id                String?                       @db.Uuid
+  fiscal_iic                String?
+  fiscal_source_url         String?
+  sep_automation            Boolean @default(false)
   note                      String?
   is_deleted                Boolean                       @default(false)
   deleted_at                DateTime?
@@ -1825,6 +1840,7 @@ model KifEntry {
 
   @@unique([firma_id, poslovna_godina_id, redni_broj])
   @@unique([source_type, source_id])
+  @@index([agencija_id, firma_id, fiscal_iic])
   @@index([kif_book_id])
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@index([firma_id, kupac_id, customer_invoice_number, invoice_date])
@@ -3855,4 +3871,41 @@ model MaprImportPodatak {
   @@unique([agencija_id, firma_id, poslovna_godina_id, fiskalni_kljuc], map: "mapr_import_podaci_scope_kljuc_key")
   @@index([firma_id])
   @@map("mapr_import_podaci")
+}
+
+model SepAutomatikaPodesavanje {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  firma_id String @unique @db.Uuid
+  sertifikat_id String @db.Uuid
+  racun_vrsta_id String @db.Uuid
+  aktivna Boolean @default(false)
+  revizija Int @default(1)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  agencija Agencija @relation(fields: [agencija_id], references: [id])
+  firma Firma @relation(fields: [firma_id], references: [id])
+  sertifikat AgencijaSepSertifikat @relation(fields: [sertifikat_id], references: [id])
+  racun_vrsta RacunVrsta @relation(fields: [racun_vrsta_id], references: [id])
+  @@index([agencija_id, aktivna])
+  @@map("sep_automatika_podesavanja")
+}
+
+model SepAutomatikaObrada {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  firma_id String @db.Uuid
+  dan DateTime @db.Date
+  status String @default("PENDING")
+  pokusaji Int @default(0)
+  pocetak DateTime?
+  kraj DateTime?
+  rezultat Json @default("{}")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  agencija Agencija @relation(fields: [agencija_id], references: [id])
+  firma Firma @relation(fields: [firma_id], references: [id])
+  @@unique([firma_id, dan])
+  @@index([agencija_id, dan])
+  @@map("sep_automatika_obrade")
 }

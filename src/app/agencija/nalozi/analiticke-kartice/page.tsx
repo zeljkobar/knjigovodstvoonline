@@ -1,3 +1,4 @@
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { AutoSubmitFilterForm } from "@/components/AutoSubmitFilterForm";
@@ -432,14 +433,14 @@ export default async function AnalitickeKarticePage({
         ) : (
           <label>
             <span>Konto</span>
-            <select name="konto" defaultValue={selectedAccount || "ALL"}>
+            <AccountSearchSelect name="konto" defaultValue={selectedAccount || "ALL"}>
               <option value="ALL">Sva konta</option>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.sifra} - {account.naziv}
                 </option>
               ))}
-            </select>
+            </AccountSearchSelect>
           </label>
         )}
         {selectedAccountPrefix ? (

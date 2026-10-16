@@ -733,6 +733,7 @@ export async function postJournal(formData: FormData) {
   });
   if (result) redirectJournalDetail(nalogId, result);
   revalidatePath("/agencija/nalozi");
+  revalidatePath("/agencija/racuni", "layout");
   if (returnTo === "drafts") redirect("/agencija/nalozi?status=DRAFT&poruka=nalog_proknjizen");
   redirectJournalDetail(nalogId, "nalog_proknjizen");
 }
@@ -827,6 +828,7 @@ export async function reopenJournal(formData: FormData) {
   });
 
   revalidatePath("/agencija/nalozi");
+  revalidatePath("/agencija/racuni", "layout");
   redirectJournalDetail(nalog.id, "nalog_nacrt");
 }
 

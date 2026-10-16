@@ -12,7 +12,7 @@ export async function saveSepCertificate(form: FormData) {
   const name = String(form.get("naziv") ?? "").trim();
   let result = "sacuvano";
   if (!(file instanceof File) || file.size > MAX_SEP_PFX_BYTES || !/\.(pfx|p12)$/i.test(file.name) || !name || name.length > 120) {
-    redirect("/agencija/sep?poruka=podaci");
+    redirect("/agencija/podesavanja/sep?poruka=podaci");
   }
   const pfx = Buffer.from(await file.arrayBuffer());
   try {
@@ -31,8 +31,8 @@ export async function saveSepCertificate(form: FormData) {
   } catch (error) {
     result = error instanceof Error && error.message === "SEP_KEY_MISSING" ? "kljuc" : "sertifikat";
   } finally { pfx.fill(0); }
-  revalidatePath("/agencija/sep");
-  redirect(`/agencija/sep?poruka=${result}`);
+  revalidatePath("/agencija/podesavanja/sep");
+  redirect(`/agencija/podesavanja/sep?poruka=${result}`);
 }
 export async function removeSepCertificate() {
   const { user, agencyId } = await getSepAdmin();
@@ -43,6 +43,6 @@ export async function removeSepCertificate() {
     });
     if (changed.count) await auditLogInTransaction(tx, { korisnikId: user.id, agencijaId: agencyId, modul: "sep", akcija: "REMOVE_CERTIFICATE", tipEntiteta: "AgencijaSepSertifikat" });
   });
-  revalidatePath("/agencija/sep");
-  redirect("/agencija/sep?poruka=uklonjen");
+  revalidatePath("/agencija/podesavanja/sep");
+  redirect("/agencija/podesavanja/sep?poruka=uklonjen");
 }

@@ -1,3 +1,4 @@
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import Link from "next/link";
 import {
   createInvoiceBookType,
@@ -427,7 +428,7 @@ export default async function RacuniPodesavanjaPage({
                         <td>{label}</td>
                         <td>Duguje</td>
                         <td>
-                          <select
+                          <AccountSearchSelect
                             name={`pazar_konto_${purpose}`}
                             defaultValue={pazarSchemeByPurpose.get(purpose) ?? ""}
                           >
@@ -437,7 +438,7 @@ export default async function RacuniPodesavanjaPage({
                                 {account.sifra} · {account.naziv}
                               </option>
                             ))}
-                          </select>
+                          </AccountSearchSelect>
                         </td>
                       </tr>
                     ))}
@@ -624,7 +625,7 @@ export default async function RacuniPodesavanjaPage({
                           </select>
                         </td>
                         <td>
-                          <select
+                          <AccountSearchSelect
                             name={`uvoz_konto_${purpose}`}
                             defaultValue={importSchemeByPurpose.get(purpose) ?? ""}
                           >
@@ -634,7 +635,7 @@ export default async function RacuniPodesavanjaPage({
                                 {account.sifra} · {account.naziv}
                               </option>
                             ))}
-                          </select>
+                          </AccountSearchSelect>
                         </td>
                         <td>
                           <select

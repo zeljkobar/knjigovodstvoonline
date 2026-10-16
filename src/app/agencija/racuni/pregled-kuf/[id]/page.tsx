@@ -1,3 +1,5 @@
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
+import { loadInvoiceJournalStatuses, invoiceBookPostingLabel, invoiceEntryPostingLabel } from "@/lib/invoice-posting-status";
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
 import { parseMoneyToCents } from "@/lib/payroll";
@@ -43,23 +45,6 @@ function displayDate(date: Date) {
   return date.toLocaleDateString("sr-Latn-ME");
 }
 
-function bookPostingLabel(entries: Array<{ posting_status: string }>) {
-  if (entries.length === 0) {
-    return "Otvorena";
-  }
-
-  const posted = entries.filter((entry) => entry.posting_status === "POSTED").length;
-
-  if (posted === entries.length) {
-    return "Knjiženo";
-  }
-
-  if (posted > 0) {
-    return "Djelimično knjižena";
-  }
-
-  return "Otvorena";
-}
 
 function statusClass(label: string) {
   if (label === "Knjiženo") {
@@ -73,9 +58,6 @@ function statusClass(label: string) {
   return "status-pill";
 }
 
-function entryPostingLabel(status: string) {
-  return status === "POSTED" ? "Knjiženo" : "Otvorena";
-}
 
 export default async function PregledKufDetailPage({ params, searchParams }: PregledKufDetailPageProps) {
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
@@ -184,6 +166,7 @@ export default async function PregledKufDetailPage({ params, searchParams }: Pre
           total_gross: true,
           status: true,
           posting_status: true,
+          journal_id: true,
           note: true,
           expense_account: {
             select: {
@@ -238,18 +221,25 @@ export default async function PregledKufDetailPage({ params, searchParams }: Pre
   const invalid = !dateValid(filters.from)||!dateValid(filters.to)||(filters.from&&filters.to&&filters.from>filters.to)||min===null||max===null||(min!==undefined&&max!==undefined&&min!==null&&max!==null&&min>max);
   const cents = (v:{toString():string}) => Number(new Prisma.Decimal(v.toString()).mul(100).toFixed(0));
   const filtered = Object.entries(filters).some(([k,v])=>k!=="dateType"&&v!=="");
+  const journalStatusesById = await loadInvoiceJournalStatuses(kufBook.entries, user.agencija_id);
   const entries = invalid ? [] : kufBook.entries.filter(entry=>{
     const date=(filters.dateType==="prijem"?entry.receipt_date:entry.invoice_date).toISOString().slice(0,10);
     const gross=cents(entry.total_gross), number=filters.number.toLocaleLowerCase("sr-Latn");
     return (!filters.supplier||entry.dobavljac_id===filters.supplier)
       &&(!number||[entry.internal_kuf_number,entry.supplier_invoice_number,normalizeFiscalInvoiceNumber(entry.supplier_invoice_number)].some(n=>(n??"").toLocaleLowerCase("sr-Latn").includes(number)))
       &&(!filters.account||(filters.account==="BEZ_KONTA"?!entry.expense_account:entry.expense_account?.sifra===filters.account))
-      &&(!filters.status||(filters.status==="POSTED"?entry.posting_status==="POSTED":filters.status==="DRAFT"?entry.posting_status!=="POSTED":false))
+      &&(!filters.status||(filters.status==="POSTED"?invoiceEntryPostingLabel(entry,journalStatusesById)==="Knjiženo":filters.status==="DRAFT"?invoiceEntryPostingLabel(entry,journalStatusesById)!=="Knjiženo":false))
       &&(!filters.from||date>=filters.from)&&(!filters.to||date<=filters.to)
       &&(min==null||gross>=min)&&(max==null||gross<=max);
   });
   const totals=entries.reduce((sum,e)=>({base:sum.base+cents(e.total_base),vat:sum.vat+cents(e.total_input_vat),gross:sum.gross+cents(e.total_gross)}),{base:0,vat:0,gross:0});
-  const bookStatusLabel = bookPostingLabel(kufBook.entries);
+
+  const isPdvLocked = Boolean(await prisma.pdvPeriod.findFirst({
+    where: { agencija_id: user.agencija_id!, firma_id: activeCompany.id, status: "LOCKED", datum_od: { lte: kufBook.kuf_date }, datum_do: { gte: kufBook.kuf_date } },
+    select: { id: true }
+  }));
+
+  const bookStatusLabel = invoiceBookPostingLabel(kufBook.entries, journalStatusesById);
 
   return (
     <div className="admin-stack">
@@ -266,18 +256,20 @@ export default async function PregledKufDetailPage({ params, searchParams }: Pre
           <Link className="secondary-button" href="/agencija/racuni/pregled-kuf">
             Nazad
           </Link>
-          <Link className="secondary-button" href={`/agencija/racuni/kuf/${kufBook.id}`}>
+          {!isPdvLocked ? <Link className="secondary-button" href={`/agencija/racuni/kuf/${kufBook.id}`}>
             Dodaj račun/e
-          </Link>
+          </Link> : null}
         </div>
       </header>
+
+      {isPdvLocked ? <p className="admin-message">PDV period je zaključan. Za dodavanje računa prvo ga otključajte.</p> : null}
 
       <section className="admin-panel" aria-label="Filteri računa">
         <h3>Filteri računa</h3>
         <form method="get" className="admin-form kuf-book-filters">
           <label>Dobavljač<select name="dobavljac" defaultValue={filters.supplier}><option value="">Svi dobavljači</option>{suppliers.map(([id,p])=><option key={id} value={id}>{p.naziv}{p.pib?` (${p.pib})`:""}</option>)}</select></label>
           <label>Broj računa / KUF broj<input name="broj" defaultValue={filters.number} placeholder="Unesite dio broja" maxLength={120}/></label>
-          <label>Konto troška<select name="konto" defaultValue={filters.account}><option value="">Sva konta</option><option value="BEZ_KONTA">Bez konta</option>{accounts.map(a=><option key={a.sifra} value={a.sifra}>{a.sifra} — {a.naziv}</option>)}</select></label>
+          <label>Konto troška<AccountSearchSelect name="konto" defaultValue={filters.account}><option value="">Sva konta</option><option value="BEZ_KONTA">Bez konta</option>{accounts.map(a=><option key={a.sifra} value={a.sifra}>{a.sifra} — {a.naziv}</option>)}</AccountSearchSelect></label>
           <label>Status knjiženja<select name="status" defaultValue={filters.status}><option value="">Svi statusi</option><option value="POSTED">Knjiženo</option><option value="DRAFT">Neproknjiženo</option></select></label>
           <label>Vrsta datuma<select name="datum_vrsta" defaultValue={filters.dateType}><option value="racun">Datum računa</option><option value="prijem">Datum prijema</option></select></label>
           <label>Datum od<input type="date" name="od" defaultValue={filters.from}/></label>
@@ -336,7 +328,7 @@ export default async function PregledKufDetailPage({ params, searchParams }: Pre
                 </tr>
               ) : (
                 entries.map((entry) => {
-                  const entryStatus = entryPostingLabel(entry.posting_status);
+                  const entryStatus = invoiceEntryPostingLabel(entry, journalStatusesById);
 
                   return (
                   <tr key={entry.id}>

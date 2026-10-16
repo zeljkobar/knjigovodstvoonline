@@ -1,3 +1,4 @@
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import { Fragment } from "react";
 import Link from "next/link";
 import { getPlateContext, MissingPlateContext } from "../_shared";
@@ -54,7 +55,7 @@ function AccountSelect({
   defaultValue: string;
 }) {
   return (
-    <select name={name} defaultValue={defaultValue}>
+    <AccountSearchSelect name={name} defaultValue={defaultValue}>
       <option value="">Nije podešeno</option>
       {accounts.map((account) => {
         const value = accountValue(account);
@@ -65,7 +66,7 @@ function AccountSelect({
           </option>
         );
       })}
-    </select>
+    </AccountSearchSelect>
   );
 }
 

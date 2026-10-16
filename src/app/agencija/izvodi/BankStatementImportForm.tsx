@@ -1,5 +1,8 @@
 "use client";
 
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
+
+
 import { useId, useMemo, useState } from "react";
 import { importBankStatement } from "./actions";
 
@@ -81,7 +84,7 @@ export function BankStatementImportForm({
       </label>
       <label>
         <span>Konto banke za nalog</span>
-        <select
+        <AccountSearchSelect
           name="bank_account_konto_code"
           onChange={(event) => setSelectedAccountCode(event.target.value)}
           required
@@ -93,7 +96,7 @@ export function BankStatementImportForm({
               {account.label}
             </option>
           ))}
-        </select>
+        </AccountSearchSelect>
       </label>
       <label>
         <span>Broj izvoda</span>

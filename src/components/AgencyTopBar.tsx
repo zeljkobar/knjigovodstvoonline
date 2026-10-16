@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { ThemePicker } from "./ThemePicker";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   getSectionFromPath,
@@ -44,6 +46,25 @@ export function AgencyTopBar({
 }: AgencyTopBarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [pendingChange, setPendingChange] = useState<{
+    type: "firm" | "year";
+    id: string;
+    label: string;
+  } | null>(null);
+  const [isSwitching, setIsSwitching] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (pendingChange && !dialog.open) {
+      dialog.showModal();
+      cancelRef.current?.focus();
+    } else if (!pendingChange && dialog.open) {
+      dialog.close();
+    }
+  }, [pendingChange]);
   const section = getSectionFromPath(pathname);
   const currentSection = navigation.find((item) => item.section === section);
   const subItems = currentSection
@@ -67,13 +88,19 @@ export function AgencyTopBar({
         </div>
         <div className="context-pill">
           <span>Firma</span>
-          <form action="/agencija/kontekst" className="context-form">
-            <input name="returnTo" type="hidden" value={pathname} />
+          <div className="context-form">
             <select
               aria-label="Aktivna firma"
-              defaultValue={activeFirmId}
+              value={activeFirmId}
+              disabled={isSwitching}
               name="firma_id"
-              onChange={(event) => event.currentTarget.form?.requestSubmit()}
+              onChange={(event) => {
+                const id = event.currentTarget.value;
+                if (id === activeFirmId) return;
+                const firm = firms.find(item => item.id === id);
+                if (id && !firm) return;
+                setPendingChange({ type: "firm", id, label: firm ? `${firm.naziv}${firm.pib ? ` (${firm.pib})` : ""}` : "" });
+              }}
             >
               <option value="">Izaberite firmu</option>
               {firms.map((firma) => (
@@ -83,19 +110,22 @@ export function AgencyTopBar({
                 </option>
               ))}
             </select>
-          </form>
+          </div>
         </div>
         <div className="context-pill">
           <span>Godina</span>
-          <form action="/agencija/kontekst" className="context-form">
-            <input name="returnTo" type="hidden" value={pathname} />
-            <input name="firma_id" type="hidden" value={activeFirmId} />
+          <div className="context-form">
             <select
               aria-label="Aktivna poslovna godina"
-              defaultValue={activeYearId}
-              disabled={!activeFirmId || years.length === 0}
+              value={activeYearId}
+              disabled={isSwitching || !activeFirmId || years.length === 0}
               name="poslovna_godina_id"
-              onChange={(event) => event.currentTarget.form?.requestSubmit()}
+              onChange={(event) => {
+                const id = event.currentTarget.value;
+                if (id === activeYearId) return;
+                const year = years.find(item => item.id === id);
+                if (year) setPendingChange({ type: "year", id, label: String(year.godina) });
+              }}
             >
               {years.length === 0 ? (
                 <option value="">{currentYear}</option>
@@ -108,13 +138,43 @@ export function AgencyTopBar({
                 ))
               )}
             </select>
-          </form>
+          </div>
         </div>
         <div className="context-pill user-context">
-          <span>Korisnik</span>
-          <strong>{userName}</strong>
+          <div className="theme-user-identity"><span>Korisnik</span><strong>{userName}</strong></div>
+          <ThemePicker/>
         </div>
       </div>
+
+      <dialog
+        ref={dialogRef}
+        className="context-switch-dialog"
+        aria-labelledby="context-switch-title"
+        aria-describedby="context-switch-message"
+        onCancel={(event) => {
+          event.preventDefault();
+          if (!isSwitching) setPendingChange(null);
+        }}
+      >
+        {pendingChange ? <>
+          <div className="context-switch-icon" aria-hidden="true">⇄</div>
+          <h2 id="context-switch-title">{pendingChange.type === "firm" ? "Promjena firme" : "Promjena poslovne godine"}</h2>
+          <p id="context-switch-message">
+            {pendingChange.type === "firm"
+              ? pendingChange.id ? <>Da li želite da pređete na firmu <strong>{pendingChange.label}</strong>?</> : "Da li želite da poništite izbor firme?"
+              : <>Da li želite da pređete na <strong>{pendingChange.label}.</strong> godinu?</>}
+          </p>
+          <form action="/agencija/kontekst" method="get" onSubmit={() => setIsSwitching(true)}>
+            <input name="returnTo" type="hidden" value={pathname}/>
+            <input name="firma_id" type="hidden" value={pendingChange.type === "firm" ? pendingChange.id : activeFirmId}/>
+            {pendingChange.type === "year" ? <input name="poslovna_godina_id" type="hidden" value={pendingChange.id}/> : null}
+            <div className="context-switch-actions">
+              <button ref={cancelRef} type="button" className="secondary-button" disabled={isSwitching} onClick={() => setPendingChange(null)}>Odustani</button>
+              <button type="submit" className="primary-button" disabled={isSwitching}>{isSwitching ? "Prelazak…" : pendingChange.type === "firm" ? "Da, promijeni firmu" : "Da, promijeni godinu"}</button>
+            </div>
+          </form>
+        </> : null}
+      </dialog>
 
       {subItems.length > 0 ? (
         <nav className="section-tabs" aria-label={`${currentSection?.label ?? "Sekcija"} podmeni`}>

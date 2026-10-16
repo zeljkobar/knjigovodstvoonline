@@ -1,5 +1,8 @@
 "use client";
 
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
+
+
 import {
   decodeInvoiceQrFile,
   invoiceQrFileAccept
@@ -1068,7 +1071,7 @@ export function InvoiceImportClient({
                   </div>
                   <label>
                     <span>Konto troška</span>
-                    <select
+                    <AccountSearchSelect
                       disabled={status === "loading"}
                       value={supplierAccountCodes[supplier.tin] ?? ""}
                       onChange={(event) =>
@@ -1084,7 +1087,7 @@ export function InvoiceImportClient({
                           {account.label}
                         </option>
                       ))}
-                    </select>
+                    </AccountSearchSelect>
                   </label>
                   <button
                     className="primary-button"

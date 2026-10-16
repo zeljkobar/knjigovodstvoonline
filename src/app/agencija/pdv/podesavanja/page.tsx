@@ -1,3 +1,4 @@
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import { savePdvSettings } from "../actions";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireRole } from "@/lib/auth";
@@ -170,7 +171,7 @@ export default async function PdvPodesavanjaPage({ searchParams }: PageProps) {
                       </select>
                     </td>
                     <td>
-                      <select
+                      <AccountSearchSelect
                         name="konto_id"
                         defaultValue={
                           ruleMap.get(row.code)?.konto_id
@@ -190,7 +191,7 @@ export default async function PdvPodesavanjaPage({ searchParams }: PageProps) {
                             </option>
                           );
                         })}
-                      </select>
+                      </AccountSearchSelect>
                     </td>
                   </tr>
                 ))}

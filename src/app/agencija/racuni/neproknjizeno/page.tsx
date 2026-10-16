@@ -1,3 +1,4 @@
+import { invoiceBookPostingLabel, invoiceEntryPostingLabel } from "@/lib/invoice-posting-status";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { postInvoiceBook } from "../actions";
@@ -8,7 +9,6 @@ import {
 } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
-import { journalStatuses } from "@/lib/journals";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -94,21 +94,6 @@ function differenceText(differenceCents: number) {
   return (Math.abs(differenceCents) / 100).toFixed(2).replace(".", ",");
 }
 
-function rowStatus(total: number, posted: number, unposted: number) {
-  if (total === 0) {
-    return "Prazno";
-  }
-
-  if (posted > 0 && unposted > 0) {
-    return "Djelimično knjižena";
-  }
-
-  if (posted > 0 && unposted === 0) {
-    return "Knjiženo";
-  }
-
-  return "Otvorena";
-}
 
 function classNameForStatus(status: string) {
   if (status === "Knjiženo") {
@@ -166,8 +151,7 @@ function validateBookForPosting({
   fields,
   rules,
   entries,
-  journalTypeId,
-  journalStatus
+  journalTypeId
 }: {
   documentType: string;
   fields: PostingField[];
@@ -198,7 +182,6 @@ function validateBookForPosting({
     }>;
   }>;
   journalTypeId: string | null;
-  journalStatus: string | null;
 }) {
   const issues: string[] = [];
   const unpostedEntries = entries.filter(
@@ -213,9 +196,6 @@ function validateBookForPosting({
     issues.push("Nije izabrana vrsta naloga.");
   }
 
-  if (journalStatus === journalStatuses.posted && unpostedEntries.length > 0) {
-    issues.push("Postojeći nalog je proknjižen, ne može se dopuniti.");
-  }
 
   const ruleByField = new Map(rules.map((rule) => [rule.polje_sifra, rule]));
   let debit = 0;
@@ -580,6 +560,8 @@ export default async function NeproknjizenoPage({ searchParams }: NeproknjizenoP
   const kufFields = invoicePostingFields(invoicePostingDocumentTypes.kuf, vatRates);
   const kifFields = invoicePostingFields(invoicePostingDocumentTypes.kif, vatRates);
 
+  const journalStatusesById = new Map(journals.map(journal => [journal.id, journal.status]));
+
   const rows: BookRow[] = [
     ...kufBooks.map((book) => {
       const journalId =
@@ -587,16 +569,15 @@ export default async function NeproknjizenoPage({ searchParams }: NeproknjizenoP
           (entry) => entry.posting_mode === "KUF_RULES" && entry.journal_id
         )?.journal_id ?? null;
       const journal = journalId ? journalById.get(journalId) : null;
-      const postedEntries = book.entries.filter((entry) => entry.posting_status === "POSTED").length;
+      const postedEntries = book.entries.filter((entry) => invoiceEntryPostingLabel(entry, journalStatusesById) === "Knjiženo").length;
       const unpostedEntries = book.entries.filter((entry) => entry.posting_status === "UNPOSTED").length;
-      const statusLabel = rowStatus(book.entries.length, postedEntries, unpostedEntries);
+      const statusLabel = book.entries.length ? invoiceBookPostingLabel(book.entries, journalStatusesById) : "Prazno";
       const controlIssues = validateBookForPosting({
         documentType: invoicePostingDocumentTypes.kuf,
         fields: kufFields,
         rules: book.racun_vrsta.kontiranjePravila,
         entries: book.entries,
-        journalTypeId: book.racun_vrsta.vrsta_naloga_id,
-        journalStatus: journal?.status ?? null
+        journalTypeId: book.racun_vrsta.vrsta_naloga_id
       });
 
       return {
@@ -624,16 +605,15 @@ export default async function NeproknjizenoPage({ searchParams }: NeproknjizenoP
     ...kifBooks.map((book) => {
       const journalId = book.entries.find((entry) => entry.journal_id)?.journal_id ?? null;
       const journal = journalId ? journalById.get(journalId) : null;
-      const postedEntries = book.entries.filter((entry) => entry.posting_status === "POSTED").length;
+      const postedEntries = book.entries.filter((entry) => invoiceEntryPostingLabel(entry, journalStatusesById) === "Knjiženo").length;
       const unpostedEntries = book.entries.filter((entry) => entry.posting_status === "UNPOSTED").length;
-      const statusLabel = rowStatus(book.entries.length, postedEntries, unpostedEntries);
+      const statusLabel = book.entries.length ? invoiceBookPostingLabel(book.entries, journalStatusesById) : "Prazno";
       const controlIssues = validateBookForPosting({
         documentType: invoicePostingDocumentTypes.kif,
         fields: kifFields,
         rules: book.racun_vrsta.kontiranjePravila,
         entries: book.entries,
-        journalTypeId: book.racun_vrsta.vrsta_naloga_id,
-        journalStatus: journal?.status ?? null
+        journalTypeId: book.racun_vrsta.vrsta_naloga_id
       });
 
       return {

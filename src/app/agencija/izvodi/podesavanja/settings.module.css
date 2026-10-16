@@ -39,7 +39,7 @@
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--field-surface, #fff);
   color: inherit;
   font: inherit;
   text-overflow: ellipsis;
@@ -86,7 +86,7 @@
 .mailForm select {
   display: block; width: 100%; min-width: 0; max-width: 100%;
   padding: 9px; margin-top: 6px; border: 1px solid var(--border);
-  border-radius: 8px; font: inherit; background: white;
+  border-radius: 8px; font: inherit; background: var(--field-surface, white);
 }
 .mailRule { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
 .mailRule button { grid-column: 1 / -1; justify-self: start; }

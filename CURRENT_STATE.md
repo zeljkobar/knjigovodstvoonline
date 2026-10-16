@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-10-14. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-10-16. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -8,12 +8,57 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Korisničke palete i tamni režim — 2026-10-16
+
+- Diskretni birač uz korisničko ime nudi plavu, zelenu, bordo, grafitnu i ljubičastu paletu, svijetlo/tamno. Promjena se prikazuje odmah; čuva se samo na prijavljenom korisniku i važi nakon osvježavanja/prijave/drugog uređaja. Birač je dostupan u agencijskom, admin, klijentskom i fiskalnom portalu.
+- `korisnici.tema_paleta/tema_rezim` imaju podrazumijevano blue/light i SQL check ograničenja. Server action uzima korisnika iz sesije, ponovo provjerava aktivnost/rolu/agenciju pod zaključavanjem i transakciono auditira izmjenu. Root server-renderuje data atribute, bez čekanja na localStorage ili naknadnog prebacivanja svijetle/tamne teme. Neispravne stare vrijednosti vraćaju se na blue/light; neuspjelo čuvanje vraća prethodni izgled.
+- Zajedničke i posebne CSS boje modula koriste semantičke varijable; svijetli/tamni statusi zadržavaju značenje, grafikoni razlikuju izvore. Štampa je nezavisna od palete i režima; 1.511 postojećih print deklaracija ostalo je identično. Usklađeni su portali pretrage konta, modalne pozadine, M4 dugme i raspored širokih tabela/formi na užem ekranu.
+- Migracija `20261016060000_korisnicka_tema` primijenjena lokalno, Prisma regenerisan i server restartovan. Tema pripada nalogu; purge briše samo vezu sa firmom i zadržava korisnika/temu. Stvarni rollback purge i izolacija korisnika provjereni.
+- QA: statički pregled svih CSS fajlova i inline boja (241 page fajl u projektu), browser prolaz agencijskih ruta/podmenija i dostupnih detalja KUF/fakture/naloga, obje svjetline i svih deset kombinacija na formi naloga, desktop i 390px širina. Štampa naloga ostaje bijela u tamnoj temi. Admin/klijentski/fiskalni layouti provjereni izvorno/tipovima, bez prijave tuđim nalozima. IMAP strana se prikazuje, ali udaljena veza nije dostupna. Originalni kontekst firme/godine nije mijenjan; tema vraćena na blue/light nakon QA.
+
+## Potvrda promjene radnog konteksta — 2026-10-16
+
+- Gornji izbor firme i poslovne godine otvara modal sa nazivom/PIB-om firme ili ciljnom godinom. Izbor ostaje nepromijenjen do potvrde; Odustani i Escape zatvaraju modal bez navigacije. Ponovni izbor trenutne vrijednosti ne otvara modal. Poništavanje izbora firme takođe traži potvrdu.
+- Nativni modal zadržava fokus, početno fokusira Odustani i blokira pozadinu; potvrda koristi postojeću scope-provjerenu kontekst rutu. Bez izmjena baze ili poslovnih podataka.
+
+## Pregled automatski obrađenih dokumenata — 2026-10-16
+
+- Dashboard → Automatski obrađena dokumenta (`/agencija/automatski-obradjena-dokumenta`) objedinjuje SEP obrade i postojeći AUTO_BANK_RUN pregled. Filteri: firma (podrazumijeva gornji izbor ili izričito sve firme agencije), izvor, status i datum (podrazumijeva izabranu godinu). Brojači, greške, periodi, ponavljanje neuspjelog SEP-a i današnje obrade ostaju dostupni; linkovi do KIF knjiga/izvoda biraju provjereni kontekst firme i godine.
+- SEP konfiguracija je u Podešavanja → SEP automatika (`/agencija/podesavanja/sep-automatika`); rezultati/ponavljanje uklonjeni iz konfiguracione stranice. KIF/KUF zadržava ručno SEP preuzimanje. Stare adrese preusmjeravaju na nove stranice; podmeni izvoda više ne duplira rezultate.
+- Pregled je administratorski i strogo scoped po agenciji. Izvodi su vidljivi samo agenciji ovlašćenoj za postojeći mailbox uz izvodi:manage; ponavljanje SEP-a ponovo provjerava trenutnu firmu. Nema migracije niti promjene rasporeda ili uključenih firmi.
+
+## Noćna SEP automatika — 2026-10-16
+
+- Podešavanja → SEP automatika: administrator uključuje firme pojedinačno, bira agencijski administratorski sertifikat i jednu aktivnu KIF vrstu sa šemom/vrstom naloga. Početno nijedna firma nije uključena. Postavke imaju reviziju i transakcioni audit.
+- U 04:00 Europe/Podgorica počinje globalni red, firma po firma. PostgreSQL advisory lock obuhvata cijeli red u svim procesima/agencijama; pojedinačni upisi se nezavisno potvrđuju. Globalni lokalni busy flag, ograničenje 20 minuta po firmi i provjera živog zaključavanja prije upisa. Prekid ostavlja RUNNING/PENDING za nastavak; završeni dan se ne ponavlja. Greška jedne firme ne zaustavlja druge.
+- Period je od 1. tekućeg mjeseca do juče; samo prvog dana novog mjeseca obrađuje se cijeli prethodni mjesec. Propušteni ranije zakazani prvi dan nastavlja se nakon restarta. Uključivanje poslije 04:00 važi od sljedeće noći; eksplicitno ponavljanje može dodati posao u današnji red. Moguće ponavljanje ranije neuspjele obrade nakon ispravke/otključavanja.
+- Excel se preuzima/čita samo u memoriji i odbacuje; ne piše se na disk niti čuva u bazi. Čuvaju se KIF računi, IKOF/izvorni URL, nalozi, sažeti rezultati i audit. IKOF se grupno provjerava prije MAPR-a, uz parcijalni unique indeks po agenciji/firmi za aktivne račune. Stari računi bez IKOF-a dobijaju dodatnu MAPR/legacy provjeru, a nejasni ili različiti iznosi idu na ručnu provjeru.
+- Automatski se kreira mjesečni KIF kada je potreban, po izabranoj vrsti. Prvo knjiženje atomarno kreira POSTED nalog; novi računi dopunjavaju isti nalog. Samo automatikin neproknjiženi red može se automatski završiti nakon prekida. Ručno ostavljen nacrt se ne proknjižava automatski. Izvorni računi iz same aplikacije ne knjiže se ponovo kroz MAPR; prijavljuju se za postojeći SOURCE_DOCUMENT tok.
+- Servisi importa/knjiženja zajednički su ručnim rutama i automatici, uz eksplicitni serverski kontekst, ponovnu provjeru aktivnog korisnika/agencije/firme/prava, zaključane godine i PDV perioda, konta/dimenzije, ravnotežu i audit. Ručna ruta ne može označiti svoj zapis kao automatski. Provjeravaju se i promjena sertifikata/postavki tokom preuzimanja i vremenska zona servera.
+- Migracija `20261016040000_sep_automatika` primijenjena lokalno, Prisma regenerisan i server restartovan. Purge briše obrade/postavke prije firme/KIF vrsta; sertifikati ostaju agencijski. Lokalni timer je uključen kroz ignorisani `.env`; nijedna stvarna firma nije aktivirana niti su korisnički računi uvoženi u QA.
+- Provjere: policy/Excel testovi, pravi DB rollback za prekid/nastavak, IKOF prije MAPR-a, prvi POSTED i dopunu, salda, zaključavanja, cert/korisnik revokaciju, audit rollback, source dokumente, dvije firme redom, dnevni skip, RUNNING oporavak, postavke/ponavljanje i purge. Dva stvarna PostgreSQL vlasnika potvrđuju zabranu paralelnog rada i oslobađanje zaključavanja. Linux/živi SEP kroz automatiku ostaje produkcijski QA; mreža je u testovima simulirana.
+
+## Pretraga konta u izborima — 2026-10-16
+
+- Zajednički `AccountSearchSelect` zamjenjuje postojeće padajuće izbore konta u šemama KIF/KUF, robnom, platama, PDV-u, izvodima, putnim nalozima, osnovnim sredstvima, unosu/importu računa i filterima izvještaja. Pretraga šifre/naziva radi i bez dijakritike; izbor tastaturom i mišem.
+- Forma zadržava prethodne ID/šifra vrijednosti, opcione/prazne izbore, required/disabled i kontrolisane promjene. KUF automatski izbor konta dobavljača osvježava vidljivo polje. Postojeći unos konta u nalogu ostaje sa pretragom.
+- Browser potvrđuje izbor naziva/šifre u šemi, kontrolisanu robnu formu i UUID filter bruto bilansa bez čuvanja poslovnih podataka. Regresije provjeravaju format vrijednosti i zaključana/opciona polja.
+
+## Dopuna proknjiženog KIF/KUF naloga — 2026-10-16
+
+- Novi neproknjiženi KIF/KUF računi mogu dopuniti postojeći POSTED nalog iste knjige. Status i prethodne stavke ostaju sačuvani; jedna knjiga i dalje ima jedan nalog. Dodatno pravo `nalozi:post`, zaključavanje godine/PDV perioda knjige i naloga, kontrola ravnoteže i dimenzija, transakcioni audit sa ID-jevima dodatih računa. Ista zaštita važi za KIF i KUF; povezani POS batch prati konačni status naloga.
+- Zaključan PDV period skriva „Dodaj račun/e” na oba pregleda uz kratko objašnjenje. Direktne forme su onemogućene. Render test provjerava zaključavanje/otključavanje; DB rollback regresija provjerava dopunu oba POSTED naloga i odmah vidljivo stanje kupca.
+
+## Statusi KIF/KUF prema nalogu — 2026-10-16
+
+- Pregledi knjiga i računa prikazuju stvarni status povezanog aktivnog naloga: nacrt je „U nacrtu naloga”, POSTED je „Knjiženo”. Prenos računa i veze ostaju netaknuti. Knjiženje/vraćanje naloga osvježava KIF/KUF prikaze; KUF filter knjiženja prati isti status.
+
 ## Zaseban SEP pristup — 2026-10-14
 
-- Podešavanja → SEP sertifikat (`/agencija/sep`) omogućava administratoru agencije
+- Podešavanja → SEP sertifikat (`/agencija/podesavanja/sep`) omogućava administratoru agencije
   upload vlastitog PFX/P12; KIF/KUF → Preuzmi sa SEP-a (`/agencija/racuni/sep`)
   omogućava preuzimanje Excel računa izabrane firme za period
-  po datumu fiskalizacije. Fiscal API se ne koristi; nema automatskog KIF uvoza.
+  po datumu fiskalizacije. Fiscal API se ne koristi; ručno preuzimanje je odvojeno od SEP automatike.
 - `agencija_sep_sertifikati` je scoped po agenciji i korisniku. PFX, lozinka i
   JMBG se šifruju AES-256-GCM sa scope AAD-om i zasebnim `SEP_ENCRYPTION_KEY`.
   Ključ nije u bazi/git-u; isti ključ mora ostati sačuvan pri deployu/obnovi.

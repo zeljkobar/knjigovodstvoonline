@@ -1,2 +1,11 @@
 Modul,Status,Implementirano,Otvoreno,Napomena
 SEP portal,Lokalni web tok potvrđen,"Lični sertifikat u Podešavanjima; preuzimanje Excel-a u KIF/KUF; šifrovano čuvanje PFX/lozinke/JMBG; direktna SEP prijava i Excel po firmi/periodu; audit i scope prava","Linux produkcijski deploy sa zasebnim ključem","Korisnik potvrdio upload i Excel za septembar; bez Fiscal API-ja i automatskog KIF uvoza; JSON se ne čuva."
+SEP podešavanja,Ispravljeno,Putanja u Podešavanjima i kompatibilni redirect; lokalni ključ podešen,Linux produkcijski QA,2026-10-16
+KIF/KUF statusi,Ispravljeno,Prikaz prati status naloga; nacrt nije knjižen,,2026-10-16
+KUF dopuna naloga,Implementirano,Novi računi dopunjavaju isti POSTED nalog uz prava i zaključavanja,,2026-10-16
+KIF dopuna i zaključan PDV,Implementirano,Dopuna POSTED KIF naloga; KIF/KUF skrivaju dodavanje u zaključanom periodu,,2026-10-16
+Izbor konta,Implementirano,Pretraga po šifri i nazivu u padajućim izborima svih modula; tastatura i miš,,2026-10-16
+SEP automatika,Implementirano,Opt-in po firmi; red u 04:00; IKOF prije MAPR; mjesečni KIF i POSTED nalog; Excel samo u memoriji,Linux produkcijski živi SEP QA,2026-10-16
+Organizacija automatike,Implementirano,SEP postavke u Podešavanja; Dashboard pregled SEP i izvoda sa filterima i ponavljanjem,,2026-10-16
+Potvrda radnog konteksta,Implementirano,Modal prije promjene firme ili godine; potvrda ili odustajanje bez slučajne promjene,,2026-10-16
+Korisničke teme,Implementirano,Pet paleta i svijetli/tamni režim; pamćenje po nalogu; semantičke boje svih modula; nezavisna štampa,Dopunski browser QA ostalih uloga,2026-10-16

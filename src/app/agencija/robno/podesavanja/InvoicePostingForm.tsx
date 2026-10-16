@@ -1,5 +1,8 @@
 "use client";
 
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
+
+
 import { calculationPostingFields } from "@/lib/inventory-calculation";
 import { useState } from "react";
 import { outgoingInvoicePostingFields, type InvoicePostingRule } from "@/lib/outgoing-invoice";
@@ -19,7 +22,7 @@ export function InvoicePostingForm({kind="invoice",firmaId,settings,accounts,rat
         <td><select aria-label={`Stavka ${i+1}`} value={row.namjena} onChange={e=>setRows(rows.map((r,n)=>n===i?{...r,namjena:e.target.value,pdv_stopa_sifra:"GENERAL"}:r))}>{fields.map(f=><option key={f.purpose} value={f.purpose}>{f.label}</option>)}</select></td>
         <td><select aria-label={`PDV stopa ${i+1}`} disabled={!rateField} value={row.pdv_stopa_sifra} onChange={e=>update(i,"pdv_stopa_sifra",e.target.value)}><option value="GENERAL">{rateField?"Sve ostale stope":"—"}</option>{rateField?rates.map(r=><option key={r.sifra} value={r.sifra}>{r.naziv}</option>):null}</select></td>
         <td><select aria-label={`Smjer ${i+1}`} value={row.smjer} onChange={e=>update(i,"smjer",e.target.value)}><option value="D">Duguje</option><option value="P">Potražuje</option></select></td>
-        <td><select aria-label={`Konto ${i+1}`} value={row.sifra_konta} onChange={e=>update(i,"sifra_konta",e.target.value)}><option value="">Nije podešeno</option>{accounts.map(a=><option key={a.sifra} value={a.sifra}>{a.sifra} · {a.naziv}</option>)}</select></td>
+        <td><AccountSearchSelect aria-label={`Konto ${i+1}`} value={row.sifra_konta} onChange={e=>update(i,"sifra_konta",e.target.value)}><option value="">Nije podešeno</option>{accounts.map(a=><option key={a.sifra} value={a.sifra}>{a.sifra} · {a.naziv}</option>)}</AccountSearchSelect></td>
         <td><button type="button" className="secondary-button" onClick={()=>setRows(rows.filter((_,n)=>n!==i))}>Ukloni</button></td>
       </tr>})}
     </tbody></table></div>

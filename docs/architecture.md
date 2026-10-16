@@ -12,13 +12,53 @@
 - **Mejl:** nodemailer. **Excel:** xlsx. **PDF čitanje:** pdfjs-dist.
 - Fiskalizacija ide preko zasebnog Summa Fiscal API-ja; ovaj sajt koristi samo
   serverske klijente i ne implementira PU XML/potpis u Next.js aplikaciji.
-- SEP preuzimanje je nezavisno od fiskalizacije: `/agencija/sep` podešava lični
+- SEP preuzimanje je nezavisno od fiskalizacije: `/agencija/podesavanja/sep` podešava lični
   sertifikat, a `/agencija/racuni/sep` preuzima Excel. Servis koristi lični
   sertifikat administratora agencije, direktni mTLS prema `sep.tax.gov.me` i
   privremene sesije samo u memoriji. Vraća Excel bez arhiviranja računa/JSON-a.
   `SEP_ENCRYPTION_KEY` šifruje PFX, lozinku i JMBG u `agencija_sep_sertifikati`,
   sa AAD scope-om agencije i korisnika. Pri deployu sačuvati i obezbijediti ključ
   nezavisno od baze; njegova zamjena zahtijeva ponovni upload ili re-enkripciju.
+
+### SEP automatika
+
+Konfiguracija je na `/agencija/podesavanja/sep-automatika`, dok Dashboard
+`/agencija/automatski-obradjena-dokumenta` objedinjuje SEP dnevne rezultate i
+AUTO_BANK_RUN audit uz filtere i ponavljanje SEP-a. Oba ekrana su administratorska;
+svaki upit je scoped po agenciji, a mail rezultati dodatno po postojećem
+IMAP_AGENCY_ID ovlašćenju i izvodi:manage. Stare adrese preusmjeravaju.
+
+`sep-automation.ts` pokreće server-side instrumentacija u 04:00 Europe/Podgorica,
+uz opt-in postavke `sep_automatika_podesavanja` i trajni dnevni red/rezultat
+`sep_automatika_obrade`. Globalni transakcioni advisory lock drži cijeli red
+svih agencija, dok se poslovni upisi nezavisno potvrđuju. Firme se await-uju
+redom, sa zasebnim ograničenjem trajanja; PENDING/RUNNING se oporavljaju, DONE/REVIEW
+ne ponavljaju bez izričitog retry-a. Provjera aktivne lease konekcije prethodi
+upisima. Nema mrežnog poziva u poslovnoj transakciji niti čuvanja Excel fajlova.
+
+`invoice-import-service.ts` i `invoice-book-posting.ts` služe HTTP/server action
+adapterima i automatici; eksplicitni `InvoiceExecution` nije browser argument.
+Servis ponovo provjerava stvarnog aktivnog korisnika i scope. KIF čuva IKOF uz
+parcijalni unique indeks za aktivne zapise; prije MAPR-a provjeravaju se poznati
+IKOF-i i lokalni izvorni dokumenti. Legacy povezivanje zahtijeva jednoznačan
+broj/kupca/datum/iznos; nejasni slučajevi prijavljuju se bez novog upisa.
+Automatika završava samo svoje redove: prvi nalog je atomarno POSTED, dopuna
+čuva isti nalog i ranije stavke; postojeći ručni nacrt zahtijeva intervenciju.
+Konfiguracija i certifikat se ponovo provjeravaju nakon udaljenog čitanja.
+Rezultati/audit čuvaju brojače, IKOF reference i bezbjedne greške bez tajni ili
+JSON sadržaja računa. Purge briše obrade i postavke prije KIF vrsta/firme;
+agencijski administratorski sertifikat se zadržava.
+
+### Izgled po korisniku
+
+`ThemeProvider` dobija validiranu paletu/režim iz server-renderovanog korijenskog
+layouta. `ThemePicker` uz korisnika koristi native popover i mijenja samo CSS
+atribute; `saveTheme` prihvata allowlist vrijednosti i upisuje isključivo nalog
+iz aktivne sesije uz audit. Nema kolačića sa tuđim preferencijama niti browser
+parametra korisnik_id. `themes.css` definiše boje samo za screen media, a stare
+print deklaracije i fallback boje ostaju nezavisne. Ne pravi se API/poslovni
+zahtjev pri svakom renderovanju kontrole; čuvanje ide samo na izbor palete/režima.
+Tema nema FK veze na firmu: company purge zadržava nalog i njegove preference.
 
 ## Okruženje i baza
 - PostgreSQL na `127.0.0.1:5432`, baza `knjigovodstvoonline`.
@@ -44,6 +84,8 @@ akcija (`src/lib/permissions.ts`, `auth.ts`, `work-context.ts`).
 ## Globalni kontekst rada
 Agencija, firma i poslovna godina se biraju u gornjoj traci; svi moduli rade nad
 tim izborom (`src/lib/work-context.ts`, `src/app/agencija/kontekst/`).
+Gornji birači traže potvrdu u nativnom modalu prije navigacije; Odustani/Escape
+zadržavaju trenutnu firmu/godinu. Backend provjere kontekst rute ostaju obavezne.
 Direktni `/portal` ne prikazuje birače: backend automatski bira jedinu
 dozvoljenu firmu i važeću poslovnu godinu, ali ih ponovo provjerava pri svakom
 zahtjevu.

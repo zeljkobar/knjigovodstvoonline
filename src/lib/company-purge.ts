@@ -73,6 +73,11 @@ export async function purgeCompanyData(
     obrisano[tabela] = await tx.$executeRaw(query);
   };
 
+  // SEP run summaries/configuration have no children. Remove config before its KIF type;
+  // administrator certificates remain agency-owned. IKOF columns disappear with KIF rows.
+  await izvrsi("sep_automatika_obrade", Prisma.sql`DELETE FROM sep_automatika_obrade WHERE firma_id=${firmaId}::uuid`);
+  await izvrsi("sep_automatika_podesavanja", Prisma.sql`DELETE FROM sep_automatika_podesavanja WHERE firma_id=${firmaId}::uuid`);
+
   // Pending MAPR snapshots have no children; consumed snapshots are already removed.
   // Delete remaining staging data before company/year.
   await izvrsi("mapr_import_podaci", Prisma.sql`DELETE FROM mapr_import_podaci WHERE firma_id = ${firmaId}::uuid`);
@@ -492,6 +497,7 @@ export async function purgeCompanyData(
     "korisnik_firma",
     Prisma.sql`DELETE FROM korisnik_firma WHERE firma_id = ${firmaId}::uuid`
   );
+  // Korisnički nalog i njegova tema ostaju: paleta/režim nijesu podaci firme.
   await izvrsi(
     "korisnik_prava",
     Prisma.sql`DELETE FROM korisnik_prava WHERE firma_id = ${firmaId}::uuid`

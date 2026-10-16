@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemePicker } from "@/components/ThemePicker";
 import { logout } from "@/app/actions";
 import { requireRole } from "@/lib/auth";
 
@@ -41,7 +42,7 @@ export default async function AdminLayout({
         </form>
       </aside>
 
-      <section className="admin-main">{children}</section>
+      <section className="admin-main"><div className="admin-theme-toolbar"><span>{user.korisnicko_ime}</span><ThemePicker/></div>{children}</section>
     </main>
   );
 }

@@ -38,7 +38,10 @@
     "test:db": "node scripts/run-tests.cjs --db",
     "test:accounting": "tsc -p tests/tsconfig.accounting-core.json && node --test .test-build/tests/accounting-core.test.js",
     "test:accounting-db": "node scripts/check-accounting-core.cjs",
-    "test:office-storno": "node scripts/check-office-storno.cjs"
+    "test:office-storno": "node scripts/check-office-storno.cjs",
+    "test:sep-automation": "node --test tests/sep-automation.test.cjs",
+    "test:sep-automation-db": "node scripts/check-sep-automation.cjs",
+    "test:theme-db": "node scripts/check-theme.cjs"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",

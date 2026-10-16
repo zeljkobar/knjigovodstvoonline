@@ -113,6 +113,7 @@ export default async function AgencijaLayout({
     >
       <>
         <AgencyTopBar
+          key={`${activeFirm?.id ?? ""}:${activeYear?.id ?? ""}`}
           agencyName={agencija?.naziv ?? "Agencija"}
           activeFirmId={activeFirm?.id ?? ""}
           activeYearId={activeYear?.id ?? ""}

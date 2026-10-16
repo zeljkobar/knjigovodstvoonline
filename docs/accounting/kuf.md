@@ -101,7 +101,7 @@ partner:
 
 ## Knjiženje
 - Cijela knjiga se knjiži **odjednom u jedan nalog** po šemi.
-- Naknadni računi dopunjavaju **samo neproknjižene** na isti nalog.
+- Naknadni računi dopunjavaju **samo neproknjižene** na isti nalog, i kada je nalog već POSTED. Dopuna čuva status i prethodne stavke, zahtijeva i `nalozi:post`, otvorenu godinu/PDV period, validna konta/dimenzije i ravnotežu. Firma i nalog se zaključavaju; audit bilježi dodate račune.
 - Balans se kontroliše po svakom KUF računu, ne samo zbirno za knjigu. Ako
   osnovice i PDV zbog zaokruživanja odstupaju od ukupnog iznosa za tačno
   `0,01 EUR`, razlika se koriguje na najvećoj stavci troška tog računa. Razlika
@@ -114,6 +114,8 @@ partner:
 - Preuzeti zapis je označen **Knjiženo kroz kalkulaciju**: ulazi u KUF i PDV,
   ali se ne knjiži ponovo po pravilima KUF knjige i ne može se uređivati ili
   brisati kao običan troškovni račun.
+
+- Zaključan PDV period na pregledu knjige skriva dodavanje računa i prikazuje objašnjenje; direktna forma je onemogućena.
 
 ## Štampa
 Čista HTML/CSS print stranica knjige bez menija.

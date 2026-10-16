@@ -1,3 +1,4 @@
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import Link from "next/link";
 import {
   deleteBankStatement,
@@ -1025,7 +1026,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                                 ) : null}
                               </td>
                               <td className="statement-col-account">
-                                <select
+                                <AccountSearchSelect
                                   defaultValue={selectedAccountCode ?? ""}
                                   name={isInflow ? "credit_account_code" : "debit_account_code"}
                                 >
@@ -1035,7 +1036,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                                       {account.sifra} - {account.naziv}
                                     </option>
                                   ))}
-                                </select>
+                                </AccountSearchSelect>
                                 <input
                                   name={isInflow ? "debit_account_code" : "credit_account_code"}
                                   type="hidden"

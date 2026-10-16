@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemePicker } from "@/components/ThemePicker";
 import { logout } from "@/app/actions";
 import { clientSections, getClientContext } from "@/lib/client-portal";
 import { hasAllPermissions } from "@/lib/permissions";
@@ -24,7 +25,7 @@ export default async function ClientLayout({ children }: { children: React.React
     </aside>
     <div className="client-main">
       <header className="admin-panel client-context">
-        <div className="client-context-identity"><span>Prijavljeni korisnik</span><strong>{context.user.korisnicko_ime}</strong></div>
+        <div className="theme-user-group"><div className="client-context-identity"><span>Prijavljeni korisnik</span><strong>{context.user.korisnicko_ime}</strong></div><ThemePicker/></div>
         {context.firma ? <form action="/klijent/kontekst" className="client-year-form">
           <label>Poslovna godina<select name="godina" defaultValue={context.year?.id ?? ""}>{context.years.map((year) => <option key={year.id} value={year.id}>{year.godina}</option>)}</select></label>
           <button className="secondary-button" type="submit">Prikaži</button>

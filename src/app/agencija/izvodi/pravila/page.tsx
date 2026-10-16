@@ -1,3 +1,4 @@
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import Link from "next/link";
 import { createBankPostingRule, deleteBankPostingRule } from "../actions";
 import { displayDate, getIzvodiContext, MissingContext } from "../_shared";
@@ -225,14 +226,14 @@ export default async function PravilaIzvodaPage({ searchParams }: PravilaIzvodaP
           </label>
           <label className="full-span">
             <span>Konto</span>
-            <select name="account_code" required defaultValue={selectedAccountCode}>
+            <AccountSearchSelect name="account_code" required defaultValue={selectedAccountCode}>
               <option value="">Izaberite konto</option>
               {accountOptions.map((account) => (
                 <option key={`${account.sifra}-${account.id}`} value={account.sifra}>
                   {account.sifra} - {account.naziv}
                 </option>
               ))}
-            </select>
+            </AccountSearchSelect>
           </label>
           <button className="primary-button" type="submit">
             {selectedRule ? "Sačuvaj izmjenu" : "Sačuvaj pravilo"}

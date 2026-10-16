@@ -130,9 +130,58 @@ async function response(action,data) {
    assert.match(await response(invoices.postInvoiceBook,{dokument_tip:kind,book_id:book.id}),/knjizenje_nema/);
    assert.equal(await tx.stavkaNaloga.count({where:{nalog_id:saved.journal_id}}),3);
    const appended=await makeEntry(kind,book,-10,-2.1);
+   const beforeAppend = await tx.stavkaNaloga.findMany({where:{nalog_id:saved.journal_id},orderBy:{redni_broj:'asc'}});
+   {
+    assert.match(await response(journals.postJournal,{nalog_id:saved.journal_id}),/nalog_proknjizen/);
+    await tx.korisnikFirma.updateMany({where:{korisnik_id:worker.id},data:{is_deleted:false}});
+    await tx.korisnikPravo.create({data:{agencija_id:agency.id,korisnik_id:worker.id,firma_id:firm.id,modul:kind==='KIF'?'izlazni_racuni':'ulazni_racuni',akcija:'post',dozvoljeno:true}});
+    await tx.korisnikPravo.update({where:{id:grant.id},data:{dozvoljeno:false}});
+    user=worker;
+    assert.match(await response(invoices.postInvoiceBook,{dokument_tip:kind,book_id:book.id}),/prava/);
+    user=admin;
+    await tx.poslovnaGodina.update({where:{id:year.id},data:{zakljucena:true}});
+    assert.match(await response(invoices.postInvoiceBook,{dokument_tip:kind,book_id:book.id}),/knjizenje_kontekst/);
+    await tx.poslovnaGodina.update({where:{id:year.id},data:{zakljucena:false}});
+    await tx.pdvPeriod.update({where:{id:lockedPeriod.id},data:{status:'LOCKED'}});
+    assert.match(await response(invoices.postInvoiceBook,{dokument_tip:kind,book_id:book.id}),/knjizenje_period/);
+    await tx.pdvPeriod.update({where:{id:lockedPeriod.id},data:{status:'OPEN'}});
+    assert.equal(await tx.stavkaNaloga.count({where:{nalog_id:saved.journal_id}}),3);
+   }
    await response(invoices.postInvoiceBook,{dokument_tip:kind,book_id:book.id});
    assert.equal((await tx[kind==='KIF'?'kifEntry':'kufEntry'].findUniqueOrThrow({where:{id:appended.id}})).journal_id,saved.journal_id);
    assert.equal(await tx.stavkaNaloga.count({where:{nalog_id:saved.journal_id}}),6);
+   {
+    assert.equal((await tx.nalog.findUniqueOrThrow({where:{id:saved.journal_id}})).status,'POSTED');
+    assert.deepEqual(await tx.stavkaNaloga.findMany({where:{id:{in:beforeAppend.map(l=>l.id)}},orderBy:{redni_broj:'asc'}}),beforeAppend);
+    const sums=await tx.stavkaNaloga.aggregate({where:{nalog_id:saved.journal_id},_sum:{duguje:true,potrazuje:true}});
+    assert.equal(sums._sum.duguje.toString(),sums._sum.potrazuje.toString());
+    assert.equal(sums._sum.duguje.toString(),kind==='KIF'?'108.9':'48.4');
+    assert.match(await response(invoices.postInvoiceBook,{dokument_tip:kind,book_id:book.id}),/knjizenje_nema/);
+    assert.equal(await tx.stavkaNaloga.count({where:{nalog_id:saved.journal_id}}),6);
+    assert.equal(await tx.nalog.count({where:{...scope,source_type:kind,izvorni_dokument_id:book.id,is_deleted:false}}),1);
+    const audit=await tx.auditLog.findFirstOrThrow({where:{entitet_id:saved.journal_id,akcija:'append_journal_from_book'}});
+    assert.equal(audit.nova_vrijednost.journalStatus,'POSTED');
+    assert.deepEqual(audit.nova_vrijednost.appendedEntryIds,[appended.id]);
+    if(kind==='KUF') {
+    const positive=await makeEntry('KUF',book,10,2.1);
+    await tx.firmaKonto.update({where:{id:accounts['5000'].id},data:{aktivan:false}});
+    assert.match(await response(invoices.postInvoiceBook,{dokument_tip:kind,book_id:book.id}),/knjizenje_konto/);
+    assert.equal(await tx.stavkaNaloga.count({where:{nalog_id:saved.journal_id}}),6);
+    assert.equal((await tx.kufEntry.findUniqueOrThrow({where:{id:positive.id}})).journal_id,null);
+    await tx.firmaKonto.update({where:{id:accounts['5000'].id},data:{aktivan:true}});
+    await response(invoices.postInvoiceBook,{dokument_tip:kind,book_id:book.id});
+    assert.equal((await tx.kufEntry.findUniqueOrThrow({where:{id:positive.id}})).journal_id,saved.journal_id);
+    assert.equal(await balance('4300'),-6050,'positive appended invoice immediately affects POSTED supplier balance');
+    await makeEntry('KUF',book,-10,-2.1);
+    await response(invoices.postInvoiceBook,{dokument_tip:kind,book_id:book.id});
+    assert.equal(await tx.stavkaNaloga.count({where:{nalog_id:saved.journal_id}}),12);
+    assert.equal((await tx.nalog.findUniqueOrThrow({where:{id:saved.journal_id}})).status,'POSTED');
+    } else {
+      assert.equal(await balance('2010'),22990,'KIF append immediately affects POSTED customer balance');
+      await tx.nalog.update({where:{id:saved.journal_id},data:{status:'DRAFT'}});
+    }
+    console.log('PASS append '+kind+' to POSTED: same journal/status, original lines intact, balanced, idempotent, locks, audit');
+   }
   }
   const invalidBook=await makeBook('KIF');
   await makeEntry('KIF',invalidBook,100,21,{total_gross:'130'});

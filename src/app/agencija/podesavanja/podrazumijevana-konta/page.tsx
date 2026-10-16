@@ -1,3 +1,4 @@
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import Link from "next/link";
 import { saveDefaultCompanyAccount } from "../../actions";
 import {
@@ -159,7 +160,7 @@ export default async function DefaultAccountsSettingsPage({ searchParams }: Page
                 <input name="namjena" type="hidden" value={purpose} />
                 <label>
                   <span>{label}</span>
-                  <select
+                  <AccountSearchSelect
                     defaultValue={defaultsByPurpose.get(purpose) ?? ""}
                     name="sifra_konta"
                     required
@@ -170,7 +171,7 @@ export default async function DefaultAccountsSettingsPage({ searchParams }: Page
                         {account.sifra} - {account.naziv}
                       </option>
                     ))}
-                  </select>
+                  </AccountSearchSelect>
                 </label>
                 <button type="submit">Sačuvaj</button>
               </form>

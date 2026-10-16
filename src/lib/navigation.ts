@@ -165,7 +165,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija", label: "Pregled" },
     { href: "/agencija/virmani", label: "Virmani", permissions: [{ modul: "virmani", akcija: "view" }] },
     { href: "/agencija/rokovi", label: "Rokovi" },
-    { href: "/agencija/dokumenta-za-obradu", label: "Dokumenta za obradu" },
+    { href: "/agencija/automatski-obradjena-dokumenta", label: "Automatski obrađena dokumenta", roles: adminOnly },
     { href: "/agencija/aktivnosti", label: "Aktivnosti radnika", roles: adminOnly },
     { href: "/agencija/upozorenja", label: "Upozorenja" },
     { href: "/agencija/statistika", label: "Statistika" }
@@ -316,7 +316,6 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/izvodi/kartica-banke", label: "Kartica banke" },
     { href: "/agencija/izvodi/kontrole", label: "Kontrole" },
     { href: "/agencija/izvodi/imap", label: "Mailovi", roles: adminOnly },
-    { href: "/agencija/izvodi/automatska-obrada", label: "Automatska obrada", roles: adminOnly },
     { href: "/agencija/izvodi/podesavanja", label: "Podešavanja", roles: adminOnly }
   ],
   "zavrsni-racun": [
@@ -348,7 +347,8 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/korisnici/audit-log", label: "Dnevnik aktivnosti" }
   ],
   podesavanja: [
-    { href: "/agencija/sep", label: "SEP sertifikat", roles: adminOnly },
+    { href: "/agencija/podesavanja/sep", label: "SEP sertifikat", roles: adminOnly },
+    { href: "/agencija/podesavanja/sep-automatika", label: "SEP automatika", roles: adminOnly },
     { href: "/agencija/podesavanja/agencija", label: "Agencija", roles: adminOnly },
     { href: "/agencija/podesavanja/kontni-plan", label: "Kontni plan" },
     { href: "/agencija/podesavanja/podrazumijevana-konta", label: "Podrazumijevana konta" },

@@ -1,3 +1,4 @@
+import { loadInvoiceJournalStatuses, invoiceBookPostingLabel } from "@/lib/invoice-posting-status";
 import Link from "next/link";
 import { invoicePostingDocumentTypes } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
@@ -32,30 +33,13 @@ function displayDate(date: Date) {
   return date.toLocaleDateString("sr-Latn-ME");
 }
 
-function bookPostingLabel(entries: Array<{ posting_status: string }>) {
-  if (entries.length === 0) {
-    return "Otvorena";
-  }
-
-  const posted = entries.filter((entry) => entry.posting_status === "POSTED").length;
-
-  if (posted === entries.length) {
-    return "Knjiženo";
-  }
-
-  if (posted > 0) {
-    return "Djelimično knjiženo";
-  }
-
-  return "Otvorena";
-}
 
 function bookPostingClass(label: string) {
   if (label === "Knjiženo") {
     return "status-pill status-pill--success";
   }
 
-  if (label === "Djelimično knjiženo") {
+  if (label === "Djelimično knjižena") {
     return "status-pill status-pill--warning";
   }
 
@@ -215,6 +199,8 @@ export default async function PregledKifPage({ searchParams }: PregledKifPagePro
         })
       : [];
 
+  const journalStatusesById = await loadInvoiceJournalStatuses(kifBooks.flatMap(book => book.entries), user.agencija_id);
+
   const linkedKifBookIds =
     activeCompany && activeYear && kifBooks.length > 0
       ? new Set(
@@ -366,7 +352,7 @@ export default async function PregledKifPage({ searchParams }: PregledKifPagePro
                           gross: 0
                         }
                       );
-                      const statusLabel = bookPostingLabel(book.entries);
+                      const statusLabel = invoiceBookPostingLabel(book.entries, journalStatusesById);
                       const canDeleteBook =
                         book.status === "OPEN" &&
                         !linkedKifBookIds.has(book.id) &&

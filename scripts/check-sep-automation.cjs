@@ -1,0 +1,149 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Actual PostgreSQL rollback regression with simulated remote services. */
+require('@next/env').loadEnvConfig(process.cwd(),false,{info(){},error(){}});
+const assert=require('node:assert/strict');
+const {randomUUID,randomBytes}=require('node:crypto');
+const {PrismaClient}=require('@prisma/client');
+const XLSX=require('xlsx');
+const {sourceLoader,transactionProxy}=require('../tests/helpers/source-loader.cjs');
+const db=new PrismaClient(),rollback=new Error('ROLLBACK_SEP_AUTOMATION');
+const originalFetch=global.fetch,originalKey=process.env.SEP_ENCRYPTION_KEY,originalFlag=process.env.SEP_AUTOMATION_ENABLED;
+const date=s=>new Date(s+'T00:00:00Z');
+(async()=>{try{
+ process.env.SEP_ENCRYPTION_KEY=randomBytes(32).toString('base64');delete process.env.SEP_AUTOMATION_ENABLED;
+ await db.$transaction(async tx=>{
+  const agency=await tx.agencija.create({data:{naziv:'SEP automation rollback QA'}});
+  const firm=await tx.firma.create({data:{agencija_id:agency.id,naziv:'SEP firm fixture',pib:'12345678',pdv_obveznik:true}});
+  const year=await tx.poslovnaGodina.create({data:{firma_id:firm.id,godina:2026,datum_od:date('2026-01-01'),datum_do:date('2026-12-31')}});
+  const user=await tx.korisnik.create({data:{agencija_id:agency.id,korisnicko_ime:randomUUID(),lozinka_hash:'disabled',rola:'admin_agencije'}});
+  const jt=await tx.vrstaNaloga.create({data:{sifra:randomUUID(),naziv:'SEP journal',prefiks:'SEP',agencija_id:agency.id}});
+  const type=await tx.racunVrsta.create({data:{agencija_id:agency.id,firma_id:firm.id,dokument_tip:'KIF',sifra:'SEP',naziv:'SEP',vrsta_naloga_id:jt.id}});
+  for(const [sifra,naziv,analytic] of [['2010','Kupci',true],['6000','Prihod',false],['2600','PDV',false]])await tx.firmaKonto.create({data:{firma_id:firm.id,sifra,naziv,tip_konta:'analiticko',analitika_obavezna:analytic}});
+  await tx.pdvStopa.create({data:{agencija_id:agency.id,sifra:'R21',naziv:'PDV21',procenat:'21'}});
+  for(const [field,smjer,konto]of [['UKUPAN_IZNOS','D','2010'],['OSNOVICA_R21','P','6000'],['PDV_R21','P','2600']])await tx.racunKontiranjePravilo.create({data:{racun_vrsta_id:type.id,polje_sifra:field,polje_naziv:field,smjer,konto_izvor:'FIXED',sifra_konta:konto}});
+  const {encryptSepCredentials}=sourceLoader({'server-only':{}})('src/lib/sep-secrets.ts');
+  const cert=await tx.agencijaSepSertifikat.create({data:{agencija_id:agency.id,korisnik_id:user.id,naziv:'Synthetic test credential',sifrovani_podaci:encryptSepCredentials({pfx:'c3ludGhldGlj',password:'test-only',jmbg:'1111111111111'},`${agency.id}:${user.id}`)}});
+  const config=await tx.sepAutomatikaPodesavanje.create({data:{agencija_id:agency.id,firma_id:firm.id,sertifikat_id:cert.id,racun_vrsta_id:type.id,aktivna:true,created_at:date('2026-06-02'),updated_at:date('2026-06-02')}});
+  let count=2,maprCalls=0,sepCalls=0,postingFailure=true,replaceCertificate=false,auditFailure=false,inFlight=0,maxInFlight=0;
+  const allowedPibs=new Set([firm.pib]);
+  const buffers=[],order=[];
+  const excel=(to)=>{
+    const book=XLSX.utils.book_new();const rows=Array.from({length:count},(_,i)=>({Status:'CORRECT','IKOF računa':String(i+1).padStart(32,'A'),'Datum fiskalizovanja':`${to} 12:00:00`,'Redni broj':i+1,'Kod poslovne jedinice':'bu','ENU kod':'cr','Ukupna cijena (€)':121,'Ime kupca':'Buyer fixture','PIB kupca':'87654321'}));
+    // A stable date for all repeated June month-to-date snapshots.
+    rows.forEach(r=>r['Datum fiskalizovanja']=`${to.slice(0,7)}-12 12:00:00`);
+    XLSX.utils.book_append_sheet(book,XLSX.utils.json_to_sheet(rows),'SEP');return XLSX.write(book,{type:'buffer',bookType:'xlsx'});
+  };
+  const mocks={'server-only':{},'@/lib/prisma':{prisma:transactionProxy(tx)}};
+  const realLoad=sourceLoader(mocks),realPosting=realLoad('src/lib/invoice-book-posting.ts').postInvoiceBookInContext,realAudit=realLoad('src/lib/audit.ts').auditLogInTransaction;
+  mocks['@/lib/sep-client']={downloadSepExcel:async(credentials,pib,from,to)=>{
+    assert.equal(credentials.jmbg,'1111111111111');assert(allowedPibs.has(pib));assert.equal(from,`${to.slice(0,7)}-01`);sepCalls++;order.push('start:'+pib);inFlight++;maxInFlight=Math.max(maxInFlight,inFlight);await tx.$queryRaw`SELECT pg_sleep(0.01)::text`;
+    const bytes=excel(to);buffers.push(bytes);order.push('end:'+pib);inFlight--;
+    if(replaceCertificate)await tx.agencijaSepSertifikat.update({where:{id:cert.id},data:{updated_at:new Date(Date.now()+10000)}});
+    return {excel:bytes,count};
+  },SepError:class SepError extends Error{}};
+  mocks['@/lib/invoice-book-posting']={postInvoiceBookInContext:async(...args)=>{if(postingFailure)throw Error('SIMULATED_CRASH_BEFORE_POST');return realPosting(...args);}};
+  mocks['@/lib/audit']={auditLogInTransaction:async(t,input)=>{if(auditFailure&&input.akcija==='sep_auto_import')throw Error('SIMULATED_AUDIT_FAILURE');return realAudit(t,input);}};
+  global.fetch=async(url,options)=>{
+    assert.equal(url,'https://mapr.tax.gov.me/ic/api/verifyInvoice');maprCalls++;
+    const q=new URLSearchParams(options.body),iic=q.get('iic');const ordinal=Number(iic.slice(-1));
+    return {ok:true,json:async()=>({iic,fic:'FIC',seller:{name:'Seller',idNum:q.get('tin')},buyer:{name:'Buyer fixture',idNum:'87654321'},dateTimeCreated:'2026-06-12T12:00:00+02:00',invoiceNumber:`bu/${ordinal}/2026/cr`,sameTaxes:[{vatRate:21,priceBeforeVat:100,vatAmount:21}],totalPrice:121})};
+  };
+  const load=sourceLoader(mocks),automation=load('src/lib/sep-automation.ts');
+  let r=await automation.processSepAutomationCompany(config,'2026-06-13');
+  assert.equal(r.uvezeno,2);assert.equal(r.proknjizeno,0);assert(r.greske.length);
+  assert.equal(await tx.kifEntry.count({where:{firma_id:firm.id,posting_status:'UNPOSTED',sep_automation:true}}),2);
+  assert.equal(await tx.nalog.count({where:{firma_id:firm.id}}),0,'interrupted run must not create a draft journal');
+  assert.equal(maprCalls,2);
+  postingFailure=false;r=await automation.processSepAutomationCompany(config,'2026-06-14');
+  assert.equal(r.duplikati,2);assert.equal(r.proknjizeno,2);assert.equal(maprCalls,2,'recovery must skip MAPR for persisted IKOFs');
+  const journal=await tx.nalog.findFirstOrThrow({where:{firma_id:firm.id}});
+  assert.equal(journal.status,'POSTED');assert.equal(journal.datum.toISOString().slice(0,10),'2026-06-30');
+  const originalLines=await tx.stavkaNaloga.findMany({where:{nalog_id:journal.id},orderBy:{redni_broj:'asc'}});
+  count=3;r=await automation.processSepAutomationCompany(config,'2026-06-15');
+  assert.equal(r.uvezeno,1);assert.equal(r.proknjizeno,1);assert.equal(r.duplikati,2);assert.equal(maprCalls,3);
+  assert.equal(await tx.kifBook.count({where:{firma_id:firm.id}}),1);assert.equal(await tx.nalog.count({where:{firma_id:firm.id}}),1);
+  assert.equal((await tx.nalog.findUniqueOrThrow({where:{id:journal.id}})).status,'POSTED');
+  assert.deepEqual(await tx.stavkaNaloga.findMany({where:{id:{in:originalLines.map(l=>l.id)}},orderBy:{redni_broj:'asc'}}),originalLines);
+  const sums=await tx.stavkaNaloga.aggregate({where:{nalog_id:journal.id},_sum:{duguje:true,potrazuje:true}});
+  assert.equal(sums._sum.duguje.toString(),'363');assert.equal(sums._sum.potrazuje.toString(),'363');
+  const customer=await tx.stavkaNaloga.aggregate({where:{nalog_id:journal.id,firma_konto:{sifra:'2010'},nalog:{status:'POSTED'}},_sum:{duguje:true}});assert.equal(customer._sum.duguje.toString(),'363');
+  assert(buffers.every(b=>b.every(value=>value===0)),'all downloaded Excel buffers must be discarded/zeroed');
+  await tx.nalog.update({where:{id:journal.id},data:{status:'DRAFT'}});
+  r=await automation.processSepAutomationCompany(config,'2026-06-15');assert(r.greske.some(e=>e.includes('nije proknjižen')));assert.equal((await tx.nalog.findUniqueOrThrow({where:{id:journal.id}})).status,'DRAFT');
+  await tx.nalog.update({where:{id:journal.id},data:{status:'POSTED'}});
+  count=4;const period=await tx.pdvPeriod.create({data:{agencija_id:agency.id,firma_id:firm.id,poslovna_godina_id:year.id,mjesec:6,datum_od:date('2026-06-01'),datum_do:date('2026-06-30'),status:'LOCKED'}});
+  r=await automation.processSepAutomationCompany(config,'2026-06-16');assert(r.greske.some(e=>e.includes('zaključan')),JSON.stringify(r));assert.equal(maprCalls,3);assert.equal(await tx.kifEntry.count({where:{firma_id:firm.id}}),3);
+  await tx.pdvPeriod.update({where:{id:period.id},data:{status:'OPEN'}});
+  auditFailure=true;r=await automation.processSepAutomationCompany(config,'2026-06-17');auditFailure=false;
+  assert(r.greske.length);assert.equal(await tx.kifEntry.count({where:{firma_id:firm.id}}),3,'audit failure rolls back invoice');
+  replaceCertificate=true;const before=maprCalls;r=await automation.processSepAutomationCompany(config,'2026-06-18');replaceCertificate=false;
+  assert(r.greske.length);assert.equal(maprCalls,before,'replacement after SEP read must block MAPR/import');
+  await tx.agencijaSepSertifikat.update({where:{id:cert.id},data:{updated_at:cert.updated_at}});
+  await tx.korisnik.update({where:{id:user.id},data:{aktivan:false}});const remoteBefore=sepCalls;r=await automation.processSepAutomationCompany(config,'2026-06-19');assert(r.greske.length);assert.equal(sepCalls,remoteBefore);
+  await tx.korisnik.update({where:{id:user.id},data:{aktivan:true}});
+  // A local source invoice must never be re-posted through SEP.
+  const sourceIic='A'.repeat(31)+'4';
+  await tx.fiskalniIzlazniRacun.create({data:{agencija_id:agency.id,firma_id:firm.id,poslovna_godina_id:year.id,broj:1,interni_broj:'LOCAL-4',kupac_id:(await tx.komitent.findFirstOrThrow({where:{pib:'87654321'}})).id,broj_racuna:'LOCAL-4',datum_racuna:date('2026-06-12'),datum_prometa:date('2026-06-12'),iic:sourceIic,status:'FISCALIZED'}});
+  r=await automation.processSepAutomationCompany(config,'2026-06-20');assert(r.greske.some(e=>e.includes('izvorni dokument')));assert.equal(maprCalls,before);
+  console.log('PASS SEP company: memory-only Excel, IKOF preflight, recovery, first POSTED journal, append, balances, locks, revocation, audit rollback, local-source protection');
+  // Run the actual scheduler over two isolated firms; every remote call must be sequential.
+  const other=await tx.firma.create({data:{agencija_id:agency.id,naziv:'Second SEP fixture',pib:'22345678'}});allowedPibs.add(other.pib);
+  await tx.poslovnaGodina.create({data:{firma_id:other.id,godina:2026,datum_od:date('2026-01-01'),datum_do:date('2026-12-31')}});
+  const otherType=await tx.racunVrsta.create({data:{agencija_id:agency.id,firma_id:other.id,dokument_tip:'KIF',sifra:'SEP',naziv:'SEP',vrsta_naloga_id:jt.id}});
+  for(const account of await tx.firmaKonto.findMany({where:{firma_id:firm.id}}))await tx.firmaKonto.create({data:{firma_id:other.id,sifra:account.sifra,naziv:account.naziv,tip_konta:'analiticko',analitika_obavezna:account.analitika_obavezna}});
+  for(const rule of await tx.racunKontiranjePravilo.findMany({where:{racun_vrsta_id:type.id}}))await tx.racunKontiranjePravilo.create({data:{racun_vrsta_id:otherType.id,polje_sifra:rule.polje_sifra,polje_naziv:rule.polje_naziv,smjer:rule.smjer,konto_izvor:rule.konto_izvor,sifra_konta:rule.sifra_konta}});
+  await tx.sepAutomatikaPodesavanje.create({data:{agencija_id:agency.id,firma_id:other.id,sertifikat_id:cert.id,racun_vrsta_id:otherType.id,aktivna:true,created_at:date('2026-06-02'),updated_at:date('2026-06-02')}});
+  const basePrisma=mocks['@/lib/prisma'].prisma;
+  mocks['@/lib/prisma'].prisma=new Proxy(basePrisma,{get(target,key){if(key!=='sepAutomatikaPodesavanje')return target[key];return new Proxy(target[key],{get(delegate,method){if(method!=='findMany')return delegate[method];return args=>delegate.findMany({...args,where:{...args.where,agencija_id:agency.id}});}});}});
+  order.length=0;const queueMaprBefore=maprCalls;await automation.runDailySepAutomation(new Date('2026-06-21T02:00:00Z'));
+  assert.equal(maxInFlight,1);assert.equal(order.length,4);assert(order[0].startsWith('start:'));assert.equal(order[1],order[0].replace('start:','end:'));assert.equal(order[3],order[2].replace('start:','end:'));
+  assert.equal(maprCalls,queueMaprBefore+4,'the same IKOFs in a different firm must not be skipped');
+  assert.equal(await tx.kifEntry.count({where:{firma_id:other.id}}),4);assert.equal(await tx.nalog.count({where:{firma_id:other.id,status:'POSTED'}}),1);
+  const queueCalls=sepCalls;await automation.runDailySepAutomation(new Date('2026-06-21T03:00:00Z'));assert.equal(sepCalls,queueCalls,'completed day must not run again');
+  await tx.sepAutomatikaObrada.update({where:{firma_id_dan:{firma_id:other.id,dan:date('2026-06-21')}},data:{status:'RUNNING'}});
+  await automation.runDailySepAutomation(new Date('2026-06-21T03:30:00Z'));
+  assert.equal(maprCalls,queueMaprBefore+4,'unfinished RUNNING work resumes without MAPR duplicates');assert.equal(await tx.nalog.count({where:{firma_id:other.id}}),1);
+  await tx.sepAutomatikaPodesavanje.update({where:{id:config.id},data:{updated_at:new Date('2026-06-22T06:00:00Z')}});
+  await automation.runDailySepAutomation(new Date('2026-06-22T08:00:00Z'));
+  assert.equal(await tx.sepAutomatikaObrada.count({where:{firma_id:firm.id,dan:date('2026-06-22')}}),0,'new settings after 04:00 start next night');
+  mocks['@/lib/prisma'].prisma=basePrisma;
+  console.log('PASS actual queue: two firms sequentially, per-firm IKOF scope, completed-day skip, RUNNING recovery');
+  // Actual settings actions: optimistic concurrency, tenant/type validation, opt-in and retries.
+  mocks['@/lib/sep-context']={getSepCompany:async expected=>{if(expected!==firm.id)throw Error('CONTEXT_CHANGED');return {user,agencyId:agency.id,firm,scope:`${agency.id}:${user.id}`};}};
+  mocks['next/cache']={revalidatePath(){}};mocks['next/navigation']={redirect:url=>{throw Error('REDIRECT:'+url);}};
+  const actions=sourceLoader(mocks)('src/app/agencija/podesavanja/sep-automatika/actions.ts');
+  const form=values=>{const data=new FormData();for(const[k,v]of Object.entries(values))data.set(k,String(v));return data;};
+  const reply=async(action,values)=>{try{await action(form(values));throw Error('MISSING_REDIRECT');}catch(e){if(!e.message.startsWith('REDIRECT:'))throw e;return e.message;}};
+  const inputs={firma_id:firm.id,revizija:1,sertifikat_id:cert.id,racun_vrsta_id:type.id,aktivna:'on'};
+  assert.match(await reply(actions.saveSepAutomation,{...inputs,revizija:0}),/revizija/);
+  assert.match(await reply(actions.saveSepAutomation,{...inputs,sertifikat_id:randomUUID()}),/podaci/);
+  assert.match(await reply(actions.saveSepAutomation,{...inputs,racun_vrsta_id:otherType.id}),/podaci/);
+  await assert.rejects(()=>actions.saveSepAutomation(form({...inputs,firma_id:other.id})),/CONTEXT_CHANGED/);
+  assert.match(await reply(actions.saveSepAutomation,{...inputs,aktivna:''}),/sacuvano/);
+  assert.equal((await tx.sepAutomatikaPodesavanje.findUniqueOrThrow({where:{firma_id:firm.id}})).aktivna,false);
+  assert.match(await reply(actions.saveSepAutomation,{...inputs,revizija:2}),/sacuvano/);
+  assert.match(await reply(actions.retrySepAutomation,{firma_id:firm.id}),/zakazano/);
+  const today=load('src/lib/sep-automation-policy.ts').sepAutomationDay().day;
+  await tx.sepAutomatikaObrada.update({where:{firma_id_dan:{firma_id:firm.id,dan:date(today)}},data:{status:'RUNNING'}});
+  assert.match(await reply(actions.retrySepAutomation,{firma_id:firm.id}),/u_toku/);
+  assert.match(await reply(actions.retrySepAutomation,{firma_id:firm.id,dan:'2026-06-16'}),/zakazano/);
+  assert.equal((await tx.sepAutomatikaObrada.findUniqueOrThrow({where:{firma_id_dan:{firma_id:firm.id,dan:date('2026-06-16')}}})).status,'PENDING');
+  console.log('PASS settings actions: revision, wrong certificate/type/context, opt-in, current/old retry, running-job protection');
+  const purge=load('src/lib/company-purge.ts').purgeCompanyData;
+  await purge(tx,{agencijaId:agency.id,firmaId:firm.id,potvrdaNaziva:firm.naziv,korisnikId:user.id});
+  assert.equal(await tx.sepAutomatikaPodesavanje.count({where:{firma_id:firm.id}}),0);assert.equal(await tx.sepAutomatikaObrada.count({where:{firma_id:firm.id}}),0);
+  assert.equal(await tx.agencijaSepSertifikat.count({where:{id:cert.id}}),1,'purge must retain agency-owned certificate');
+  console.log('PASS SEP company purge: settings/results before company/type; certificate retained');
+  throw rollback;
+ },{timeout:120000});
+}catch(error){if(error!==rollback)throw error;}
+finally{global.fetch=originalFetch;if(originalKey===undefined)delete process.env.SEP_ENCRYPTION_KEY;else process.env.SEP_ENCRYPTION_KEY=originalKey;if(originalFlag===undefined)delete process.env.SEP_AUTOMATION_ENABLED;else process.env.SEP_AUTOMATION_ENABLED=originalFlag;}
+try{
+ const automation=sourceLoader({'server-only':{},'@/lib/prisma':{prisma:db}})('src/lib/sep-automation.ts');
+ let release,ready;const released=new Promise(resolve=>{release=resolve;}),started=new Promise(resolve=>{ready=resolve;});
+ const first=automation.withSepAutomationLock(async alive=>{await alive();ready();await released;});
+ await Promise.race([started,new Promise((_,reject)=>setTimeout(()=>reject(Error('LOCK_TIMEOUT')),8000))]);
+ let overlapped=false;assert.equal(await automation.withSepAutomationLock(async()=>{overlapped=true;}),false);assert.equal(overlapped,false);
+ release();assert.equal(await first,true);assert.equal(await automation.withSepAutomationLock(async()=>{}),true);
+ console.log('PASS real PostgreSQL global lock: parallel process rejected, lock released after completion');
+}finally{await db.$disconnect();}
+})().catch(async error=>{console.error(error);await db.$disconnect();process.exitCode=1;});

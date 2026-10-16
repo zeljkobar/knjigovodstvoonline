@@ -1,3 +1,5 @@
+import { AccountSearchSelect } from "@/components/AccountSearchSelect";
+import { loadInvoiceJournalStatuses, invoiceBookPostingLabel, invoiceEntryPostingLabel } from "@/lib/invoice-posting-status";
 import Link from "next/link";
 import {
   createKifEntry,
@@ -81,7 +83,7 @@ const poruke: Record<string, string> = {
   knjizenje_vrsta_naloga: "Za ovu vrstu KIF knjige prvo izaberite vrstu naloga u podešavanjima.",
   knjizenje_sema: "Šema kontiranja nije kompletna za ovu vrstu knjige.",
   knjizenje_konto: "Neko konto iz šeme nije aktivno analitičko konto.",
-  knjizenje_nalog_zakljucan: "Postojeći nalog je već proknjižen i ne može se dopuniti.",
+  knjizenje_nalog_zakljucan: "Povezani nalog nije dostupan ili ne pripada ovoj KIF knjizi.",
   knjizenje_nema: "Nema neproknjiženih računa za ovu knjigu.",
   knjizenje_razlika_racuna: "KIF nije proknjižen jer jedan zapis ima nedozvoljenu razliku.",
   knjizenje_pazar_sema:
@@ -136,21 +138,6 @@ function decimalInput(value: { toString(): string } | number) {
   return numeric.toFixed(2);
 }
 
-function postingStatusLabel(total: number, posted: number, unposted: number) {
-  if (total === 0) {
-    return "Prazno";
-  }
-
-  if (posted > 0 && unposted > 0) {
-    return "Djelimično knjižena";
-  }
-
-  if (posted > 0 && unposted === 0) {
-    return "Knjiženo";
-  }
-
-  return "Otvorena";
-}
 
 function postingStatusClass(label: string) {
   if (label === "Knjiženo") {
@@ -457,7 +444,11 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
     select: { id: true }
   });
 
-  const isLocked = activeYear.zakljucena || kifBook.status !== "OPEN";
+  const isPdvLocked = Boolean(await prisma.pdvPeriod.findFirst({
+    where: { agencija_id: user.agencija_id!, firma_id: activeCompany.id, status: "LOCKED", datum_od: { lte: kifBook.kif_date }, datum_do: { gte: kifBook.kif_date } },
+    select: { id: true }
+  }));
+  const isLocked = activeYear.zakljucena || kifBook.status !== "OPEN" || isPdvLocked;
   const revenueAccounts = mergeCompanyAccountPlan(baseAccounts, companyOverrides)
     .filter(
       (account) =>
@@ -517,11 +508,12 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
       ? "Konto prihoda je obavezno po šemi"
       : "Konto prihoda je preuzet iz šeme ako je podešen";
   const journalId = kifJournal?.id ?? null;
+  const journalStatusesById = await loadInvoiceJournalStatuses(kifBook.entries, user.agencija_id);
+
   const unpostedCount = kifBook.entries.filter(
     (entry) => entry.posting_mode === "KIF_RULES" && entry.posting_status === "UNPOSTED" && !entry.journal_id
   ).length;
-  const postedCount = kifBook.entries.filter((entry) => entry.posting_status === "POSTED").length;
-  const postingLabel = postingStatusLabel(kifBook.entries.length, postedCount, unpostedCount);
+  const postingLabel = kifBook.entries.length ? invoiceBookPostingLabel(kifBook.entries, journalStatusesById) : "Prazno";
   const totals = kifBook.entries.reduce(
     (sum, entry) => ({
       base: sum.base + Number(entry.total_base.toString()),
@@ -575,7 +567,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                 Vidi nalog
               </Link>
             ) : null}
-            {unpostedCount > 0 ? (
+            {unpostedCount > 0 && !isPdvLocked ? (
               <form action={postInvoiceBook}>
                 <input type="hidden" name="dokument_tip" value="KIF" />
                 <input type="hidden" name="book_id" value={kifBook.id} />
@@ -622,6 +614,8 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
           <p className="empty-state">Ovdje će se automatski pojaviti izlazni računi čim ih vlasnik firme ili njegova agencija uspješno fiskalizuju.</p>
         )}
       </section>
+
+      {isPdvLocked ? <p className="admin-message">PDV period je zaključan. Za dodavanje računa prvo ga otključajte.</p> : null}
 
       <section className="metric-grid">
         <div className="metric">
@@ -840,7 +834,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
           </label>
           <label>
             <span>Konto prihoda/osnovice</span>
-            <select
+            <AccountSearchSelect
               name="revenue_account_code"
               defaultValue={formRevenueAccount}
               required={revenueAccountRequired}
@@ -852,7 +846,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                   {account.sifra} - {account.naziv}
                 </option>
               ))}
-            </select>
+            </AccountSearchSelect>
           </label>
           <label className="form-wide">
             <span>Napomena</span>
@@ -996,12 +990,12 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                     <td>
                       <span
                         className={
-                          entry.posting_status === "POSTED"
+                          invoiceEntryPostingLabel(entry, journalStatusesById) === "Knjiženo"
                             ? "status-pill status-pill--success"
                             : "status-pill"
                         }
                       >
-                        {entry.posting_status === "POSTED" ? "Knjiženo" : "Otvorena"}
+                        {invoiceEntryPostingLabel(entry, journalStatusesById)}
                       </span>
                     </td>
                     <td>
