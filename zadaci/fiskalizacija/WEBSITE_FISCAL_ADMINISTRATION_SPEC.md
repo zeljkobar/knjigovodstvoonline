@@ -1,9 +1,9 @@
 # Specifikacija administracije fiskalizacije za knjigovodstveni sajt
 
-**Status:** implementacioni ugovor; administratorski UI implementiran u sajtu
-**Datum presjeka:** API 02.08.2026; UI i dokumentacija usklađeni sa kodom 31.08.2026.
-**Namjena:** backend i administratorski UI postojećeg knjigovodstvenog sajta
-**Servis:** Summa Fiscal API
+**Status:** radna specifikacija i implementacioni ugovor  
+**Datum presjeka:** 02.08.2026.  
+**Namjena:** backend i administratorski UI postojećeg knjigovodstvenog sajta  
+**Servis:** Summa Fiscal API  
 
 Ovaj dokument definiše kako postojeći knjigovodstveni sajt treba da upravlja firmama, fiskalnim profilima, poslovnim jedinicama, ENU uređajima, operaterima, sertifikatima i provjerom spremnosti. Stavke označene sa **IMPLEMENTIRANO** postoje u trenutnom API-ju. Stavke označene sa **NEDOSTAJE** moraju prvo biti završene u Fiscal API-ju.
 
@@ -730,14 +730,10 @@ Osnovni administratorski backend, granularna autorizacija, tenant izolacija, aud
 
 1. OpenAPI/Swagger ugovor i automatski contract testovi.
 2. Kanal isporuke alertova (e-mail i/ili notifikacija sajta) sa retry pravilima.
-3. Produkcijski secret manager i zaštićena off-site kopija vault master ključa.
-4. Produkcijski monitoring i kanal isporuke upozorenja.
-5. Ručni end-to-end QA implementiranog administratorskog interfejsa na sajtu.
+3. Produkcijski deployment iza HTTPS-a, secret manager i provjeren backup/restore.
+4. Implementacija stvarnog administratorskog interfejsa na sajtu.
 
-Sajt sada implementira listanje, unos, izmjenu i soft-deaktivaciju fiskalne
-konfiguracije pod `/admin/fiskalizacija`, uz platformski admin guard i serverske
-Fiscal API pozive. Produkciona aktivacija backend-a je provjerena; monitoring,
-kanal isporuke alerta i ručni end-to-end QA UI-ja ostaju za narednu fazu.
+Sajt sada može implementirati kompletno listanje, unos, izmjenu i soft-deaktivaciju fiskalne konfiguracije uz granularne dozvole i tenant izolaciju. Produkciona aktivacija backend-a je provjerena; monitoring i korisnički interfejs ostaju za narednu fazu.
 
 ---
 
@@ -757,10 +753,8 @@ Administratorski modul je spreman za produkciju tek kada:
 - [x] kontrolisani PU test prođe za firmu;
 - [x] svi administratorski endpointi imaju strukturisane greške i correlation ID;
 - [x] dokument bude ažuriran stvarnim provjerenim statusom produkcionog profila i ENU-a;
-- [x] administratorski UI sajta bude implementiran;
-- [ ] administratorski UI sajta bude ručno end-to-end testiran;
-- [x] produkcijski HTTPS deployment i izolovani backup/restore budu provjereni;
-- [ ] produkcijski monitoring i kanal isporuke upozorenja budu provjereni.
+- [ ] administratorski UI sajta bude implementiran i testiran;
+- [ ] produkcijski HTTPS deployment, monitoring i backup/restore budu provjereni.
 
 ---
 

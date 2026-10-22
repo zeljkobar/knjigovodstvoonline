@@ -1,7 +1,7 @@
 # SUMMA FISCAL PLATFORM — SOURCE REVIEW v1
 
-Status: inicijalna analiza zvanične dokumentacije Poreske uprave Crne Gore
-Datum: 2026-07-03
+Status: inicijalna analiza zvanične dokumentacije Poreske uprave Crne Gore  
+Datum: 2026-07-03  
 Namjena: početni dokument za izradu detaljne tehničke dokumentacije i kasniju implementaciju Fiscal API servisa.
 
 ---
@@ -401,3 +401,4 @@ Prije pisanja stvarnog fiskalnog koda mora se detaljno izvući i mapirati:
 - algoritam IKOF/IIC;
 - pravila za QR kod;
 - pravila za offline režim.
+

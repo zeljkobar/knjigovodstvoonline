@@ -7,7 +7,7 @@ Ovaj direktorijum sadrži operativnu, integracionu i izvornu dokumentaciju za Su
 1. [`CURRENT_STATE.md`](CURRENT_STATE.md) — šta je stvarno završeno, provjereno i aktivno.
 2. [`ROADMAP.md`](ROADMAP.md) — završene i preostale faze.
 3. [`PRODUCTION_PROFILE_AND_ENU.md`](PRODUCTION_PROFILE_AND_ENU.md) — trenutni produkcioni profil, `BankOnly` režim i registrovani ENU.
-4. [`DEPLOYMENT.md`](DEPLOYMENT.md) — produkcijska Docker/PostgreSQL/Nginx topologija i operativni status.
+4. [`../01_ARCHITECTURE/DEPLOYMENT.md`](../01_ARCHITECTURE/DEPLOYMENT.md) — produkcijska Docker/PostgreSQL/Nginx topologija i operativni status.
 
 ## Administracija i sigurnost
 
@@ -17,25 +17,11 @@ Ovaj direktorijum sadrži operativnu, integracionu i izvornu dokumentaciju za Su
 
 ## Integracija računa
 
+- [`ORDER_SUMMARY_WORKFLOW.md`](ORDER_SUMMARY_WORKFLOW.md) — ORDER promet, sumarni račun, djelimične/potpune korekcije, usklađenje, poništenje i zamjena, praćenje i oporavak; lokalna dopuna 22.10.2026.
+- [`ADVANCE_INVOICES.md`](ADVANCE_INVOICES.md) — bankovni avansi, rezervacije, konačni račun, obavezno umanjenje, storno konačnog računa i obnova avansa/PDV-a, praćenje i oporavak; lokalna dopuna 22.10.2026.
 - [`WEBSITE_FISCAL_API_INTEGRATION_GUIDE.md`](WEBSITE_FISCAL_API_INTEGRATION_GUIDE.md) — kako sajt kreira, fiskalizuje i prati račun.
 - [`WEBSITE_INVOICE_PDF_CONTRACT.md`](WEBSITE_INVOICE_PDF_CONTRACT.md) — podjela odgovornosti i tačna polja koja sajt koristi za PDF/štampu.
 - [`OFFICIAL_PU_DOCUMENTATION_NOTES.md`](OFFICIAL_PU_DOCUMENTATION_NOTES.md) — korišćeni zvanični PU izvori i pravila njihovog korišćenja.
-
-## POS i portal direktnog fiskalnog klijenta
-
-- [`SUMMA_POS_MODULE_SPEC.md`](SUMMA_POS_MODULE_SPEC.md) — zajedničko POS jezgro,
-  fiskalizacija, lager, smjene, izvještaji i odnos prema fakturama.
-- [`DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md`](DIRECT_FISCAL_CLIENT_PORTAL_SPEC.md) —
-  implementaciona specifikacija i provjereni status posebnog `/portal`
-  interfejsa za direktnog fiskalnog klijenta, sa POS-om i klasičnim
-  bezgotovinskim fakturama.
-- [`FISCAL_CLIENT_AGENCY_LINKING_DECISIONS.md`](FISCAL_CLIENT_AGENCY_LINKING_DECISIONS.md) —
-  uključivanje fiskalizacije postojećoj firmi agencije i kontrolisani prelazak
-  direktnog fiskalnog klijenta pod agenciju bez dupliranja firme.
-
-Specifikacija direktnog portala je projektni dodatak za `knjigovodstvoonline`.
-Ne mijenja Fiscal API ugovor. Portal je implementiran u kodu sajta; kontrolisani
-live/E2E fiskalni pilot i provjera stvarnog 58/80 mm printera ostaju otvoreni.
 
 ## Zvanični lokalni izvori
 
@@ -49,9 +35,9 @@ live/E2E fiskalni pilot i provjera stvarnog 58/80 mm printera ostaju otvoreni.
 
 Dokumentacija i Git ne smiju sadržati PFX/P12 sadržaj, privatni ključ, lozinku sertifikata, vault master ključ ili čitljive API ključeve. Dozvoljeni su samo javni kodovi registracije, bezbjedni metapodaci i kontrolni fiskalni identifikatori potrebni za audit.
 
-## Upotreba u projektu administrativnog sajta
+## Prenos u projekat administrativnog sajta
 
-Ovaj folder je sinhronizovani dokumentacioni paket iz projekta Summa Fiscal API. Prije implementacije Codex treba da pročita, ovim redom:
+Cijeli `docs` folder može se kopirati u drugi projekat kao dokumentacioni paket. U tom projektu Codexu treba zadati da prije implementacije pročita, ovim redom:
 
 1. `docs/README.md`;
 2. `docs/CURRENT_STATE.md`;
@@ -61,4 +47,4 @@ Ovaj folder je sinhronizovani dokumentacioni paket iz projekta Summa Fiscal API.
 6. `docs/MULTI_APP_TENANT_SECURITY.md`;
 7. ostale dokumente povezane sa konkretnim zadatkom.
 
-Kopirani paket predstavlja ugovor i stanje Fiscal API-ja na dan 02.08.2026. Fiskalnu XML/SOAP logiku ne treba kopirati u administrativni sajt: sajt je klijent Summa Fiscal API-ja. Kada se API ugovor ili deployment status promijeni, kopiju dokumentacije u projektu sajta treba ponovo sinhronizovati.
+Paket sadrži ranije potvrđeno produkciono stanje i lokalne dopune za avanse i ORDER/sumarne račune od 22.10.2026; taj kod i migracije tek treba da budu postavljeni na server. Fiskalnu XML/SOAP logiku ne treba kopirati u administrativni sajt: sajt je klijent Summa Fiscal API-ja. Kada se API ugovor ili deployment status promijeni, kopiju dokumentacije u projektu sajta treba ponovo sinhronizovati.
