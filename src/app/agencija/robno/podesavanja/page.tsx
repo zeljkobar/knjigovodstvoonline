@@ -1,3 +1,5 @@
+import { PostingTemplateNotice } from "@/components/PostingTemplateNotice";
+import { effectiveDefaultAccounts } from "@/lib/posting-template";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import { InvoicePostingForm } from "./InvoicePostingForm";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
@@ -48,18 +50,18 @@ export default async function InventorySettingsPage({ searchParams }: PageProps)
       where: { firma_id: context.firma.id },
       orderBy: { sifra: "asc" }
     }),
-    prisma.firmaPodrazumijevanoKonto.findMany({
+    effectiveDefaultAccounts(prisma, {
       where: {
         firma_id: context.firma.id,
         dokument_tip: calculationPostingScope.documentType,
         podvrsta: calculationPostingScope.subtype
       }
     }),
-    prisma.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: context.firma.id, dokument_tip: outgoingInvoicePostingScope.documentType, podvrsta: outgoingInvoicePostingScope.subtype } }),
-    prisma.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: context.firma.id, dokument_tip: inventoryTransferPostingScope.documentType, podvrsta: inventoryTransferPostingScope.subtype, pdv_stopa_sifra: inventoryTransferPostingScope.vatRate } }),
-    prisma.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: context.firma.id, dokument_tip: inventoryCountPostingScope.documentType, podvrsta: inventoryCountPostingScope.subtype, pdv_stopa_sifra: inventoryCountPostingScope.vatRate } }),
-    prisma.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: context.firma.id, dokument_tip: inventoryWriteOffPostingScope.documentType, podvrsta: inventoryWriteOffPostingScope.subtype, pdv_stopa_sifra: inventoryWriteOffPostingScope.vatRate } }),
-    prisma.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: context.firma.id, dokument_tip: inventoryPriceAdjustmentPostingScope.documentType, podvrsta: inventoryPriceAdjustmentPostingScope.subtype, pdv_stopa_sifra: inventoryPriceAdjustmentPostingScope.vatRate } })
+    effectiveDefaultAccounts(prisma, { where: { firma_id: context.firma.id, dokument_tip: outgoingInvoicePostingScope.documentType, podvrsta: outgoingInvoicePostingScope.subtype } }),
+    effectiveDefaultAccounts(prisma, { where: { firma_id: context.firma.id, dokument_tip: inventoryTransferPostingScope.documentType, podvrsta: inventoryTransferPostingScope.subtype, pdv_stopa_sifra: inventoryTransferPostingScope.vatRate } }),
+    effectiveDefaultAccounts(prisma, { where: { firma_id: context.firma.id, dokument_tip: inventoryCountPostingScope.documentType, podvrsta: inventoryCountPostingScope.subtype, pdv_stopa_sifra: inventoryCountPostingScope.vatRate } }),
+    effectiveDefaultAccounts(prisma, { where: { firma_id: context.firma.id, dokument_tip: inventoryWriteOffPostingScope.documentType, podvrsta: inventoryWriteOffPostingScope.subtype, pdv_stopa_sifra: inventoryWriteOffPostingScope.vatRate } }),
+    effectiveDefaultAccounts(prisma, { where: { firma_id: context.firma.id, dokument_tip: inventoryPriceAdjustmentPostingScope.documentType, podvrsta: inventoryPriceAdjustmentPostingScope.subtype, pdv_stopa_sifra: inventoryPriceAdjustmentPostingScope.vatRate } })
 ,
     prisma.pdvStopa.findMany({where:{agencija_id:context.user.agencija_id!},orderBy:{procenat:"desc"},select:{sifra:true,naziv:true}})
   ]);
@@ -74,6 +76,7 @@ export default async function InventorySettingsPage({ searchParams }: PageProps)
 
   return (
     <div className="admin-stack">
+      {context.firma.id ? <PostingTemplateNotice companyId={context.firma.id!}/> : null}
       <header className="admin-header">
         <div>
           <p className="eyebrow">Robno</p>

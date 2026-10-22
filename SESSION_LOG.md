@@ -1,5 +1,14 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-10-18 — Template firma i dinamičko nasljeđivanje kontiranja
+
+- Izbor u Podešavanja → Agencija, aktivna sopstvena firma, opcija bez templatea, optimistic version, ponovljena provjera aktivnog administratora/agencije i transakcioni audit. Migracija dodaje agencijski izbor i složeni FK koji onemogućava drugu agenciju. Purge/transfer usklađeni.
+- Zajednički server-only resolver čita lokalna pravila prije templatea. KIF/KUF import/knjiženje/SEP, podrazumijevana konta i izvještaji, robne/POS šeme, plate, PDV, putno kontiranje, bankovna pravila i OS kategorije. Konto je razriješeno po šifri u ciljnom kontnom planu; ne prenose se privatni partneri, dokumenti, računi ili tajne. Ista godina ima prednost; nedostajuća godišnja šema koristi posljednju konfiguraciju templatea. Šeme se ne kopiraju; stvarni nalozi ostaju nepromijenjeni.
+- Stvarni rollback test pokriva prvi KIF/KUF nalog/dopunu, centnu ravnotežu, PDV lock, template promjene i lokalni prioritet, lokalne ID-jeve svih mapiranja, scope FK, revokaciju, audit failure i purge template firme. SEP scheduler regresija provjerava klijenta bez sopstvene šeme/vrste naloga; mail scheduler koristi template bankovnu mapu bez pravljenja lokalne kopije. Postojeće core/PDV/payroll/travel/mail/OS regresije provjerene; PDV/payroll lifecycle u izolovanoj testnoj bazi. Testne render infrastrukture prilagođene server-only granici/asinkronom obavještenju.
+- Browser: čuvanje/uklanjanje, prefill KIF/KUF, robno, plate, PDV, izvodi, putni, partnerska konta, PDV/godišnje kontrole, OS unos i SEP podešavanja; bez grešaka/širenja stranice. Mobilni ekran 390px bez horizontalnog preliva. Lokalni izbor SUMMA SUMMARUM korišćen samo za QA pa vraćen na Bez template firme; aktivna BR TUTTOBENE/2026 i poslovni podaci nijesu mijenjani.
+
+- Završne provjere: `npm test` (147 TS + 57 CJS prolaze; postojeći XSD skip ostaje), čisti `npx tsc --noEmit`, ESLint svih izmijenjenih fajlova, validna Prisma šema, purge coverage 82 tabele i produkcijski build. Postojeće upozorenje `_prev` u admin/actions nije dio ove izmjene. Build je ponovljen sa ugašenim dev serverom; dev zatim vraćen. Planer regenerisan (42 lista).
+
 ## 2026-10-16 — Palete boja i svijetli/tamni režim
 
 - Uveden birač uz korisnika u svim layoutima i pet paleta × dva režima. Preferencije se čuvaju u korisniku, uz allowlist, provjeru aktivne sesije/role/agencije i transakcioni audit. Server HTML nosi početnu temu; client primjena je trenutna i vraća prethodnu vrijednost ako upis zakaže.

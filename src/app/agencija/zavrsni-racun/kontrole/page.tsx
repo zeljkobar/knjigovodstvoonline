@@ -1,3 +1,4 @@
+import { effectiveDefaultAccounts, effectiveInvoiceType, effectivePdvSettings } from "@/lib/posting-template";
 import Link from "next/link";
 import {
   importAccountPurposes,
@@ -346,6 +347,7 @@ export default async function ZavrsniRacunKontrolePage() {
         }
       },
       select: {
+        id: true,
         dokument_tip: true,
         sifra: true,
         naziv: true,
@@ -404,7 +406,7 @@ export default async function ZavrsniRacunKontrolePage() {
         }
       }
     }),
-    prisma.firmaPodrazumijevanoKonto.findMany({
+    effectiveDefaultAccounts(prisma, {
       where: {
         firma_id: firmaId,
         dokument_tip: invoicePostingDocumentTypes.general,
@@ -562,16 +564,18 @@ export default async function ZavrsniRacunKontrolePage() {
   };
 
   for (const bookType of invoiceBookTypes) {
-    for (const rule of bookType.kontiranjePravila) {
+    const effective = await effectiveInvoiceType(prisma, firmaId, bookType.id);
+    for (const rule of effective?.kontiranjePravila.filter(rule => rule.polje_sifra.startsWith("PDV_")) ?? bookType.kontiranjePravila) {
       registerVatAccount(
         rule.sifra_konta,
         `${bookType.dokument_tip} ${bookType.sifra} · ${rule.polje_naziv}`
       );
     }
   }
-  registerVatAccount(pdvSettings?.izlazni_pdv_konto?.sifra, "PDV prijava · izlazni PDV");
-  registerVatAccount(pdvSettings?.ulazni_pdv_konto?.sifra, "PDV prijava · ulazni PDV");
-  for (const rule of pdvSettings?.pravila ?? []) {
+  const effectivePdv = await effectivePdvSettings(prisma, firmaId, poslovnaGodinaId);
+  registerVatAccount((effectivePdv ?? pdvSettings)?.izlazni_pdv_konto?.sifra, "PDV prijava · izlazni PDV");
+  registerVatAccount((effectivePdv ?? pdvSettings)?.ulazni_pdv_konto?.sifra, "PDV prijava · ulazni PDV");
+  for (const rule of effectivePdv?.pravila.filter(rule => /^(OUTPUT_VAT_|INPUT_VAT_|IMPORT_VAT|PAUSAL_VAT)/.test(rule.polje_sifra)) ?? pdvSettings?.pravila ?? []) {
     registerVatAccount(rule.konto?.sifra, `PDV prijava · ${rule.polje_naziv}`);
   }
   for (const account of importVatDefaults) {

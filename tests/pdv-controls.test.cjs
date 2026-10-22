@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- CommonJS regression infrastructure. */
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { renderToStaticMarkup } = require('react-dom/server');
@@ -8,8 +9,9 @@ async function renderControls(ledgerAmount) {
   const rules = [
     ['OUTPUT_VAT_STANDARD', 'output', '4700'],
     ['VAT_PAYABLE', 'settlement', '4790']
-  ].map(([polje_sifra, id, sifra]) => ({polje_sifra, konto: {id, sifra, naziv: sifra}}));
+  ].map(([polje_sifra, id, sifra]) => ({polje_sifra, aktivno:true, konto_id:id, konto: {id, sifra, naziv: sifra}}));
   const load = sourceLoader({
+    "server-only": {},
     '@/app/agencija/pdv/_components': {PdvMonthForm: () => null},
     '@/lib/pdv-service': {
       normalizePdvMonth: () => 10,
@@ -17,6 +19,7 @@ async function renderControls(ledgerAmount) {
       calculatePdvReturn: async () => ({kifBooks:[],kufBooks:[],dateFrom:new Date('2026-10-01'),dateTo:new Date('2026-10-31')})
     },
     '@/lib/prisma': {prisma: {
+      firma:{findFirst:async()=>null},
       pdvPodesavanja:{findUnique:async()=>({vrsta_naloga_id:'type',pravila:rules})},
       pdvPrijava:{findFirst:async()=>null},
       pdvStopa:{findMany:async()=>[{sifra:'STANDARD',naziv:'Standard',procenat:21}]},

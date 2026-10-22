@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- CommonJS regression infrastructure. */
 // Executes actual application modules with only explicit infrastructure replacements.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -16,6 +17,8 @@ exports.sourceLoader = function sourceLoader(mocks = {}) {
     const native = Module.createRequire(filename);
     mod.require = (id) => {
       if (Object.hasOwn(mocks, id)) return mocks[id];
+      // Server-only is a Next.js import boundary, not application logic.
+      if (id === 'server-only') return {};
       if (id.endsWith('.css')) return {};
       if (id.startsWith('.') || id.startsWith('@/')) {
         const stem = id.startsWith('@/') ? path.resolve('src', id.slice(2)) : path.resolve(path.dirname(filename), id);

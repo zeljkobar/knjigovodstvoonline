@@ -392,3 +392,13 @@ uključujući IMPORTED/NEEDS_REVIEW/READY/POSTED. Prepoznaje cijele pozitivne br
 i broj/godina za izabranu godinu. Neprepoznate oznake prikazuje za ručnu provjeru;
 prazan račun nije potvrda uredne evidencije. Nema pretpostavke o brojevima nakon
 posljednjeg evidentiranog. Radnik mora imati i dodjelu firme i izvodi/view.
+
+## Template firma za knjiženje — 2026-10-18
+
+Administrator bira template u Podešavanja → Agencija. Lokalna podešavanja imaju
+prednost; ono što nedostaje dinamički se čita iz aktivne template firme iste
+agencije. Šeme se ne kopiraju i raniji nalozi se ne prepravljaju. Konta se
+razrješavaju u ciljnoj firmi uz postojeća prava, ravnotežu i zaključavanja.
+Bankovna mapa koristi samo istu banku i jednoznačnu šemu; bankovni računi i
+mail izvori ostaju sopstveni. Lokalna pravila imaju prednost; isključeni lokalni
+red maskira isto naslijeđeno pravilo.

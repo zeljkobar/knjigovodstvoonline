@@ -73,3 +73,28 @@ export async function deleteAgencyBankAccount(form: FormData) {
     }
   });
 }
+
+export async function savePostingTemplate(form: FormData) {
+  const user = await requireRole("admin_agencije");
+  if (!user.agencija_id) finish("nedostaje");
+  const companyId = value(form, "template_firma_id");
+  if (companyId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(companyId)) finish("template_firma");
+  const result = await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM agencije WHERE id=${user.agencija_id}::uuid FOR UPDATE`;
+    const actor = await tx.korisnik.findFirst({ where: { id: user.id, agencija_id: user.agencija_id!, rola: "admin_agencije", aktivan: true, is_deleted: false, agencija: { aktivan: true, is_deleted: false, is_fiscal_direct_container: false } }, select: { id: true } });
+    if (!actor) return "nedostaje";
+    const previous = await tx.agencijaKnjizenjeTemplate.findUnique({ where: { agencija_id: user.agencija_id! } });
+    if (value(form, "template_verzija") !== (previous?.updated_at.toISOString() ?? "")) return "zastarjelo";
+    if (companyId) {
+      await tx.$queryRaw`SELECT id FROM firme WHERE id=${companyId}::uuid AND agencija_id=${user.agencija_id}::uuid FOR KEY SHARE`;
+      if (!await tx.firma.findFirst({ where: { id: companyId, agencija_id: user.agencija_id!, aktivan: true, is_deleted: false }, select: { id: true } })) return "template_firma";
+      await tx.agencijaKnjizenjeTemplate.upsert({ where: { agencija_id: user.agencija_id! }, create: { agencija_id: user.agencija_id!, firma_id: companyId, updated_by: user.id }, update: { firma_id: companyId, updated_by: user.id } });
+    } else {
+      await tx.agencijaKnjizenjeTemplate.deleteMany({ where: { agencija_id: user.agencija_id! } });
+    }
+    await auditLogInTransaction(tx, { korisnikId: user.id, agencijaId: user.agencija_id!, modul: "agencija.podesavanja.agencija", akcija: "SAVE_POSTING_TEMPLATE", tipEntiteta: "Agencija", entitetId: user.agencija_id!, staraVrijednost: { firma_id: previous?.firma_id ?? null }, novaVrijednost: { firma_id: companyId || null } });
+    return "template_sacuvan";
+  });
+  revalidatePath("/agencija", "layout");
+  finish(result);
+}

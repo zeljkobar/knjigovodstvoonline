@@ -1,4 +1,6 @@
 "use server";
+import { effectiveDefaultAccounts } from "@/lib/posting-template";
+
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -183,7 +185,7 @@ export async function postInventoryWriteOff(formData: FormData) {
     if (!document) return { ok: false as const, reason: "nije_nacrt" };
     if (!document.stavke.length) return { ok: false as const, reason: "bez_stavki" };
     const [settings, journalType] = await Promise.all([
-      tx.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: firmaId, dokument_tip: inventoryWriteOffPostingScope.documentType, podvrsta: inventoryWriteOffPostingScope.subtype, pdv_stopa_sifra: inventoryWriteOffPostingScope.vatRate, namjena: { in: inventoryWriteOffPostingFields.map((field) => field.purpose) } } }),
+      effectiveDefaultAccounts(tx, { where: { firma_id: firmaId, dokument_tip: inventoryWriteOffPostingScope.documentType, podvrsta: inventoryWriteOffPostingScope.subtype, pdv_stopa_sifra: inventoryWriteOffPostingScope.vatRate, namjena: { in: inventoryWriteOffPostingFields.map((field) => field.purpose) } } }),
       tx.vrstaNaloga.findFirst({ where: { sifra: "WRITE_OFF", aktivan: true, OR: [{ sistemska: true }, { agencija_id: context.agencijaId }, { firma_id: firmaId }] }, select: { id: true, prefiks: true } })
     ]);
     if (!journalType) return { ok: false as const, reason: "vrsta_naloga" };

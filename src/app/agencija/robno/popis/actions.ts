@@ -1,4 +1,6 @@
 "use server";
+import { effectiveDefaultAccounts } from "@/lib/posting-template";
+
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -341,7 +343,7 @@ export async function postInventoryCount(formData: FormData) {
     if (surplusTotal > BigInt(0)) { neededPurposes.add("STOCK_COUNT_SURPLUS_INVENTORY"); neededPurposes.add("STOCK_COUNT_SURPLUS_INCOME"); }
     if (shortageTotal > BigInt(0)) { neededPurposes.add("STOCK_COUNT_SHORTAGE_EXPENSE"); neededPurposes.add("STOCK_COUNT_SHORTAGE_INVENTORY"); }
     const [settings, journalType] = await Promise.all([
-      tx.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: firmaId, dokument_tip: inventoryCountPostingScope.documentType, podvrsta: inventoryCountPostingScope.subtype, pdv_stopa_sifra: inventoryCountPostingScope.vatRate, namjena: { in: [...neededPurposes] } } }),
+      effectiveDefaultAccounts(tx, { where: { firma_id: firmaId, dokument_tip: inventoryCountPostingScope.documentType, podvrsta: inventoryCountPostingScope.subtype, pdv_stopa_sifra: inventoryCountPostingScope.vatRate, namjena: { in: [...neededPurposes] } } }),
       tx.vrstaNaloga.findFirst({ where: { sifra: "STOCK_COUNT", aktivan: true, OR: [{ sistemska: true }, { agencija_id: context.agencijaId }, { firma_id: firmaId }] }, select: { id: true, prefiks: true } })
     ]);
     if (!journalType) return { ok: false as const, reason: "vrsta_naloga" };

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- CommonJS regression infrastructure. */
 // Real PostgreSQL/action/page regression; synthetic session only. All fixtures roll back.
 const root = process.cwd();
 require('@next/env').loadEnvConfig(root, false, { info() {}, error() {} });
@@ -49,6 +50,7 @@ const checks = [];
         return target[key];
       } });
       const mocks = {
+        "server-only": {},
         'next/cache': { revalidatePath() {} },
         'next/headers': { headers: async () => new Headers() },
         'next/navigation': { redirect(url) { throw new Error('REDIRECT:' + url); }, notFound() { throw new Error('NOT_FOUND'); } },

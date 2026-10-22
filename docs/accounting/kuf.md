@@ -131,3 +131,12 @@ partner:
 ### Filteri unutar KUF knjige — 2026-10-12
 - Pregled pojedinačne KUF knjige ima kombinovane URL/GET filtere po dobavljaču iz te knjige, dobavljačevom/internom broju računa, kontu (uključujući bez konta), knjiženju, datumu računa ili prijema od/do i bruto iznosu od/do. Negativni iznosi podržavaju storno.
 - Zbirne kartice i broj redova prate filtrirane račune; status knjige ostaje status cijele knjige. Poništi filtere vraća cijelu knjigu. Nevalidni rasponi imaju poruku. Scope/prava ostaju nepromijenjeni; nema masovnog učitavanja globalnih partnera.
+
+## Template firma za knjiženje — 2026-10-18
+
+Administrator bira template u Podešavanja → Agencija. Lokalna podešavanja imaju
+prednost; ono što nedostaje dinamički se čita iz aktivne template firme iste
+agencije. Šeme se ne kopiraju i raniji nalozi se ne prepravljaju. Konta se
+razrješavaju u ciljnoj firmi uz postojeća prava, ravnotežu i zaključavanja.
+Vrste knjiga se uparuju po tipu i šifri. Pravila po polju i lokalna vrsta naloga
+imaju prednost; KIF import i SEP automatika koriste iste efektivne šeme.

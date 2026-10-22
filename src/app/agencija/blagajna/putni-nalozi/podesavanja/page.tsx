@@ -1,3 +1,5 @@
+import { effectiveTravelSettings } from "@/lib/posting-template";
+import { PostingTemplateNotice } from "@/components/PostingTemplateNotice";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -9,14 +11,16 @@ import { travelCountries, travelCountrySource } from "@/lib/travel-countries";
 export default async function SettingsPage({searchParams}:{searchParams:Promise<{poruka?:string}>}) {
  const c=await travelContext("manage"),p=await searchParams;
  if(c.user.rola!=="admin_agencije")redirect(travelPath);
- const row=await prisma.putniPodesavanje.findFirst({where:{agencija_id:c.agencyId,firma_id:c.firma.id}}),s=row?row.podaci as unknown as TravelSettings:travelDefaults;
+ const localRow=await prisma.putniPodesavanje.findUnique({where:{firma_id:c.firma.id}});
+ const row=await effectiveTravelSettings(prisma, c.firma.id),s=row?row.podaci as unknown as TravelSettings:travelDefaults;
  const [baseAccounts,overrides,types]=await Promise.all([
  prisma.konto.findMany({where:{aktivan:true,tip_konta:"analiticko"},select:{sifra:true,naziv:true}}),
  prisma.firmaKonto.findMany({where:{firma_id:c.firma.id},select:{sifra:true,naziv:true,aktivan:true,override_type:true,tip_konta:true}}),
  prisma.vrstaNaloga.findMany({where:{aktivan:true,NOT:{sifra:"OPENING_BALANCE"},OR:[{sistemska:true},{agencija_id:c.agencyId,firma_id:null},{agencija_id:c.agencyId,firma_id:c.firma.id}]},orderBy:{naziv:"asc"}})]);
  const accounts=new Map(baseAccounts.filter(a=>a.sifra.length>=4).map(a=>[a.sifra,a]));
  for(const a of overrides) {if(a.aktivan&&a.override_type!=="DEACTIVATED"&&a.tip_konta==="analiticko"&&a.sifra.length>=4)accounts.set(a.sifra,a);else accounts.delete(a.sifra);}
- return <div className="admin-stack"><header className="admin-header"><div><h1>Podešavanja putnih naloga</h1><p>{c.firma.naziv}</p></div><Link href={travelPath}>Putni nalozi</Link></header>{p.poruka?<p role="status">{p.poruka}</p>:null}<section className="admin-panel"><p>Iznosi se predlažu na novim nalozima i mogu se korigovati. Unesite iznose prema vrsti putovanja i pravilima koja primjenjuje firma. Za inostranstvo se predlaže zvanična tabela dnevnica; domaću dnevnicu unesite prema pravilima firme.</p><form action={saveTravelConfiguration} className="admin-form"><input type="hidden" name="firma_id" value={c.firma.id}/><input type="hidden" name="godina_id" value={c.godina.id}/><input type="hidden" name="verzija" value={row?.updated_at.toISOString()??""}/>
+ return <div className="admin-stack">
+      {c.firma.id ? <PostingTemplateNotice companyId={c.firma.id!}/> : null}<header className="admin-header"><div><h1>Podešavanja putnih naloga</h1><p>{c.firma.naziv}</p></div><Link href={travelPath}>Putni nalozi</Link></header>{p.poruka?<p role="status">{p.poruka}</p>:null}<section className="admin-panel"><p>Iznosi se predlažu na novim nalozima i mogu se korigovati. Unesite iznose prema vrsti putovanja i pravilima koja primjenjuje firma. Za inostranstvo se predlaže zvanična tabela dnevnica; domaću dnevnicu unesite prema pravilima firme.</p><form action={saveTravelConfiguration} className="admin-form"><input type="hidden" name="firma_id" value={c.firma.id}/><input type="hidden" name="godina_id" value={c.godina.id}/><input type="hidden" name="verzija" value={localRow?.updated_at.toISOString()??""}/>
  <fieldset disabled={c.godina.zakljucena}><h2>Šema knjiženja</h2><p>Troškovi duguju, a puna obaveza prema zaposlenom potražuje. Akontacija i isplata knjiže se zasebno. Obračun putnog naloga ne kreira KUF ni odbitni PDV.</p>
  <label>Vrsta naloga<select name="vrsta_naloga" defaultValue={s.knjizenje?.vrstaNaloga??""}><option value="">Izaberite vrstu naloga</option>{types.map(t=><option key={t.id} value={t.id}>{t.naziv} ({t.prefiks})</option>)}</select></label>
  {travelPostingFields.map(([key,label])=><label key={key}>{label}<AccountSearchSelect name={`konto_${key}`} defaultValue={s.knjizenje?.[key]??""}><option value="">Izaberite konto</option>{[...accounts.values()].sort((a,b)=>a.sifra.localeCompare(b.sifra)).map(a=><option key={a.sifra} value={a.sifra}>{a.sifra} — {a.naziv}</option>)}</AccountSearchSelect></label>)}<h2>Obračun i štampa</h2><label>Domaća dnevnica — Crna Gora (EUR)<input name="dnevnica" type="number" min="0" step="0.01" defaultValue={s.dnevnica/100} required/></label><label>Cijena litra goriva (EUR/l)<input name="gorivo" type="number" min="0" max="100" step="0.01" defaultValue={(s.gorivo??0)/100} required/></label><p>Naknada za sopstveno vozilo: 25% cijene litra goriva po kilometru. Za službeno vozilo se ova naknada ne obračunava.</p>

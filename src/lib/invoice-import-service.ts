@@ -1,3 +1,4 @@
+import { effectiveInvoiceType } from "@/lib/posting-template";
 import "server-only";
 import type { InvoiceExecution } from "./invoice-execution";
 import { invoiceExecutionUser } from "./invoice-execution";
@@ -716,6 +717,7 @@ async function saveKifInvoice(
         mjesec: true,
         racun_vrsta: {
           select: {
+            id: true,
             dokument_tip: true,
             kontiranjePravila: {
               where: {
@@ -748,6 +750,8 @@ async function saveKifInvoice(
     const knownIic = await tx.kifEntry.findFirst({ where: { agencija_id: agencijaId, firma_id: firmaId, fiscal_iic: invoice.identifiers.iic.toUpperCase(), is_deleted: false }, select: { id: true, internal_kif_number: true } });
     if (knownIic) return { link: invoice.identifiers.qrUrl, status: "duplicate", message: `Račun je već unesen kao ${knownIic.internal_kif_number}.`, entryId: knownIic.id };
 
+    const effectiveType = await effectiveInvoiceType(tx, firmaId, kifBook.racun_vrsta.id);
+    if (effectiveType) kifBook.racun_vrsta = effectiveType;
     const fields = invoicePostingFields(kifBook.racun_vrsta.dokument_tip, activeRates);
     const fieldRules = new Map(
       kifBook.racun_vrsta.kontiranjePravila.map((rule) => [rule.polje_sifra, rule])

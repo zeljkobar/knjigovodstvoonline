@@ -1,3 +1,4 @@
+import { effectiveDefaultAccounts, effectiveInvoiceType } from "@/lib/posting-template";
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { accountOverrideTypes, invoicePostingDocumentTypes, invoicePostingAccountSources, invoicePostingFields, importAccountPurposes, importPostingSchemeFields, invoicePostingDefaultScope } from "./account-plan";
@@ -430,6 +431,8 @@ export async function postInvoiceBookInContext(
       if (periods.some(period => period.status === "LOCKED")) return { ok: false as const, reason: "knjizenje_period" };
       if (book.kuf_date < currentYear.datum_od || book.kuf_date > currentYear.datum_do) return { ok: false as const, reason: "knjizenje_kontekst" };
 
+      const effectiveType = await effectiveInvoiceType(tx, firma.id, book.racun_vrsta.id);
+      if (effectiveType) book.racun_vrsta = effectiveType;
       const journalTypeId = book.racun_vrsta.vrsta_naloga_id;
 
       if (!journalTypeId) {
@@ -568,7 +571,7 @@ export async function postInvoiceBookInContext(
         adjustmentCents: number;
       }> = [];
 
-      const importDefaultAccounts = await tx.firmaPodrazumijevanoKonto.findMany({
+      const importDefaultAccounts = await effectiveDefaultAccounts(tx, {
         where: {
           firma_id: firma.id,
           dokument_tip: invoicePostingDocumentTypes.general,
@@ -1006,6 +1009,8 @@ export async function postInvoiceBookInContext(
     if (periods.some(period => period.status === "LOCKED")) return { ok: false as const, reason: "knjizenje_period" };
     if (book.kif_date < currentYear.datum_od || book.kif_date > currentYear.datum_do) return { ok: false as const, reason: "knjizenje_kontekst" };
 
+    const effectiveType = await effectiveInvoiceType(tx, firma.id, book.racun_vrsta.id);
+    if (effectiveType) book.racun_vrsta = effectiveType;
     const journalTypeId = book.racun_vrsta.vrsta_naloga_id;
 
     if (!journalTypeId) {
@@ -1139,7 +1144,7 @@ export async function postInvoiceBookInContext(
       documentNumber: string;
       adjustmentCents: number;
     }> = [];
-    const pazarAccountRows = await tx.firmaPodrazumijevanoKonto.findMany({
+    const pazarAccountRows = await effectiveDefaultAccounts(tx, {
       where: {
         firma_id: firma.id,
         dokument_tip: invoicePostingDocumentTypes.kif,

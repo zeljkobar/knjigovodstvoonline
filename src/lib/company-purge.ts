@@ -74,6 +74,8 @@ export async function purgeCompanyData(
   };
 
   // SEP run summaries/configuration have no children. Remove config before its KIF type;
+  // Removing a template company clears the agency selection; no child tables.
+  await izvrsi("agencija_knjizenje_template", Prisma.sql`DELETE FROM agencija_knjizenje_template WHERE firma_id=${firmaId}::uuid`);
   // administrator certificates remain agency-owned. IKOF columns disappear with KIF rows.
   await izvrsi("sep_automatika_obrade", Prisma.sql`DELETE FROM sep_automatika_obrade WHERE firma_id=${firmaId}::uuid`);
   await izvrsi("sep_automatika_podesavanja", Prisma.sql`DELETE FROM sep_automatika_podesavanja WHERE firma_id=${firmaId}::uuid`);

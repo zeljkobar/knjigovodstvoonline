@@ -1,3 +1,4 @@
+import { ensureDefaultInvoiceBookTypes } from "@/lib/invoice-books";
 import Link from "next/link";
 import { getSepAdmin } from "@/lib/sep-context";
 import { readWorkContext } from "@/lib/work-context";
@@ -10,9 +11,10 @@ const messages: Record<string, string> = {
   podaci: "Izaberite sertifikat i aktivnu KIF vrstu sa podešenom šemom i vrstom naloga. Serverski ključ mora biti podešen.",
 };
 export default async function SepAutomationPage({ searchParams }: { searchParams: Promise<{ poruka?: string }> }) {
-  const { agencyId } = await getSepAdmin();
+  const { agencyId, user } = await getSepAdmin();
   const work = await readWorkContext(), query = await searchParams;
   const firm = work.firmaId ? await prisma.firma.findFirst({ where: { id: work.firmaId, agencija_id: agencyId, aktivan: true, is_deleted: false }, select: { id: true, naziv: true } }) : null;
+  if (firm) await ensureDefaultInvoiceBookTypes(firm.id, agencyId, user.id);
   const [certificates, types, config, configurations] = await Promise.all([
     prisma.agencijaSepSertifikat.findMany({ where: { agencija_id: agencyId, is_deleted: false, sifrovani_podaci: { not: null }, korisnik: { aktivan: true, is_deleted: false, rola: "admin_agencije" } }, select: { id: true, naziv: true, korisnik: { select: { korisnicko_ime: true } } } }),
     firm ? prisma.racunVrsta.findMany({ where: { agencija_id: agencyId, firma_id: firm.id, dokument_tip: "KIF", aktivna: true }, select: { id: true, naziv: true }, orderBy: { redosljed: "asc" } }) : [],

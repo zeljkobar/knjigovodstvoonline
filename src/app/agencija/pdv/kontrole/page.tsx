@@ -1,3 +1,4 @@
+import { effectivePdvSettings } from "@/lib/posting-template";
 import { PdvMonthForm } from "../_components";
 import { calculatePdvReturn, normalizePdvMonth, requirePdvContext } from "@/lib/pdv-service";
 import {
@@ -39,33 +40,7 @@ export default async function PdvKontrolePage({ searchParams }: PageProps) {
       godina: context.poslovnaGodina.godina,
       mjesec: month
     }),
-    prisma.pdvPodesavanja.findUnique({
-      where: {
-        firma_id_poslovna_godina_id: {
-          firma_id: context.firma.id,
-          poslovna_godina_id: context.poslovnaGodina.id
-        }
-      },
-      include: {
-        pravila: {
-          where: {
-            aktivno: true,
-            konto_id: {
-              not: null
-            }
-          },
-          include: {
-            konto: {
-              select: {
-                id: true,
-                sifra: true,
-                naziv: true
-              }
-            }
-          }
-        }
-      }
-    }),
+    effectivePdvSettings(prisma, context.firma.id, context.poslovnaGodina.id),
     prisma.pdvPrijava.findFirst({
       where: {
         firma_id: context.firma.id,

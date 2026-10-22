@@ -1,4 +1,5 @@
 "use server";
+import { effectiveTravelSettings } from "@/lib/posting-template";
 import { hasPermission } from "@/lib/permissions";
 import { formatJournalCode } from "@/lib/journals";
 import { travelPostingAccount, travelJournalType, travelPostingAmounts, validateTravelScheme, travelCentsDecimal } from "@/lib/travel-posting";
@@ -65,7 +66,7 @@ export async function saveTravel(form: FormData) {
       if(!broj || !["DRAFT","COMPLETED"].includes(status) || !uuid(radnikId) || datum < c.godina.datum_od || datum > c.godina.datum_do) throw new TravelError("Provjerite broj, datum, status i zaposlenog.");
       const worker = await tx.plateRadnik.findFirst({where:{id:radnikId,agencija_id:c.agencyId,firma_id:c.firma.id,is_deleted:false},select:{ime:true,prezime:true,radno_mjesto:true,radno_mjesto_id:true}});
       if(!worker) throw new TravelError("Zaposleni ne pripada izabranoj firmi.");
-      const settingsRow = await tx.putniPodesavanje.findFirst({where:{firma_id:c.firma.id,agencija_id:c.agencyId}});
+      const settingsRow = await effectiveTravelSettings(tx,c.firma.id);
       const settings = settingsRow ? settingsRow.podaci as unknown as TravelSettings : travelDefaults;
       const polazak = t("polazak"), povratak = t("povratak");
       if(!polazak) throw new TravelError("Unesite polazak.");
@@ -195,7 +196,7 @@ export async function postTravel(form: FormData) {
       if((await tx.poslovnaGodina.findUniqueOrThrow({where:{id:postingYear.id}})).zakljucena) throw new TravelError("Godina knjiženja je zaključana.");
       const periods=await tx.$queryRaw<{status:string}[]>`SELECT status FROM pdv_periodi WHERE firma_id=${c.firma.id}::uuid AND datum_od<=${datum} AND datum_do>=${datum} FOR UPDATE`;
       if(periods.some(p=>p.status==="LOCKED")) throw new TravelError("PDV period je zaključan.");
-      const settings=await tx.putniPodesavanje.findFirst({where:{agencija_id:c.agencyId,firma_id:c.firma.id}});
+      const settings=await effectiveTravelSettings(tx,c.firma.id);
       const scheme=(settings?.podaci as unknown as TravelSettings | undefined)?.knjizenje;
       if(!scheme) throw new TravelError("Prvo podesite šemu knjiženja putnih naloga.");
       const amounts=travelPostingAmounts(data), type=await travelJournalType(tx,scheme.vrstaNaloga,c.agencyId,c.firma.id);

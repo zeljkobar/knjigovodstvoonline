@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- CommonJS PostgreSQL regression. */
 // Integration regression: real parsers/import persistence, synthetic mailbox/session,
 // temporary company and all DB mutations rolled back. No real mail is downloaded.
 const root = process.cwd();
@@ -21,9 +22,13 @@ const previousImapAgency = process.env.IMAP_AGENCY_ID;
       if (!await tx.vrstaNaloga.findFirst({where:{sifra:'BANK_STATEMENT',aktivan:true}})) await tx.vrstaNaloga.create({data:{sifra:'BANK_STATEMENT',naziv:'Izvod test',prefiks:'IZ',sistemska:true}});
       const firma = await tx.firma.create({ data: { agencija_id: user.agencija_id, naziv: 'Temporary mail import regression' } });
       const year = await tx.poslovnaGodina.create({ data: { firma_id: firma.id, godina: 2026, datum_od: new Date('2026-01-01'), datum_do: new Date('2026-12-31') } });
-      const account = await tx.firmaBankovniRacun.create({ data: { agencija_id: user.agencija_id, firma_id: firma.id, broj_racuna: '530-123456-78', naziv_banke: 'NLB' } });
+      await tx.firmaBankovniRacun.create({ data: { agencija_id: user.agencija_id, firma_id: firma.id, broj_racuna: '530-123456-78', naziv_banke: 'NLB' } });
       const konto = await tx.firmaKonto.create({ data: { firma_id: firma.id, sifra: '241099', naziv: 'Test bank account', tip_konta: 'analiticko' } });
-      await tx.bankStatementAccountSetting.create({ data: { agencija_id: user.agencija_id, firma_id: firma.id, company_bank_account_id: account.id, bank_account_konto_id: konto.id } });
+      const template = await tx.firma.create({data:{agencija_id:agency.id,naziv:'Mail template fixture'}});
+      const templateBank = await tx.firmaBankovniRacun.create({data:{agencija_id:agency.id,firma_id:template.id,naziv_banke:'NLB',broj_racuna:'530-999999-99'}});
+      const templateKonto = await tx.firmaKonto.create({data:{firma_id:template.id,sifra:konto.sifra,naziv:konto.naziv,tip_konta:'analiticko'}});
+      await tx.bankStatementAccountSetting.create({data:{agencija_id:agency.id,firma_id:template.id,company_bank_account_id:templateBank.id,bank_account_konto_id:templateKonto.id}});
+      await tx.agencijaKnjizenjeTemplate.create({data:{agencija_id:agency.id,firma_id:template.id}});
       const context = { firmaId: firma.id, poslovnaGodinaId: year.id };
       let allowed = true;
       let downloads = 0;
@@ -160,6 +165,7 @@ const previousImapAgency = process.env.IMAP_AGENCY_ID;
         assert.equal(await tx.auditLog.count({where:{firma_id:firma.id,akcija:'AUTO_BANK_RUN'}}),1);
         assert.equal(await tx.auditLog.count({where:{firma_id:firma.id,akcija:'AUTO_POST'}}),1);
       } finally { if(previousFlag===undefined)delete process.env.BANK_AUTOMATION_ENABLED;else process.env.BANK_AUTOMATION_ENABLED=previousFlag; }
+      assert.equal(await tx.bankStatementAccountSetting.count({where:{firma_id:firma.id}}),0,'mail/manual import must not copy template mapping');
       const { purgeCompanyData } = load(path.join(root, 'src/lib/company-purge.ts'));
       const purged = await purgeCompanyData(tx, { agencijaId: user.agencija_id, firmaId: firma.id, potvrdaNaziva: firma.naziv, korisnikId: user.id });
       assert.ok(purged.obrisano.mail_izvod_obrade > 0);

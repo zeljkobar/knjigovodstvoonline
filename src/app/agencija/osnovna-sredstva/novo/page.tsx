@@ -1,3 +1,4 @@
+import { effectiveAssetCategories } from "@/lib/posting-template";
 import { NewAssetForm } from "@/components/fixed-assets/NewAssetForm";
 import { requireAnyRole } from "@/lib/auth";
 import { hasPermission, requirePermissionForUser } from "@/lib/permissions";
@@ -38,7 +39,7 @@ export default async function NewFixedAssetPage({ searchParams }: NewAssetPagePr
   if (!company) return null;
 
   const [categories, units, year] = await Promise.all([
-    prisma.osKategorija.findMany({ where: { agencija_id: user.agencija_id, firma_id: company.id, aktivna: true, is_deleted: false }, orderBy: { sifra: "asc" } }),
+    effectiveAssetCategories(prisma, user.agencija_id, company.id),
     prisma.poslovnaJedinica.findMany({ where: { agencija_id: user.agencija_id, firma_id: company.id, aktivna: true, is_deleted: false }, orderBy: { naziv: "asc" }, select: { id: true, sifra: true, naziv: true } }),
     prisma.poslovnaGodina.findFirst({ where: { id: context.poslovnaGodinaId, firma_id: company.id }, select: { godina: true, datum_od: true, datum_do: true, zakljucena: true } })
   ]);

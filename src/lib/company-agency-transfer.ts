@@ -20,11 +20,13 @@ export async function approveCompanyAgencyTransfer(tx: Prisma.TransactionClient,
   if (!company || !target) throw new Error("TRANSFER_SCOPE_INVALID");
   if (company.pib && await tx.firma.findFirst({ where: { agencija_id: target.id, pib: company.pib, is_deleted: false }, select: { id: true } })) throw new Error("TRANSFER_TARGET_DUPLICATE");
 
+  // An agency default is not a company-owned setting and must never transfer.
+  await tx.agencijaKnjizenjeTemplate.deleteMany({ where: { firma_id: company.id } });
   const tables = await tx.$queryRaw<Row[]>(Prisma.sql`
     SELECT c1.table_name
     FROM information_schema.columns c1
     JOIN information_schema.columns c2 ON c2.table_schema = c1.table_schema AND c2.table_name = c1.table_name
-    WHERE c1.table_schema = 'public' AND c1.column_name = 'firma_id' AND c2.column_name = 'agencija_id' AND c1.table_name <> 'firme'
+    WHERE c1.table_schema = 'public' AND c1.column_name = 'firma_id' AND c2.column_name = 'agencija_id' AND c1.table_name NOT IN ('firme', 'agencija_knjizenje_template')
     ORDER BY c1.table_name
   `);
   for (const { table_name: table } of tables) {

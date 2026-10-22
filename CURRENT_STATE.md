@@ -1,12 +1,20 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-10-16. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-10-18. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Template firma za knjiženje — 2026-10-18
+
+- Podešavanja → Agencija: administrator bira jednu aktivnu firmu svoje agencije kao template ili isključuje izbor. Nepodešena konta/pravila dolaze iz template firme; lokalni zapisi po istom poslovnom ključu imaju prednost, uključujući izričito isključena pravila. Šeme se čitaju dinamički, bez jednokratnog kopiranja i bez izmjene ranijih naloga.
+- Pokriveni su KIF/KUF po tipu/šifri knjige, uvoz i pazar, podrazumijevana konta i partnerski izvještaji/klijentski portal, robne šeme i POS prenos, kontiranje plata, PDV, šema putnih naloga, pravila i mapiranje konta izvoda te kategorije osnovnih sredstava. KIF import i noćni SEP koriste isto nasljeđivanje. Kod godišnjih šema prvo se traži ista godina template firme; ako je nema, posljednja podešena godina (samo kontiranje, bez poreskih stopa/obračunskih parametara).
+- KIF/KUF vrste koje nedostaju dobijaju samo lokalni identitet vrste, bez kopiranja šeme. Naslijeđena OS kategorija pri prvom unosu dobija lokalni identitet; konta kategorije ostaju dinamička, a parametri samog sredstva čuvaju važeći snimak kao ranije. ID konta se uvijek razrješava u ciljnoj firmi; neaktivan lokalni konto blokira knjiženje. Privatni partneri druge firme se ne prenose. Bankovna šema se prepoznaje po istoj banci samo kada je jednoznačna; računi, mail/SEP konfiguracija, sertifikati i pristupi se ne nasljeđuju. Putni nalozi nasljeđuju samo kontiranje, ne iznose dnevnica/lokaciju/politike.
+- Nova tabela `agencija_knjizenje_template` ima složeni FK na firmu/agenciju, audit izbora i zaštitu od zastarjele forme/revokacije administratora. Neaktivna/obrisana template firma ne daje fallback. Purge uklanja izbor prije firme; prenos agencije ne prenosi agencijski template. Nema novih podređenih tabela bez firma_id. Migracija `20261018190000_agencija_knjizenje_template` primijenjena lokalno; Prisma regenerisan i dev restartovan.
+- DB rollback regresija potvrđuje stvarno KIF/KUF prvo knjiženje/dopunu, ravnotežu i ciljne ID-jeve, PDV zabranu, lokalni prioritet, dinamičke izmjene, godišnji fallback, plate/PDV/putne/bankovne/OS mape, scope/FK, revokaciju, audit rollback i purge. Postojeća SEP regresija sada provjerava drugi klijent sa template-only šemom i vrstom naloga, bez kopiranja; dnevni mail/izvod test koristi samo template bankovnu mapu i potvrđuje da se ona ne kopira. Browser potvrđuje izbor/uklanjanje i povezane ekrane; testni izbor je uklonjen i izvorni firma/godina kontekst zadržan.
 
 ## Korisničke palete i tamni režim — 2026-10-16
 

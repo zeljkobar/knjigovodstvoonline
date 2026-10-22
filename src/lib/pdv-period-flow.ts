@@ -1,3 +1,4 @@
+import { effectivePdvSettings } from "@/lib/posting-template";
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
@@ -113,7 +114,7 @@ export async function mutatePdv(context: Context, month: number, operation: PdvO
     if(calculation.kifBooks.some(b=>b.entries.some(e=>e.vat_transaction_type==="EXPORT"&&cents(e.total_output_vat)!==0))) fail("Izvoz ima izlazni PDV.");
     if(calculation.kufBooks.some(b=>b.entries.some(e=>e.vat_transaction_type==="IMPORT"&&!e.customs_declaration_number))) fail("Uvoznom računu nedostaje JCI broj.");
     const postingAmounts=calculatePdvPostingAmounts(calculation.kifBooks,calculation.kufBooks);
-    const settings=await tx.pdvPodesavanja.findFirst({where:scope,include:{vrsta_naloga:true,pravila:{where:{aktivno:true},include:{konto:true}}}});
+    const settings=await effectivePdvSettings(tx, context.firma.id, context.poslovnaGodina.id, true);
     const value=(code:string,column:string)=>cents(prijava.stavke.find(r=>r.sifra===code&&r.kolona===column)?.rucna_vrijednost??prijava.stavke.find(r=>r.sifra===code&&r.kolona===column)?.sistemska_vrijednost);
     postingAmounts.set("VAT_PAYABLE",value("28","OUTPUT")/100);postingAmounts.set("VAT_CREDIT",value("29","INPUT")/100);
     const nonzero=[...postingAmounts].filter(([,v])=>cents(v)!==0);

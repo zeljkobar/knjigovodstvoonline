@@ -1,3 +1,5 @@
+import { PostingTemplateNotice } from "@/components/PostingTemplateNotice";
+import { effectiveDefaultAccounts, effectiveInvoiceType } from "@/lib/posting-template";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import Link from "next/link";
 import {
@@ -100,7 +102,7 @@ export default async function RacuniPodesavanjaPage({
     await ensureDefaultInvoiceBookTypes(activeCompany.id, user.agencija_id, user.id);
   }
 
-  const [baseAccounts, companyOverrides, vatRates, invoiceTypes, journalTypes, sourceCompanies] = activeCompany
+  const [baseAccounts, companyOverrides, vatRates, ownInvoiceTypes, journalTypes, sourceCompanies] = activeCompany
     ? await Promise.all([
         prisma.konto.findMany({
           where: {
@@ -265,6 +267,7 @@ export default async function RacuniPodesavanjaPage({
       ])
     : [[], [], [], [], [], []];
 
+  const invoiceTypes = await Promise.all(ownInvoiceTypes.map(async type => await effectiveInvoiceType(prisma, activeCompany!.id, type.id) ?? type));
   const accounts = mergeCompanyAccountPlan(baseAccounts, companyOverrides).filter(
     (account) => account.aktivan
   );
@@ -273,7 +276,7 @@ export default async function RacuniPodesavanjaPage({
     naziv: account.naziv
   }));
   const importSchemeRows = activeCompany
-    ? await prisma.firmaPodrazumijevanoKonto.findMany({
+    ? await effectiveDefaultAccounts(prisma, {
         where: {
           firma_id: activeCompany.id,
           dokument_tip: invoicePostingDocumentTypes.general,
@@ -292,7 +295,7 @@ export default async function RacuniPodesavanjaPage({
       })
     : [];
   const pazarSchemeRows = activeCompany
-    ? await prisma.firmaPodrazumijevanoKonto.findMany({
+    ? await effectiveDefaultAccounts(prisma, {
         where: {
           firma_id: activeCompany.id,
           dokument_tip: invoicePostingDocumentTypes.kif,
@@ -354,6 +357,7 @@ export default async function RacuniPodesavanjaPage({
 
   return (
     <div className="admin-stack racuni-podesavanja">
+      {activeCompany ? <PostingTemplateNotice companyId={activeCompany.id}/> : null}
       <header className="admin-header">
         <div>
           <h2>Podešavanja računa</h2>

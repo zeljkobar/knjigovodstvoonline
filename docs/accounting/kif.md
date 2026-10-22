@@ -122,3 +122,12 @@ za mjesec datuma storna. Originalni KIF zapis se ne mijenja niti briše.
 Poreske stavke i ukupan iznos korekcije su negativni; KIF referencira već kreirani
 korektivni nalog i ne kreira drugo knjiženje. Korektivni nalog je nacrt za pregled
 u Nalozima, kao i nalog standardne OFFICE fakture.
+
+## Template firma za knjiženje — 2026-10-18
+
+Administrator bira template u Podešavanja → Agencija. Lokalna podešavanja imaju
+prednost; ono što nedostaje dinamički se čita iz aktivne template firme iste
+agencije. Šeme se ne kopiraju i raniji nalozi se ne prepravljaju. Konta se
+razrješavaju u ciljnoj firmi uz postojeća prava, ravnotežu i zaključavanja.
+Vrste knjiga se uparuju po tipu i šifri. Pravila po polju i lokalna vrsta naloga
+imaju prednost; KIF import i SEP automatika koriste iste efektivne šeme.

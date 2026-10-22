@@ -1,0 +1,2 @@
+Modul,Status,Implementirano,Otvoreno,Napomena
+Agencijski template knjiženja,Implementirano,Izbor firme; dinamički fallback svih šema/konta; lokalni prioritet; KIF/KUF i automatika; sigurni ciljni ID-jevi; audit/purge,Produkcijska migracija i izbor template firme,DB rollback + postojeće regresije; browser desktop/mobile; bez kopiranja šema i izmjene istorije

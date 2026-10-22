@@ -1,3 +1,4 @@
+import { effectiveBankSetting } from "@/lib/posting-template";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import Link from "next/link";
 import {
@@ -324,6 +325,15 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
           })
         ])
       : [[], [], [], [], [], []];
+  for (const bank of bankAccounts) {
+    const effective = await effectiveBankSetting(prisma, activeCompany!.id, bank.id);
+    if (effective) {
+      const existingIndex = bankSettings.findIndex(row => row.company_bank_account_id === bank.id);
+      if (existingIndex >= 0) bankSettings[existingIndex] = effective;
+      else bankSettings.push(effective);
+    }
+  }
+
 
   const accountOptions = mergeCompanyAccountPlan(baseAccounts, companyOverrides).filter(
     (account) => account.aktivan && account.tip_konta === "analiticko"

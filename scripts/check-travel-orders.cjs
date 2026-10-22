@@ -19,7 +19,7 @@ async function response(fn,data){try{await fn(form(data));throw Error('No redire
  const worker=await tx.plateRadnik.create({data:{agencija_id:agency.id,firma_id:firm.id,ime:'ZORAN',prezime:'TEST',radno_mjesto:'DIREKTOR'}});
  const foreignWorker=await tx.plateRadnik.create({data:{agencija_id:otherAgency.id,firma_id:foreign.id,ime:'Foreign',prezime:'Worker'}});
  let user=admin,work={firmaId:firm.id,poslovnaGodinaId:year.id};
- const mocks={"@/lib/travel-routes.json":require("../src/lib/travel-routes.json"),'server-only':{},'@/lib/prisma':{prisma:transactionProxy(tx)},
+ const mocks={"@/lib/travel-routes.json":require("../src/lib/travel-routes.json"),'server-only':{},'@/components/PostingTemplateNotice':{PostingTemplateNotice:()=>null},'@/lib/prisma':{prisma:transactionProxy(tx)},
   '@/lib/auth':{requireAnyRole:async roles=>{if(!roles.includes(user.rola))throw Error('DENIED');return user;}},
   '@/lib/work-context':{readWorkContext:async()=>work},
   'next/cache':{revalidatePath(){}},'next/navigation':{redirect(url){validateHeaderValue('x-action-redirect',url);throw Error('REDIRECT:'+url);},notFound(){throw Error('NOT_FOUND');}},

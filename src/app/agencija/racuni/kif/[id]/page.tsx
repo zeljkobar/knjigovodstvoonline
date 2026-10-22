@@ -1,3 +1,4 @@
+import { effectiveInvoiceType } from "@/lib/posting-template";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import { loadInvoiceJournalStatuses, invoiceBookPostingLabel, invoiceEntryPostingLabel } from "@/lib/invoice-posting-status";
 import Link from "next/link";
@@ -243,6 +244,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
         status: true,
         racun_vrsta: {
           select: {
+            id: true,
             naziv: true,
             dokument_tip: true,
             kontiranjePravila: {
@@ -455,6 +457,8 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
         account.aktivan && account.tip_konta === "analiticko" && account.sifra.startsWith("6")
     )
     .sort((a, b) => a.sifra.localeCompare(b.sifra));
+  const effectiveType = await effectiveInvoiceType(prisma, activeCompany.id, kifBook.racun_vrsta.id);
+  if (effectiveType) kifBook.racun_vrsta = effectiveType;
   const fields = invoicePostingFields(kifBook.racun_vrsta.dokument_tip, vatRates);
   const ruleByField = new Map(
     kifBook.racun_vrsta.kontiranjePravila.map((rule) => [rule.polje_sifra, rule])

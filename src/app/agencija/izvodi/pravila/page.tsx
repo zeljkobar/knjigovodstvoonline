@@ -1,3 +1,4 @@
+import { effectiveBankRules } from "@/lib/posting-template";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import Link from "next/link";
 import { createBankPostingRule, deleteBankPostingRule } from "../actions";
@@ -33,6 +34,7 @@ export default async function PravilaIzvodaPage({ searchParams }: PravilaIzvodaP
   }
 
   const selectedRuleId = params?.pravilo ?? null;
+  const inheritedRules = (await effectiveBankRules(prisma, user.agencija_id, firma.id)).filter(rule => rule.inherited);
   const [rules, selectedRule, baseAccounts, companyOverrides] = await Promise.all([
     prisma.bankPostingRule.findMany({
       where: {
@@ -159,6 +161,7 @@ export default async function PravilaIzvodaPage({ searchParams }: PravilaIzvodaP
 
       {params?.poruka ? <p className="admin-message">{messages[params.poruka] ?? params.poruka}</p> : null}
 
+      {inheritedRules.length ? <section className="admin-panel"><h3>Pravila iz template firme</h3><p>Primjenjuju se kada nema odgovarajućeg pravila ove firme. Izmjene čuvajte kao sopstveno pravilo ili uredite template firmu.</p><div className="table-wrap"><table className="admin-table"><thead><tr><th>Smjer</th><th>Uslovi</th><th>Konto</th><th>Prioritet</th><th>Primjena</th></tr></thead><tbody>{inheritedRules.map(rule => <tr key={rule.id}><td>{directionLabels[rule.direction] ?? rule.direction}</td><td>{[rule.counterparty_account_number, rule.description_contains, rule.payment_code, rule.reference_contains].filter(Boolean).join(" · ") || "Svi prometi"}</td><td>{rule.account_code ?? rule.account.sifra}</td><td>{rule.priority}</td><td>{rule.requires_review ? "Za provjeru" : "Automatski"}</td></tr>)}</tbody></table></div></section> : null}
       <section className="admin-panel">
         <div className="section-title-row">
           <div>

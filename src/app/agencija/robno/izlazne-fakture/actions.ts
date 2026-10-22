@@ -1,4 +1,6 @@
 "use server";
+import { effectiveDefaultAccounts } from "@/lib/posting-template";
+
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -241,7 +243,7 @@ export async function finalizeOutgoingInvoice(formData: FormData) {
     }
 
     const [settings, journalType] = await Promise.all([
-      tx.firmaPodrazumijevanoKonto.findMany({
+      effectiveDefaultAccounts(tx, {
         where: {
           firma_id: firmaId,
           dokument_tip: outgoingInvoicePostingScope.documentType,

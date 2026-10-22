@@ -1,3 +1,4 @@
+import { effectiveDefaultAccounts } from "@/lib/posting-template";
 import Link from "next/link";
 import { decimalToScaled } from "@/lib/inventory-calculation";
 import { requireClientContext } from "@/lib/client-portal";
@@ -167,7 +168,7 @@ export async function PartnerBalanceReportPage({ kind, searchParams, clientType 
       where: { id: context.poslovnaGodinaId, firma_id: context.firmaId },
       select: { godina: true }
     }),
-    prisma.firmaPodrazumijevanoKonto.findMany({
+    effectiveDefaultAccounts(prisma, {
       where: {
         firma_id: context.firmaId,
         namjena: { in: [config.domesticPurpose, config.foreignPurpose] },

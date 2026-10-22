@@ -1,3 +1,5 @@
+import { effectivePayrollSettings } from "@/lib/posting-template";
+import { PostingTemplateNotice } from "@/components/PostingTemplateNotice";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import { Fragment } from "react";
 import Link from "next/link";
@@ -140,22 +142,7 @@ export default async function PayrollSettingsPage({ searchParams }: PageProps) {
   const [postingSettings, journalTypes, baseAccounts, companyAccounts] =
     activeSection === "knjizenje"
       ? await Promise.all([
-          prisma.plateKontiranjePodesavanje.findUnique({
-            where: {
-              firma_id_poslovna_godina_id_kategorija: {
-                firma_id: context.firma.id,
-                poslovna_godina_id: context.godina.id,
-                kategorija: postingCategory
-              }
-            },
-            include: {
-              pravila: {
-                orderBy: {
-                  redosljed: "asc"
-                }
-              }
-            }
-          }),
+          effectivePayrollSettings(prisma, context.firma.id, context.godina.id, postingCategory),
           prisma.vrstaNaloga.findMany({
             where: {
               aktivan: true,
@@ -234,6 +221,7 @@ export default async function PayrollSettingsPage({ searchParams }: PageProps) {
 
   return (
     <div className="admin-stack">
+      {context.firma.id ? <PostingTemplateNotice companyId={context.firma.id!}/> : null}
       <header className="admin-header">
         <div>
           <h2>Podešavanja plata</h2>
@@ -511,7 +499,9 @@ export default async function PayrollSettingsPage({ searchParams }: PageProps) {
                     const rule = postingRuleMap.get(component.code);
                     const defaults = payrollPostingDefault(postingCategory, component.code);
                     const previousGroup = payrollPostingComponents[index - 1]?.group;
-                    const debitDefault = rule
+                    const debitDefault = rule?.inherited
+                      ? accountValue(postingAccounts.find(account => account.sifra === rule.duguje_konto?.sifra))
+                      : rule
                       ? rule.duguje_konto_id
                         ? `company:${rule.duguje_konto_id}`
                         : ""
@@ -520,7 +510,9 @@ export default async function PayrollSettingsPage({ searchParams }: PageProps) {
                             (account) => account.sifra === defaults.debitCode
                           )
                         );
-                    const creditDefault = rule
+                    const creditDefault = rule?.inherited
+                      ? accountValue(postingAccounts.find(account => account.sifra === rule.potrazuje_konto?.sifra))
+                      : rule
                       ? rule.potrazuje_konto_id
                         ? `company:${rule.potrazuje_konto_id}`
                         : ""

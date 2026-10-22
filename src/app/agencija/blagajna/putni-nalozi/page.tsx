@@ -1,3 +1,4 @@
+import { effectiveTravelSettings } from "@/lib/posting-template";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
@@ -20,7 +21,7 @@ export default async function TravelPage({searchParams}:{searchParams:Promise<{i
  const units=await prisma.poslovnaJedinica.findMany({where:{firma_id:c.firma.id,agencija_id:c.agencyId,aktivna:true,is_deleted:false},select:{id:true,naziv:true},orderBy:{naziv:"asc"}});
  const editing=!!p.id||p.novi==="1";
  const selected=p.id?await prisma.putniNalog.findFirst({where:{id:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(p.id)?p.id:"00000000-0000-0000-0000-000000000000",...scope}}):null;
- const [workers,routes,settings,jobs]=editing?await Promise.all([prisma.plateRadnik.findMany({where:{agencija_id:c.agencyId,firma_id:c.firma.id,is_deleted:false},select:{id:true,ime:true,prezime:true,radno_mjesto:true,radno_mjesto_id:true},orderBy:[{prezime:"asc"},{ime:"asc"}]}),travelRoutes(c.agencyId),prisma.putniPodesavanje.findUnique({where:{firma_id:c.firma.id}}),jobPositions(c.agencyId)]):[[],[],null,[]];
+ const [workers,routes,settings,jobs]=editing?await Promise.all([prisma.plateRadnik.findMany({where:{agencija_id:c.agencyId,firma_id:c.firma.id,is_deleted:false},select:{id:true,ime:true,prezime:true,radno_mjesto:true,radno_mjesto_id:true},orderBy:[{prezime:"asc"},{ime:"asc"}]}),travelRoutes(c.agencyId),effectiveTravelSettings(prisma, c.firma.id),jobPositions(c.agencyId)]):[[],[],null,[]];
  return <div className="admin-stack"><header className="admin-header"><div><h1>Putni nalozi</h1><p>{c.firma.naziv} · {c.godina.godina}</p></div><div className="table-actions">{create&&!c.godina.zakljucena?<Link className="table-button" href={`${travelPath}?novi=1`}>Novi putni nalog</Link>:null}<Link className="table-button" href={`${travelPath}/relacije`}>Relacije</Link>{c.user.rola==="admin_agencije"?<Link className="table-button" href={`${travelPath}/podesavanja`}>Podešavanja</Link>:null}</div></header>
  {p.greska?<p role="alert" className="admin-message">{p.greska}</p>:p.poruka?<p role="status" className="admin-message">{p.poruka}</p>:null}
  {c.godina.zakljucena?<p>Poslovna godina je zaključana. Dostupni su pregled i štampa.</p>:null}

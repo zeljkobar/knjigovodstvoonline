@@ -88,9 +88,9 @@ const date=s=>new Date(s+'T00:00:00Z');
   // Run the actual scheduler over two isolated firms; every remote call must be sequential.
   const other=await tx.firma.create({data:{agencija_id:agency.id,naziv:'Second SEP fixture',pib:'22345678'}});allowedPibs.add(other.pib);
   await tx.poslovnaGodina.create({data:{firma_id:other.id,godina:2026,datum_od:date('2026-01-01'),datum_do:date('2026-12-31')}});
-  const otherType=await tx.racunVrsta.create({data:{agencija_id:agency.id,firma_id:other.id,dokument_tip:'KIF',sifra:'SEP',naziv:'SEP',vrsta_naloga_id:jt.id}});
+  const otherType=await tx.racunVrsta.create({data:{agencija_id:agency.id,firma_id:other.id,dokument_tip:'KIF',sifra:'SEP',naziv:'SEP'}});
   for(const account of await tx.firmaKonto.findMany({where:{firma_id:firm.id}}))await tx.firmaKonto.create({data:{firma_id:other.id,sifra:account.sifra,naziv:account.naziv,tip_konta:'analiticko',analitika_obavezna:account.analitika_obavezna}});
-  for(const rule of await tx.racunKontiranjePravilo.findMany({where:{racun_vrsta_id:type.id}}))await tx.racunKontiranjePravilo.create({data:{racun_vrsta_id:otherType.id,polje_sifra:rule.polje_sifra,polje_naziv:rule.polje_naziv,smjer:rule.smjer,konto_izvor:rule.konto_izvor,sifra_konta:rule.sifra_konta}});
+  await tx.agencijaKnjizenjeTemplate.create({data:{agencija_id:agency.id,firma_id:firm.id}});
   await tx.sepAutomatikaPodesavanje.create({data:{agencija_id:agency.id,firma_id:other.id,sertifikat_id:cert.id,racun_vrsta_id:otherType.id,aktivna:true,created_at:date('2026-06-02'),updated_at:date('2026-06-02')}});
   const basePrisma=mocks['@/lib/prisma'].prisma;
   mocks['@/lib/prisma'].prisma=new Proxy(basePrisma,{get(target,key){if(key!=='sepAutomatikaPodesavanje')return target[key];return new Proxy(target[key],{get(delegate,method){if(method!=='findMany')return delegate[method];return args=>delegate.findMany({...args,where:{...args.where,agencija_id:agency.id}});}});}});
@@ -106,7 +106,8 @@ const date=s=>new Date(s+'T00:00:00Z');
   await automation.runDailySepAutomation(new Date('2026-06-22T08:00:00Z'));
   assert.equal(await tx.sepAutomatikaObrada.count({where:{firma_id:firm.id,dan:date('2026-06-22')}}),0,'new settings after 04:00 start next night');
   mocks['@/lib/prisma'].prisma=basePrisma;
-  console.log('PASS actual queue: two firms sequentially, per-firm IKOF scope, completed-day skip, RUNNING recovery');
+  assert.equal(await tx.racunKontiranjePravilo.count({where:{racun_vrsta_id:otherType.id}}),0);
+  console.log('PASS actual queue: two firms sequentially, template-only KIF scheme + journal type, no copied settings, per-firm IKOF scope, completed-day skip, RUNNING recovery');
   // Actual settings actions: optimistic concurrency, tenant/type validation, opt-in and retries.
   mocks['@/lib/sep-context']={getSepCompany:async expected=>{if(expected!==firm.id)throw Error('CONTEXT_CHANGED');return {user,agencyId:agency.id,firm,scope:`${agency.id}:${user.id}`};}};
   mocks['next/cache']={revalidatePath(){}};mocks['next/navigation']={redirect:url=>{throw Error('REDIRECT:'+url);}};

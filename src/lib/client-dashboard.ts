@@ -1,3 +1,4 @@
+import { effectiveDefaultAccount } from "@/lib/posting-template";
 import "server-only";
 import { prisma } from "./prisma";
 import { clientScope, requireClientContext } from "./client-portal";
@@ -10,7 +11,7 @@ export async function loadClientDashboard(foreign = false) {
   const types = foreign ? ["ino-kupci", "ino-dobavljaci"] as const : ["kupci", "dobavljaci"] as const;
   return Promise.all(types.map(async (type) => {
     const config = clientPartnerTypes[type];
-    const account = await prisma.firmaPodrazumijevanoKonto.findFirst({
+    const account = await effectiveDefaultAccount(prisma, {
       where: {
         firma_id: context.firma.id, namjena: config.purpose,
         dokument_tip: invoicePostingDocumentTypes.general,

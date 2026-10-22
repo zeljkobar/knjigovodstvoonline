@@ -1,4 +1,6 @@
 "use server";
+import { effectiveDefaultAccounts } from "@/lib/posting-template";
+
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -219,7 +221,7 @@ export async function postInventoryPriceAdjustment(formData: FormData) {
     if (!document.stavke.length) return { ok: false as const, reason: "bez_stavki" };
     if (document.magacin.tip_prodaje !== "RETAIL") return { ok: false as const, reason: "magacin" };
     const [settings, journalType] = await Promise.all([
-      tx.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: firmaId, dokument_tip: inventoryPriceAdjustmentPostingScope.documentType, podvrsta: inventoryPriceAdjustmentPostingScope.subtype, pdv_stopa_sifra: inventoryPriceAdjustmentPostingScope.vatRate, namjena: { in: inventoryPriceAdjustmentPostingFields.map((field) => field.purpose) } } }),
+      effectiveDefaultAccounts(tx, { where: { firma_id: firmaId, dokument_tip: inventoryPriceAdjustmentPostingScope.documentType, podvrsta: inventoryPriceAdjustmentPostingScope.subtype, pdv_stopa_sifra: inventoryPriceAdjustmentPostingScope.vatRate, namjena: { in: inventoryPriceAdjustmentPostingFields.map((field) => field.purpose) } } }),
       tx.vrstaNaloga.findFirst({ where: { sifra: "PRICE_ADJUSTMENT", aktivan: true, OR: [{ sistemska: true }, { agencija_id: context.agencijaId }, { firma_id: firmaId }] }, select: { id: true, prefiks: true } })
     ]);
     if (!journalType) return { ok: false as const, reason: "vrsta_naloga" };

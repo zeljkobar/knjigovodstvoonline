@@ -49,6 +49,29 @@ Rezultati/audit čuvaju brojače, IKOF reference i bezbjedne greške bez tajni i
 JSON sadržaja računa. Purge briše obrade i postavke prije KIF vrsta/firme;
 agencijski administratorski sertifikat se zadržava.
 
+### Template firme za kontiranje
+
+`agencija_knjizenje_template` čuva najviše jedan izbor po agenciji. Složeni FK
+(agencija_id, firma_id) referencira istu agenciju u firmi. Samo aktivni administrator
+bira aktivnu firmu, uz zaključavanje, provjeru verzije i audit. Brisanje firme uklanja
+izbor; prenos firme u drugu agenciju ne prenosi taj izbor.
+
+`posting-template.ts` razrješava živo nasljeđivanje: lokalno pravilo istog ključa
+ima prednost, a nedostajuće dolazi iz aktivne template firme iste agencije. Nema
+rekurzije niti kopiranja šema. KIF/KUF se uparuju po dokument tipu i šifri; konta
+po šifri u ciljnom planu, nikada po ID-ju izvorne firme. Godišnje šeme koriste istu
+godinu, a ako nije podešena posljednju dostupnu konfiguraciju templatea. Privatni
+partneri druge firme se izostavljaju, nedostupna/deaktivirana konta blokiraju
+postojeće kontrole knjiženja. Vrsta naloga mora biti dozvoljena ciljnoj firmi.
+
+Resolver koristi i serverska automatika. Read-only forme prikazuju efektivne
+vrijednosti; čuvanje kreira/mijenja samo lokalna podešavanja. Lokalni identiteti
+KIF/KUF vrsta i OS kategorija ne zamrzavaju šeme. Bankovni računi se ne prenose;
+mapa konta/vrste naloga nasljeđuje se samo za istu banku sa jednoznačnom šemom.
+Poslovni dokumenti, fiskalni/SEP/mail pristupi i obračunske/poreske postavke nijesu
+template podaci. Regresija: `npm run test:posting-template-db` (stvarni PostgreSQL,
+privremeni zapisi i rollback).
+
 ### Izgled po korisniku
 
 `ThemeProvider` dobija validiranu paletu/režim iz server-renderovanog korijenskog

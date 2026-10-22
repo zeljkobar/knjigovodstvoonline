@@ -1,4 +1,6 @@
 "use server";
+import { effectiveDefaultAccounts } from "@/lib/posting-template";
+
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -1487,7 +1489,7 @@ export async function postCalculation(formData: FormData) {
         },
         select: { id: true }
       }),
-      tx.firmaPodrazumijevanoKonto.findMany({
+      effectiveDefaultAccounts(tx, {
         where: {
           firma_id: firmaId,
           dokument_tip: calculationPostingScope.documentType,

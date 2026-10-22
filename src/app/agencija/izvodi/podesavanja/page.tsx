@@ -1,3 +1,5 @@
+import { effectiveBankSetting } from "@/lib/posting-template";
+import { PostingTemplateNotice } from "@/components/PostingTemplateNotice";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import { saveBankStatementAccountSettings } from "../actions";
 import { getIzvodiContext, MissingContext } from "../_shared";
@@ -148,6 +150,15 @@ export default async function PodesavanjaIzvodaPage({
         }
       })
     ]);
+  for (const bank of bankAccounts) {
+    const effective = await effectiveBankSetting(prisma, firma.id, bank.id);
+    if (effective) {
+      const existingIndex = settings.findIndex(row => row.company_bank_account_id === bank.id);
+      if (existingIndex >= 0) settings[existingIndex] = effective;
+      else settings.push(effective);
+    }
+  }
+
   const accountOptions = mergeCompanyAccountPlan(baseAccounts, companyOverrides).filter(
     (account) => account.aktivan && account.tip_konta === "analiticko"
   );
@@ -157,6 +168,7 @@ export default async function PodesavanjaIzvodaPage({
 
   return (
     <div className={`admin-stack ${styles.page}`}>
+      <PostingTemplateNotice companyId={firma.id}/>
       <header className="admin-header">
         <div>
           <h2>Podešavanja izvoda</h2>

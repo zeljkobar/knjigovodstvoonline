@@ -1,3 +1,5 @@
+import { PostingTemplateNotice } from "@/components/PostingTemplateNotice";
+import { effectiveDefaultAccounts } from "@/lib/posting-template";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import Link from "next/link";
 import { saveDefaultCompanyAccount } from "../../actions";
@@ -82,7 +84,7 @@ export default async function DefaultAccountsSettingsPage({ searchParams }: Page
             aktivan: true
           }
         }),
-        prisma.firmaPodrazumijevanoKonto.findMany({
+        effectiveDefaultAccounts(prisma, {
           where: {
             firma_id: company.id,
             namjena: { in: defaultAccountPurposes.map(([purpose]) => purpose) },
@@ -104,6 +106,7 @@ export default async function DefaultAccountsSettingsPage({ searchParams }: Page
 
   return (
     <div className="admin-stack">
+      {company ? <PostingTemplateNotice companyId={company.id}/> : null}
       <header className="admin-header">
         <div>
           <h1>Podrazumijevana konta</h1>

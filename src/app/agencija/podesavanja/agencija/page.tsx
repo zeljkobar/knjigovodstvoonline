@@ -2,9 +2,10 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { agencyProfileSelect, missingAgencyFields } from "@/lib/agency-profile";
-import { saveAgencyProfile, saveAgencyBankAccount, deleteAgencyBankAccount } from "./actions";
+import { saveAgencyProfile, saveAgencyBankAccount, deleteAgencyBankAccount, savePostingTemplate } from "./actions";
 import styles from "./profile.module.css";
 const messages: Record<string,string> = {
+  template_sacuvan:"Template firma za knjiženje je sačuvana.", template_firma:"Izaberite aktivnu firmu svoje agencije.",
   sacuvano:"Podaci agencije su sačuvani.",nedostaje:"Agencija nije dostupna.",
   zastarjelo:"Podaci su u međuvremenu izmijenjeni. Provjerite prikazane vrijednosti i ponovite izmjenu.",
   duplikat:"PIB ili bankovni račun već postoji. Provjerite unos.",podaci:"Unesite naziv i provjerite dužinu unesenih podataka.",
@@ -14,11 +15,22 @@ export default async function AgencyProfilePage({searchParams}:{searchParams?:Pr
   const user=await requireRole("admin_agencije");
   const agency=user.agencija_id ? await prisma.agencija.findFirst({where:{id:user.agencija_id,aktivan:true,is_deleted:false,is_fiscal_direct_container:false},select:agencyProfileSelect}):null;
   if(!agency) return <p className="admin-message">Agencija nije dostupna.</p>;
+  const [template, companies] = await Promise.all([prisma.agencijaKnjizenjeTemplate.findUnique({where:{agencija_id:agency.id}}), prisma.firma.findMany({where:{agencija_id:agency.id,aktivan:true,is_deleted:false},orderBy:{naziv:"asc"},select:{id:true,naziv:true,pib:true}})]);
   const params=await searchParams, missing=missingAgencyFields(agency), version=agency.updated_at.toISOString();
   return <div className="admin-stack">
-    <header className="admin-header"><div><p className="eyebrow">Podešavanja</p><h1>Agencija</h1><p className="muted-text">Podaci vaše agencije za ugovore sa klijentima. Važe za cijelu agenciju, nezavisno od izabrane firme.</p></div></header>
+    <header className="admin-header"><div><p className="eyebrow">Podešavanja</p><h1>Agencija</h1><p className="muted-text">Podaci agencije i zajednička podešavanja knjiženja. Važe za cijelu agenciju, nezavisno od izabrane firme.</p></div></header>
     {params?.poruka && messages[params.poruka] ? <p role="status" className="admin-message">{messages[params.poruka]}</p>:null}
     {missing.length ? <p className="admin-message">Za popunjavanje ugovora dopunite: {missing.join(", ")}.</p>:null}
+    <section className="admin-panel"><div className="panel-header"><h2>Template firma za knjiženje</h2></div>
+      <p>Kada firma nema određeno podešavanje ili šemu knjiženja, koristi ih iz izabrane template firme. Sopstvena podešavanja uvijek imaju prednost. Promjene važe za buduća knjiženja.</p>
+      {template && !companies.some(company => company.id === template.firma_id) ? <p role="status" className="admin-message">Izabrana template firma nije aktivna. Izaberite drugu firmu da biste nastavili nasljeđivanje.</p> : null}
+      <form action={savePostingTemplate} className="admin-form">
+        <input type="hidden" name="template_verzija" value={template?.updated_at.toISOString() ?? ""}/>
+        <label className="form-wide"><span>Template firma</span><select name="template_firma_id" defaultValue={template?.firma_id ?? ""}><option value="">Bez template firme</option>{template && !companies.some(company => company.id === template.firma_id) ? <option value={template.firma_id} disabled>Nedostupna template firma</option> : null}{companies.map(company=><option key={company.id} value={company.id}>{company.naziv}{company.pib ? ` (${company.pib})` : ""}</option>)}</select></label>
+        <button type="submit">Sačuvaj template firmu</button>
+      </form>
+      <p className="muted-text">Nasljeđuju se šeme i podrazumijevana konta. Računi, partneri, bankovni računi, sertifikati i pristupni podaci ostaju vezani za svoju firmu.</p>
+    </section>
     <form action={saveAgencyProfile} className="admin-stack">
       <input type="hidden" name="verzija" value={version}/>
       <section className="admin-panel"><div className="panel-header"><h2>Osnovni podaci</h2></div>

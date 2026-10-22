@@ -1,3 +1,4 @@
+import { effectiveDefaultAccounts } from "@/lib/posting-template";
 import { Prisma } from "@prisma/client";
 import { accountOverrideTypes } from "@/lib/account-plan";
 import { decimalToScaled, scaledToDecimal } from "@/lib/inventory-calculation";
@@ -38,7 +39,7 @@ export async function finalizePosTransferAccounting(input: {
     if (period?.status === "LOCKED") return { ok: false as const, reason: "pdv_period" };
 
     const [settings, journalType] = await Promise.all([
-      tx.firmaPodrazumijevanoKonto.findMany({ where: { firma_id: input.firmaId, dokument_tip: outgoingInvoicePostingScope.documentType, podvrsta: outgoingInvoicePostingScope.subtype } }),
+      effectiveDefaultAccounts(tx, { where: { firma_id: input.firmaId, dokument_tip: outgoingInvoicePostingScope.documentType, podvrsta: outgoingInvoicePostingScope.subtype } }),
       tx.vrstaNaloga.findFirst({ where: { sifra: standardJournalTypes[2][0], aktivan: true, OR: [{ sistemska: true }, { agencija_id: input.agencijaId }, { firma_id: input.firmaId }] }, select: { id: true, prefiks: true } })
     ]);
     if (!journalType) return { ok: false as const, reason: "vrsta_naloga" };

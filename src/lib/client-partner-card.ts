@@ -1,3 +1,4 @@
+import { effectiveDefaultAccount } from "@/lib/posting-template";
 import "server-only";
 import { notFound } from "next/navigation";
 import { prisma } from "./prisma";
@@ -10,7 +11,7 @@ export async function loadClientPartnerCard(tip: string, partner: string) {
   if (!isClientPartnerType(tip) || !/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(partner)) notFound();
   const context = await requireClientContext(["izvjestaji", "nalozi"]);
   const config = clientPartnerTypes[tip];
-  const account = await prisma.firmaPodrazumijevanoKonto.findFirst({
+  const account = await effectiveDefaultAccount(prisma, {
     where: { firma_id: context.firma.id, namjena: config.purpose,
       dokument_tip: invoicePostingDocumentTypes.general, podvrsta: invoicePostingDefaultScope.subtype,
       pdv_stopa_sifra: invoicePostingDefaultScope.vatRate }, select: { sifra_konta: true }

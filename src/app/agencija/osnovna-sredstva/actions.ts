@@ -1,4 +1,6 @@
 "use server";
+import { resolveTemplateAssetCategory } from "@/lib/posting-template";
+
 import { parseTaxClassification } from "@/lib/fixed-assets-tax-groups";
 
 import { parseDepreciationFields, completeDepreciationFields, scaledDecimal, decimalString } from "@/lib/fixed-assets-rates";
@@ -287,21 +289,7 @@ export async function createFixedAsset(formData: FormData) {
       await assertFixedAssetPeriodOpen(tx, workContext.firmaId!, year.id, eventDate, year.datum_do);
       const [category, businessUnit] = await Promise.all([
         categoryId
-          ? tx.osKategorija.findFirst({
-              where: {
-                id: categoryId,
-                agencija_id: user.agencija_id!,
-                firma_id: workContext.firmaId!,
-                aktivna: true,
-                is_deleted: false
-              },
-              select: {
-                id: true,
-                konto_sredstva_id: true,
-                konto_ispravke_id: true,
-                konto_troska_id: true
-              }
-            })
+          ? resolveTemplateAssetCategory(tx, user.agencija_id!, workContext.firmaId!, categoryId, user.id)
           : null,
         businessUnitId
           ? tx.poslovnaJedinica.findFirst({

@@ -1,4 +1,5 @@
 "use server";
+import { effectivePayrollSettings } from "@/lib/posting-template";
 import {createEmploymentTermination,TerminationError} from "@/lib/create-employment-termination";
 import {employeeContractFields} from "@/lib/employee-contract-fields";
 import {auditLogInTransaction} from "@/lib/audit";
@@ -366,6 +367,8 @@ async function effectivePayrollPostingSettings(
       }
     }
   };
+  const inheritedSettings = await effectivePayrollSettings(tx, firmaId, poslovnaGodinaId, category, true);
+  if (inheritedSettings) return inheritedSettings;
   const existing = await tx.plateKontiranjePodesavanje.findUnique({
     where: {
       firma_id_poslovna_godina_id_kategorija: {

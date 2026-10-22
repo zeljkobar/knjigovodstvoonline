@@ -1,3 +1,5 @@
+import { effectivePdvSettings } from "@/lib/posting-template";
+import { PostingTemplateNotice } from "@/components/PostingTemplateNotice";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import { savePdvSettings } from "../actions";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
@@ -21,17 +23,7 @@ export default async function PdvPodesavanjaPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const context = await requirePdvContext("manage");
   const [settings, journalTypes, baseAccounts, companyAccounts, vatRates] = await Promise.all([
-    prisma.pdvPodesavanja.findUnique({
-      where: {
-        firma_id_poslovna_godina_id: {
-          firma_id: context.firma.id,
-          poslovna_godina_id: context.poslovnaGodina.id
-        }
-      },
-      include: {
-        pravila: true
-      }
-    }),
+    effectivePdvSettings(prisma, context.firma.id, context.poslovnaGodina.id),
     prisma.vrstaNaloga.findMany({
       where: {
         aktivan: true,
@@ -118,6 +110,7 @@ export default async function PdvPodesavanjaPage({ searchParams }: PageProps) {
 
   return (
     <div className="admin-stack">
+      {context.firma.id ? <PostingTemplateNotice companyId={context.firma.id!}/> : null}
       <header className="admin-header">
         <div>
           <h2>Podešavanja PDV-a</h2>
@@ -174,7 +167,9 @@ export default async function PdvPodesavanjaPage({ searchParams }: PageProps) {
                       <AccountSearchSelect
                         name="konto_id"
                         defaultValue={
-                          ruleMap.get(row.code)?.konto_id
+                          ruleMap.get(row.code)?.inherited
+                            ? (() => { const account = accounts.find(account => account.sifra === ruleMap.get(row.code)?.konto?.sifra); return account?.companyAccountId ? `company:${account.companyAccountId}` : account?.baseAccountId ? `base:${account.baseAccountId}` : ""; })()
+                            : ruleMap.get(row.code)?.konto_id
                             ? `company:${ruleMap.get(row.code)?.konto_id}`
                             : ""
                         }

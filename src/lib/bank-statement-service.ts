@@ -1,3 +1,4 @@
+import { effectiveBankRules, effectiveBankSetting } from "@/lib/posting-template";
 import "server-only";
 import { completedMailKeys } from "@/lib/mail-import-completion";
 
@@ -2213,17 +2214,7 @@ async function runBankStatementImport(formData: FormData, mail?: { firmaId: stri
   if (requestedBusinessUnitId && !businessUnit) fail("izvod_obavezno");
 
   const bankSetting = companyBankAccount
-    ? await prisma.bankStatementAccountSetting.findUnique({
-        where: {
-          firma_id_company_bank_account_id: {
-            firma_id: firma.id,
-            company_bank_account_id: companyBankAccount.id
-          }
-        },
-        select: {
-          bank_account_konto_id: true
-        }
-      })
+    ? await effectiveBankSetting(prisma, firma.id, companyBankAccount.id, true)
     : null;
   const effectiveBankAccountKonto = bankAccountKonto
     ? bankAccountKonto
@@ -2305,32 +2296,7 @@ async function runBankStatementImport(formData: FormData, mail?: { firmaId: stri
       normalizedLineAccounts
     );
     const [rules, ownBankAccounts, ownBankSettings] = await Promise.all([
-      prisma.bankPostingRule.findMany({
-        where: {
-          agencija_id: user.agencija_id,
-          active: true,
-          auto_apply: true,
-          OR: [
-            {
-              firma_id: firma.id
-            },
-            {
-              firma_id: {
-                equals: null
-              }
-            }
-          ]
-        },
-        include: {
-          account: {
-            select: {
-              id: true,
-              sifra: true,
-              analitika_obavezna: true
-            }
-          }
-        }
-      }),
+      effectiveBankRules(prisma, user.agencija_id!, firma.id),
       prisma.firmaBankovniRacun.findMany({
         where: {
           agencija_id: user.agencija_id,
@@ -2535,7 +2501,7 @@ async function runBankStatementImport(formData: FormData, mail?: { firmaId: stri
     );
   }
 
-  await prisma.bankStatementAccountSetting.upsert({
+  if (bankAccountKontoCode && (!bankSetting?.inherited || bankSetting.bank_account_konto?.sifra !== bankAccountKontoCode)) await prisma.bankStatementAccountSetting.upsert({
     where: {
       firma_id_company_bank_account_id: {
         firma_id: firma.id,
@@ -3116,32 +3082,7 @@ export async function reapplyBankStatementRules(formData: FormData) {
     redirectStatements("izvod_greska", statementId);
   }
 
-  const rules = await prisma.bankPostingRule.findMany({
-    where: {
-      agencija_id: agencijaId,
-      active: true,
-      auto_apply: true,
-      OR: [
-        {
-          firma_id: firma.id
-        },
-        {
-          firma_id: {
-            equals: null
-          }
-        }
-      ]
-    },
-    include: {
-      account: {
-        select: {
-          id: true,
-          sifra: true,
-          analitika_obavezna: true
-        }
-      }
-    }
-  });
+  const rules = await effectiveBankRules(prisma, agencijaId, firma.id);
 
   const appliedCount = await prisma.$transaction(async (tx) => {
     let applied = 0;
@@ -3193,7 +3134,7 @@ export async function reapplyBankStatementRules(formData: FormData) {
         }
       });
 
-      await tx.bankPostingRule.update({
+      if (!rule.inherited) await tx.bankPostingRule.update({
         where: {
           id: rule.id
         },
@@ -3753,22 +3694,7 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
         continue;
       }
 
-      const bankSetting = await tx.bankStatementAccountSetting.findUnique({
-        where: {
-          firma_id_company_bank_account_id: {
-            firma_id: firmaId,
-            company_bank_account_id: statement.company_bank_account_id
-          }
-        },
-        include: {
-          journal_type: {
-            select: {
-              id: true,
-              prefiks: true
-            }
-          }
-        }
-      });
+      const bankSetting = await effectiveBankSetting(tx, firmaId, statement.company_bank_account_id, true);
       const journalType = bankSetting?.journal_type ?? defaultJournalType;
 
       const openingBalance = Math.round(Number(statement.opening_balance) * 100);
