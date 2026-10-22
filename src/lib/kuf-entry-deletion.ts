@@ -20,7 +20,9 @@ export async function deleteKufEntryInTransaction(tx: Prisma.TransactionClient, 
   if (!entry) return fail("Račun nije pronađen u izabranoj firmi i godini.");
   if (entry.is_deleted) return;
   if (entry.poslovna_godina.zakljucena) fail("Poslovna godina je zaključana. Brisanje računa nije dozvoljeno dok se godina ne otključa.");
+  if (entry.source_type === "SUPPLIER_RETURN") fail("Račun je kreiran kroz povrat dobavljaču i ne može se zasebno brisati.");
   if (entry.posting_mode !== "KUF_RULES" || entry.source_type === "CALCULATION") fail("Račun je preuzet iz drugog dokumenta. Brisanje pokrenite iz izvorne kalkulacije.");
+  if (await tx.povratDobavljacu.count({ where: { originalni_kuf_id: entry.id, is_deleted: false } })) fail("Račun je povezan sa povratom dobavljaču.");
   if (!entry.kuf_book || entry.kuf_book.is_deleted || entry.kuf_book.status !== "OPEN") return fail("KUF knjiga je zaključana ili nije dostupna za izmjene.");
   if (!["UNPOSTED", "POSTED"].includes(entry.posting_status)) fail("Status računa ne dozvoljava brisanje.");
   const journal = entry.journal_id ? await tx.nalog.findFirst({where:{id:entry.journal_id,...scope,is_deleted:false}}) : null;

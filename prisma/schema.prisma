@@ -34,6 +34,7 @@ enum KomitentScope {
 }
 
 model Agencija {
+  povratiDobavljacu PovratDobavljacu[]
   knjizenjeTemplate AgencijaKnjizenjeTemplate?
   sepAutomatika SepAutomatikaPodesavanje[]
   sepObrade SepAutomatikaObrada[]
@@ -204,6 +205,7 @@ model AgencijaBankovniRacun {
 }
 
 model Firma {
+  povratiDobavljacu PovratDobavljacu[]
   knjizenjeTemplate AgencijaKnjizenjeTemplate[]
   sepAutomatika SepAutomatikaPodesavanje?
   sepObrade SepAutomatikaObrada[]
@@ -589,6 +591,7 @@ model AktivnostDogadjaj {
 }
 
 model PoslovnaGodina {
+  povratiDobavljacu PovratDobavljacu[]
   mapr_import_podaci MaprImportPodatak[]
   putni_nalozi PutniNalog[]
   osPoreskeGodine OsPoreskaGodina[]
@@ -640,6 +643,7 @@ model PoslovnaGodina {
 }
 
 model Komitent {
+  povratiDobavljacu PovratDobavljacu[]
   id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   naziv                 String
   scope                 KomitentScope          @default(GLOBAL)
@@ -920,6 +924,7 @@ model RacunKontiranjePravilo {
 }
 
 model PdvStopa {
+  stavkePovrataDobavljacu StavkaPovrataDobavljacu[]
   id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id String            @db.Uuid
   agencija    Agencija          @relation(fields: [agencija_id], references: [id])
@@ -986,6 +991,7 @@ model GrupaArtikla {
 }
 
 model PoslovnaJedinica {
+  povratiDobavljacu PovratDobavljacu[]
   id               String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id      String                 @db.Uuid
   agencija         Agencija               @relation(fields: [agencija_id], references: [id])
@@ -1030,6 +1036,7 @@ model PoslovnaJedinica {
 }
 
 model Magacin {
+  povratiDobavljacu PovratDobavljacu[]
   id                      String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id             String                 @db.Uuid
   agencija                Agencija               @relation(fields: [agencija_id], references: [id])
@@ -1071,6 +1078,7 @@ model Magacin {
 }
 
 model Artikal {
+  stavkePovrataDobavljacu StavkaPovrataDobavljacu[]
   id                        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id               String                   @db.Uuid
   agencija                  Agencija                 @relation(fields: [agencija_id], references: [id])
@@ -1157,6 +1165,7 @@ model CijenaArtikla {
 }
 
 model Kalkulacija {
+  povratiDobavljacu PovratDobavljacu[]
   id                                 String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id                        String                     @db.Uuid
   agencija                           Agencija                   @relation(fields: [agencija_id], references: [id])
@@ -1252,6 +1261,7 @@ model DobavljacArtikalVeza {
 }
 
 model StavkaKalkulacije {
+  stavkePovrataDobavljacu StavkaPovrataDobavljacu[]
   id                             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   kalkulacija_id                 String         @db.Uuid
   kalkulacija                    Kalkulacija    @relation(fields: [kalkulacija_id], references: [id], onDelete: Cascade)
@@ -1586,6 +1596,101 @@ model StavkaOtpisaRobe {
   @@map("stavke_otpisa_robe")
 }
 
+model PovratDobavljacu {
+  id                              String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id                     String                     @db.Uuid
+  agencija                        Agencija                   @relation(fields: [agencija_id], references: [id])
+  firma_id                        String                     @db.Uuid
+  firma                           Firma                      @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id              String                     @db.Uuid
+  poslovna_godina                 PoslovnaGodina             @relation(fields: [poslovna_godina_id], references: [id])
+  magacin_id                      String                     @db.Uuid
+  magacin                         Magacin                    @relation(fields: [magacin_id], references: [id])
+  poslovna_jedinica_id            String?                    @db.Uuid
+  poslovna_jedinica               PoslovnaJedinica?          @relation(fields: [poslovna_jedinica_id], references: [id])
+  dobavljac_id                    String                     @db.Uuid
+  dobavljac                       Komitent                   @relation(fields: [dobavljac_id], references: [id])
+  kalkulacija_id                  String?                    @db.Uuid
+  kalkulacija                     Kalkulacija?               @relation(fields: [kalkulacija_id], references: [id], onDelete: Restrict)
+  originalni_kuf_id               String?                    @db.Uuid
+  originalni_kuf                  KufEntry?                  @relation("ReturnOriginalKuf", fields: [originalni_kuf_id], references: [id], onDelete: Restrict)
+  kuf_book_id                     String?                    @db.Uuid
+  kuf_book                        KufBook?                   @relation(fields: [kuf_book_id], references: [id], onDelete: Restrict)
+  kuf_entry_id                    String?                    @unique @db.Uuid
+  kuf_entry                       KufEntry?                  @relation("ReturnCreatedKuf", fields: [kuf_entry_id], references: [id], onDelete: Restrict)
+  broj_odobrenja                  String
+  ukupna_osnovica                 Decimal                    @default(0) @db.Decimal(14,2)
+  ukupni_ulazni_pdv               Decimal                    @default(0) @db.Decimal(14,2)
+  ukupno_odobrenje                Decimal                    @default(0) @db.Decimal(14,2)
+  nalog_id                        String?                    @unique @db.Uuid
+  nalog                           Nalog?                     @relation(fields: [nalog_id], references: [id])
+  broj                            Int
+  interni_broj                    String
+  datum                           DateTime                   @db.Date
+  status                          String                     @default("DRAFT")
+  napomena                        String?
+  ukupna_nabavna_vrijednost       Decimal                    @default(0) @db.Decimal(14, 2)
+  ukupna_maloprodajna_vrijednost  Decimal                    @default(0) @db.Decimal(14, 2)
+  ukupna_razlika_u_cijeni         Decimal                    @default(0) @db.Decimal(14, 2)
+  ukupni_ukalkulisani_pdv         Decimal                    @default(0) @db.Decimal(14, 2)
+  posted_at                       DateTime?
+  posted_by                       String?                    @db.Uuid
+  is_deleted                      Boolean                    @default(false)
+  deleted_at                      DateTime?
+  deleted_by                      String?                    @db.Uuid
+  delete_reason                   String?
+  created_at                      DateTime                   @default(now())
+  created_by                      String?                    @db.Uuid
+  updated_at                      DateTime                   @updatedAt
+  updated_by                      String?                    @db.Uuid
+  stavke                          StavkaPovrataDobavljacu[]
+
+  @@unique([firma_id, poslovna_godina_id, broj])
+  @@unique([firma_id, poslovna_godina_id, interni_broj])
+  @@index([agencija_id, firma_id, poslovna_godina_id, status, is_deleted])
+  @@index([magacin_id, datum])
+  @@index([poslovna_jedinica_id])
+  @@index([kalkulacija_id], map: "povrat_kalkulacija_idx")
+  @@index([dobavljac_id], map: "povrat_dobavljac_idx")
+  @@index([originalni_kuf_id], map: "povrat_originalni_kuf_idx")
+  @@map("povrati_dobavljacu")
+}
+
+model StavkaPovrataDobavljacu {
+  id                              String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  povrat_dobavljacu_id            String                     @db.Uuid
+  povrat_dobavljacu               PovratDobavljacu           @relation(fields: [povrat_dobavljacu_id], references: [id], onDelete: Cascade)
+  redni_broj                      Int
+  artikal_id                      String                     @db.Uuid
+  artikal                         Artikal                    @relation(fields: [artikal_id], references: [id])
+  kolicina                        Decimal                    @db.Decimal(18, 3)
+  cijena_odobrenja                Decimal                    @db.Decimal(14,4)
+  pdv_stopa_id                    String                     @db.Uuid
+  pdv_stopa                       PdvStopa                   @relation(fields: [pdv_stopa_id], references: [id])
+  pdv_procenat                    Decimal                    @db.Decimal(5,2)
+  osnovica                        Decimal                    @default(0) @db.Decimal(14,2)
+  ulazni_pdv                      Decimal                    @default(0) @db.Decimal(14,2)
+  stavka_kalkulacije_id           String?                    @db.Uuid
+  stavka_kalkulacije              StavkaKalkulacije?         @relation(fields: [stavka_kalkulacije_id], references: [id], onDelete: Restrict)
+  jedinicna_nabavna_cijena        Decimal                    @default(0) @db.Decimal(14, 4)
+  nabavna_vrijednost              Decimal                    @default(0) @db.Decimal(14, 2)
+  prodajna_cijena_sa_pdv          Decimal                    @default(0) @db.Decimal(14, 4)
+  maloprodajna_vrijednost         Decimal                    @default(0) @db.Decimal(14, 2)
+  razlika_u_cijeni                Decimal                    @default(0) @db.Decimal(14, 2)
+  ukalkulisani_pdv                Decimal                    @default(0) @db.Decimal(14, 2)
+  napomena                        String?
+  created_at                      DateTime                   @default(now())
+  created_by                      String?                    @db.Uuid
+  updated_at                      DateTime                   @updatedAt
+  updated_by                      String?                    @db.Uuid
+
+  @@unique([povrat_dobavljacu_id, redni_broj])
+  @@unique([povrat_dobavljacu_id, artikal_id])
+  @@index([artikal_id])
+  @@index([stavka_kalkulacije_id], map: "povrat_stavka_kalkulacije_idx")
+  @@map("stavke_povrata_dobavljacu")
+}
+
 model NivelacijaCijena {
   id                                       String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id                              String                   @db.Uuid
@@ -1661,6 +1766,8 @@ model StavkaNivelacijeCijena {
 }
 
 model KufEntry {
+  izvorniPovrati PovratDobavljacu[] @relation("ReturnOriginalKuf")
+  kreiraniPovrat PovratDobavljacu? @relation("ReturnCreatedKuf")
   id                         String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   kuf_book_id                String?                       @db.Uuid
   kuf_book                   KufBook?                      @relation(fields: [kuf_book_id], references: [id])
@@ -1736,6 +1843,7 @@ model KufEntry {
 }
 
 model KufBook {
+  povratiDobavljacu PovratDobavljacu[]
   id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id         String         @db.Uuid
   agencija            Agencija       @relation(fields: [agencija_id], references: [id])
@@ -2305,6 +2413,7 @@ model VrstaNaloga {
 }
 
 model Nalog {
+  povratDobavljacu PovratDobavljacu?
   putniNalog PutniNalog?
   osObracun OsObracun?
   id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

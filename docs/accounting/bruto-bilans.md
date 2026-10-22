@@ -46,6 +46,24 @@ konkretan konto sa obaveznom partner analitikom (npr. kupci, dobavljači,
 avansi). Klik na partnera vodi na analitičku karticu sa izabranim kontom i
 partnerom.
 
+Dugme „Štampaj pregled” otvara `/stampa/kupci-dobavljaci` sa istim kontom
+i datumima. Ekran i štampa dijele učitavanje i sabiranje u centima. Čista A4
+pejzažna stranica sadrži firmu, godinu, filtere, partnere/PIB, promet, otvorene
+salde i ukupne iznose; zaglavlje tabele se ponavlja pri štampi. Direktna ruta
+provjerava prava `nalozi:view` i `nalozi:export` i scope aktivne firme/godine.
+
+## Dnevnik knjiženja
+
+`Nalozi → Dnevnik knjiženja` prikazuje svaku stavku proknjiženih, neobrisanih
+naloga aktivne firme/godine. Redoslijed: datum naloga rastuće, vrijeme kreiranja
+naloga, ID naloga i redni broj stavke. Filter perioda odnosi se na datum naloga.
+Prikaz uključuje konto, partnera/PIB, dokument i datum dokumenta, opis i iznose.
+Filteri svih kolona kombinuju se na backendu prije paginacije i zbirova, a
+štampa prenosi iste filtere. Duguje/potražuje su tačni iznosi (decimalni zarez
+ili tačka); R. br. bira red u rezultatu ostalih filtera.
+Ekran ima stranice po 100 stavki; zbir obuhvata cijeli period. Štampa obuhvata sve
+stavke perioda na A4 pejzažno. Prava su `nalozi:view`, za štampu i `nalozi:export`.
+
 ## Kontrole
 - `duguje = potražuje` na svakom nalogu.
 - Nema POSTED naloga bez stavki.

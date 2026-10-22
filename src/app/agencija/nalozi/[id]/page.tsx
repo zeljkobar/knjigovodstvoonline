@@ -202,7 +202,7 @@ export default async function NalogDetailPage({
   );
   const balanced = Math.round(totalDebit * 100) === Math.round(totalCredit * 100);
   const isTravelJournal = nalog.source_module === "PUTNI_NALOZI";
-  const isProtectedSourceJournal = nalog.source_module === "OSNOVNA_SREDSTVA" || isTravelJournal;
+  const isProtectedSourceJournal = ["OSNOVNA_SREDSTVA", "SUPPLIER_RETURN"].includes(nalog.source_module ?? "") || isTravelJournal;
   const depreciationBatchHref =
     nalog.source_type === "DEPRECIATION" && nalog.izvorni_dokument_id
       ? `/agencija/osnovna-sredstva/obracuni/${nalog.izvorni_dokument_id}`
@@ -458,7 +458,7 @@ export default async function NalogDetailPage({
               </form>
             ) : null}
             {canUpdate && nalog.status === journalStatuses.posted &&
-            !["PLATE", "OSNOVNA_SREDSTVA", "PUTNI_NALOZI"].includes(nalog.source_module ?? "") ? (
+            !["PLATE", "OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN"].includes(nalog.source_module ?? "") ? (
               <form action={reopenJournal}>
                 <input name="nalog_id" type="hidden" value={nalog.id} />
                 <button className="secondary-button" type="submit">

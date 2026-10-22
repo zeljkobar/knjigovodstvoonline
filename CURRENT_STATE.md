@@ -1,12 +1,23 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-10-18. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-10-22. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Dnevnik knjiženja — 2026-10-22
+
+- Nalozi → Dnevnik knjiženja prikazuje sve stavke POSTED/neobrisanih naloga
+  aktivne firme i godine, hronološki po datumu naloga, zatim stabilno po nalogu
+  i rednom broju stavke. Prikazuje konto, partnera, dokument, opis i duguje/potražuje.
+- Kombinovani filteri svih kolona: period, red pregleda, nalog/stavka, konto,
+  partner/PIB, dokument/datum, opis i tačni duguje/potražuje iznosi. Pretraga
+  važi na svim stranicama i štampi; 100 stavki po stranici, link na nalog i zbir cijelog perioda
+  u centima. Čista A4 pejzažna štampa obuhvata sve stranice i ponavlja zaglavlje.
+  Backend provjerava view/export prava i scope; čitanje koristi konzistentan snapshot.
 
 ## Template firma za knjiženje — 2026-10-18
 
@@ -1017,7 +1028,9 @@ je od samodeaktivacije i samostalne rotacije.
   prethodnu godinu ili već postojeći aktivni nalog početnog stanja.
 - Stranica Kupci / dobavljači prikazuje zbirno otvoreni saldo po partnerima
   za izabrani konto sa obaveznom partner analitikom iz proknjiženih naloga, sa
-  linkom na analitičku karticu partnera.
+  linkom na analitičku karticu partnera. Dugme „Štampaj pregled” prenosi konto
+  i datume na čistu A4 pejzažnu štampu sa partnerima, prometom, otvorenim saldima
+  i zbirovima. Zajednički izvor računa u centima; štampa provjerava i pravo izvoza.
 - Pretraga partnera u nalozima i analitičkim karticama je **async** (ne učitava
   svih ~64k); `pg_trgm` GIN indeks na `komitenti.naziv` + btree na `pib`/`scope`.
 - Ruta `/agencija/nalozi/analiticke-kartice` koristi isti master-detail prikaz
@@ -1036,6 +1049,43 @@ je od samodeaktivacije i samostalne rotacije.
   aktivnu jedinicu; postojeći istorijski podaci i izvještaji ostaju dostupni.
 
 ### Modul 4 — Robno knjigovodstvo
+- Stanje usklađeno sa kodom 2026-10-22. Uvozna kalkulacija,
+  zaseban povrat kupca, zaseban pregled razduženja lagera i kontrole zaliha još
+  su placeholder stranice. Razduženje kroz izlazne fakture/POS i potpuni storno
+  računa sa povratom robe postoje; to ne znači da postoji samostalan dokument
+  povrata kupca. Ručna korekcija raspodjele zavisnih troškova nije implementirana.
+- Domaći povrat dobavljaču je implementiran na `/agencija/robno/povrat-dobavljacu`:
+  lista/pretraga, nacrt, izmjena zaglavlja/stavki, soft delete nacrta i HTML/CSS
+  štampa. Pozitivne količine predstavljaju izlaz robe. Opcione veze na izvornu
+  kalkulaciju, KUF račun i konkretnu stavku provjeravaju dobavljača, firmu,
+  magacin i datume; izvor može biti iz prethodne godine. Ukupni proknjiženi
+  povrati povezane stavke ne mogu preći izvornu količinu.
+- Knjiženje povrata u jednoj Serializable transakciji razdužuje lager po
+  prosječnoj nabavnoj cijeni (uz cijenu odobrenja kao rezervu kada prosjeka nema),
+  čuva MP vrijednost/RUC/ukalkulisani PDV, kreira izbalansiran `POSTED` nalog
+  `SUPPLIER_RETURN` i negativan KUF zapis sa poreskim stavkama i
+  `SOURCE_DOCUMENT` režimom. KUF knjiga istog mjeseca bira se prije knjiženja;
+  nema ponovnog knjiženja kroz KUF šemu. Firma van PDV-a ne ispravlja odbitni
+  PDV; puni iznos odobrenja poredi se sa nabavnom vrijednošću.
+- Šema u Robno → Podešavanja pokriva dobavljača, robu, ulazni PDV, RUC,
+  ukalkulisani PDV i razliku odobrenja/lagera (trošak klase 5 ili prihod klase 6).
+  Nedostajuća pravila nasljeđuju se iz template firme. Dobavljačka stavka ima
+  partnera; konta i poslovna jedinica validiraju se prije potvrde. Proknjižen
+  povrat i njegov nalog su zaključani za opšte izmjene, vraćanje u nacrt i
+  brisanje; namjenski storno/ponovno otvaranje nije implementirano.
+- Mutacije povrata ponovo provjeravaju aktivnog korisnika/agenciju/firmu,
+  dodjelu, prava i godinu/PDV period pod zaključavanjem. Knjiženje zahtijeva
+  `robno:post`, `nalozi:create+post` i `ulazni_racuni:create`, uz `robno:view`.
+  Audit je u istoj transakciji; ponavljanje ne duplira promet ili KUF.
+  Migracije `20261022120000_povrat_dobavljacu` i
+  `20261022121000_povrat_kuf_integritet` primijenjene su lokalno; Prisma
+  regenerisan i dev restartovan. Purge pokriva 83 direktne tabele; stavke bez
+  firma_id brišu se kaskadno prije povezanih kalkulacija/KUF-a/artikala.
+- QA povrata: obračunski testovi i DB rollback regresija pokrivaju MP/VP,
+  PDV/van-PDV, razliku cijena, ograničenje izvorne količine, scope/prava,
+  zaključavanja, idempotentnost, audit rollback, stvarni KUF/PDV obračun,
+  template, server action, render detalja/štampe i purge testne firme.
+  Inostrani povrat sa carinskom korekcijom ostaje dio budućeg uvoznog toka.
 - Robni meni je grupisan na `Pregled`, `Šifarnici`, `Nabavku`, `Prodaju`,
   `Promet robe`, `Zalihe` i `Podešavanja`; izlazne fakture su samo pod Robnim,
   dok `Računi` ostaju KIF/KUF tok.
@@ -1079,6 +1129,12 @@ je od samodeaktivacije i samostalne rotacije.
 - Tabela stavki je svedena na grupisane obračunske kolone, a novi artikal se
   može kreirati direktno iz kalkulacije uz obaveznu početnu maloprodajnu cijenu
   i automatski izbor novog artikla.
+- Izbor artikla u kalkulaciji i povratu dobavljaču podržava kucanje šifre ili
+  dijela naziva i izbor tastaturom/mišem, kao izbor konta. Brzi unos kalkulacije
+  dodaje bez redirecta, prikazuje lokalnu poruku i osvježava zbirove/tabelu.
+  Enter bira artikal i prelazi na količinu, fakturnu cijenu, rabat i prodajnu
+  cijenu; posljednji Enter dodaje stavku, prazni unos i fokusira novu šifru bez
+  skoka na vrh. Izmjena/brisanje vraćaju na tabelu.
 - Zavisni troškovi (prevoz, špedicija, osiguranje, ostalo) automatski se
   raspoređuju po neto vrijednosti robe metodom najvećeg ostatka, tako da zbir
   raspodjele tačno odgovara unesenom iznosu. Njihove posebne dobavljačke
@@ -1096,9 +1152,19 @@ je od samodeaktivacije i samostalne rotacije.
   `Robno / Podešavanja` definiše D/P konta za robu, ulazni PDV, dobavljača,
   razliku u cijeni, ukalkulisani PDV i zavisne troškove. Knjiženje koristi tu
   firm-specific šemu i blokira nepotpun ili nebalansiran nalog.
+- Šema kalkulacije podržava dinamičke redove po PDV stopama za sve namjene,
+  uključujući odvojeni ulazni i ukalkulisani PDV. `GENERAL` pokriva samo stope
+  bez posebnog pravila. Šema izlaznih faktura podržava prihode i izlazni PDV po
+  stopama. Obje koriste migraciju `20261007140000_invoice_rate_posting_rules`.
+  Robne šeme mogu dinamički naslijediti nedostajuća pravila iz template firme
+  agencije; lokalna pravila imaju prednost. Raniji nalozi se ne mijenjaju.
 - Ekrani `/agencija/robno/kalkulacije` i detalj kalkulacije imaju unos
   zaglavlja, brzi unos i tabelarnu izmjenu stavki, zavisne troškove, zbirne
-  pokazatelje, soft delete nacrta i kontrolisano knjiženje. HTML/CSS štampa je
+  pokazatelje, soft delete nacrta i kontrolisano knjiženje. Brisanje završene
+  kalkulacije zahtijeva razlog, potvrdu i dodatna prava za nalog/KUF, poništava
+  lager i povlači povezane cijene; zasebni nalog i izvorni KUF zapis ostaju
+  soft-deleted. Naknadni promet, plaćanja i druge zavisnosti blokiraju brisanje.
+  HTML/CSS štampa je
   A4 landscape, sa širokom tabelom, PDV rekapitulacijom, vrijednosnim pregledom
   i potpisima.
 - Nova kalkulacija može se pripremiti direktno iz fiskalnog MAPR linka. Server
@@ -1203,6 +1269,11 @@ je od samodeaktivacije i samostalne rotacije.
   štampa.
 
 ### Modul 6 — Računi, KIF i KUF
+- Otvaranje nove KUF/KIF knjige kontrolisano odbija zaključan PDV period,
+  uključujući posljednji dan mjeseca (SQL DATE poređenje). Forma označava
+  zaključane mjesece i blokira potvrdu; backend ponavlja provjere pod zaključavanjem
+  firme/godine i perioda i vraća jasnu poruku. Datum van mjeseca/godine se odbija.
+  Rollback regresija provjerava oba stvarna server action toka i render forme.
 - PDV stope dinamičke u podešavanjima.
 - KIF/KUF knjige po mjesecu, datumu i vrsti knjige; vrste su dinamičke.
 - KIF podržava zbirni dnevni ili mjesečni pazar. Unose se period, ukupan pazar,

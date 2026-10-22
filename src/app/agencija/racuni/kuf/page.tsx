@@ -13,6 +13,9 @@ type KufPageProps = {
 };
 
 const poruke: Record<string, string> = {
+  kuf_pdv_zakljucan: "PDV period za izabrani mjesec je zaključan. Novu knjigu možete otvoriti tek nakon kontrolisanog otključavanja u PDV modulu.",
+  kuf_godina_zakljucana: "Poslovna godina je zaključana. Otvaranje knjige nije dozvoljeno.",
+  kuf_datum: "Datum knjige mora pripadati izabranom mjesecu i godini.",
   kuf_kontekst: "Izaberite aktivnu firmu i poslovnu godinu.",
   kuf_mjesec: "Izaberite ispravan mjesec.",
   kuf_vrsta: "Izaberite ispravnu vrstu KUF-a.",
@@ -107,6 +110,11 @@ export default async function KufPage({ searchParams }: KufPageProps) {
         })
       : [];
 
+  const lockedPeriods = activeCompany && activeYear ? await prisma.pdvPeriod.findMany({
+    where: { firma_id: activeCompany.id, poslovna_godina_id: activeYear.id, status: "LOCKED" },
+    select: { mjesec: true }
+  }) : [];
+
   return (
     <div className="admin-stack">
       <header className="admin-header">
@@ -138,6 +146,7 @@ export default async function KufPage({ searchParams }: KufPageProps) {
             disabled={activeYear.zakljucena || kufTypes.length === 0}
             invoiceTypes={kufTypes}
             year={activeYear.godina}
+            lockedMonths={lockedPeriods.map(period => period.mjesec)}
           />
         </section>
       )}

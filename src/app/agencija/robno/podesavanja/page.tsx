@@ -1,3 +1,5 @@
+import { supplierReturnFields, supplierReturnScope } from "@/lib/supplier-return";
+import { saveSupplierReturnSettings } from "./actions";
 import { PostingTemplateNotice } from "@/components/PostingTemplateNotice";
 import { effectiveDefaultAccounts } from "@/lib/posting-template";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
@@ -25,6 +27,7 @@ type PageProps = {
 };
 
 const messages: Record<string, string> = {
+  povrat_sacuvano: "Šema povrata dobavljaču je sačuvana.",
   sacuvano: "Podešavanja knjiženja kalkulacije su sačuvana.",
   prava: "Nemate pravo da mijenjate robna podešavanja.",
   neispravna_konta: "Izabrano konto nije dostupno u kontnom planu firme.",
@@ -72,6 +75,7 @@ export default async function InventorySettingsPage({ searchParams }: PageProps)
   const countSettingMap = new Map(countSettings.map((setting) => [setting.namjena, setting]));
   const writeOffSettingMap = new Map(writeOffSettings.map((setting) => [setting.namjena, setting]));
   const adjustmentSettingMap = new Map(adjustmentSettings.map((setting) => [setting.namjena, setting]));
+  const returnSettings = await effectiveDefaultAccounts(prisma, { where: { firma_id: context.firma.id, dokument_tip: supplierReturnScope.documentType, podvrsta: supplierReturnScope.subtype, pdv_stopa_sifra: "GENERAL" } });
   const transferAccounts = accounts.filter((account) => !account.analitika_obavezna);
 
   return (
@@ -81,12 +85,22 @@ export default async function InventorySettingsPage({ searchParams }: PageProps)
         <div>
           <p className="eyebrow">Robno</p>
           <h2>Podešavanja</h2>
-          <p className="muted-text">Konta koja program koristi kada knjiži domaću kalkulaciju.</p>
+          <p className="muted-text">Konta za kalkulacije, povrate i ostale robne dokumente.</p>
         </div>
       </header>
 
       {poruka ? <p className="admin-message">{messages[poruka] ?? poruka}</p> : null}
 
+      <section className="admin-panel">
+        <h3>Šema povrata dobavljaču</h3>
+        <p className="muted-text">Smanjenje obaveze i ulaznog PDV-a, razduženje robe i odvojena razlika između odobrenja i nabavne vrijednosti. Popunite konta koja dokument koristi.</p>
+        <form action={saveSupplierReturnSettings} className="admin-form">
+          <input type="hidden" name="firma_id" value={context.firma.id} />
+          <div className="form-wide table-wrap"><table className="admin-table"><thead><tr><th>Namjena</th><th>Smjer</th><th>Konto</th></tr></thead><tbody>{supplierReturnFields.map(field => <tr key={field.purpose}><td>{field.label}</td><td>{field.direction === "D" ? "Duguje" : "Potražuje"}</td><td><AccountSearchSelect name={`konto_${field.purpose}`} defaultValue={returnSettings.find(s => s.namjena === field.purpose)?.sifra_konta ?? ""}><option value="">Nije podešeno</option>{accounts.filter(a => (field.purpose === "RETURN_SUPPLIER" || !a.analitika_obavezna) && (field.purpose !== "RETURN_LOSS" || a.sifra.startsWith("5")) && (field.purpose !== "RETURN_GAIN" || a.sifra.startsWith("6"))).map(a => <option key={a.sifra} value={a.sifra}>{a.sifra} · {a.naziv}</option>)}</AccountSearchSelect></td></tr>)}</tbody></table></div>
+          <p className="admin-hint form-wide">Dobavljač se prenosi na dobavljačko konto. Maloprodaja koristi i RUC/ukalkulisani PDV. Prazan lokalni izbor isključuje nasljeđivanje tog konta.</p>
+          <div className="form-actions form-wide"><button className="primary-button" type="submit">Sačuvaj šemu povrata</button></div>
+        </form>
+      </section>
       <section className="admin-panel">
         <div className="panel-header">
           <div>

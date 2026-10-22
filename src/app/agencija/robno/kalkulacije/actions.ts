@@ -52,7 +52,8 @@ function parseDate(value: FormDataEntryValue | null) {
 }
 
 function calculationRedirect(path: string, poruka: string): never {
-  redirect(`${path}${path.includes("?") ? "&" : "?"}poruka=${encodeURIComponent(poruka)}`);
+  const [base, anchor] = path.split("#");
+  redirect(`${base}${base.includes("?") ? "&" : "?"}poruka=${encodeURIComponent(poruka)}${anchor ? `#${anchor}` : ""}`);
 }
 
 function detailPath(id: string) {
@@ -1123,12 +1124,25 @@ export async function updateCalculationHeader(formData: FormData) {
 }
 
 export async function addCalculationLine(formData: FormData) {
+  await saveCalculationLine(formData);
+}
+
+export async function addCalculationLineInline(previous: { saved: number; error?: string }, formData: FormData) {
+  const result = await saveCalculationLine(formData, true);
+  return { saved: (Number.isSafeInteger(previous.saved) ? previous.saved : 0) + (result?.error ? 0 : 1), error: result?.error };
+}
+
+async function saveCalculationLine(formData: FormData, inline = false) {
+  const fail = (code: string) => {
+    if (!inline) calculationRedirect(path, code);
+    return { error: code };
+  };
   const id = text(formData.get("kalkulacija_id"));
-  const path = detailPath(id);
+  const path = detailPath(id) + "#brzi-unos-stavke";
   const firmaId = text(formData.get("firma_id"));
   const context = await requireCalculationContext("update", firmaId, path);
   const current = await editableCalculation(id, firmaId, context.agencijaId, context.godina.id);
-  if (!current) calculationRedirect(path, "nije_nacrt");
+  if (!current) return fail("nije_nacrt");
 
   const itemId = text(formData.get("artikal_id"));
   const quantity = parseScaledInteger(text(formData.get("kolicina")), 3);
@@ -1147,7 +1161,7 @@ export async function addCalculationLine(formData: FormData) {
     saleGross === null ||
     saleGross <= BigInt(0)
   ) {
-    calculationRedirect(path, "stavka_iznosi");
+    return fail("stavka_iznosi");
   }
 
   const item = await prisma.artikal.findFirst({
@@ -1162,7 +1176,7 @@ export async function addCalculationLine(formData: FormData) {
     },
     select: { id: true, pdv_stopa: { select: { procenat: true } } }
   });
-  if (!item) calculationRedirect(path, "stavka_artikal");
+  if (!item) return fail("stavka_artikal");
   const vat = item.pdv_stopa ? decimalToScaled(item.pdv_stopa.procenat, 2) : BigInt(0);
   const amount = calculateLineAmounts({
     quantityMilli: quantity,
@@ -1223,13 +1237,14 @@ export async function addCalculationLine(formData: FormData) {
     novaVrijednost: createdLine
   });
   revalidateCalculation(id);
+  if (inline) return { error: undefined };
   calculationRedirect(path, "stavka_dodata");
 }
 
 export async function updateCalculationLine(formData: FormData) {
   const id = text(formData.get("kalkulacija_id"));
   const lineId = text(formData.get("stavka_id"));
-  const path = detailPath(id);
+  const path = detailPath(id) + "#stavke-kalkulacije";
   const firmaId = text(formData.get("firma_id"));
   const context = await requireCalculationContext("update", firmaId, path);
   const current = await editableCalculation(id, firmaId, context.agencijaId, context.godina.id);
@@ -1324,7 +1339,7 @@ export async function updateCalculationLine(formData: FormData) {
 export async function deleteCalculationLine(formData: FormData) {
   const id = text(formData.get("kalkulacija_id"));
   const lineId = text(formData.get("stavka_id"));
-  const path = detailPath(id);
+  const path = detailPath(id) + "#stavke-kalkulacije";
   const firmaId = text(formData.get("firma_id"));
   const context = await requireCalculationContext("delete", firmaId, path);
   const current = await editableCalculation(id, firmaId, context.agencijaId, context.godina.id);

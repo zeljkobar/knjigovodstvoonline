@@ -5,6 +5,7 @@ import { createKifBook } from "@/app/agencija/racuni/actions";
 
 type KifBookFormProps = {
   disabled?: boolean;
+  lockedMonths?: number[];
   invoiceTypes: {
     id: string;
     sifra: string;
@@ -40,9 +41,10 @@ function lastDayOfMonth(year: number, month: number) {
   return new Date(Date.UTC(year, month, 0));
 }
 
-export function KifBookForm({ disabled = false, invoiceTypes, year }: KifBookFormProps) {
+export function KifBookForm({ disabled = false, lockedMonths = [], invoiceTypes, year }: KifBookFormProps) {
   const currentMonth = new Date().getFullYear() === year ? new Date().getMonth() + 1 : 1;
   const [month, setMonth] = useState(currentMonth);
+  const periodLocked = lockedMonths.includes(month);
 
   const kifDate = useMemo(() => inputDate(lastDayOfMonth(year, month)), [month, year]);
 
@@ -68,7 +70,7 @@ export function KifBookForm({ disabled = false, invoiceTypes, year }: KifBookFor
         >
           {months.map((name, index) => (
             <option key={name} value={index + 1}>
-              {name} {year}
+              {name} {year}{lockedMonths.includes(index + 1) ? " — PDV zaključan" : ""}
             </option>
           ))}
         </select>
@@ -77,7 +79,8 @@ export function KifBookForm({ disabled = false, invoiceTypes, year }: KifBookFor
         <span>Datum KIF-a</span>
         <input name="kif_date" type="date" value={kifDate} readOnly tabIndex={-1} />
       </label>
-      <button type="submit" disabled={disabled}>
+      {periodLocked ? <p role="alert" className="admin-message form-wide">PDV period za izabrani mjesec je zaključan. Administrator agencije može ga kontrolisano otključati u PDV modulu, uz razlog.</p> : null}
+      <button type="submit" disabled={disabled || periodLocked}>
         Novi KIF
       </button>
     </form>

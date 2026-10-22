@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalculationItemPicker } from "@/components/CalculationItemPicker";
+import { CalculationLineEntryForm } from "@/components/CalculationLineEntryForm";
 import { PartnerSearchInput } from "@/components/PartnerSearchInput";
 import {
   calculationSaleTypes,
@@ -16,7 +16,6 @@ import {
   MissingInventoryContext
 } from "../../_shared";
 import {
-  addCalculationLine,
   addDependentCost,
   deleteCalculation,
   deleteCalculationLine,
@@ -297,12 +296,12 @@ export default async function CalculationDetailPage({ params, searchParams }: Pa
       ) : null}
 
       {editable ? (
-        <section className="admin-form-section calculation-line-entry">
+        <section id="brzi-unos-stavke" className="admin-form-section calculation-line-entry" style={{ scrollMarginTop: 18 }}>
           <div className="panel-header"><div><h3>Brzi unos stavke</h3><p className="muted-text">Prodajna cijena sa PDV-om je obavezna; marža i RUC se računaju automatski.</p></div><span>{items.length} artikala</span></div>
-          <form action={addCalculationLine} className="admin-form calculation-item-form">
-            <input type="hidden" name="firma_id" value={firmaId} />
-            <input type="hidden" name="kalkulacija_id" value={id} />
-            <CalculationItemPicker
+          {poruka?.startsWith("stavka_") ? <p role="status" className="admin-message">{messages[poruka] ?? poruka}</p> : null}
+          <CalculationLineEntryForm
+            companyId={firmaId}
+            calculationId={id}
               groups={groups.map((group) => ({ id: group.id, label: `${group.sifra} · ${group.naziv}` }))}
               units={units.map((unit) => ({ id: unit.id, label: `${unit.oznaka} · ${unit.naziv}` }))}
               vatRates={vatRates.map((rate) => ({ id: rate.id, label: `${rate.naziv} · ${rate.procenat.toString()}%` }))}
@@ -314,19 +313,14 @@ export default async function CalculationDetailPage({ params, searchParams }: Pa
                 vatPercent: item.pdv_stopa?.procenat.toString() ?? "0",
                 saleGrossPrice: item.cijene[0]?.cijena_sa_pdv.toString() ?? ""
               }))}
-            />
-            <label><span>Količina</span><input name="kolicina" inputMode="decimal" placeholder="1,000" required /></label>
-            <label><span>Fakturna cijena bez PDV</span><input name="fakturna_cijena" inputMode="decimal" placeholder="0,0000" required /></label>
-            <label><span>Rabat %</span><input name="rabat_procenat" inputMode="decimal" defaultValue="0" /></label>
-            <label><span>Prodajna cijena sa PDV *</span><input id="calculation-sale-price" name="prodajna_cijena_sa_pdv" inputMode="decimal" placeholder="0,00" required /></label>
-            <div className="form-actions"><button className="primary-button" type="submit">Dodaj stavku</button></div>
-          </form>
+          />
         </section>
       ) : null}
 
-      <section className="admin-panel calculation-lines-panel">
+      <section id="stavke-kalkulacije" className="admin-panel calculation-lines-panel" style={{ scrollMarginTop: 18 }}>
         <div className="panel-header"><h3>Stavke kalkulacije</h3><span>{calculation.stavke.length} stavki</span></div>
-        {calculation.stavke.length === 0 ? <p className="empty-state">Dodajte najmanje jednu robnu stavku.</p> : (
+        {poruka?.startsWith("stavka_") ? <p role="status" className="admin-message">{messages[poruka] ?? poruka}</p> : null}
+          {calculation.stavke.length === 0 ? <p className="empty-state">Dodajte najmanje jednu robnu stavku.</p> : (
           <div className="table-wrap calculation-table-wrap">
             <table className="admin-table calculation-table">
               <thead><tr><th>#</th><th>Artikal</th><th>Količina / JM</th><th>Fakturna cijena</th><th>Rabat</th><th>Nabavna cijena</th><th>Ulazni PDV</th><th>Prodajna sa PDV</th><th>Marža / RUC</th>{editable ? <th></th> : null}</tr></thead>

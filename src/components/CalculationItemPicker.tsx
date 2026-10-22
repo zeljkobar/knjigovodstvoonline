@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ItemSearchSelect } from "./ItemSearchSelect";
 import {
   QuickItemCreateModal,
   type QuickItemResult
@@ -14,13 +15,15 @@ type CalculationItemPickerProps = {
   items: ItemOption[];
   units: Option[];
   vatRates: Option[];
+  onConfirm?: () => void;
 };
 
 export function CalculationItemPicker({
   groups,
   items: initialItems,
   units,
-  vatRates
+  vatRates,
+  onConfirm
 }: CalculationItemPickerProps) {
   const [items, setItems] = useState(initialItems);
   const [selectedId, setSelectedId] = useState("");
@@ -48,9 +51,10 @@ export function CalculationItemPicker({
       <div className="calculation-item-picker">
         <label>
           <span>Artikal</span>
-          <select
+          <ItemSearchSelect
             name="artikal_id"
             required
+            onConfirm={onConfirm}
             value={selectedId}
             onChange={(event) => changeItem(event.target.value)}
           >
@@ -60,7 +64,7 @@ export function CalculationItemPicker({
                 {item.sifra} · {item.naziv} · {item.unitCode} · {item.vatPercent}%
               </option>
             ))}
-          </select>
+          </ItemSearchSelect>
         </label>
         <button className="secondary-button" type="button" onClick={() => setIsModalOpen(true)}>
           + Novi artikal

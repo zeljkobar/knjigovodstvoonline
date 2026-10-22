@@ -212,7 +212,8 @@ DB regresija `npm run test:fixed-assets-db` koristi privremene podatke i rollbac
 Izlazna faktura → KIF → PDV prijava
 Ulazna faktura  → KUF → PDV prijava
 Kalkulacija robe → KUF + lager + nalog
-Uvozna kalkulacija → KUF + carinski PDV + lager + nalog
+Uvozna kalkulacija → KUF + carinski PDV + lager + nalog (planirano)
+Domaći povrat dobavljaču → OUT lager + POSTED nalog + negativan KUF (SOURCE_DOCUMENT)
 Obračun plate/ugovora/zakupa → kategorijska D/P šema → PAYROLL nalog
 POSTED salda prethodne godine (klase 0–4) → DRAFT nalog početnog stanja
 ```

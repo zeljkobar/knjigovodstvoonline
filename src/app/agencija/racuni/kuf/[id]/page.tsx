@@ -966,9 +966,10 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
                         }
                       >
                         {entry.posting_mode === "SOURCE_DOCUMENT" && invoiceEntryPostingLabel(entry, journalStatusesById) === "Knjiženo"
-                          ? "Knjiženo kroz kalkulaciju"
+                          ? (entry.source_type === "SUPPLIER_RETURN" ? "Knjiženo kroz povrat" : "Knjiženo kroz kalkulaciju")
                           : invoiceEntryPostingLabel(entry, journalStatusesById)}
                       </span>
+                      {entry.source_type === "SUPPLIER_RETURN" && entry.source_id ? <small><Link href={`/agencija/robno/povrat-dobavljacu/${entry.source_id}`}>Otvori povrat</Link></small> : null}
                       {entry.source_type === "CALCULATION" && entry.source_id ? (
                         <small>
                           <Link href={`/agencija/robno/kalkulacije/${entry.source_id}`}>
@@ -996,7 +997,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
                           : lockedPdvPeriods.some(period => [kufBook.kuf_date, entry.invoice_date, entry.receipt_date].some(date => date >= period.datum_od && date <= period.datum_do))
                             ? "PDV mjesec je zaključan. Administrator agencije prvo mora otključati odgovarajući period u PDV prijavi, uz razlog."
                             : kufBook.status !== "OPEN" ? "KUF knjiga je zaključana. Prvo je otvorite za izmjene."
-                              : entry.posting_mode !== "KUF_RULES" ? "Račun je preuzet iz kalkulacije. Otvorite izvornu kalkulaciju i tamo pokrenite brisanje, kako bi se uskladile i zalihe."
+                              : entry.posting_mode !== "KUF_RULES" ? "Račun potiče iz robnog dokumenta. Otvorite izvorni dokument; direktno brisanje nije dozvoljeno."
                                 : undefined}/>
                     </td>
                   </tr>

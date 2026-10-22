@@ -1,0 +1,14 @@
+@page postingJournal { size: A4 landscape; margin: 10mm; }
+.posting-journal-print { page: postingJournal; width: 277mm; max-width: 100%; margin: auto; padding: 6mm; box-sizing: border-box; color: #111; background: white; font: 9pt/1.3 Arial, sans-serif; }
+.posting-journal-print h1 { font-size: 17pt; }
+.posting-journal-print table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8pt; }
+.posting-journal-print th, .posting-journal-print td { border: 1px solid #bbb; padding: 1.5mm; vertical-align: top; text-align: left; overflow-wrap: anywhere; }
+.posting-journal-print td small { display: block; font-size: 7pt; }
+.posting-journal-print th:first-child { width: 4%; }
+.posting-journal-print th:nth-child(2) { width: 8%; }
+.posting-journal-print th:nth-child(5), .posting-journal-print th:nth-child(7) { width: 16%; }
+.posting-journal-print .journal-amount { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.posting-journal-print thead { display: table-header-group; }
+.posting-journal-print tfoot { display: table-row-group; font-weight: bold; }
+.posting-journal-print tr { break-inside: avoid; }
+@media print { .posting-journal-print { width: 100%; max-width: none; padding: 0; margin: 0; } }

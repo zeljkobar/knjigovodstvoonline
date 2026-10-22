@@ -254,6 +254,8 @@ export async function ItemCardPage({
       };
     }
 
+    if (row.tip_dokumenta === "SUPPLIER_RETURN") return { href: `/agencija/robno/povrat-dobavljacu/${row.dokument_id}`, label: "Otvori povrat dobavljaču" };
+
     if (row.tip_dokumenta === "WRITE_OFF") {
       return {
         href: `/agencija/robno/otpis/${row.dokument_id}`,

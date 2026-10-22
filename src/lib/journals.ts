@@ -19,6 +19,7 @@ export const standardJournalTypes = [
   ["WAREHOUSE_TRANSFER", "Prenos robe", "PRN"],
   ["STOCK_COUNT", "Popis robe", "POP"],
   ["WRITE_OFF", "Otpis robe", "OTP"],
+  ["SUPPLIER_RETURN", "Povrat dobavljaču", "POV"],
   ["PRICE_ADJUSTMENT", "Nivelacija cijena", "NIV"]
 ] as const;
 

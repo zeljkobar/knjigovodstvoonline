@@ -5,6 +5,7 @@ import { createKufBook } from "@/app/agencija/racuni/actions";
 
 type KufBookFormProps = {
   disabled?: boolean;
+  lockedMonths?: number[];
   invoiceTypes: {
     id: string;
     sifra: string;
@@ -40,9 +41,10 @@ function lastDayOfMonth(year: number, month: number) {
   return new Date(Date.UTC(year, month, 0));
 }
 
-export function KufBookForm({ disabled = false, invoiceTypes, year }: KufBookFormProps) {
+export function KufBookForm({ disabled = false, lockedMonths = [], invoiceTypes, year }: KufBookFormProps) {
   const currentMonth = new Date().getFullYear() === year ? new Date().getMonth() + 1 : 1;
   const [month, setMonth] = useState(currentMonth);
+  const periodLocked = lockedMonths.includes(month);
 
   const kufDate = useMemo(() => inputDate(lastDayOfMonth(year, month)), [month, year]);
 
@@ -68,7 +70,7 @@ export function KufBookForm({ disabled = false, invoiceTypes, year }: KufBookFor
         >
           {months.map((name, index) => (
             <option key={name} value={index + 1}>
-              {name} {year}
+              {name} {year}{lockedMonths.includes(index + 1) ? " — PDV zaključan" : ""}
             </option>
           ))}
         </select>
@@ -77,7 +79,8 @@ export function KufBookForm({ disabled = false, invoiceTypes, year }: KufBookFor
         <span>Datum KUF-a</span>
         <input name="kuf_date" type="date" value={kufDate} readOnly tabIndex={-1} />
       </label>
-      <button type="submit" disabled={disabled}>
+      {periodLocked ? <p role="alert" className="admin-message form-wide">PDV period za izabrani mjesec je zaključan. Administrator agencije može ga kontrolisano otključati u PDV modulu, uz razlog.</p> : null}
+      <button type="submit" disabled={disabled || periodLocked}>
         Novi KUF
       </button>
     </form>

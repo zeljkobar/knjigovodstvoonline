@@ -28,10 +28,45 @@ import {
   inventoryPriceAdjustmentPostingScope
 } from "@/lib/inventory-price-adjustment";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { supplierReturnFields, supplierReturnScope, SupplierReturnError, returnFail } from "@/lib/supplier-return";
+import { guardReturn } from "@/lib/supplier-return-service";
+import { templateAccount } from "@/lib/posting-template";
+import { readWorkContext } from "@/lib/work-context";
 import { getInventoryContext } from "../_shared";
 
 function text(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
+}
+
+export async function saveSupplierReturnSettings(formData: FormData) {
+  await requireRole("admin_agencije");
+  const context = await getInventoryContext("manage");
+  const work = await readWorkContext();
+  const path = "/agencija/robno/podesavanja";
+  if (!context.allowed || !context.firma || context.firma.id !== text(formData.get("firma_id")) || !work.poslovnaGodinaId || !context.user.agencija_id) redirect(`${path}?poruka=prava`);
+  try {
+    await prisma.$transaction(async tx => {
+      const c = { userId: context.user.id, agencyId: context.user.agencija_id!, companyId: context.firma!.id, yearId: work.poslovnaGodinaId! };
+      await guardReturn(tx, c, "manage");
+      const scope = { firma_id: c.companyId, dokument_tip: supplierReturnScope.documentType, podvrsta: supplierReturnScope.subtype, pdv_stopa_sifra: "GENERAL" };
+      const previous = await tx.firmaPodrazumijevanoKonto.findMany({ where: scope });
+      for (const field of supplierReturnFields) {
+        const code = text(formData.get(`konto_${field.purpose}`));
+        if (code) {
+          const account = await templateAccount(tx, c.companyId, code);
+          if (!account || !account.aktivan || account.override_type === "DEACTIVATED" || account.tip_konta !== "analiticko" || code.length < 4 || (field.purpose !== "RETURN_SUPPLIER" && account.analitika_obavezna) || (field.purpose === "RETURN_LOSS" && !code.startsWith("5")) || (field.purpose === "RETURN_GAIN" && !code.startsWith("6"))) returnFail("Izaberite dostupna analitička konta povrata; trošak klasa 5, prihod klasa 6. Samo dobavljačko konto može tražiti partnera.");
+        }
+        const key = { ...scope, namjena: field.purpose };
+        await tx.firmaPodrazumijevanoKonto.upsert({ where: { firma_id_namjena_dokument_tip_podvrsta_pdv_stopa_sifra: key }, create: { ...key, sifra_konta: code, smjer: field.direction, created_by: c.userId, updated_by: c.userId }, update: { sifra_konta: code, smjer: field.direction, updated_by: c.userId } });
+      }
+      await auditLogInTransaction(tx, { korisnikId: c.userId, agencijaId: c.agencyId, firmaId: c.companyId, modul: "robno", akcija: "save_supplier_return_settings", tipEntiteta: "FirmaPodrazumijevanoKonto", entitetId: c.companyId, staraVrijednost: previous, novaVrijednost: await tx.firmaPodrazumijevanoKonto.findMany({ where: scope }) });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  } catch (error) {
+    if (error instanceof SupplierReturnError) redirect(`${path}?poruka=${encodeURIComponent(error.message)}`);
+    throw error;
+  }
+  revalidatePath(path); redirect(`${path}?poruka=povrat_sacuvano`);
 }
 
 export async function saveCalculationPostingSettings(formData: FormData) {

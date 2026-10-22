@@ -167,7 +167,22 @@
   novu MPC, ne mijenja količinu ni nabavnu vrijednost, koriguje MP vrijednost,
   RUC i ukalkulisani PDV, ažurira cjenovnik i pravi DRAFT nalog po posebnoj
   šemi. Sljedeće je ručni end-to-end QA sva četiri dokumenta `Prometa robe`.
-  Uvozna kalkulacija i povrati ostaju odvojeni otvoreni tokovi.
+  Preostala implementacija: uvozna kalkulacija (ino faktura/kurs, carinska
+  deklaracija, carina i carinski PDV, lager/nalog i KUF bez duplog knjiženja),
+  inostrani povrat dobavljaču sa carinskom korekcijom, zaseban povrat kupca, zaseban pregled
+  razduženja lagera, kontrole zaliha i ručna korekcija raspodjele zavisnih
+  troškova. Uvozna kalkulacija, povrat kupca, pregled razduženja i kontrole su
+  placeholderi. Potpuni OFFICE/POS storno sa povratom robe već postoji.
+  Domaći povrat dobavljaču je implementiran: zaseban dokument sa opcionim
+  izvornim vezama, lager, POSTED nalog, negativan KUF/PDV bez dupliranja i štampa.
+  Pri deployu primijeniti `20261022120000_povrat_dobavljacu` i
+  `20261022121000_povrat_kuf_integritet`, regenerisati Prisma i restartovati.
+  Podesiti šemu povrata (ili template) i KUF knjigu mjeseca povrata. DB rollback,
+  obračun, server action i render prolaze; ručni UI prolaz sa stvarnim zalihama
+  ostaje QA. Namjenski storno/ponovno otvaranje proknjiženog povrata ostaje otvoreno.
+  Brisanje završene kalkulacije, dinamičke šeme po stopama i nasljeđivanje
+  kontiranja iz template firme su implementirani; nijesu otvoreni razvojni
+  zadaci. QA naveden iznad ostaje otvoren i ne označava nedostajuću implementaciju.
 - **PDV prijava — završni QA.** Prva verzija perioda, evidencija, prijave,
   podešavanja, XML `PR_PDV_2025`, knjiženja i kontrolisano zaključavanje postoje. DB lifecycle i konkurentnost prolaze. Ostaju ručni QA XML upload-a na portalu i browser QA. Detalji: [`docs/accounting/pdv.md`](docs/accounting/pdv.md).
 - **Plate i zaposleni:** prva MVP osnova postoji: zaposleni, sistemski šifarnici

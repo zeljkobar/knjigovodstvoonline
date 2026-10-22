@@ -145,6 +145,10 @@ export async function purgeCompanyData(
   );
 
   // Robni promet i stanja moraju nestati prije dokumenata i šifarnika.
+  // Povrat ima CASCADE stavke bez firma_id i RESTRICT veze prema kalkulaciji,
+  // njenim stavkama, KUF knjizi/računima, artiklu i stopi. Briše se prije njih.
+  // KUF source_type=SUPPLIER_RETURN i unique indeks odobrenja nemaju nove potomke.
+  await izvrsi("povrati_dobavljacu", Prisma.sql`DELETE FROM povrati_dobavljacu WHERE firma_id = ${firmaId}::uuid`);
   // Kalkulacija je povezana sa KUF zapisom i nalogom, pa se briše prije njih.
   // POS zbirne obrade povezuju KIF, naloge i fiskalne racune. Clanstva i
   // racunovodstvene obrade moraju nestati prije batch-eva i racuna.

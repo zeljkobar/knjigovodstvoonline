@@ -183,6 +183,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
   ],
   nalozi: [
     { href: "/agencija/nalozi", label: "Pregled naloga" },
+    { href: "/agencija/nalozi/dnevnik-knjizenja", label: "Dnevnik knjiženja" },
     { href: "/agencija/nalozi/novi", label: "Novi nalog" },
     { href: "/agencija/nalozi/nacrti", label: "Nacrti" },
     { href: "/agencija/nalozi/vrste", label: "Vrste naloga", roles: adminOnly },

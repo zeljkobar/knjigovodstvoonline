@@ -582,7 +582,7 @@ export async function updateDraftJournalLines(formData: FormData) {
     }
   });
 
-  if (!nalog || nalog.status !== journalStatuses.draft || ["OSNOVNA_SREDSTVA", "PUTNI_NALOZI"].includes(nalog.source_module ?? "")) {
+  if (!nalog || nalog.status !== journalStatuses.draft || ["OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN"].includes(nalog.source_module ?? "")) {
     redirectJournals("nalog_greska");
   }
 
@@ -696,7 +696,7 @@ export async function postJournal(formData: FormData) {
     const journal = await tx.nalog.findFirst({ where: scope, include: {
       poslovna_godina: true, stavke: { include: { firma_konto: true } }
     } });
-    if (!journal || journal.status !== journalStatuses.draft || ["OSNOVNA_SREDSTVA", "PUTNI_NALOZI"].includes(journal.source_module ?? "")) return "nalog_greska";
+    if (!journal || journal.status !== journalStatuses.draft || ["OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN"].includes(journal.source_module ?? "")) return "nalog_greska";
     if (journal.poslovna_godina.zakljucena) return "godina_zakljucena";
     if (journal.datum < journal.poslovna_godina.datum_od || journal.datum > journal.poslovna_godina.datum_do) return "nalog_datum";
     const periods = await tx.$queryRaw<{status: string}[]>`SELECT status FROM pdv_periodi WHERE firma_id=${journal.firma_id}::uuid AND datum_od<=${journal.datum} AND datum_do>=${journal.datum} FOR UPDATE`;
@@ -780,7 +780,7 @@ export async function reopenJournal(formData: FormData) {
   if (
     !nalog ||
     nalog.status !== journalStatuses.posted ||
-    ["PLATE", "OSNOVNA_SREDSTVA", "PUTNI_NALOZI"].includes(nalog.source_module ?? "")
+    ["PLATE", "OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN"].includes(nalog.source_module ?? "")
   ) {
     redirectJournals("nalog_greska");
   }
@@ -884,7 +884,7 @@ export async function deleteJournal(formData: FormData) {
     redirectJournals("prava");
   }
 
-  if (nalog.status !== journalStatuses.draft || ["OSNOVNA_SREDSTVA", "PUTNI_NALOZI"].includes(nalog.source_module ?? "")) {
+  if (nalog.status !== journalStatuses.draft || ["OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN"].includes(nalog.source_module ?? "")) {
     redirectJournals("nalog_greska");
   }
 

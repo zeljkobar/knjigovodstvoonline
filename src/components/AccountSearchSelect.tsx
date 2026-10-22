@@ -3,7 +3,7 @@
 import { createPortal } from "react-dom";
 import { Children, isValidElement, useEffect, useId, useRef, useState, type ReactNode, type SelectHTMLAttributes } from "react";
 
-type Props = Omit<SelectHTMLAttributes<HTMLSelectElement>, "multiple" | "size">;
+type Props = Omit<SelectHTMLAttributes<HTMLSelectElement>, "multiple" | "size"> & { searchKind?: "account" | "item"; onConfirm?: () => void };
 type Choice = { value: string; label: string; disabled: boolean };
 function text(node: ReactNode): string {
   return Children.toArray(node).map(child => isValidElement<{ children?: ReactNode }>(child) ? text(child.props.children) : String(child)).join("");
@@ -18,7 +18,8 @@ export function accountChoices(children: ReactNode): Choice[] {
 }
 
 // Keep a real select as the form value/event source: callers may submit IDs or codes.
-export function AccountSearchSelect({ children, value, defaultValue, required, disabled, id, className, onChange, ...props }: Props) {
+export function AccountSearchSelect({ children, value, defaultValue, required, disabled, id, className, onChange, searchKind = "account", onConfirm, ...props }: Props) {
+  const isItem = searchKind === "item";
   const listId = useId();
   const selectRef = useRef<HTMLSelectElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -68,8 +69,8 @@ export function AccountSearchSelect({ children, value, defaultValue, required, d
   }
   return <>
     <input
-      id={id} className={className} ref={inputRef} data-account-search="true"
-      type="text" autoComplete="off" placeholder="Šifra ili naziv konta"
+      id={id} className={className} ref={inputRef} data-account-search={isItem ? undefined : "true"} data-item-search={isItem ? "true" : undefined}
+      type="text" autoComplete="off" placeholder={isItem ? "Šifra ili naziv artikla" : "Šifra ili naziv konta"}
       role="combobox" aria-autocomplete="list" aria-expanded={open} aria-controls={listId}
       aria-activedescendant={open && matches[active] ? `${listId}-${active}` : undefined}
       aria-label={props["aria-label"]} aria-describedby={props["aria-describedby"]}
@@ -85,7 +86,10 @@ export function AccountSearchSelect({ children, value, defaultValue, required, d
           event.preventDefault(); event.stopPropagation(); setOpen(true);
           setActive(index => Math.max(0, Math.min(matches.length - 1, index + (event.key === "ArrowDown" ? 1 : -1))));
         } else if (event.key === "Enter" && open) {
-          event.preventDefault(); event.stopPropagation(); if (matches[active]) choose(matches[active]);
+          event.preventDefault(); event.stopPropagation();
+          if (matches[active]) { choose(matches[active]); if (matches[active].value) onConfirm?.(); }
+        } else if (event.key === "Enter" && onConfirm && current && query === display) {
+          event.preventDefault(); event.stopPropagation(); onConfirm();
         } else if (event.key === "Escape") {
           event.preventDefault(); event.stopPropagation(); setOpen(false); setQuery(display); inputRef.current?.setCustomValidity("");
         }
@@ -95,16 +99,16 @@ export function AccountSearchSelect({ children, value, defaultValue, required, d
         const next = event.currentTarget.value;
         setQuery(next); setFilter(next); setActive(0); setOpen(true);
         const match = choices.find(item => !item.disabled && (item.label === next || item.value === next));
-        event.currentTarget.setCustomValidity(next === display || (next === "" && match) ? "" : "Izaberite konto iz ponuđene liste.");
+        event.currentTarget.setCustomValidity(next === display || (next === "" && match) ? "" : isItem ? "Izaberite artikal iz ponuđene liste." : "Izaberite konto iz ponuđene liste.");
         if (next === "" && match) choose(match);
       }}
     />
-    {open && !disabled ? createPortal(<div id={listId} role="listbox" aria-label="Konta" style={{ position: "fixed", ...position, maxHeight: 280, overflowY: "auto", zIndex: 10000, background: "var(--surface)", color: "var(--foreground)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 6px 18px #0002" }} onMouseDown={event => event.preventDefault()}>
+    {open && !disabled ? createPortal(<div id={listId} role="listbox" aria-label={isItem ? "Artikli" : "Konta"} style={{ position: "fixed", ...position, maxHeight: 280, overflowY: "auto", zIndex: 10000, background: "var(--surface)", color: "var(--foreground)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 6px 18px #0002" }} onMouseDown={event => event.preventDefault()}>
       {matches.length ? matches.map((choice, index) => <div key={choice.value} id={`${listId}-${index}`} role="option" aria-selected={index === active}
         onMouseEnter={() => setActive(index)} onClick={() => choose(choice)}
         style={{ padding: "9px 12px", cursor: "pointer", background: index === active ? "var(--surface-hover)" : "var(--surface)", fontSize: 14 }}>
         {choice.label}
-      </div>) : <div style={{ padding: 12 }}>Nema odgovarajućih konta.</div>}
+      </div>) : <div style={{ padding: 12 }}>{isItem ? "Nema odgovarajućih artikala." : "Nema odgovarajućih konta."}</div>}
     </div>, document.body) : null}
     <select {...props} ref={selectRef} value={current} disabled={disabled} tabIndex={-1} aria-hidden="true" style={{ display: "none" }}
       onChange={event => { setSelected(event.target.value); onChange?.(event); }}>

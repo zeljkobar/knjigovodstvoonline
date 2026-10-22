@@ -16,6 +16,7 @@ export async function deleteCalculationInTransaction(tx: Prisma.TransactionClien
   if (!calculation) return fail("Kalkulacija nije pronađena u izabranoj firmi i godini.");
   if (calculation.is_deleted) return;
   if (calculation.poslovna_godina.zakljucena) return fail("Poslovna godina je zaključana.");
+  if (await tx.povratDobavljacu.count({ where: { kalkulacija_id: id, is_deleted: false } })) return fail("Kalkulacija je povezana sa povratom dobavljaču.");
   if (!["DRAFT", "WAITING_KUF", "POSTED"].includes(calculation.status)) return fail("Status kalkulacije ne dozvoljava brisanje.");
   const entries = await tx.kufEntry.findMany({ where: { OR: [{ source_type: "CALCULATION", source_id: id }, ...(calculation.kuf_entry_id ? [{ id: calculation.kuf_entry_id }] : [])] }, include: { kuf_book: true } });
   if (entries.some(e => e.firma_id !== firmaId || e.agencija_id !== agencijaId || e.poslovna_godina_id !== godinaId || e.source_type !== "CALCULATION" || e.source_id !== id || e.journal_id !== calculation.nalog_id)) return fail("Veza kalkulacije sa KUF-om nije ispravna.");

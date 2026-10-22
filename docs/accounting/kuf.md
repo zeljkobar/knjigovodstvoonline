@@ -97,7 +97,9 @@ partner:
 - konto robe/troška, carina (zasebna stavka **troška**), carinski PDV,
   ino dobavljač, dobavljač carina (carinska obaveza).
 - Carinska obaveza se knjiži na poseban partner („CARINA”).
-- Tok: `Uvozna kalkulacija → KUF + carinski PDV + lager + nalog`.
+- Planirani robni tok: `Uvozna kalkulacija → KUF + carinski PDV + lager + nalog`.
+  KUF šema za uvoz postoji; robni dokument uvozne kalkulacije još nije
+  implementiran i njegova stranica je placeholder.
 
 ## Knjiženje
 - Cijela knjiga se knjiži **odjednom u jedan nalog** po šemi.
@@ -116,6 +118,25 @@ partner:
   brisati kao običan troškovni račun.
 
 - Zaključan PDV period na pregledu knjige skriva dodavanje računa i prikazuje objašnjenje; direktna forma je onemogućena.
+- Otvaranje nove KUF/KIF knjige označava zaključane mjesece, prikazuje razlog
+  i onemogućava potvrdu za izabrani zaključani mjesec. Server ponavlja provjeru
+  godine i PDV perioda pod zaključavanjem, uključujući posljednji dan mjeseca,
+  te vraća poruku na formu umjesto Prisma greške. Datum mora odgovarati mjesecu/godini.
+
+## Povrat dobavljaču — robni izvor
+
+Domaći povrat pod `Robno / Nabavka / Povrat dobavljaču` pri knjiženju kreira
+negativan KUF račun u izabranoj knjizi mjeseca povrata. Osnovice, ulazni PDV,
+odbitni/neodbitni dio i bruto imaju negativan znak. Dokument nosi
+`source_type=SUPPLIER_RETURN`, `posting_mode=SOURCE_DOCUMENT` i vezu na svoj
+POSTED nalog; ne ulazi ponovo u standardni KUF nalog. PDV obračun koristi te
+poreske stavke. Firma van PDV-a nema odbitni dio. Izvorni pozitivni račun se
+ne mijenja, niti se automatski raspoređuju postojeća plaćanja.
+
+Samostalan povrat ili opcione veze na kalkulaciju/račun/stavku su podržani.
+Direktno brisanje negativnog izvornog zapisa nije dozvoljeno; proknjiženi povrat
+ostaje zaključan. Inostrani povrat sa carinskom korekcijom i namjenski storno
+povrata ostaju otvoreni. KUF šema uvoza sama po sebi ne pokriva taj robni tok.
 
 ## Štampa
 Čista HTML/CSS print stranica knjige bez menija.

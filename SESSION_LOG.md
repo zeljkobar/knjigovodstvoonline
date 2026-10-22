@@ -1,5 +1,119 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-10-22 — Filteri svih kolona dnevnika
+
+- Dodati kombinovani server filteri naloga/stavke, konta, partnera/PIB-a,
+  dokumenta/datuma, opisa, tačnih iznosa i rednog broja filtriranog pregleda.
+  Print i paginacija čuvaju filtere; count i zbir pripadaju filtriranom skupu.
+- Kompaktna mreža filtera iznad tabele; iznosi prihvataju decimalni zarez ili
+  tačku i lokalni format 1.234,56. Neispravni brojevi/datumi blokiraju upit.
+  Regresije filtera/prenosa parametara, TSC i ciljani ESLint prolaze.
+
+## 2026-10-22 — Dnevnik knjiženja
+
+- Dodati pregled `/agencija/nalozi/dnevnik-knjizenja`, stavka podmenija Nalozi,
+  zajednička tabela/loader i `/stampa/dnevnik-knjizenja`. Hronologija je po datumu
+  naloga; isti datum ima stabilan redoslijed po kreiranju/ID-ju naloga i stavci.
+- Isključeni nacrti/obrisani nalozi; obavezni scope i view/export prava. Period
+  je validiran, ekran paginiran po 100 stavki, štampa bez paginacionog ograničenja.
+  Count, totals i rows koriste RepeatableRead transakciju; iznosi u centima.
+- Regresije: POSTED/scope, hronologija, filter datuma, paginacija, kompletna
+  štampa i export zabrana. TSC i ciljani ESLint prolaze. Stvarni browser prikazuje
+  878 stavki u 9 stranica i jednake zbirove 93.155,98. Bez izmjene baze.
+
+## 2026-10-22 — Štampa pregleda Kupci / dobavljači
+
+- Dodata čista A4 pejzažna ruta `/stampa/kupci-dobavljaci` i dugme na pregledu
+  Nalozi / Kupci i dobavljači. Prenose se konto i datumi; prikazani su firma,
+  godina, partneri/PIB, promet, otvoreni saldo i ukupni iznosi.
+- Zajednički loader ekrana i štampe sabira u centima, uz POSTED/nondeleted
+  naloge i scope agencije/firme/godine. Štampa zahtijeva view i export pravo.
+  Neispravni filteri prikazuju grešku bez proširivanja upita.
+- Regresije provjeravaju centne zbirove, scope, filtere i export pravo; TSC i
+  ciljani ESLint prolaze. Browser potvrđuje istih 19 partnera i saldo 43.596,16
+  na ekranu i štampi izabranog konta 4330. Bez izmjene baze.
+
+## 2026-10-22 — Stvarni Enter tok i dodavanje kalkulacije bez navigacije
+
+- Sam fragment redirecta nije otklonio prijavljeni skok nakon stvarnog upisa.
+  Brzi unos sada koristi useActionState i zajedničku serversku logiku, bez
+  uspješnog redirecta. Revalidacija osvježava tabelu/zbirove; forma resetuje unos,
+  fokusira praznu pretragu i zadržava unos vidljivim. Validacione greške se
+  vraćaju lokalno uz očuvanje unesenih numeričkih vrijednosti.
+- Enter: izbor artikla → količina → fakturna cijena → rabat → prodajna cijena
+  → dodavanje → nova šifra. Dugme je onemogućeno tokom obrade. Potvrda izbora
+  je opciona u zajedničkoj pretrazi; postojeći izbori konta zadržavaju ponašanje.
+- Browser je stvarno dodao dvije uzastopne stavke samo Enterom na označenom QA
+  nacrtu: poslije oba upisa prazan artikal je u fokusu, unos ostaje vidljiv,
+  tabela sadrži upise. QA nacrt i njegove dvije stavke/vezani audit zapisi su
+  uklonjeni uz provjeru markera, bez naloga ili lagera; korisnička kalkulacija
+  nije mijenjana. TSC, ciljani ESLint i postojeće regresije pretrage konta prolaze.
+
+## 2026-10-22 — Pretraga artikala i pozicija unosa kalkulacije
+
+- Kalkulacija poslije dodavanja vraća na brzi unos, a nakon izmjene/brisanja
+  na tabelu stavki; poruke su vidljive uz unos/tabelu. Fragment ostaje iza query
+  parametara i pri validacionoj grešci.
+- Kalkulacija i povrat koriste pretragu artikala po šifri/dijelu naziva,
+  sa zajedničkim ponašanjem postojećeg izbora konta, odgovarajućim tekstovima
+  za artikle i zadržanim ID/event ugovorom. Brzo kreiranje artikla i povlačenje
+  cijene u kalkulaciji ostaju povezani. Bez izmjene baze ili knjiženja.
+
+## 2026-10-22 — Pozicija nakon unosa stavke povrata
+
+- Dodavanje vraća na `#dodaj-robu`, izmjena/uklanjanje na `#stavke`; poruka
+  uspjeha ili greške vidljiva je uz stavke. Browser provjera sidra potvrđuje
+  unos na vrhu vidljivog dijela stranice bez izmjene poslovnih podataka.
+
+## 2026-10-22 — Otvaranje KUF/KIF u zaključanom PDV periodu
+
+- Prijavljeni Prisma ekran nastajao je jer se pri otvaranju knjige oslanjalo na
+  DB zabranu bez kontrolisane serverske provjere. KUF/KIF sada provjeravaju godinu
+  i period pod zaključavanjem i vraćaju poruku; UI označava zaključane mjesece,
+  objašnjava zabranu i onemogućava potvrdu. Datum mora pripadati mjesecu/godini.
+- SQL poređenja eksplicitno koriste DATE da posljednji dan mjeseca ne promakne
+  provjeri zbog tipa vremenske oznake. Isto usklađeno u novom guardu povrata.
+- `scripts/check-invoice-book-creation.cjs`: oba stvarna action toka, bez upisa
+  pri zabrani, odbijanje podmetnutog datuma, otvoren/otključan fixture period,
+  render zabrane i dugmeta; svi testni podaci vraćeni rollback-om. Bez migracije
+  i bez otključavanja korisničkih perioda. TSC i ciljani ESLint prolaze.
+
+## 2026-10-22 — Domaći povrat dobavljaču
+
+- Implementiran poseban dokument: lista/filteri, nacrt, zaglavlje/stavke,
+  opcione veze na kalkulaciju/KUF/stavku, soft delete nacrta, detalj i štampa.
+- Jedna Serializable transakcija ponovo provjerava aktivnog korisnika,
+  scope/prava, godinu i PDV period; razdužuje lager po prosjeku, kreira POSTED
+  nalog i negativan KUF sa poreskim stavkama bez ponovnog KUF knjiženja. Razlika
+  odobrenja i lagera ide na posebna konta klase 5/6; šema podržava template.
+- KUF i kartica imaju link na povrat. Izvorni račun i kalkulacija sa aktivnim
+  povratom zaštićeni su od brisanja; njegov automatski nalog od opštih izmjena,
+  vraćanja i brisanja. Ponovljeno knjiženje ne duplira promet. Aktivno odobrenje
+  ima unique indeks po firmi/godini/dobavljaču/broju. Inostrani/carinski povrat
+  i namjenski storno proknjiženog povrata ostaju otvoreni.
+- Ručne migracije `20261022120000_povrat_dobavljacu` i
+  `20261022121000_povrat_kuf_integritet` primijenjene lokalno, Prisma regenerisan
+  i dev restartovan nakon obje. Purge ažuriran: 83 direktne tabele i CASCADE
+  stavke povrata prije kalkulacija/KUF-a/artikala; stvarni purge fixture prolazi.
+- Provjere: `npm test`, TSC, ciljani ESLint, obračunski testovi i
+  `node scripts/check-supplier-return.cjs` (MP/VP, PDV/van-PDV, lager/GL/KUF/PDV,
+  izvori/količine, scope/prava/lock, idempotentnost, greška konta/audita i rollback,
+  template, server action/stari kontekst, render detalja/štampe, purge).
+  Postojeće DB regresije brisanja kalkulacije i KUF računa prolaze. Browser forma
+  pregledana bez čuvanja korisničkih poslovnih podataka. CSV planer i Excel usklađeni.
+
+## 2026-10-22 — Usklađivanje dokumentacije robnog
+
+- Pregledani specifikacija, postojeće robne rute, obračun i server actions.
+  CURRENT_STATE i NEXT_STEPS razdvajaju implementaciju od preostalog ručnog QA.
+  Dopunjeni su brisanje završene kalkulacije, šeme po stopama i template kontiranje.
+- Uvozna kalkulacija, samostalni povrati, pregled razduženja i kontrole ostaju
+  placeholderi; automatsko razduženje i potpuni storno postoje. Ručna raspodjela
+  zavisnih troškova ostaje otvorena. KUF/architecture označavaju uvoznu kalkulaciju
+  kao planirani robni tok, uz postojeću KUF šemu uvoza.
+- Ispravljeni zastarjeli robni redovi planera; Excel regenerisan iz CSV izvora.
+  Bez izmjena aplikacijskog koda, baze ili originalne specifikacije.
+
 ## 2026-10-18 — Template firma i dinamičko nasljeđivanje kontiranja
 
 - Izbor u Podešavanja → Agencija, aktivna sopstvena firma, opcija bez templatea, optimistic version, ponovljena provjera aktivnog administratora/agencije i transakcioni audit. Migracija dodaje agencijski izbor i složeni FK koji onemogućava drugu agenciju. Purge/transfer usklađeni.

@@ -1509,8 +1509,15 @@ export async function createKufBook(formData: FormData) {
   );
 
   const kufDate = parseDate(formData, "kuf_date") ?? lastDayOfMonth(poslovnaGodina.godina, month);
+  if (kufDate.getUTCFullYear() !== poslovnaGodina.godina || kufDate.getUTCMonth() + 1 !== month) redirectKuf("kuf_datum");
 
   const kufBook = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM firme WHERE id=${firma.id}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM poslovne_godine WHERE id=${poslovnaGodina.id}::uuid FOR UPDATE`;
+    if (!await tx.poslovnaGodina.findFirst({ where: { id: poslovnaGodina.id, firma_id: firma.id, zakljucena: false } })) return { error: "kuf_godina_zakljucana" as const };
+    const periods = await tx.$queryRaw<{status: string}[]>`SELECT status FROM pdv_periodi WHERE firma_id=${firma.id}::uuid AND datum_od<=${kufDate}::date AND datum_do>=${kufDate}::date FOR UPDATE`;
+    if (periods.some(period => period.status === "LOCKED")) return { error: "kuf_pdv_zakljucan" as const };
+
     const lastBook = await tx.kufBook.findFirst({
       where: {
         firma_id: firma.id,
@@ -1553,6 +1560,8 @@ export async function createKufBook(formData: FormData) {
       }
     });
   });
+
+  if ("error" in kufBook) redirectKuf(kufBook.error);
 
   await auditLog({
     korisnikId: user.id,
@@ -1650,11 +1659,15 @@ export async function createKifBook(formData: FormData) {
   );
 
   const kifDate = parseDate(formData, "kif_date") ?? lastDayOfMonth(poslovnaGodina.godina, month);
+  if (kifDate.getUTCFullYear() !== poslovnaGodina.godina || kifDate.getUTCMonth() + 1 !== month) redirectKif("kif_datum");
 
   const kifBook = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM firme WHERE id=${firma.id}::uuid FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM poslovne_godine WHERE id=${poslovnaGodina.id}::uuid FOR UPDATE`;
-    if (!(await tx.poslovnaGodina.findFirst({ where: { id: poslovnaGodina.id, firma_id: firma.id, zakljucena: false } }))) throw new Error("Poslovna godina je zaključana.");
+    if (!await tx.poslovnaGodina.findFirst({ where: { id: poslovnaGodina.id, firma_id: firma.id, zakljucena: false } })) return { error: "kif_godina_zakljucana" as const };
+    const periods = await tx.$queryRaw<{status: string}[]>`SELECT status FROM pdv_periodi WHERE firma_id=${firma.id}::uuid AND datum_od<=${kifDate}::date AND datum_do>=${kifDate}::date FOR UPDATE`;
+    if (periods.some(period => period.status === "LOCKED")) return { error: "kif_pdv_zakljucan" as const };
+
     const lastBook = await tx.kifBook.findFirst({
       where: {
         firma_id: firma.id,
@@ -1697,6 +1710,8 @@ export async function createKifBook(formData: FormData) {
       }
     });
   });
+
+  if ("error" in kifBook) redirectKif(kifBook.error);
 
   await auditLog({
     korisnikId: user.id,
@@ -2997,13 +3012,18 @@ export async function deleteKufBook(formData: FormData) {
   const hasPostedEntries =
     kufBook?.entries.some((entry) => entry.journal_id || entry.posting_status !== "UNPOSTED") ?? true;
 
+  const hasSupplierReturns = await prisma.povratDobavljacu.count({ where: {
+    firma_id: workContext.firmaId, agencija_id: user.agencija_id, is_deleted: false,
+    OR: [{ kuf_book_id: kufBookId }, { originalni_kuf: { kuf_book_id: kufBookId } }]
+  } });
+
   if (
     !poslovnaGodina ||
     poslovnaGodina.zakljucena ||
     !kufBook ||
     kufBook.status !== "OPEN" ||
     linkedJournal ||
-    hasPostedEntries
+    hasPostedEntries || hasSupplierReturns > 0
   ) {
     redirect("/agencija/racuni/pregled-kuf?poruka=kuf_knjiga_nije_rasknjizena");
   }

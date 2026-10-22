@@ -13,6 +13,9 @@ type KifPageProps = {
 };
 
 const poruke: Record<string, string> = {
+  kif_pdv_zakljucan: "PDV period za izabrani mjesec je zaključan. Novu knjigu možete otvoriti tek nakon kontrolisanog otključavanja u PDV modulu.",
+  kif_godina_zakljucana: "Poslovna godina je zaključana. Otvaranje knjige nije dozvoljeno.",
+  kif_datum: "Datum knjige mora pripadati izabranom mjesecu i godini.",
   kif_kontekst: "Izaberite aktivnu firmu i poslovnu godinu.",
   kif_mjesec: "Izaberite ispravan mjesec.",
   kif_vrsta: "Izaberite ispravnu vrstu KIF-a.",
@@ -107,6 +110,11 @@ export default async function KifPage({ searchParams }: KifPageProps) {
         })
       : [];
 
+  const lockedPeriods = activeCompany && activeYear ? await prisma.pdvPeriod.findMany({
+    where: { firma_id: activeCompany.id, poslovna_godina_id: activeYear.id, status: "LOCKED" },
+    select: { mjesec: true }
+  }) : [];
+
   return (
     <div className="admin-stack">
       <header className="admin-header">
@@ -138,6 +146,7 @@ export default async function KifPage({ searchParams }: KifPageProps) {
             disabled={activeYear.zakljucena || kifTypes.length === 0}
             invoiceTypes={kifTypes}
             year={activeYear.godina}
+            lockedMonths={lockedPeriods.map(period => period.mjesec)}
           />
         </section>
       )}
