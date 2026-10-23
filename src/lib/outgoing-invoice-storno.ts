@@ -36,6 +36,7 @@ async function prepare(ctx: OfficeStornoContext, originalId: string, reason: str
     await lock(tx, originalId);
     const original = await tx.fiskalniIzlazniRacun.findFirst({ where: { id: originalId, ...scope(ctx), sales_channel: "OFFICE", document_type: "INVOICE", original_invoice_id: null, is_deleted: false }, include: { stavke: { orderBy: { redni_broj: "asc" } }, placanja: true, corrective_invoices: true } });
     if (!original || original.fiscal_status !== "Fiscalized" || !original.iic || !original.jikr || !original.fiscal_api_invoice_id || !["Test", "Production"].includes(original.fiscal_environment ?? "") || !original.stavke.length) return fail("storno_original");
+    if (original.vrsta_racuna === "ADVANCE" || original.avansni_racun_id) fail("Za avans koristite kontrolisani avansni storno i obnovu; obični storno nije dozvoljen.");
     let correction = original.corrective_invoices[0];
     if (original.corrective_invoices.length > 1 || (correction && (correction.is_deleted || correction.document_type !== "OFFICE_STORNO" || correction.poslovna_godina_id !== ctx.yearId))) fail("storno_postoji");
     // A confirmed correction can finish bookkeeping without another fiscal request.

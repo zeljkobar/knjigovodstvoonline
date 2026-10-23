@@ -1,3 +1,4 @@
+import { InvoiceAdvancePrintNote } from "@/components/InvoiceAdvancePrintNote";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -152,7 +153,7 @@ export default async function DirectPortalInvoiceA4PrintPage({
             </div>
           </div>
           <div className="invoice-print-title">
-            <span>{portalDocumentTypeLabels[invoice.document_type] ?? "IZLAZNA FAKTURA"} / SALES INVOICE</span>
+            <span>{invoice.vrsta_racuna === "ADVANCE" ? "AVANSNI RAČUN" : portalDocumentTypeLabels[invoice.document_type] ?? "IZLAZNA FAKTURA"} / SALES INVOICE</span>
             <strong>{invoiceNumber}</strong>
             <small>Poslovna oznaka / Internal reference: {invoice.interni_broj}</small>
           </div>
@@ -207,7 +208,7 @@ export default async function DirectPortalInvoiceA4PrintPage({
             <p><span>Osnovica / Net</span><strong>{formatPortalDecimal(invoice.ukupno_osnovica)} €</strong></p>
             <p><span>Rabat / Discount</span><strong>{formatPortalDecimal(invoice.ukupno_rabat)} €</strong></p>
             <p><span>PDV / VAT</span><strong>{formatPortalDecimal(invoice.ukupno_izlazni_pdv)} €</strong></p>
-            <p className="invoice-print-grand-total"><span>ZA PLAĆANJE / AMOUNT DUE</span><strong>{formatPortalDecimal(invoice.ukupno_sa_pdv)} €</strong></p>
+            <p className="invoice-print-grand-total"><span>{invoice.avansni_racun_id ? "UKUPNA VRIJEDNOST / TOTAL" : invoice.vrsta_racuna === "ADVANCE" ? "AVANSNA UPLATA / ADVANCE" : "ZA PLAĆANJE / AMOUNT DUE"}</span><strong>{formatPortalDecimal(invoice.ukupno_sa_pdv)} €</strong></p>
           </div>
         </section>
 
@@ -237,7 +238,9 @@ export default async function DirectPortalInvoiceA4PrintPage({
           <span>Dokument je generisan elektronski. / This document was generated electronically.</span>
           <span>{issuer.webSajt ?? issuer.email ?? ""}</span>
         </footer>
-      </article>
+
+      <InvoiceAdvancePrintNote invoice={invoice}/>
+</article>
     </main>
   );
 }

@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { randomUUID } from "crypto";
 import Link from "next/link";
 import { PartnerSearchInput } from "@/components/PartnerSearchInput";
@@ -24,9 +25,9 @@ function addDays(value: Date, days: number) {
 export default async function NewPortalInvoicePage({
   searchParams
 }: {
-  searchParams: Promise<{ poruka?: string }>;
+  searchParams: Promise<{ poruka?: string; tip?: string; avans?: string }>;
 }) {
-  const [{ poruka }, context] = await Promise.all([
+  const [{ poruka, tip, avans }, context] = await Promise.all([
     searchParams,
     requireDirectPortalContext(
       createPermissions,
@@ -34,6 +35,9 @@ export default async function NewPortalInvoicePage({
       "all"
     )
   ]);
+  const source = avans && /^[0-9a-f-]{36}$/i.test(avans) ? await prisma.fiskalniIzlazniRacun.findFirst({where:{id:avans,agencija_id:context.user.agencija_id!,firma_id:context.firma.id,vrsta_racuna:"ADVANCE",document_type:"INVOICE",fiscal_status:"Fiscalized",is_deleted:false},include:{kupac:true}}) : null;
+  if (avans && !source) notFound();
+  const isAdvance = tip === "avans";
   const today = podgoricaBusinessDate();
   const [warehouses, settings] = await Promise.all([
     prisma.magacin.findMany({
@@ -58,7 +62,7 @@ export default async function NewPortalInvoicePage({
       <header className="admin-header">
         <div>
           <p className="eyebrow">Bezgotovinska prodaja</p>
-          <h2>Nova faktura</h2>
+          <h2>{isAdvance ? "Novi avansni račun" : source ? "Konačni račun iz avansa" : "Nova faktura"}</h2>
           <p className="muted-text">
             Otvorite nacrt, zatim dodajte i provjerite stavke prije fiskalizacije.
           </p>
@@ -91,9 +95,10 @@ export default async function NewPortalInvoicePage({
 
       <section className="admin-form-section">
         <form action={createPortalOutgoingInvoice} className="admin-form">
-          <input name="submission_id" type="hidden" value={randomUUID()} />
+          <input name="vrsta_racuna" type="hidden" value={isAdvance?"ADVANCE":"NORMAL"}/><input name="avansni_racun_id" type="hidden" value={source?.id??""}/><input name="submission_id" type="hidden" value={randomUUID()} />
           <input name="nacin_placanja" type="hidden" value="BANK_TRANSFER" />
           <PartnerSearchInput
+            initialPartner={source ? {id:source.kupac.id,naziv:source.kupac.naziv,label:source.kupac.naziv,pib:source.kupac.pib,scope:source.kupac.scope} : null}
             companyOnly
             label="Kupac"
             name="kupac_id"

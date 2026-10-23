@@ -9,6 +9,7 @@ import { prisma } from "./prisma";
 export const portalPaymentLabels: Record<string, string> = {
   CASH: "Gotovina",
   CARD: "Kartica",
+  ADVANCE: "Avans",
   BANK_TRANSFER: "Virman",
   OTHER: "Ostalo"
 };
@@ -58,6 +59,7 @@ export async function loadDirectPortalDashboard(
       prisma.fiskalniIzlazniRacun.findMany({
         where: {
           ...scope,
+          vrsta_racuna: { not: "ADVANCE" },
           fiscal_environment: activeEnvironment ?? "__UNAVAILABLE__",
           fiscal_status: { in: ["Fiscalized", "StornoCreated"] },
           issued_at: { gte: start, lt: end }

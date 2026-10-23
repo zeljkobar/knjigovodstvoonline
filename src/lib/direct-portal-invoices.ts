@@ -59,6 +59,7 @@ export type DirectPortalInvoiceFilters = {
   jikr: string;
   page: number;
   invalidPeriod: boolean;
+  invoiceKind?: "ADVANCE" | "NORMAL";
 };
 
 function first(value: string | string[] | undefined) {
@@ -170,6 +171,7 @@ function invoiceWhere(
     });
   }
 
+  if (filters.invoiceKind) conditions.push({ vrsta_racuna: filters.invoiceKind === "ADVANCE" ? "ADVANCE" : { not: "ADVANCE" } });
   if (filters.documentType) {
     conditions.push({ document_type: filters.documentType });
   }

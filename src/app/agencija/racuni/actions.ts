@@ -4005,6 +4005,15 @@ export async function importFiscalInvoicesToKif(formData: FormData) {
   if (period?.status === "LOCKED") redirectKifEntry(kifBook.id, "kif_fiskalni_period");
 
   const result = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM firme WHERE id=${firma.id}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM poslovne_godine WHERE id=${poslovnaGodina.id}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM kif_books WHERE id=${kifBook.id}::uuid FOR UPDATE`;
+    const currentYear = await tx.poslovnaGodina.findUnique({where:{id:poslovnaGodina.id}});
+    const currentBook = await tx.kifBook.findUnique({where:{id:kifBook.id}});
+    const periods = await tx.$queryRaw<Array<{status:string}>>`SELECT status FROM pdv_periodi WHERE firma_id=${firma.id}::uuid AND poslovna_godina_id=${poslovnaGodina.id}::uuid AND mjesec=${kifBook.mjesec} FOR UPDATE`;
+    if(currentYear?.zakljucena || currentBook?.is_deleted || currentBook?.status!=="OPEN") return {ok:false as const,reason:"kif_fiskalni_greska"};
+    if(periods.some(p=>p.status==="LOCKED")) return {ok:false as const,reason:"kif_fiskalni_period"};
+    for (const id of [...invoiceIds].sort()) await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`outgoing-invoice:${id}`}))`;
     const invoices = await tx.fiskalniIzlazniRacun.findMany({
       where: {
         id: { in: invoiceIds },
@@ -4034,6 +4043,7 @@ export async function importFiscalInvoicesToKif(formData: FormData) {
     let nextNumber = (lastEntry?.redni_broj ?? 0) + 1;
     const imported: Array<{ invoiceId: string; invoiceNumber: string; kifEntryId: string }> = [];
 
+    const prepared = [];
     for (const invoice of invoices) {
       if (invoice.datum_racuna.getUTCFullYear() !== poslovnaGodina.godina ||
           invoice.datum_racuna.getUTCMonth() + 1 !== kifBook.mjesec || invoice.poreske_stavke.length === 0) {
@@ -4056,6 +4066,11 @@ export async function importFiscalInvoicesToKif(formData: FormData) {
           output_vat_amount: tax.output_vat_amount, total_with_vat: tax.total_with_vat, created_by: user.id });
       }
 
+      prepared.push({invoice,taxLines});
+    }
+
+    // Validate the entire selection before writing any entry.
+    for(const {invoice,taxLines} of prepared) {
       const redniBroj = nextNumber++;
       const entry = await tx.kifEntry.create({ data: {
         kif_book_id: kifBook.id, agencija_id: user.agencija_id!, firma_id: firma.id,
@@ -4076,13 +4091,13 @@ export async function importFiscalInvoicesToKif(formData: FormData) {
         data: { status: "POSTED", kif_status: "IMPORTED", kif_entry_id: entry.id, updated_by: user.id } });
       imported.push({ invoiceId: invoice.id, invoiceNumber: invoice.broj_racuna, kifEntryId: entry.id });
     }
+    for (const item of imported) await auditLogInTransaction(tx, { korisnikId: user.id, agencijaId: user.agencija_id,
+      firmaId: firma.id, modul: "agencija.racuni.kif", akcija: "import_fiscal_invoice",
+      tipEntiteta: "FiskalniIzlazniRacun", entitetId: item.invoiceId, novaVrijednost: item });
     return { ok: true as const, imported };
   });
 
   if (!result.ok) redirectKifEntry(kifBook.id, result.reason);
-  for (const item of result.imported) await auditLog({ korisnikId: user.id, agencijaId: user.agencija_id,
-    firmaId: firma.id, modul: "agencija.racuni.kif", akcija: "import_fiscal_invoice",
-    tipEntiteta: "FiskalniIzlazniRacun", entitetId: item.invoiceId, novaVrijednost: item });
   revalidatePath(`/agencija/racuni/kif/${kifBook.id}`);
   revalidatePath("/agencija/racuni/pregled-kif");
   redirectKifEntry(kifBook.id, "kif_fiskalni_preuzeti");

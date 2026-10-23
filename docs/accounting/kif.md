@@ -131,3 +131,19 @@ agencije. Šeme se ne kopiraju i raniji nalozi se ne prepravljaju. Konta se
 razrješavaju u ciljnoj firmi uz postojeća prava, ravnotežu i zaključavanja.
 Vrste knjiga se uparuju po tipu i šifri. Pravila po polju i lokalna vrsta naloga
 imaju prednost; KIF import i SEP automatika koriste iste efektivne šeme.
+
+## Avansni računi i negativna umanjenja
+
+Robno priprema poseban nalog avansa po šemi ADVANCE_INVOICE: kupac po bruto
+iznosu, primljeni avansi po osnovici i izlazni PDV po stopama. Fiskalno potvrđeno
+umanjenje ima svoj lokalni dokument, negativne poreske iznose i koristi snimak
+konta izvornog avansa. Konačni račun zadržava punu prodaju i PDV.
+
+Avans i umanjenje ulaze u KIF mjeseca svog datuma kroz SOURCE_DOCUMENT sa već
+pripremljenim nalogom. KIF ne kontira te iznose drugi put. Nalozi se pregledaju
+i knjiže kroz Nalozi; samo POSTED ulazi u glavnu knjigu. Primjer: avans 242,00
+(osnovica 200,00 + PDV 42,00), konačni 363,00 (300,00 + 63,00), umanjenje
+−242,00 (−200,00 −42,00): KIF ukupno osnovica 300,00 i PDV 63,00. Ako su avans
+i konačni račun iz različitih mjeseci, svaki dokument ostaje u svom periodu.
+Nedostajuća šema ili zaključan period blokira lokalno knjiženje; fiskalni rezultat
+ostaje sačuvan za nastavak bez novog slanja. Kontrolisani storno/obnova je zaseban tok.

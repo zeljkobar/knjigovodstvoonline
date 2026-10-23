@@ -1,3 +1,4 @@
+import { advanceInvoicePostingScope } from "@/lib/advance-invoice-posting";
 import { supplierReturnFields, supplierReturnScope } from "@/lib/supplier-return";
 import { saveSupplierReturnSettings } from "./actions";
 import { PostingTemplateNotice } from "@/components/PostingTemplateNotice";
@@ -27,6 +28,7 @@ type PageProps = {
 };
 
 const messages: Record<string, string> = {
+  avans_sacuvano: "Šema kontiranja avansnih računa je sačuvana.",
   povrat_sacuvano: "Šema povrata dobavljaču je sačuvana.",
   sacuvano: "Podešavanja knjiženja kalkulacije su sačuvana.",
   prava: "Nemate pravo da mijenjate robna podešavanja.",
@@ -76,6 +78,7 @@ export default async function InventorySettingsPage({ searchParams }: PageProps)
   const writeOffSettingMap = new Map(writeOffSettings.map((setting) => [setting.namjena, setting]));
   const adjustmentSettingMap = new Map(adjustmentSettings.map((setting) => [setting.namjena, setting]));
   const returnSettings = await effectiveDefaultAccounts(prisma, { where: { firma_id: context.firma.id, dokument_tip: supplierReturnScope.documentType, podvrsta: supplierReturnScope.subtype, pdv_stopa_sifra: "GENERAL" } });
+  const advanceSettings = await effectiveDefaultAccounts(prisma, { where: { firma_id: context.firma.id, dokument_tip: advanceInvoicePostingScope.documentType, podvrsta: advanceInvoicePostingScope.subtype } });
   const transferAccounts = accounts.filter((account) => !account.analitika_obavezna);
 
   return (
@@ -134,6 +137,12 @@ export default async function InventorySettingsPage({ searchParams }: PageProps)
         <div className="panel-header"><div><h3>Šema knjiženja izlazne fakture</h3><p className="muted-text">Jedan nalog obuhvata kupca, prihod, izlazni PDV i razduženje robe.</p></div><span>{context.firma.naziv}</span></div>
         <InvoicePostingForm key={`invoice-${context.firma.id}`} firmaId={context.firma.id} settings={invoiceSettings.map(({namjena,pdv_stopa_sifra,sifra_konta,smjer})=>({namjena,pdv_stopa_sifra,sifra_konta,smjer}))} accounts={accounts.map(({sifra,naziv})=>({sifra,naziv}))} rates={invoiceVatRates}/>
 
+      </section>
+
+      <section className="admin-panel" id="avansni-racuni">
+        <div className="panel-header"><div><h3>Šema kontiranja avansnih računa</h3><p className="muted-text">Kupac po ukupnom iznosu, primljeni avansi po osnovici i izlazni PDV. Za osnovicu i PDV možete izabrati posebna konta po stopama.</p></div><span>{context.firma.naziv}</span></div>
+        <p className="admin-hint">Šema priprema nalog avansa: kupac, primljeni avansi i izlazni PDV. Umanjenje koristi konta sa izvornog avansa. Oba dokumenta preuzimaju se u KIF bez ponovnog kontiranja.</p>
+        <InvoicePostingForm key={`advance-${context.firma.id}`} kind="advance" firmaId={context.firma.id} settings={advanceSettings.map(({namjena,pdv_stopa_sifra,sifra_konta,smjer})=>({namjena,pdv_stopa_sifra,sifra_konta,smjer}))} accounts={accounts.map(({sifra,naziv})=>({sifra,naziv}))} rates={invoiceVatRates}/>
       </section>
     </div>
   );

@@ -1,4 +1,7 @@
 "use server";
+import { finishAdvanceAccounting } from "@/lib/advance-invoice-accounting";
+import { AdvanceWorkflowError } from "@/lib/advance-invoice";
+import { requirePermissionForUser } from "@/lib/permissions";
 import { effectiveDefaultAccounts } from "@/lib/posting-template";
 
 
@@ -95,7 +98,7 @@ export async function createOutgoingInvoice(formData: FormData) {
   } catch (error) {
     const code = serviceErrorCode(error);
     if (code) {
-      redirect(`/agencija/robno/nova-izlazna-faktura?poruka=${code}`);
+      redirect(`/agencija/robno/nova-izlazna-faktura?${text(formData.get("vrsta_racuna")) === "ADVANCE" ? "tip=avans&" : ""}poruka=${code}`);
     }
     throw error;
   }
@@ -143,6 +146,7 @@ export async function fiscalizeOutgoingInvoice(formData: FormData) {
   const id = text(formData.get("faktura_id"));
   const firmaId = text(formData.get("firma_id"));
   const ctx = await context("post", firmaId);
+  await requirePermissionForUser(ctx.user, { firmaId, modul: "fiskalizacija", akcija: "post" });
   try {
     const result = await fiscalizeOutgoingInvoiceDocument({
       context: serviceContext(ctx),
@@ -199,6 +203,16 @@ export async function finalizeOutgoingInvoice(formData: FormData) {
   const id = text(formData.get("faktura_id"));
   const firmaId = text(formData.get("firma_id"));
   const ctx = await context("post", firmaId);
+  const advance = await prisma.fiskalniIzlazniRacun.findFirst({where:{id,firma_id:firmaId,agencija_id:ctx.user.agencija_id!,poslovna_godina_id:ctx.year.id,vrsta_racuna:"ADVANCE",is_deleted:false},select:{id:true}});
+  if (advance) {
+    let code:string|null=null;
+    try { await finishAdvanceAccounting(serviceContext(ctx),id); }
+    catch(error) { if(error instanceof AdvanceWorkflowError) code=error.message; else throw error; }
+    revalidatePath(`/agencija/robno/izlazne-fakture/${id}`);
+    revalidatePath("/agencija/robno/avansni-racuni");
+    if(code) redirect(`/agencija/robno/izlazne-fakture/${id}?avans_poruka=${encodeURIComponent(code)}`);
+    detail(id,"avans_knjizen");
+  }
   const result = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw(
       Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`outgoing-invoice:${id}`}))`
@@ -217,6 +231,7 @@ export async function finalizeOutgoingInvoice(formData: FormData) {
       include: { stavke: true, magacin: true }
     });
     if (!invoice) return { ok: false as const, reason: "nije_nacrt" };
+    if (invoice?.vrsta_racuna === "ADVANCE") return { ok: false as const, reason: "Avans se završava fiskalizacijom, bez robnog knjiženja." };
     if (
       invoice.fiskalizacija_rezim === outgoingInvoiceFiscalModes.summa &&
       invoice.fiscal_status !== "Fiscalized"

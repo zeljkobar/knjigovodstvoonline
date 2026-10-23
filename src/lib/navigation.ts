@@ -219,7 +219,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
       label: "Prodaja",
       children: [
         { href: "/agencija/robno/izlazne-fakture", label: "Izlazne fakture" },
-        { href: "/agencija/robno/nova-izlazna-faktura", label: "Nova izlazna faktura" },
+        { href: "/agencija/robno/avansni-racuni", label: "Avansni računi" },
         { href: "/agencija/robno/razduzenja-lagera", label: "Razduženja lagera" },
         { href: "/agencija/robno/povrat-kupca", label: "Povrat kupca" }
       ]

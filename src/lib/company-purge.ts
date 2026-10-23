@@ -246,15 +246,16 @@ export async function purgeCompanyData(
     `
   );
   await izvrsi(
+    // Avansni kontni snapshot is JSON on the same row; it introduces no child FK.
     "fiskalni_izlazni_racuni_reference_cleanup",
     Prisma.sql`
       UPDATE fiskalni_izlazni_racuni
-      SET original_invoice_id = NULL
+      SET original_invoice_id = NULL, avansni_racun_id = NULL, iznos_avansa = 0
       WHERE firma_id = ${firmaId}::uuid
-        AND original_invoice_id IN (
+        AND (avansni_racun_id IS NOT NULL OR original_invoice_id IN (
           SELECT id FROM fiskalni_izlazni_racuni
           WHERE firma_id = ${firmaId}::uuid
-        )
+        ))
     `
   );
   await izvrsi(

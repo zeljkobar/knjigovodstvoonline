@@ -14,6 +14,7 @@ import {
   inventoryCountPostingFields,
   inventoryCountPostingScope
 } from "@/lib/inventory-count";
+import { advanceInvoicePostingFields, advanceInvoicePostingScope, advanceInvoiceRatePurposes } from "@/lib/advance-invoice-posting";
 import { outgoingInvoicePostingFields, outgoingInvoicePostingScope } from "@/lib/outgoing-invoice";
 import {
   inventoryTransferPostingFields,
@@ -112,6 +113,14 @@ export async function saveCalculationPostingSettings(formData: FormData) {
 
 
 export async function saveOutgoingInvoicePostingSettings(formData: FormData) {
+  return saveSalesPostingSettings(formData, false);
+}
+
+export async function saveAdvanceInvoicePostingSettings(formData: FormData) {
+  return saveSalesPostingSettings(formData, true);
+}
+
+async function saveSalesPostingSettings(formData: FormData, advance: boolean) {
   await requireRole("admin_agencije");
   const returnPath = "/agencija/robno/podesavanja";
   const context = await getInventoryContext("manage");
@@ -119,18 +128,21 @@ export async function saveOutgoingInvoicePostingSettings(formData: FormData) {
   if (!context.allowed || !context.firma || !context.user.agencija_id || context.firma.id !== firmaId) redirect(`${returnPath}?poruka=prava`);
   let entries: Array<{namjena:string;pdv_stopa_sifra:string;sifra_konta:string;smjer:string}>;
   try {
-    const parsed: unknown = JSON.parse(text(formData.get("invoice_rules")));
+    const parsed: unknown = JSON.parse(text(formData.get(advance ? "advance_rules" : "invoice_rules")));
     if (!Array.isArray(parsed) || parsed.length>100 || parsed.some(r=>!r || ["namjena","pdv_stopa_sifra","sifra_konta","smjer"].some(k=>typeof r[k]!=="string"))) throw new Error("rules");
-    entries = parsed;
+    entries = parsed.map(({namjena,pdv_stopa_sifra,sifra_konta,smjer}) => ({namjena,pdv_stopa_sifra,sifra_konta,smjer}));
   } catch { redirect(`${returnPath}?poruka=neispravna_konta`); }
+  const postingScope = advance ? advanceInvoicePostingScope : outgoingInvoicePostingScope;
+  const ratePurposes = advance ? advanceInvoiceRatePurposes : ["INVOICE_REVENUE", "INVOICE_OUTPUT_VAT"];
+  const fields = advance ? advanceInvoicePostingFields : outgoingInvoicePostingFields;
   const rates = await prisma.pdvStopa.findMany({where:{agencija_id:context.user.agencija_id},select:{sifra:true}});
   const allowedRates=new Set(["GENERAL",...rates.map(r=>r.sifra)]);
-  const purposes=new Set<string>(outgoingInvoicePostingFields.map(f=>f.purpose));
+  const purposes=new Set<string>(fields.map(f=>f.purpose));
   const keys=new Set<string>();
   for (const entry of entries) {
     const key=`${entry.namjena}:${entry.pdv_stopa_sifra}`;
     if (!purposes.has(entry.namjena) || !allowedRates.has(entry.pdv_stopa_sifra) || keys.has(key) ||
-      (!["INVOICE_REVENUE","INVOICE_OUTPUT_VAT"].includes(entry.namjena) && entry.pdv_stopa_sifra!=="GENERAL") || !["D","P"].includes(entry.smjer)) redirect(`${returnPath}?poruka=neispravna_konta`);
+      (!ratePurposes.includes(entry.namjena) && entry.pdv_stopa_sifra!=="GENERAL") || !["D","P"].includes(entry.smjer)) redirect(`${returnPath}?poruka=neispravna_konta`);
     keys.add(key);
   }
   const codes=[...new Set(entries.map(r=>r.sifra_konta).filter(Boolean))];
@@ -143,13 +155,13 @@ export async function saveOutgoingInvoicePostingSettings(formData: FormData) {
   if(entries.some(r=>r.sifra_konta && (r.sifra_konta.length<4 || !valid.has(r.sifra_konta))))redirect(`${returnPath}?poruka=neispravna_konta`);
   await prisma.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM firme WHERE id=${firmaId}::uuid FOR UPDATE`;
-    const scope={firma_id:firmaId,dokument_tip:outgoingInvoicePostingScope.documentType,podvrsta:outgoingInvoicePostingScope.subtype};
+    const scope={firma_id:firmaId,dokument_tip:postingScope.documentType,podvrsta:postingScope.subtype};
     const previous=await tx.firmaPodrazumijevanoKonto.findMany({where:scope});
     await tx.firmaPodrazumijevanoKonto.deleteMany({where:scope});
     await tx.firmaPodrazumijevanoKonto.createMany({data:entries.map(entry=>({...scope,...entry,created_by:context.user.id,updated_by:context.user.id}))});
-    await auditLogInTransaction(tx,{korisnikId:context.user.id,agencijaId:context.user.agencija_id!,firmaId,modul:inventoryModule,akcija:"save_outgoing_invoice_posting_settings",tipEntiteta:"FirmaPodrazumijevanoKonto",entitetId:firmaId,staraVrijednost:previous,novaVrijednost:entries});
+    await auditLogInTransaction(tx,{korisnikId:context.user.id,agencijaId:context.user.agencija_id!,firmaId,modul:inventoryModule,akcija:advance ? "save_advance_invoice_posting_settings" : "save_outgoing_invoice_posting_settings",tipEntiteta:"FirmaPodrazumijevanoKonto",entitetId:firmaId,staraVrijednost:previous,novaVrijednost:entries});
   });
-  revalidatePath(returnPath); redirect(`${returnPath}?poruka=faktura_sacuvano`);
+  revalidatePath(returnPath); redirect(`${returnPath}?poruka=${advance ? "avans_sacuvano#avansni-racuni" : "faktura_sacuvano"}`);
 }
 
 export async function saveInventoryTransferPostingSettings(formData: FormData) {

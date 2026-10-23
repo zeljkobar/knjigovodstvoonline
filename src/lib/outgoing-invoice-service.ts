@@ -1,6 +1,8 @@
 import "server-only";
 
 import { randomUUID } from "crypto";
+import { advancePayments } from "./advance-invoice";
+import { autoPrepareAdvanceSettlement, validateAdvanceForFiscalization } from "./advance-invoice-service";
 import { Prisma } from "@prisma/client";
 import { auditLog } from "@/lib/audit";
 import {
@@ -62,6 +64,7 @@ export type OutgoingInvoiceFiscalizationResult =
     };
 
 export type OutgoingInvoiceServiceErrorCode =
+  | "avans"
   | "artikal"
   | "datum"
   | "fiskalizacija_nije_podesena"
@@ -381,6 +384,10 @@ export async function createOutgoingInvoiceDraft(input: {
     throw new OutgoingInvoiceServiceError("submission");
   }
 
+  const isAdvance = text(formData, "vrsta_racuna") === "ADVANCE";
+  const advanceId = text(formData, "avansni_racun_id") || null;
+  if (isAdvance && advanceId) throw new OutgoingInvoiceServiceError("avans");
+  if (advanceId && !invoiceSubmissionIdPattern.test(advanceId)) throw new OutgoingInvoiceServiceError("avans");
   const buyerId = text(formData, "kupac_id");
   const warehouseId = text(formData, "magacin_id") || null;
   const invoiceDate = submittedDate(formData, "datum_racuna");
@@ -425,6 +432,11 @@ export async function createOutgoingInvoiceDraft(input: {
     throw new OutgoingInvoiceServiceError("datum");
   }
 
+  if (isAdvance && (!buyer.pib || !firma.fiscalCompanyLink?.fiscal_api_company_id || firma.fiscalCompanyLink.is_suspended)) throw new OutgoingInvoiceServiceError("avans");
+  if (advanceId) {
+    const source = await prisma.fiskalniIzlazniRacun.findFirst({ where: { id: advanceId, agencija_id: context.agencijaId, firma_id: context.firmaId, kupac_id: buyerId, vrsta_racuna: "ADVANCE", document_type: "INVOICE", fiscal_status: "Fiscalized", is_deleted: false } });
+    if (!source || source.datum_racuna > invoiceDate) throw new OutgoingInvoiceServiceError("avans");
+  }
   const submittedDueDate = submittedDate(formData, "datum_valute");
   const dueDate = submittedDueDate ?? addUtcDays(
     invoiceDate,
@@ -466,7 +478,7 @@ export async function createOutgoingInvoiceDraft(input: {
       select: { broj: true }
     });
     const number = (last?.broj ?? 0) + 1;
-    const internal = `IF-${year.godina}-${String(number).padStart(4, "0")}`;
+    const internal = `${isAdvance ? "AV" : "IF"}-${year.godina}-${String(number).padStart(4, "0")}`;
     const invoice = await tx.fiskalniIzlazniRacun.create({
       data: {
         agencija_id: context.agencijaId,
@@ -483,6 +495,8 @@ export async function createOutgoingInvoiceDraft(input: {
         datum_valute: dueDate,
         mjesto_izdavanja:
           text(formData, "mjesto_izdavanja") || firma.grad || null,
+        vrsta_racuna: isAdvance ? "ADVANCE" : "NORMAL",
+        avansni_racun_id: advanceId,
         document_type: "INVOICE",
         sales_channel: "OFFICE",
         nacin_placanja: directPaymentMethod,
@@ -725,6 +739,8 @@ export async function updateOutgoingInvoiceDraftHeader(input: {
   const payment = options.partnerAccess === "DIRECT"
     ? directPaymentMethod
     : requestedPayment || current.nacin_placanja;
+  if ((current.vrsta_racuna === "ADVANCE" || current.avansni_racun_id) && payment !== "BANK_TRANSFER") throw new OutgoingInvoiceServiceError("avans");
+  if (current.vrsta_racuna === "ADVANCE" && !buyer.pib) throw new OutgoingInvoiceServiceError("kupac");
   if (!allowedAgencyPaymentMethods.has(payment)) {
     throw new OutgoingInvoiceServiceError("placanje");
   }
@@ -745,6 +761,7 @@ export async function updateOutgoingInvoiceDraftHeader(input: {
     await tx.fiskalniIzlazniRacun.update({
       where: { id: invoiceId },
       data: {
+        ...(buyer.id !== current.kupac_id ? { avansni_racun_id: null, iznos_avansa: 0 } : {}),
         kupac_id: buyer.id,
         buyer_snapshot: buyerSnapshot(buyer),
         vat_transaction_type: buyer.is_foreign ? "EXPORT" : "DOMESTIC",
@@ -841,6 +858,13 @@ async function preflightOutgoingInvoice(input: {
   }
   await ensurePdvPeriodOpen(context, [invoice.datum_racuna]);
 
+  if (invoice.vrsta_racuna === "ADVANCE") {
+    if (!invoice.kupac.pib || invoice.nacin_placanja !== "BANK_TRANSFER") throw new OutgoingInvoiceServiceError("avans");
+    return;
+  }
+  if (invoice.avansni_racun_id) {
+    try { await validateAdvanceForFiscalization(context, invoice); advancePayments(invoice, "validated"); } catch { throw new OutgoingInvoiceServiceError("avans"); }
+  }
   const goods = invoice.stavke.filter(
     (line) => !line.artikal.usluga && line.artikal.prati_zalihe
   );
@@ -1087,16 +1111,12 @@ async function persistFiscalResult(input: {
     await tx.salesDocumentPayment.deleteMany({
       where: { fiskalni_izlazni_racun_id: invoice.id }
     });
-    await tx.salesDocumentPayment.create({
-      data: {
-        fiskalni_izlazni_racun_id: invoice.id,
-        redni_broj: 1,
-        payment_method: invoice.nacin_placanja,
-        amount: invoice.ukupno_sa_pdv,
-        reference: invoice.interni_broj,
-        created_by: context.userId
-      }
-    });
+    const applied = decimalToScaled(invoice.iznos_avansa, 2);
+    const gross = decimalToScaled(invoice.ukupno_sa_pdv, 2);
+    await tx.salesDocumentPayment.createMany({ data: invoice.avansni_racun_id ? [
+      { fiskalni_izlazni_racun_id: invoice.id, redni_broj: 1, payment_method: "ADVANCE", amount: invoice.iznos_avansa, reference: invoice.avansni_racun_id, created_by: context.userId },
+      ...(gross > applied ? [{ fiskalni_izlazni_racun_id: invoice.id, redni_broj: 2, payment_method: "BANK_TRANSFER", amount: scaledToDecimal(gross - applied, 2), created_by: context.userId }] : [])
+    ] : [{ fiskalni_izlazni_racun_id: invoice.id, redni_broj: 1, payment_method: invoice.nacin_placanja, amount: invoice.ukupno_sa_pdv, reference: invoice.interni_broj, created_by: context.userId }] });
     await tx.fiskalniIzlazniRacun.update({
       where: { id: invoice.id },
       data: {
@@ -1201,7 +1221,7 @@ async function finalizeFiscalOnlyInvoice(input: {
       throw new OutgoingInvoiceServiceError("lokalni_zavrsetak");
     }
     if (invoice.status === "FINALIZED") return { alreadyFinalized: true };
-    await applyOutgoingInvoiceInventoryMovement(tx, {
+    if (invoice.vrsta_racuna !== "ADVANCE") await applyOutgoingInvoiceInventoryMovement(tx, {
       agencijaId: context.agencijaId,
       firmaId: context.firmaId,
       poslovnaGodinaId: context.poslovnaGodinaId,
@@ -1431,13 +1451,15 @@ export async function fiscalizeOutgoingInvoiceDocument(input: {
       finalInvoice = response.data;
       correlationId = response.correlationId ?? correlationId;
     } else {
+      const advance = await validateAdvanceForFiscalization(context, { ...invoice, fiscal_environment: environmentSnapshot });
+      const payments = advancePayments(invoice, advance?.fiscal_api_invoice_id ?? undefined);
       const created = await fiscalAdminApi.createInvoice(
         {
           companyId: link.fiscal_api_company_id,
           businessUnitId: unit.id,
           deviceId: device.id,
           operatorId: operator.id,
-          invoiceType: "Normal",
+          invoiceType: invoice.vrsta_racuna === "ADVANCE" ? "Advance" : "Normal",
           invoiceNumber: "",
           issueDateTime: invoice.issued_at!.toISOString(),
           currency: "EUR",
@@ -1469,7 +1491,7 @@ export async function fiscalizeOutgoingInvoiceDocument(input: {
             unitOfMeasure: line.jedinica_mjere,
             discountAmount: grossDiscountAmount(line)
           })),
-          payments: [
+          payments: payments ?? [
             {
               paymentType: paymentType(invoice.nacin_placanja),
               amount: apiNumber(invoice.ukupno_sa_pdv),
@@ -1567,6 +1589,10 @@ export async function fiscalizeOutgoingInvoiceDocument(input: {
 
     if (options.accountingMode === "FISCAL_ONLY") {
       await finalizeFiscalOnlyInvoice({ context, invoiceId });
+    }
+    if (invoice.avansni_racun_id) {
+      try { await autoPrepareAdvanceSettlement(context, invoiceId); }
+      catch { await auditInvoice({ context, action: "advance_settlement_requires_review", invoiceId, newValue: { advanceId: invoice.avansni_racun_id } }); }
     }
     await auditInvoice({
       context,

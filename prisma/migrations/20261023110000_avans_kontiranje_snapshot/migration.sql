@@ -1,0 +1,1 @@
+ALTER TABLE fiskalni_izlazni_racuni ADD COLUMN avans_kontiranje_snapshot jsonb;

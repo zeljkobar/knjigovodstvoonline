@@ -582,7 +582,7 @@ export async function updateDraftJournalLines(formData: FormData) {
     }
   });
 
-  if (!nalog || nalog.status !== journalStatuses.draft || ["OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN"].includes(nalog.source_module ?? "")) {
+  if (!nalog || nalog.status !== journalStatuses.draft || ["OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN", "agencija.robno.avansni-racuni"].includes(nalog.source_module ?? "")) {
     redirectJournals("nalog_greska");
   }
 
@@ -884,7 +884,7 @@ export async function deleteJournal(formData: FormData) {
     redirectJournals("prava");
   }
 
-  if (nalog.status !== journalStatuses.draft || ["OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN"].includes(nalog.source_module ?? "")) {
+  if (nalog.status !== journalStatuses.draft || ["OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN", "agencija.robno.avansni-racuni"].includes(nalog.source_module ?? "")) {
     redirectJournals("nalog_greska");
   }
 

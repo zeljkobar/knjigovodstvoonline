@@ -1,3 +1,4 @@
+import { InvoiceAdvancePrintNote } from "@/components/InvoiceAdvancePrintNote";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -90,7 +91,7 @@ export default async function OutgoingInvoicePrintPage({ params }: { params: Pro
       {invoice.status === "DRAFT" && !fiscalized ? <div className="invoice-print-watermark">NACRT / DRAFT</div> : null}
       <header className="invoice-print-header">
         <div className="invoice-print-brand"><div className="invoice-print-monogram">{(issuer.skraceniNaziv ?? issuer.naziv ?? "SS").slice(0, 2).toUpperCase()}</div><div><h1>{issuer.naziv}</h1><p>{[issuer.adresa, issuer.grad, issuer.drzava].filter(Boolean).join(", ")}</p><p>PIB / Tax ID: {issuer.pib ?? "-"}{issuer.pdvBroj ? ` · PDV / VAT: ${issuer.pdvBroj}` : ""}</p></div></div>
-        <div className="invoice-print-title"><span>{invoice.document_type === "OFFICE_STORNO" ? "STORNO FAKTURA / CREDIT NOTE" : "IZLAZNA FAKTURA / SALES INVOICE"}</span><strong>{invoiceNumber}</strong><small>Poslovna oznaka / Internal reference: {invoice.interni_broj}</small></div>
+        <div className="invoice-print-title"><span>{invoice.document_type === "ADVANCE_SETTLEMENT" ? "UMANJENJE AVANSA / ADVANCE SETTLEMENT" : invoice.vrsta_racuna === "ADVANCE" ? "AVANSNI RAČUN / ADVANCE INVOICE" : invoice.document_type === "OFFICE_STORNO" ? "STORNO FAKTURA / CREDIT NOTE" : "IZLAZNA FAKTURA / SALES INVOICE"}</span><strong>{invoiceNumber}</strong><small>Poslovna oznaka / Internal reference: {invoice.interni_broj}</small></div>
       </header>
 
       {invoice.document_type === "OFFICE_STORNO" && invoice.original_invoice?.firma_id === invoice.firma_id ? <section className="invoice-print-note"><strong>Storno originala: {invoice.original_invoice.broj_racuna} · {date(invoice.original_invoice.datum_racuna)}</strong><p>IKOF originala: {invoice.original_invoice.iic}</p><p>Razlog: {invoice.correction_reason}</p></section> : null}
@@ -112,7 +113,7 @@ export default async function OutgoingInvoicePrintPage({ params }: { params: Pro
 
       <section className="invoice-print-bottom">
         <div className="invoice-print-payment"><h3>Podaci za plaćanje / Payment details</h3><p><span>Banka / Bank</span><strong>{issuer.banka ?? "-"}</strong></p><p><span>Žiro račun / Bank account</span><strong>{issuer.ziroRacun ?? "-"}</strong></p><p><span>Poziv / opis / Reference</span><strong>{invoiceNumber}</strong></p>{invoice.napomena ? <div className="invoice-print-note"><span>Napomena / Note</span><p>{invoice.napomena}</p></div> : null}</div>
-        <div className="invoice-print-totals"><p><span>Osnovica / Net</span><strong>{money(invoice.ukupno_osnovica)} €</strong></p><p><span>Rabat / Discount</span><strong>{money(invoice.ukupno_rabat)} €</strong></p><p><span>PDV / VAT</span><strong>{money(invoice.ukupno_izlazni_pdv)} €</strong></p><p className="invoice-print-grand-total"><span>ZA PLAĆANJE / AMOUNT DUE</span><strong>{money(invoice.ukupno_sa_pdv)} €</strong></p></div>
+        <div className="invoice-print-totals"><p><span>Osnovica / Net</span><strong>{money(invoice.ukupno_osnovica)} €</strong></p><p><span>Rabat / Discount</span><strong>{money(invoice.ukupno_rabat)} €</strong></p><p><span>PDV / VAT</span><strong>{money(invoice.ukupno_izlazni_pdv)} €</strong></p><p className="invoice-print-grand-total"><span>{invoice.avansni_racun_id ? "UKUPNA VRIJEDNOST / TOTAL" : invoice.vrsta_racuna === "ADVANCE" ? "AVANSNA UPLATA / ADVANCE" : "ZA PLAĆANJE / AMOUNT DUE"}</span><strong>{money(invoice.ukupno_sa_pdv)} €</strong></p></div>
       </section>
 
       <section className="invoice-print-tax"><h3>Rekapitulacija PDV-a / VAT summary</h3><table><thead><tr><th>Stopa / Rate</th><th>Osnovica / Tax base</th><th>PDV / VAT</th><th>Ukupno / Total</th></tr></thead><tbody>{taxRows.map((tax) => <tr key={tax.id}><td>{money(tax.vat_rate_percent)}%</td><td>{money(tax.tax_base)} €</td><td>{money(tax.output_vat_amount)} €</td><td>{money(tax.total_with_vat)} €</td></tr>)}</tbody></table></section>
@@ -123,6 +124,7 @@ export default async function OutgoingInvoicePrintPage({ params }: { params: Pro
       </section>
 
       <footer className="invoice-print-footer"><span>Dokument je generisan elektronski. / This document was generated electronically.</span><span>{issuer.webSajt ?? issuer.email ?? ""}</span></footer>
-    </article>
+    <InvoiceAdvancePrintNote invoice={invoice}/>
+</article>
   </main>;
 }

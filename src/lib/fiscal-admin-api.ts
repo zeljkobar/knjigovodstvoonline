@@ -85,6 +85,11 @@ export type FiscalInvoice = {
   qrCodeData?: string | null;
   [key: string]: unknown;
 };
+export type FiscalAdvanceBalance = {
+  totalAmount: number; usedAmount: number; reservedAmount: number; remainingAmount: number;
+  isAvailable: boolean; unsettledAmount: number; pendingRestorationAmount?: number;
+  usages: Array<{ finalInvoiceId?: string; [key: string]: unknown }>;
+};
 export type FiscalInvoiceSubmission = {
   invoiceId: string;
   isSuccess: boolean;
@@ -307,6 +312,12 @@ export const fiscalAdminApi = {
       headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify(payload)
     });
+  },
+  getAdvanceBalance(invoiceId: string, actor: FiscalActor) {
+    return fiscalRequest<FiscalAdvanceBalance>(`/api/v1/fiscal/invoices/${invoiceId}/advance-balance`, actor);
+  },
+  createAdvanceSettlement(invoiceId: string, payload: Record<string, unknown>, key: string, actor: FiscalActor) {
+    return fiscalRequest<FiscalInvoice>(`/api/v1/fiscal/invoices/${invoiceId}/advance-settlements`, actor, { method: "POST", headers: { "Idempotency-Key": key }, body: JSON.stringify(payload) });
   },
   fiscalizeInvoice(invoiceId: string, confirmation: string, actor: FiscalActor) {
     return fiscalRequest<FiscalInvoiceSubmission>(`/api/v1/fiscal/invoices/${invoiceId}/fiscalize`, actor, {

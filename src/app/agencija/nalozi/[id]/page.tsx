@@ -201,6 +201,7 @@ export default async function NalogDetailPage({
     0
   );
   const balanced = Math.round(totalDebit * 100) === Math.round(totalCredit * 100);
+  const isAdvanceJournal = nalog.source_module === "agencija.robno.avansni-racuni";
   const isTravelJournal = nalog.source_module === "PUTNI_NALOZI";
   const isProtectedSourceJournal = ["OSNOVNA_SREDSTVA", "SUPPLIER_RETURN"].includes(nalog.source_module ?? "") || isTravelJournal;
   const depreciationBatchHref =
@@ -400,7 +401,7 @@ export default async function NalogDetailPage({
       </section>
 
       {canUpdate && nalog.status === journalStatuses.draft &&
-      !nalog.poslovna_godina.zakljucena && !isProtectedSourceJournal ? (
+      !nalog.poslovna_godina.zakljucena && !isProtectedSourceJournal && !isAdvanceJournal ? (
         <section className="admin-panel">
           <div className="panel-header">
             <h3>Izmijeni stavke</h3>
@@ -427,6 +428,7 @@ export default async function NalogDetailPage({
         </section>
       ) : null}
 
+      {isAdvanceJournal && nalog.izvorni_dokument_id ? <section className="admin-panel"><p>Stavke su preuzete iz šeme avansa i zaštićene od direktnih izmjena.</p><Link className="secondary-button" href={`/agencija/robno/izlazne-fakture/${nalog.izvorni_dokument_id}`}>Otvori avansni dokument</Link></section> : null}
       {!nalog.poslovna_godina.zakljucena ? (
         <section className="admin-panel">
           <div className="panel-header">

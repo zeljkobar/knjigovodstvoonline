@@ -23,7 +23,7 @@ const invoiceViewPermissions = [
 ];
 
 function pageHref(filters: DirectPortalInvoiceFilters, page: number) {
-  return page > 1 ? `/portal/fakture?stranica=${page}` : "/portal/fakture";
+  return `/portal/fakture?stranica=${page}${filters.invoiceKind === "ADVANCE" ? "&avansi=1" : ""}`;
 }
 
 export default async function PortalInvoicesPage({
@@ -44,6 +44,8 @@ export default async function PortalInvoicesPage({
     tip: "INVOICE",
     kanal: "OFFICE"
   });
+  const advances = params.avansi === "1";
+  filters.invoiceKind = advances ? "ADVANCE" : "NORMAL";
   const result = await loadDirectPortalInvoiceList(context, filters);
   const canCreate =
     hasDirectPortalPermission(context.permissionKeys, {
@@ -60,7 +62,7 @@ export default async function PortalInvoicesPage({
       <header className="admin-header">
         <div>
           <p className="eyebrow">Prodaja</p>
-          <h2>Bezgotovinske fakture</h2>
+          <h2>{advances ? "Avansni računi" : "Bezgotovinske fakture"}</h2>
           <p className="muted-text">
             Nacrti i fiskalizovane OFFICE fakture za {context.year.godina}.
           </p>
@@ -70,13 +72,14 @@ export default async function PortalInvoicesPage({
             Svi fiskalni računi
           </Link>
           {canCreate ? (
-            <Link className="primary-button" href="/portal/fakture/nova">
-              Nova faktura
+            <Link className="primary-button" href={advances ? "/portal/fakture/nova?tip=avans" : "/portal/fakture/nova"}>
+              {advances ? "Novi avansni račun" : "Nova faktura"}
             </Link>
           ) : null}
         </div>
       </header>
 
+      <nav className="header-actions"><Link className="secondary-button" href="/portal/fakture">Fakture</Link><Link className="secondary-button" href="/portal/fakture?avansi=1">Avansni računi</Link></nav>
       <section className="admin-panel">
         <div className="panel-header">
           <div>

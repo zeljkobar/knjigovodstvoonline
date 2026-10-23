@@ -4,6 +4,17 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Avansni fiskalni UI implementiran je u Robnom/portalu: avans, konačni račun
+  sa vezom, negativno umanjenje i štampa. Pri deployu sajta primijeniti
+  `20261023090000_avansni_racuni` i `20261023110000_avans_kontiranje_snapshot`,
+  generisati Prisma i restartovati. Prije live
+  provjere uskladiti Fiscal API server sa `AddAdvanceInvoiceWorkflow` i
+  `AddAdvanceFinalStornoRestoration`; lokalni testovi sajta ne pozivaju PU.
+  Šema avansnih konta u Robno → Podešavanja povezana je sa nalozima i KIF-om
+  avansa/umanjenja, uz snimak izvornih konta i nastavak bez novog fiskalnog slanja.
+  Naredno: kontrolisani storno/obnova (`ReturnToAdvance`) na sajtu i eksplicitno potvrđen
+  testni PU prolaz. Generički robni storno avansa/vezanog konačnog je blokiran.
+  ORDER/sumarni workflow se ovim korakom ne implementira.
 - Template firma za knjiženje je implementirana. Pri deployu primijeniti `20261018190000_agencija_knjizenje_template`, regenerisati Prisma i restartovati aplikaciju. Administrator zatim bira izvor u Podešavanja → Agencija. Izbor nije automatski aktiviran ni za jednu agenciju; lokalni QA izbor vraćen je na početno stanje. Provjeriti prvi produkcijski uvoz/knjiženje preko templatea.
 - Teme su implementirane: pri produkcijskom deployu primijeniti `20261016060000_korisnicka_tema`, regenerisati Prisma i restartovati aplikaciju. Birač uz korisnika čuva sopstvenu paletu/režim. Stvarna browser prijava admin/klijentskim/fiskalnim nalogom ostaje dopunski QA tih uloga; postojeća agencijska sesija korišćena je za detaljan prolaz modula.
 - SEP automatika je implementirana u Podešavanja na `/agencija/podesavanja/sep-automatika` (rezultati u Dashboard → Automatski obrađena dokumenta): opt-in po firmi, redni noćni rad, IKOF preflight, mjesečni KIF i konačno knjiženje/dopuna istog naloga. Na produkciji primijeniti `20261016040000_sep_automatika` i prethodnu `20261014120000_agencija_sep_sertifikati`, regenerisati Prisma i restartovati. Osigurati trajan `SEP_ENCRYPTION_KEY` izvan baze; podaci sertifikata i lokalni ključ se ne prepisuju u git. `SEP_AUTOMATION_ENABLED=false` gasi timer; production ga podrazumijevano pokreće, a `true` omogućava i dev timer.

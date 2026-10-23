@@ -2042,6 +2042,12 @@ model FiskalniIzlazniRacun {
   original_invoice        FiskalniIzlazniRacun?       @relation("InvoiceCorrections", fields: [original_invoice_id], references: [id])
   corrective_invoices     FiskalniIzlazniRacun[]      @relation("InvoiceCorrections")
   correction_reason       String?
+  avansni_racun_id        String?                     @db.Uuid
+  avansni_racun           FiskalniIzlazniRacun?        @relation("InvoiceAdvance", fields: [avansni_racun_id], references: [id], onDelete: Restrict)
+  racuni_iz_avansa        FiskalniIzlazniRacun[]       @relation("InvoiceAdvance")
+  iznos_avansa            Decimal                     @default(0) @db.Decimal(14, 2)
+  avans_umanjenje         Json?
+  avans_kontiranje_snapshot Json?
   stavke                  StavkaIzlazneFakture[]
   poreske_stavke          FiskalniIzlazniRacunPorez[]
   placanja                SalesDocumentPayment[]
@@ -2057,6 +2063,7 @@ model FiskalniIzlazniRacun {
   @@index([pos_register_id, issued_at])
   @@index([original_invoice_id])
   @@index([poslovna_jedinica_id, datum_racuna])
+  @@index([avansni_racun_id], map: "fiskalni_racun_avans_idx")
   @@map("fiskalni_izlazni_racuni")
 }
 

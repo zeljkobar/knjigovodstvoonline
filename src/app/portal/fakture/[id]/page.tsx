@@ -1,3 +1,4 @@
+import { InvoiceAdvancePanel } from "@/components/InvoiceAdvancePanel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OutgoingInvoiceLinesEditor } from "@/components/OutgoingInvoiceLinesEditor";
@@ -28,6 +29,7 @@ const viewPermissions = [
 ];
 
 const messages: Record<string, string> = {
+  avans: "Provjerite fiskalnu konfiguraciju, PIB kupca i iznos avansa.",
   kreirana: "Nacrt je otvoren. Dodajte i sačuvajte stavke računa.",
   sacuvana: "Stavke i serverski obračun fakture su sačuvani.",
   zaglavlje: "Podaci fakture su sačuvani.",
@@ -66,9 +68,9 @@ export default async function PortalInvoiceEditorPage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ poruka?: string }>;
+  searchParams: Promise<{ poruka?: string; avans_poruka?: string }>;
 }) {
-  const [{ id }, { poruka }] = await Promise.all([params, searchParams]);
+  const [{ id }, { poruka, avans_poruka }] = await Promise.all([params, searchParams]);
   const context = await requireDirectPortalContext(
     viewPermissions,
     `/portal/fakture/${id}`,
@@ -230,7 +232,7 @@ export default async function PortalInvoiceEditorPage({
       <header className="admin-header">
         <div>
           <p className="eyebrow">Bezgotovinske fakture / Nacrt</p>
-          <h2>{invoice.interni_broj}</h2>
+          <h2>{invoice.vrsta_racuna === "ADVANCE" ? "Avans · " : ""}{invoice.interni_broj}</h2>
           <p className="muted-text">
             {invoice.kupac.naziv} · {invoice.datum_racuna.toLocaleDateString("sr-Latn-ME")}
           </p>
@@ -495,6 +497,7 @@ export default async function PortalInvoiceEditorPage({
           </div>
         </section>
       )}
+      <InvoiceAdvancePanel id={invoice.id} portal context={{agencijaId:context.user.agencija_id!,firmaId:context.firma.id,poslovnaGodinaId:context.year.id,userId:context.user.id,userName:context.user.korisnicko_ime}} canEdit={canEdit && !context.year.zakljucena && !context.readiness.blocksChanges} canSettle={canPost && hasDirectPortalPermission(context.permissionKeys,{modul:"robno",akcija:"cancel"}) && !context.year.zakljucena && !context.readiness.blocksChanges} message={avans_poruka}/>
     </div>
   );
 }

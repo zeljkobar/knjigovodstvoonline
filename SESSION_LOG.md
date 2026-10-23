@@ -1,5 +1,76 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-10-23 — Povezano kontiranje avansa i umanjenja
+
+- Fiskalizovani avans koristi ADVANCE_INVOICE šemu (kupac D ukupno,
+  primljeni avansi P osnovica, izlazni PDV P po stopi), priprema DRAFT nalog
+  i WAITING_KIF. Nema knjiženja prihoda ili lagera; običan konačni račun
+  zadržava punu prodaju i svoju šemu.
+- Potvrđeno fiskalno umanjenje materijalizuje se kao zaseban lokalni negativni
+  dokument. Iznosi dolaze iz potvrđenog API odgovora, konta iz snimka prvog
+  knjiženja avansa. Kontinuacija ne šalje ponovo PU i ne pravi novi nalog;
+  nepotpuna poreska razrada ili nedostupno konto čuvaju jasan status za nastavak.
+- KIF koristi postojeći SOURCE_DOCUMENT prenos u mjesec datuma svakog
+  dokumenta, sa poreskom razradom i bez drugog knjiženja. Uvoz validira cijeli
+  izbor prije upisa, zaključava godinu/knjigu/period/izvore i auditira u istoj
+  transakciji. Avansni nalozi mogu se proknjižiti, a direktne izmjene stavki i
+  brisanje nacrta su blokirani. Backend provjerava scope, aktivna prava i period.
+- Migracija 20261023110000_avans_kontiranje_snapshot primijenjena, Prisma
+  regenerisan i razvojni server restartovan. JSON snimak nema podređene FK;
+  purge pokriva lokalna negativna dokumenta, samoreference, poreze i naloge.
+- Provjere: TSC, npm test, ciljani lint; stvarna DB rollback regresija za
+  avans 242,00 / konačni 363,00 / umanjenje −242,00, različite PDV mjesece,
+  zbir osnovice 300,00 i PDV-a 63,00, template/snimak konta, POSTED naloge,
+  ponavljanje, prava/zaključavanje, audit rollback i purge. Fiscal API simuliran;
+  browser potvrđuje ažuriranu sekciju šeme. Nema PU slanja niti izmjene korisničkih konta.
+
+## 2026-10-23 — Šema kontiranja avansnih računa
+
+- Dodata zasebna šema u Robno → Podešavanja: kupac po bruto iznosu, primljeni
+  avansi po osnovici i izlazni PDV; osnovica/PDV po stopama ili GENERAL fallback.
+  Koristi postojeću pretragu konta, D/P redove i template nasljeđivanje.
+- Scope ADVANCE_INVOICE je odvojen od OUTGOING_INVOICE. Backend provjerava
+  admin/manage i aktivnu firmu, dostupna analitička konta/override, PDV stope,
+  namjene i jedinstvenost redova. Dozvoljena polja se izdvajaju prije upisa;
+  dodatni payload ne može promijeniti firmu ili dokumentni scope. Audit i
+  zamjena redova su transakcioni. Nema izmjene baze.
+- TSC, ciljani ESLint i regresije čuvanja/scope/validacije prolaze; browser
+  potvrđuje novu sekciju sa tri reda. Korisnička konta nijesu unaprijed birana
+  niti mijenjana u QA. Primjena šeme pri knjiženju avansa/umanjenja ostaje zaseban
+  otvoreni korak i jasno je označena u podešavanjima.
+
+## 2026-10-23 — Odvojena navigacija avansnih računa
+
+- U Prodaji uklonjena duplirana stavka Nova izlazna faktura; zamijenjena
+  zasebnim pregledom Avansni računi. Dugmad unosa ostaju na odgovarajućim
+  pregledima. Uklonjena dodatna navigacija Fakture/Avansi iz sadržaja stranice.
+- Stari `izlazne-fakture?avansi=1` vodi na novu adresu; povratak iz avansnog
+  detalja/forme vodi na odvojeni pregled. Bez izmjene baze.
+
+## 2026-10-23 — Avansni računi i umanjenje
+
+- Tab Avansni računi u postojećim pregledima faktura Robno/portal; vrsta
+  ADVANCE koristi isti editor i decimalni novčani ugovor kao obična faktura.
+  Konačni račun ima zaštićenu vezu na jedan avans i iznos, koji se čuva kao
+  Advance plaćanje uz eventualni bankovni ostatak. Izmjena kupca čisti izbor.
+- Saldo se čita iz Fiscal API-ja (iskorišćeno/rezervisano/raspoloživo i dug
+  umanjenja/obnove). Negativno umanjenje čuva stabilan ključ, datum, raspodjelu
+  izvornih stavki i fiskalni rezultat u lokalnom JSON-u; kreiranje za pregled
+  i slanje su odvojeni. Potvrda je vezana za račun/okruženje/verziju. Potvrđen
+  rezultat ne može se prepisati zakašnjelom greškom starijeg pokušaja.
+- Avans ne pravi robni izlaz, prihod ili KIF obične prodaje. Dnevni promet i
+  direktni prodajni izvještaji ga ne sabiraju kao dodatnu prodaju. Štampa avansa,
+  konačnog računa i negativnog dokumenta prikazuje odgovarajuće fiskalne veze.
+- Lokalna migracija primijenjena, Prisma generisan i dev restartovan. Purge
+  samoreference i potomaka provjeren stvarnim brisanjem privremene firme unutar
+  rollback testa. Prolaze TSC, ciljani ESLint i postojeći npm test; novi test
+  potvrđuje 242,00 → 363,00 → 121,00 i −242,00, očuvanje lagera, replay, izolaciju,
+  zaključanu godinu i oporavak izgubljenog fiskalnog odgovora bez drugog slanja.
+  Browser potvrđuje tab i formu; nema kreiranja/slanja stvarnog fiskalnog računa.
+- Za dalji rad dokumentovani deploy API verzije, avansni KIF/kontiranje i zaseban
+  kontrolisani storno/obnova na sajtu. Generički robni storno za nove avansne
+  dokumente blokiran. ORDER nije u ovom obimu.
+
 ## 2026-10-22 — Filteri svih kolona dnevnika
 
 - Dodati kombinovani server filteri naloga/stavke, konta, partnera/PIB-a,

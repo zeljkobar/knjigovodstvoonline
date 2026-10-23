@@ -218,3 +218,37 @@ dotnet run --project tests/Summa.Fiscal.IntegrationTests
 ```
 
 PostgreSQL testovi se uključuju varijablom `SUMMA_FISCAL_TEST_ADMIN_CONNECTION` za lokalni server i nalog koji može kreirati testnu bazu. Svako pokretanje kreira posebnu bazu `summa_advance_test_<nasumični ID>`, primijeni migracije, provjeri stvarne transakcije/konkurentnost i ukloni samo tu bazu. Nema slanja PU. Contract testovi koriste privremeni lokalni samopotpisani sertifikat za potpis/XSD i simulirane uspješne fiskalne razmjene za oporavak.
+
+## Integracija u knjigovodstvenom sajtu — 23.10.2026.
+
+Tab Avansni računi sada postoji uz izlazne fakture u Robnom i direktnom portalu.
+Editor i iznosi koriste isti ugovor kao obična fiskalizacija (`242,00` prikaz,
+`242.00` API vrijednost). Kreiranje konačnog računa prenosi kupca i avans; iznos
+se bira na nacrtu. Puni iznosi konačnog računa ostaju nepromijenjeni.
+
+Sajt čuva vezu i iznos na lokalnoj fakturi, a raspodjelu/ID/status/fiskalne veze
+umanjenja u `avans_umanjenje`. Jedna izvorna stavka ima automatsku pripremu
+raspodjele i API nacrta poslije konačne fiskalizacije; za više stavki korisnik bira raspodjelu.
+API kreiranje dokumenta za pregled i njegovo slanje odvojene su potvrđene akcije.
+Saldo, rezervacije i poresku validnost raspodjele određuje Fiscal API.
+
+Migracije sajta `20261023090000_avansni_racuni` i
+`20261023110000_avans_kontiranje_snapshot` primijenjene su lokalno. To ne
+primjenjuje .NET migracije na fiskalni server niti dokazuje live PU prihvatanje.
+Provjere koriste simulirani Fiscal API i stvarnu lokalnu rollback bazu.
+
+Šema Robno → Podešavanja / Avansni računi sada priprema DRAFT nalog avansa:
+kupac D ukupno, primljeni avansi P osnovica i izlazni PDV P po stopama. Nema
+prihoda ili lagera. Umanjenje dobija sopstveni lokalni ADVANCE_SETTLEMENT zapis
+sa negativnim iznosima i poreskim razradama iz potvrđenog API dokumenta.
+Koristi snimak konta sa izvornog avansa, čak i poslije promjene tekuće šeme.
+Za više stopa potrebne su tačne neto/PDV/bruto vrijednosti stavki API odgovora;
+nepotpun ili neusaglašen odgovor blokira kontiranje uz sačuvan fiskalni uspjeh.
+
+Oba dokumenta čekaju postojeće KIF preuzimanje za svoj mjesec/datume. Prenose
+se sa SOURCE_DOCUMENT i vezom na već pripremljen nalog, bez ponovnog kontiranja.
+Proknjižavanje naloga radi se kroz Nalozi; samo POSTED utiče na glavnu knjigu.
+Portal ne kreira naloge: to radi ovlašćena agencija kroz Završi knjiženje.
+Ista akcija nastavlja neuspjelo lokalno knjiženje bez fiskalnog ponavljanja.
+Kontrolisani storno/obnova u sajtu ostaje naredni zaseban korak; postojeći robni
+storno ne može se koristiti za taj tok.

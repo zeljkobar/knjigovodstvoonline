@@ -268,6 +268,7 @@ function reportWhere(
     fiskalizacija_rezim: "SUMMA",
     fiscal_status: { in: ["Fiscalized", "StornoCreated"] },
     document_type: { in: ["INVOICE", "POS_RECEIPT", "POS_RETURN"] },
+    vrsta_racuna: { not: "ADVANCE" },
     sales_channel: { in: ["OFFICE", "POS"] },
     AND: conditions
   };

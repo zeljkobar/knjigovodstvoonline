@@ -1,12 +1,58 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-10-22. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-10-23. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Avansni fiskalni računi — 2026-10-23
+
+- Robno → Prodaja ima odvojene stavke Izlazne fakture i Avansni računi
+  (`/agencija/robno/avansni-racuni`); unos novog dokumenta je dugme na pregledu,
+  bez duplirane stavke Nova izlazna faktura u meniju. Direktni portal ima tab
+  Avansni računi. Koristi se isti editor/decimalni API format
+  iznosa kao kod obične fakture (`242,00` → `242.00`), identifikovan kupac,
+  bankovno plaćanje i `invoiceType=Advance`. Avans ne razdužuje lager i ne
+  prolazi kroz robno knjiženje prihoda/KIF obične prodaje.
+- Kreiraj račun iz avansa prenosi kupca i vezu; na nacrtu konačnog računa
+  bira se jedan avans istog kupca i korišćeni iznos. Fiscal API rezerviše saldo.
+  Konačni račun zadržava pun promet/osnovicu/PDV i šalje Advance + bankovni
+  ostatak. Štampa prikazuje izvorni fiskalni broj/IKOF i preostali iznos.
+- Jedna izvorna stavka automatski priprema raspodjelu i API nacrt negativnog
+  umanjenja nakon fiskalizacije konačnog računa. Za više stavki raspodjelu bira
+  korisnik. Posebno se kreira API dokument za pregled, pa zasebno potvrđuje
+  fiskalizacija. ID/status/IKOF/JIKR/QR se čuvaju uz konačni račun i imaju štampu.
+- Migracija `20261023090000_avansni_racuni` primijenjena lokalno; Prisma
+  regenerisan i dev restartovan. Purge čisti novu samoreferencu prije dokumenata.
+  Testovi: decimalni ugovor, scope/status/period, stvarni DB rollback kompletnog
+  toka i purge, bez lagera za avans, idempotentni nastavak i oporavak nakon
+  izgubljenog odgovora. Fiscal API je simuliran; nema slanja PU.
+- Robno → Podešavanja ima zasebnu šemu avansa: kupac (ukupno), primljeni avansi
+  (osnovica) i izlazni PDV. Osnovica/PDV podržavaju posebna konta po stopama,
+  pretragu konta, D/P i template nasljeđivanje. Šema se čuva sa scope-om
+  ADVANCE_INVOICE, uz admin/manage provjeru i transakcioni audit. Poslije
+  fiskalizacije avans priprema DRAFT nalog po toj šemi i čeka KIF. Nema prihoda
+  ni lagera. Umanjenje je poseban lokalni ADVANCE_SETTLEMENT dokument sa svojim
+  fiskalnim identitetom i negativnom poreskom razradom; koristi sačuvani snimak
+  konta izvornog avansa, i kada se tekuća šema u međuvremenu promijeni.
+- Oba avansna dokumenta preuzimaju se postojećim SOURCE_DOCUMENT tokom u KIF
+  mjeseca svog datuma, bez ponovnog kontiranja. Nalozi se proknjižavaju kroz
+  Nalozi; avansne stavke i direktno brisanje zaštićeni su od ručnih izmjena.
+  Nedostajuća šema/zaključan period ne brišu fiskalni rezultat; akcija Završi
+  knjiženje nastavlja lokalnu obradu bez novog slanja PU. Portal ostaje fiskalni
+  unos, a knjiženje priprema ovlašćena agencija.
+- Migracija `20261023110000_avans_kontiranje_snapshot` primijenjena lokalno;
+  Prisma regenerisan i dev restartovan. Rollback regresija potvrđuje template
+  šemu, snimak konta, dva poreska mjeseca, zbir KIF/PDV bez dupliranja, POSTED
+  pozitivne/negativne naloge, scope/prava, zaključavanje, audit rollback i purge.
+  Kod više stopa traže se tačni fiskalni iznosi po stavkama; nepotpun odgovor
+  ostavlja jasan status za nastavak, bez izmišljanja razlike zbog zaokruživanja.
+- Na stvarnom Fiscal API serveru prvo postaviti dokumentovane avansne migracije
+  i API verziju. Kontrolisani avansni storno/obnova na sajtu ostaje naredni korak; generički robni storno
+  je za avanse i konačne račune sa avansom blokiran. ORDER nije mijenjan.
 
 ## Dnevnik knjiženja — 2026-10-22
 
