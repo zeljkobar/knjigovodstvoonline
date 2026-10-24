@@ -228,8 +228,13 @@ agenciji, firmi, poslovnoj godini i kategoriji obračuna. Zaglavlje bira vrstu
 naloga, a pravila povezuju svaku obračunsku komponentu sa duguje/potražuje
 kontom firme. Akcija `Proknjiži` iz obrađenog obračuna transakcijski kreira
 izbalansiran i odmah `POSTED` `PAYROLL` nalog, povezuje ga sa obračunom i blokira
-ponovno knjiženje. Automatski nalog se ne vraća u nacrt opštom akcijom; za
-eventualne korekcije predviđen je budući namjenski storno tok.
+duplo knjiženje. Akcija `Vrati u nacrt` za PLATE delegira u
+`payroll-journal.ts`: uz prava plate/post i nalozi/update, otvorenu godinu/PDV
+period i odsustvo zavisnog mjesečnog obračuna atomski vraća nalog u DRAFT i
+obračun u CALCULATED. Veza i broj ostaju. Ponovno `Proknjiži` sa liste plata
+ili naloga koristi istu payroll akciju, provjerava poresku istoriju i šemu,
+pa obnavlja stavke i status postojećeg naloga. Direktno uređivanje/brisanje
+payroll naloga je blokirano; audit i promjena oba statusa su jedna transakcija.
 
 ## Štampa
 PDF izvještaji se prave kao čiste HTML/CSS print stranice bez menija
@@ -447,3 +452,19 @@ uklanja snapshot, a rollback ga zadržava. Duplicate putanja čisti ranije zaost
 Audit čuva broj uklonjenih redova bez payload-a. Purge briše preostale redove prije
 firme/godine. Nema djece/FK prema KUF zapisu. Ponovni uvoz nakon brisanja KUF
 nacrta zahtijeva novo MAPR čitanje jer je privremeni snapshot već potrošen.
+
+### Grupno kopiranje plata
+
+`/agencija/plate/kopiranje` koristi izričite mjesece i servis `payroll-copy.ts`,
+bez čitanja ili promjene aktivnog firma/godina konteksta. Scope je agencija i
+presjek dodjela/prava plate view/create/update. Jedna označena firma je jedna
+transakcija sa ponovnim provjerama, zaključavanjem godine/izvora/perioda,
+verzijom izvora i auditom. Postojeći ciljni redovni obračun blokira duplikat.
+Preuzeti ulazi računaju se postojećim `calculatePayrollLine` algoritmom kroz
+istu DB transakciju; kopije odmah imaju CALCULATED i nemaju izvorni nalog.
+Više izvora iste firme dijeli mjesečnu poresku istoriju. Datum se pomjera prema
+ciljnom mjesecu uz kraj mjeseca i relativni pomak datuma isplate. Fond sati i
+ulazne stavke preuzimaju se jer korisnik izričito bira nepromijenjene plate.
+Nema novih tabela. Regresije su `check-payroll-copy.cjs` (rollback) i
+`check-payroll-copy-concurrency.cjs` (zaseban TEST_DATABASE_URL), uz postojeći
+payroll lifecycle i testove algoritma.

@@ -22,6 +22,15 @@ const response=async(fn,id)=>{const f=new FormData();f.set('obracun_id',id);try{
  const replies=await Promise.all([response(actions.postPayrollCalculation,first.id),response(actions.postPayrollCalculation,first.id)]);
  assert.equal(replies.filter(x=>x.includes('obracun_proknjizen')).length,1);assert.equal(replies.filter(x=>x.includes('obracun_vec_proknjizen')).length,1);
  assert.equal(await db.nalog.count({where:{izvorni_dokument_id:first.id}}),1);assert.equal(await db.auditLog.count({where:{entitet_id:first.id,akcija:'post_payroll'}}),1);
+ const service=sourceLoader({'@/lib/prisma':{prisma:db},'next/headers':{headers:async()=>new Map()}})('src/lib/payroll-journal.ts');
+ const actor={userId:admin.id,agencyId:agency.id};
+ const journalId=(await db.plateObracun.findUniqueOrThrow({where:{id:first.id}})).nalog_id;
+ const reversals=await Promise.all([service.reopenPayrollJournal(actor,journalId),service.reopenPayrollJournal(actor,journalId)]);
+ assert.equal(reversals.filter(r=>!r.existing).length,1);assert.equal(await db.auditLog.count({where:{entitet_id:first.id,akcija:'reopen_payroll'}}),1);
+ assert.equal((await db.plateObracun.findUniqueOrThrow({where:{id:first.id}})).status,'CALCULATED');assert.equal((await db.nalog.findUniqueOrThrow({where:{id:journalId}})).status,'DRAFT');
+ const reposts=await Promise.all([response(actions.postPayrollCalculation,first.id),response(actions.postPayrollCalculation,first.id)]);
+ assert.equal(reposts.filter(x=>x.includes('obracun_proknjizen')).length,1);assert.equal(reposts.filter(x=>x.includes('obracun_vec_proknjizen')).length,1);
+ assert.equal(await db.nalog.count({where:{izvorni_dokument_id:first.id}}),1);assert.equal((await db.plateObracun.findUniqueOrThrow({where:{id:first.id}})).nalog_id,journalId);
  const second=await make(2);
  let acquired,release,entered;const locked=new Promise(r=>acquired=r),gate=new Promise(r=>release=r),started=new Promise(r=>entered=r);
  const closing=db.$transaction(async tx=>{await tx.$queryRaw`SELECT id FROM poslovne_godine WHERE id=${year.id}::uuid FOR UPDATE`;acquired();await gate;await tx.poslovnaGodina.update({where:{id:year.id},data:{zakljucena:true}});},{timeout:15000});
@@ -30,8 +39,10 @@ const response=async(fn,id)=>{const f=new FormData();f.set('obracun_id',id);try{
  const posting=response(loadFor(observed).postPayrollCalculation,second.id);
  try{await started;}finally{release();}
  await closing;assert.match(await posting,/godina_zakljucena/);
+ await assert.rejects(service.reopenPayrollJournal(actor,journalId),/godina_zakljucena/);
+ assert.equal((await db.nalog.findUniqueOrThrow({where:{id:journalId}})).status,'POSTED');
  assert.equal((await db.plateObracun.findUniqueOrThrow({where:{id:second.id}})).status,'CALCULATED');assert.equal(await db.nalog.count({where:{izvorni_dokument_id:second.id}}),0);
- console.log('PASS payroll concurrency: two real posting transactions; closing year after context read blocks stale posting');
+ console.log('PASS payroll concurrency: real parallel posting/reopening/reposting preserve one journal; closed year blocks both actions');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{try{if(agency)await db.$transaction(async tx=>{
  if(firm){await tx.plateObracunStavka.deleteMany({where:{firma_id:firm.id}});await tx.plateObracun.deleteMany({where:{firma_id:firm.id}});await tx.plateKontiranjePodesavanje.deleteMany({where:{firma_id:firm.id}});await tx.stavkaNaloga.deleteMany({where:{nalog:{firma_id:firm.id}}});await tx.nalog.deleteMany({where:{firma_id:firm.id}});await tx.firmaKonto.deleteMany({where:{firma_id:firm.id}});await tx.poslovnaGodina.deleteMany({where:{firma_id:firm.id}});}
  await tx.aktivnostDogadjaj.deleteMany({where:{agencija_id:agency.id}});await tx.auditLog.deleteMany({where:{agencija_id:agency.id}});await tx.vrstaNaloga.deleteMany({where:{agencija_id:agency.id}});await tx.korisnik.deleteMany({where:{agencija_id:agency.id}});if(firm)await tx.firma.delete({where:{id:firm.id}});await tx.agencija.delete({where:{id:agency.id}});

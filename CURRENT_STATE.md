@@ -8,6 +8,51 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Rasknjižavanje naloga plata — 2026-10-23
+
+- Na detalju PAYROLL/PLATE naloga dostupno je Vrati u nacrt: u jednoj
+  transakciji nalog postaje DRAFT, obračun CALCULATED, a metadata knjiženja
+  se uklanja. Veza i broj naloga ostaju; nacrt ne ulazi u glavnu knjigu.
+- Proknjiži je ponovo dostupan uz Nalog na listi obračuna i na detalju.
+  Oba ulaza koriste isti payroll tok i isti nalog/broj, uz provjeru mjesečne
+  poreske istorije i šeme kontiranja. Direktno mijenjanje/brisanje stavki
+  payroll naloga je blokirano da nalog ne odstupi od obračuna.
+- Backend provjerava aktivnog korisnika, scope, dodjelu firme, plate/post i
+  dodatno nalozi/update ili post za akciju sa naloga. Zaključana godina/PDV
+  period, zaključan obračun i zavisni proknjiženi obračuni istog mjeseca
+  blokiraju povrat. Zavisnosti se rasknjižavaju od posljednjeg obračuna.
+  Audit je atomski; ponovljen zahtjev ne pravi novi nalog ni dupli audit.
+- Nema migracije. QA: TSC/lint, npm test, render dugmadi/statusa/prava,
+  stvarni DB lifecycle sa audit rollbackom i zavisnim obračunima, paralelni
+  povrat/ponovno knjiženje i provjere prethodnog kopiranja. Browser potvrđuje
+  dugme na postojećem nalogu; korisnički obračuni nijesu rasknjižavani tokom QA.
+
+## Grupno kopiranje obračuna plata — 2026-10-23
+
+- Plate i Obračun plata imaju dugme Kopiraj obračune. Stranica
+  `/agencija/plate/kopiranje` ima sopstveni izvorni/ciljni mjesec i prikazuje
+  dostupne firme cijele agencije, nezavisno od gornjeg firma/godina konteksta.
+  Korisnik označava firme pojedinačno ili sve dostupne; kopiraju se samo označene.
+- Preuzimaju se obračunati obračuni redovnog rada, uključujući više obračuna
+  iste firme. Čuvaju se izvorni ulazni iznosi, stavke i fond/sati; datumi se
+  pomjeraju uz stvarni kraj mjeseca i relativni mjesec isplate. Novi obračuni
+  odmah dobijaju CALCULATED kroz postojeći računarski algoritam i važeće stope
+  ciljnog datuma. Nema nasljeđivanja naloga, statusa predaje/isplate ili emailova.
+  Knjiženje ostaje postojeća posebna akcija.
+- Izbor se provjerava ponovo u transakciji po firmi: aktivan korisnik/agencija,
+  dodjela firme i plate view/create/update, verzija izvora, ciljna poslovna
+  godina/PDV period, raspoloživi radnici i važeći šifarnici/stope. Postojeći
+  ciljni obračun blokira duplikat. Greška poništava cijelu firmu, a druge
+  označene firme se nastavljaju; rezultat prikazuje razlog ili linkove na kopije.
+- Kopiranje ne mijenja gornji kontekst; link Otvori obračun eksplicitno bira
+  odgovarajuću firmu/godinu preko postojeće scope-provjerene kontekst rute.
+  Audit je u istoj transakciji. Nema nove migracije ni tabela.
+- QA: npm test, TSC/lint; DB rollback (selekcija, mjeseci/godine, promijenjena
+  ciljna stopa, više izvora i audit rollback), stvarne paralelne kopije i trka
+  zaključavanja godine u privremenoj testnoj bazi, postojeći payroll lifecycle.
+  Browser potvrđuje nezavisnost od aktivne firme, mjesece, izbor i brojač dugmeta.
+  Korisničke plate nijesu kopirane tokom browser provjere.
+
 ## Avansni fiskalni računi — 2026-10-23
 
 - Robno → Prodaja ima odvojene stavke Izlazne fakture i Avansni računi

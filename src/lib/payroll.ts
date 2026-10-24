@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { findMunicipalitySurtax } from "./municipalities";
 
@@ -639,12 +640,12 @@ function grossFromNet({
   );
 }
 
-async function activeBasisRuleForIncomeType(incomeType: IncomeFlags, calculationDate: Date) {
+async function activeBasisRuleForIncomeType(incomeType: IncomeFlags, calculationDate: Date, db: Prisma.TransactionClient) {
   if (incomeType.sifra?.split(".")[0] === "001" || (!incomeType.osnova_obracuna_id && !incomeType.sifra)) {
     return null;
   }
 
-  const basis = await prisma.plateOsnovaObracuna.findFirst({
+  const basis = await db.plateOsnovaObracuna.findFirst({
     where: {
       ...(incomeType.osnova_obracuna_id ? { id: incomeType.osnova_obracuna_id } : { sifra: incomeType.sifra }),
       ...activeOn(calculationDate)
@@ -658,7 +659,7 @@ async function activeBasisRuleForIncomeType(incomeType: IncomeFlags, calculation
   });
 
   if (!basis && incomeType.osnova_obracuna_id && incomeType.sifra) {
-    const fallbackBasis = await prisma.plateOsnovaObracuna.findFirst({
+    const fallbackBasis = await db.plateOsnovaObracuna.findFirst({
       where: {
         sifra: incomeType.sifra,
         ...activeOn(calculationDate)
@@ -675,14 +676,14 @@ async function activeBasisRuleForIncomeType(incomeType: IncomeFlags, calculation
       return null;
     }
 
-    return activeBasisRuleByBasisId(fallbackBasis.id, calculationDate);
+    return activeBasisRuleByBasisId(fallbackBasis.id, calculationDate, db);
   }
 
-  return basis ? activeBasisRuleByBasisId(basis.id, calculationDate) : null;
+  return basis ? activeBasisRuleByBasisId(basis.id, calculationDate, db) : null;
 }
 
-function activeBasisRuleByBasisId(basisId: string, calculationDate: Date) {
-  return prisma.plateOsnovaPravilo.findFirst({
+function activeBasisRuleByBasisId(basisId: string, calculationDate: Date, db: Prisma.TransactionClient) {
+  return db.plateOsnovaPravilo.findFirst({
     where: {
       osnova_id: basisId,
       ...activeOn(calculationDate)
@@ -715,9 +716,9 @@ function activeBasisRuleByBasisId(basisId: string, calculationDate: Date) {
   });
 }
 
-export async function calculatePayrollLine(input: PayrollLineInput): Promise<PayrollLineResult> {
+export async function calculatePayrollLine(input: PayrollLineInput, db: Prisma.TransactionClient = prisma): Promise<PayrollLineResult> {
   const [rates, taxBrackets, surtax, basisRule] = await Promise.all([
-    prisma.plateDoprinosStopa.findMany({
+    db.plateDoprinosStopa.findMany({
       where: activeOn(input.calculationDate),
       orderBy: {
         sifra: "asc"
@@ -727,7 +728,7 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
         stopa: true
       }
     }),
-    prisma.platePorezRazred.findMany({
+    db.platePorezRazred.findMany({
       where: {
         sifra: "REGULAR_SALARY",
         ...activeOn(input.calculationDate)
@@ -742,9 +743,9 @@ export async function calculatePayrollLine(input: PayrollLineInput): Promise<Pay
       }
     }),
     input.municipality
-      ? findMunicipalitySurtax(input.municipality, input.calculationDate)
+      ? findMunicipalitySurtax(input.municipality, input.calculationDate, db)
       : null,
-    activeBasisRuleForIncomeType(input.incomeType, input.calculationDate)
+    activeBasisRuleForIncomeType(input.incomeType, input.calculationDate, db)
   ]);
   const surtaxRate = rateNumber(surtax);
   const ruleBasedCalculation =

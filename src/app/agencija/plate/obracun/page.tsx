@@ -30,7 +30,7 @@ import {
   normalizePayrollPeriod,
   payrollDateInputValue
 } from "@/lib/payroll-hours";
-import { hasAllPermissions } from "@/lib/permissions";
+import { hasAllPermissions, hasPermission } from "@/lib/permissions";
 import { payrollDocumentStatuses } from "@/lib/payroll-documents";
 import { prisma } from "@/lib/prisma";
 
@@ -47,7 +47,7 @@ const messages: Record<string, string> = {
   obracun_dodat: "Obračun je dodat.",
   obracun_pripremljen: "Radnici su pripremljeni za obračun. Sada možete mijenjati stavke prije obrade.",
   obracun_obradjen: "Obračun je obrađen.",
-  obracun_proknjizen: "Obračun je proknjižen i nalog je kreiran.",
+  obracun_proknjizen: "Obračun je proknjižen i nalog je sačuvan.",
   obracun_nevalidan: "Podaci obračuna nisu ispravni.",
   obracun_ne_postoji: "Obračun nije pronađen u izabranoj firmi i poslovnoj godini.",
   obracun_vec_proknjizen: "Obračun je već proknjižen.",
@@ -70,6 +70,7 @@ const messages: Record<string, string> = {
     "Period stavke mora biti unutar mjeseca obračuna i trajanja zaposlenja radnika.",
   kontekst: "Izaberite firmu i poslovnu godinu.",
   prava: "Nemate pravo za rad sa platama.",
+  pdv_period_zakljucan: "PDV period je zaključan.",
   godina_zakljucena: "Poslovna godina je zaključana.",
   knjizenje_nema_iznosa: "Obračun nema iznose koji se mogu proknjižiti.",
   knjizenje_vrsta_naloga: "Za ovu kategoriju obračuna nije podešena aktivna vrsta naloga.",
@@ -281,11 +282,12 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
   if (!context.allowed) {
     return (
       <section className="admin-panel">
-        <p className="empty-state">Nemate pravo za pregled obračuna plata.</p>
+        <p className="empty-state">Nemate pravo za pregled obračuna plata ove firme.</p><a className="secondary-button" href="/agencija/plate/kopiranje">Kopiraj obračune dostupnih firmi</a>
       </section>
     );
   }
 
+  const canPostPayroll = !context.godina.zakljucena && await hasPermission(context.user, { firmaId: context.firma.id, modul: "plate", akcija: "post" });
   const activeFirmaId = context.firma.id;
   const activeAgencijaId = context.user.agencija_id;
 
@@ -309,6 +311,7 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
         }
       ],
       include: {
+        nalog: { select: { status: true, is_deleted: true } },
         _count: {
           select: {
             stavke: true,
@@ -579,6 +582,7 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
           </p>
         </div>
         <div className="button-row">
+          <a className="secondary-button" href="/agencija/plate/kopiranje">Kopiraj obračune</a>
           {showNewCalculationForm ? (
             <a className="secondary-button" href="/agencija/plate/obracun">
               Zatvori unos
@@ -637,7 +641,7 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                       calculation.status as never
                     );
                   const canPostCalculation =
-                    !calculation.nalog_id &&
+                    canPostPayroll && (!calculation.nalog || calculation.nalog.is_deleted || calculation.nalog.status === "DRAFT") &&
                     [payrollStatuses.calculated, payrollStatuses.reviewed].includes(
                       calculation.status as never
                     );
@@ -710,7 +714,7 @@ export default async function PayrollCalculationPage({ searchParams }: PageProps
                   Otvori nalog
                 </a>
               ) : null}
-              {!selected.nalog_id &&
+              {canPostPayroll && (!selected.nalog || selected.nalog.is_deleted || selected.nalog.status === "DRAFT") &&
               [payrollStatuses.calculated, payrollStatuses.reviewed].includes(
                 selected.status as never
               ) ? (

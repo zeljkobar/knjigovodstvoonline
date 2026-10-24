@@ -87,6 +87,54 @@ async function call(fn,o){try{await fn(form(o));throw Error('No redirect');}catc
  assert.equal(partial.workers[0].ukupnoPioUplacenoCent,0,'partial payment requires allocation, cannot claim fully paid');
 
  assert.equal(await tx.auditLog.count({where:{entitet_id:calc.id,akcija:'post_payroll'}}),1);
+ // A reopened payroll and its journal move together, and retain their identities.
+ const journalActions=load('src/app/agencija/nalozi/actions.ts');
+ const journalService=load('src/lib/payroll-journal.ts');
+ const journalArgs={nalog_id:posted.nalog.id};
+ const snapshot=()=>tx.plateObracun.findUniqueOrThrow({where:{id:calc.id},include:{nalog:{include:{stavke:true}}}});
+ const remainsPosted=async()=>{const c=await snapshot();assert.equal(c.status,'POSTED');assert.equal(c.nalog.status,'POSTED');};
+ await assert.rejects(journalService.reopenPayrollJournal({userId:admin.id,agencyId:foreign.id},posted.nalog.id),/nalog_greska/);
+ user=worker;assert.match(await call(journalActions.reopenJournal,journalArgs),/prava/);await remainsPosted();
+ for(const [modul,akcija]of [['plate','post'],['nalozi','update']])await tx.korisnikPravo.create({data:{agencija_id:agency.id,korisnik_id:worker.id,firma_id:firm.id,modul,akcija,dozvoljeno:true}});
+ await tx.korisnikFirma.updateMany({where:{korisnik_id:worker.id},data:{is_deleted:true}});
+ await assert.rejects(journalService.reopenPayrollJournal({userId:worker.id,agencyId:agency.id},posted.nalog.id),/prava/);
+ await tx.korisnikFirma.updateMany({where:{korisnik_id:worker.id},data:{is_deleted:false}});
+ user=admin;
+ await tx.poslovnaGodina.update({where:{id:year.id},data:{zakljucena:true}});
+ assert.match(await call(journalActions.reopenJournal,journalArgs),/godina_zakljucena/);await remainsPosted();
+ await tx.poslovnaGodina.update({where:{id:year.id},data:{zakljucena:false}});
+ const period=await tx.pdvPeriod.create({data:{...scope,mjesec:6,datum_od:date('2026-06-01'),datum_do:date('2026-06-30'),status:'LOCKED'}});
+ assert.match(await call(journalActions.reopenJournal,journalArgs),/pdv_period_zakljucan/);await remainsPosted();
+ await tx.pdvPeriod.update({where:{id:period.id},data:{status:'OPEN'}});
+ await tx.plateObracun.update({where:{id:calc.id},data:{status:'LOCKED',locked_at:new Date()}});
+ assert.match(await call(journalActions.reopenJournal,journalArgs),/nalog_greska/);
+ await tx.plateObracun.update({where:{id:calc.id},data:{status:'POSTED',locked_at:null}});
+ const failingReopen=sourceLoader({...mocks,'@/lib/audit':{...audit,auditLogInTransaction:async()=>{throw Error('AUDIT_FAILURE')}}})('src/lib/payroll-journal.ts');
+ await assert.rejects(failingReopen.reopenPayrollJournal({userId:admin.id,agencyId:agency.id},posted.nalog.id),/AUDIT_FAILURE/);await remainsPosted();
+ user=worker;assert.match(await call(journalActions.reopenJournal,journalArgs),/nalog_nacrt/);user=admin;
+ let reopened=await snapshot();assert.equal(reopened.status,'CALCULATED');assert.equal(reopened.nalog.status,'DRAFT');assert.equal(reopened.posted_at,null);assert.equal(reopened.nalog.proknjizen_at,null);
+ assert.equal(reopened.nalog.id,posted.nalog.id);assert.equal(reopened.nalog.broj,posted.nalog.broj);assert.equal(reopened.nalog.sifra,posted.nalog.sifra);
+ assert.deepEqual(reopened.nalog.stavke,posted.nalog.stavke);
+ assert.equal(await tx.stavkaNaloga.count({where:{nalog_id:posted.nalog.id,nalog:{status:'POSTED',is_deleted:false}}}),0,'draft payroll is excluded from the ledger');
+ doc=await document.getPayrollDocumentData(docArgs);assert.equal(doc.isPreview,true);
+ await call(journalActions.reopenJournal,journalArgs);assert.equal(await tx.auditLog.count({where:{entitet_id:calc.id,akcija:'reopen_payroll'}}),1,'replay does not audit twice');
+ assert.match(await call(journalActions.updateDraftJournalLines,journalArgs),/nalog_greska/);
+ assert.match(await call(journalActions.deleteJournal,journalArgs),/nalog_greska/);
+ await tx.pdvPeriod.update({where:{id:period.id},data:{status:'LOCKED'}});
+ assert.match(await call(actions.postPayrollCalculation,args),/pdv_period_zakljucan/);
+ await tx.pdvPeriod.update({where:{id:period.id},data:{status:'OPEN'}});
+ assert.match(await call(failing.postPayrollCalculation,args),/knjizenje_greska/);
+ reopened=await snapshot();assert.equal(reopened.nalog.status,'DRAFT');assert.equal(reopened.status,'CALCULATED');assert.deepEqual(reopened.nalog.stavke,posted.nalog.stavke,'failed repost restores the draft lines');
+ // The journal screen uses its own source scope, even if a different company is selected.
+ const explicitJournal=sourceLoader({...mocks,'@/lib/work-context':{readWorkContext:()=>{throw Error('Wrong company context must not be read')}}})('src/app/agencija/nalozi/actions.ts');
+ user=worker;assert.match(await call(explicitJournal.postJournal,journalArgs),/prava/);user=admin;
+ assert.match(await call(explicitJournal.postJournal,journalArgs),/nalog_proknjizen/);await remainsPosted();
+ reopened=await snapshot();assert.equal(reopened.nalog.id,posted.nalog.id);assert.equal(reopened.nalog.broj,posted.nalog.broj);assert.equal(await tx.nalog.count({where:{izvorni_dokument_id:calc.id}}),1);
+ assert.equal(reopened.nalog.stavke.reduce((s,l)=>s+Math.round(Number(l.duguje)*100),0),101170);
+ assert.equal(reopened.nalog.stavke.reduce((s,l)=>s+Math.round(Number(l.potrazuje)*100),0),101170);
+ // The payroll list also reposts into the same journal.
+ await call(journalActions.reopenJournal,journalArgs);assert.match(await call(actions.postPayrollCalculation,args),/obracun_proknjizen/);await remainsPosted();
+ assert.equal((await snapshot()).nalog_id,posted.nalog.id);
  // Two prepared supplementary drafts must not both reuse the same monthly threshold.
  async function supplement(amount) {
   assert.match(await call(actions.createPayrollCalculation,request),/obracun_dodat/);
@@ -116,6 +164,18 @@ async function call(fn,o){try{await fn(form(o));throw Error('No redirect');}catc
  assert.match(await call(actions.postPayrollCalculation,{obracun_id:stale.id}),/obracun_proknjizen/);
  const combined=i.buildIoppdMonthData(2026,6,await i.getIoppdCalculationsForMonth(query));
  assert.equal(combined.totals.porezCent,8700);
- console.log('PASS payroll lifecycle: prepare/calculate/post, cents, reports/XML, scopes, permissions, locks, replay, immutability');
+ // Reverse dependent monthly calculations in reverse order; earlier tax bases stay protected.
+ assert.match(await call(journalActions.reopenJournal,journalArgs),/plate_zavisni_obracun/);
+ const stalePosted=await tx.plateObracun.findUniqueOrThrow({where:{id:stale.id}}),extraPosted=await tx.plateObracun.findUniqueOrThrow({where:{id:extra.id}});
+ assert.match(await call(journalActions.reopenJournal,{nalog_id:extraPosted.nalog_id}),/plate_zavisni_obracun/);
+ assert.match(await call(journalActions.reopenJournal,{nalog_id:stalePosted.nalog_id}),/nalog_nacrt/);
+ assert.match(await call(journalActions.reopenJournal,{nalog_id:extraPosted.nalog_id}),/nalog_nacrt/);
+ assert.match(await call(journalActions.reopenJournal,journalArgs),/nalog_nacrt/);
+ assert.match(await call(actions.postPayrollCalculation,{obracun_id:extra.id}),/obracun_porez_promijenjen/);
+ assert.match(await call(actions.postPayrollCalculation,args),/obracun_proknjizen/);
+ assert.match(await call(actions.postPayrollCalculation,{obracun_id:extra.id}),/obracun_proknjizen/);
+ assert.match(await call(actions.postPayrollCalculation,{obracun_id:stale.id}),/obracun_proknjizen/);
+ assert.equal(await tx.nalog.count({where:{...scope,source_module:'PLATE'}}),3);
+ console.log('PASS payroll lifecycle: prepare/calculate/post, cents, reports/XML, scopes, permissions, locks, replay, atomic reopen/repost, unchanged journal number, dependency guards, audit rollback, immutable source lines');
  throw rollback;
  },{timeout:60000});}catch(e){if(e!==rollback)throw e;}finally{await db.$disconnect();}})().catch(e=>{console.error(e);process.exitCode=1;});

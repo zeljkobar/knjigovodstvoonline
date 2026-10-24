@@ -4,6 +4,9 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Rasknjižavanje plata završeno: Vrati u nacrt sinhronizuje nalog i obračun;
+  Proknjiži uz nacrt ponovo koristi isti broj. Nema migracije. Detalji i QA
+  su u CURRENT_STATE; zaključavanja i zavisni obračuni ostaju zaštićeni.
 - Avansni fiskalni UI implementiran je u Robnom/portalu: avans, konačni račun
   sa vezom, negativno umanjenje i štampa. Pri deployu sajta primijeniti
   `20261023090000_avansni_racuni` i `20261023110000_avans_kontiranje_snapshot`,
@@ -29,7 +32,9 @@
 - Mail import više ne bilježi logotipe i poruke bez podržanih priloga. Stare SKIPPED evidencije na produkciji ostaju do zasebnog čišćenja.
 - Deploy KUF brisanja: primijeniti `20261011120000_kuf_journal_line_link`, generisati Prisma klijent i restartovati aplikaciju. Stara knjiženja bez veze sa računima zahtijevaju ponovno knjiženje KUF-a prije pojedinačnog brisanja.
 - Deploy: `20261007140000_invoice_rate_posting_rules`; šema izlazne fakture sada podržava redove prihoda/PDV-a po stopama. Agencija podešava konta; promjena ne prepravlja stare naloge.
-- Plate: zasebno provjeriti stvarne poreske postavke, ostale vrste osnovica i prihvat IOPPD XML-a na portalu; fiksne testne stope i tehnički XML test to ne potvrđuju.
+- Plate: grupno kopiranje izabranih firmi u drugi mjesec završeno je na
+  `/agencija/plate/kopiranje`, nezavisno od aktivne firme; kopije su CALCULATED.
+  Zasebno provjeriti stvarne poreske postavke, ostale vrste osnovica i prihvat IOPPD XML-a na portalu; fiksne testne stope i tehnički XML test to ne potvrđuju.
 - Brisanje završene kalkulacije implementirano uz poništenje lagera i uklanjanje zasebnog naloga/KUF računa iz aktivnih evidencija. Nije potrebno mijenjati bazu. Naknadni promet i raspodjele plaćanja moraju se prethodno razriješiti.
 - Deploy: `20261003200000_agency_financial_templates` prenosi šeme završnog računa na agenciju. Ako postoje višestruke šeme istog tipa unutar agencije, potrebno je prvo usklađivanje; migracija ih ne bira proizvoljno.
 - Pri deployu primijeniti `20261003190000_minimum_posting_account_length`, generisati Prisma klijent i restartovati aplikaciju. Kratka konta su sintetička; sistemske šeme koriste 5220/5250. Postojeće korisničke šeme sa kratkim kontima treba ručno uskladiti prije sljedećeg knjiženja.

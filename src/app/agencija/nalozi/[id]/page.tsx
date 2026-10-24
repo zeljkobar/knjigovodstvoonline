@@ -43,6 +43,17 @@ const poruke: Record<string, string> = {
   stavka_iznos: "Jedna stavka mora imati samo duguje ili samo potrazuje.",
   konto_nevalidno: "Konto ne postoji ili je deaktivirano za firmu.",
   partner_obavezan: "Za analiticko konto morate izabrati partnera.",
+  plate_zavisni_obracun: "Drugi proknjiženi obračun istog mjeseca koristi ovaj obračun. Prvo vratite zavisni obračun u nacrt.",
+  obracun_porez_promijenjen: "Mjesečna poreska istorija se promijenila. Provjerite ostale obračune istog mjeseca prije ponovnog knjiženja.",
+  obracun_vec_proknjizen: "Obračun je već proknjižen ili zaključan.",
+  obracun_nije_obradjen: "Obračun mora biti obračunat prije knjiženja.",
+  knjizenje_vrsta_naloga: "Provjerite vrstu naloga u šemi kontiranja plata; postojeći nalog mora zadržati svoju vrstu.",
+  knjizenje_pravila: "Nijesu podešena aktivna pravila kontiranja plata.",
+  knjizenje_konta: "Provjerite analitička konta u šemi kontiranja plata.",
+  knjizenje_duple_komponente: "Šema kontiranja sadrži i zbirne i pojedinačne komponente.",
+  knjizenje_nebalansirano: "Kontiranje plata nije izbalansirano.",
+  knjizenje_nema_iznosa: "Obračun nema iznose za knjiženje.",
+  knjizenje_greska: "Obračun nije proknjižen. Provjerite šemu kontiranja plata.",
   prava: "Nemate pravo za ovu akciju nad nalogom."
 };
 
@@ -110,6 +121,7 @@ export default async function NalogDetailPage({
     select: {
       id: true,
       firma_id: true,
+      poslovna_godina_id: true,
       sifra: true,
       broj: true,
       datum: true,
@@ -182,10 +194,11 @@ export default async function NalogDetailPage({
     notFound();
   }
 
-  const [canView, canUpdate, canPost] = await Promise.all([
+  const [canView, canUpdate, canPost, canPostPayroll] = await Promise.all([
     hasPermission(user, { firmaId: nalog.firma_id, modul: "nalozi", akcija: "view" }),
     hasPermission(user, { firmaId: nalog.firma_id, modul: "nalozi", akcija: "update" }),
-    hasPermission(user, { firmaId: nalog.firma_id, modul: "nalozi", akcija: "post" })
+    hasPermission(user, { firmaId: nalog.firma_id, modul: "nalozi", akcija: "post" }),
+    hasPermission(user, { firmaId: nalog.firma_id, modul: "plate", akcija: "post" })
   ]);
 
   if (!canView) {
@@ -202,6 +215,7 @@ export default async function NalogDetailPage({
   );
   const balanced = Math.round(totalDebit * 100) === Math.round(totalCredit * 100);
   const isAdvanceJournal = nalog.source_module === "agencija.robno.avansni-racuni";
+  const isPayrollJournal = nalog.source_module === "PLATE" || nalog.source_type === "PAYROLL";
   const isTravelJournal = nalog.source_module === "PUTNI_NALOZI";
   const isProtectedSourceJournal = ["OSNOVNA_SREDSTVA", "SUPPLIER_RETURN"].includes(nalog.source_module ?? "") || isTravelJournal;
   const depreciationBatchHref =
@@ -212,7 +226,7 @@ export default async function NalogDetailPage({
     nalog.sifra ||
     formatJournalCode(nalog.vrsta_naloga.prefiks, nalog.poslovna_godina.godina, nalog.broj);
   const [baseAccounts, companyOverrides] =
-    canUpdate && nalog.status === journalStatuses.draft && !nalog.poslovna_godina.zakljucena
+    canUpdate && nalog.status === journalStatuses.draft && !nalog.poslovna_godina.zakljucena && !isPayrollJournal
       ? await Promise.all([
           prisma.konto.findMany({
             where: {
@@ -401,7 +415,7 @@ export default async function NalogDetailPage({
       </section>
 
       {canUpdate && nalog.status === journalStatuses.draft &&
-      !nalog.poslovna_godina.zakljucena && !isProtectedSourceJournal && !isAdvanceJournal ? (
+      !nalog.poslovna_godina.zakljucena && !isProtectedSourceJournal && !isAdvanceJournal && !isPayrollJournal ? (
         <section className="admin-panel">
           <div className="panel-header">
             <h3>Izmijeni stavke</h3>
@@ -429,6 +443,12 @@ export default async function NalogDetailPage({
       ) : null}
 
       {isAdvanceJournal && nalog.izvorni_dokument_id ? <section className="admin-panel"><p>Stavke su preuzete iz šeme avansa i zaštićene od direktnih izmjena.</p><Link className="secondary-button" href={`/agencija/robno/izlazne-fakture/${nalog.izvorni_dokument_id}`}>Otvori avansni dokument</Link></section> : null}
+      {isPayrollJournal && nalog.izvorni_dokument_id ? (
+        <section className="admin-panel">
+          <p>Vraćanje naloga u nacrt vraća obračun u status „Obračunat“. Ponovno knjiženje koristi isti nalog i broj.</p>
+          <Link className="secondary-button" href={`/agencija/kontekst?${new URLSearchParams({ firma_id: nalog.firma_id, poslovna_godina_id: nalog.poslovna_godina_id, returnTo: `/agencija/plate/obracun?obracun=${nalog.izvorni_dokument_id}` })}`}>Otvori obračun plata</Link>
+        </section>
+      ) : null}
       {!nalog.poslovna_godina.zakljucena ? (
         <section className="admin-panel">
           <div className="panel-header">
@@ -453,14 +473,13 @@ export default async function NalogDetailPage({
                 ) : null}
               </>
             ) : null}
-            {canPost && nalog.status === journalStatuses.draft && !isProtectedSourceJournal ? (
+            {canPost && (!isPayrollJournal || canPostPayroll) && nalog.status === journalStatuses.draft && !isProtectedSourceJournal ? (
               <form action={postJournal} data-journal-post-form="true">
                 <input name="nalog_id" type="hidden" value={nalog.id} />
                 <button type="submit">Proknjiži nalog (F9)</button>
               </form>
             ) : null}
-            {canUpdate && nalog.status === journalStatuses.posted &&
-            !["PLATE", "OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN"].includes(nalog.source_module ?? "") ? (
+            {canUpdate && (!isPayrollJournal || canPostPayroll) && nalog.status === journalStatuses.posted && !isProtectedSourceJournal ? (
               <form action={reopenJournal}>
                 <input name="nalog_id" type="hidden" value={nalog.id} />
                 <button className="secondary-button" type="submit">

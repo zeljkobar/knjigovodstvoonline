@@ -1,5 +1,48 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-10-23 — Kontrolisano rasknjižavanje i ponovno knjiženje plata
+
+- Uklonjena opšta zabrana povrata PLATE naloga; namjenski servis atomski
+  vraća nalog u DRAFT i obračun u CALCULATED uz istu vezu i broj. Ponovni
+  zahtjev je idempotentan; poništava se metadata knjiženja i čuva audit.
+- Proknjiži je dostupan pored povezanog nacrta na listi plata i na detalju
+  naloga. Koristi postojeći obračun/šemu i isti nalog, uz ponovnu kontrolu
+  poreske istorije. Direktna izmjena/brisanje payroll stavki je blokirano.
+- Aktivni korisnik/agencija/firma, dodjela i prava provjeravaju se ponovo
+  u transakciji; zaključavanja i zavisni mjesečni porez čuvaju se pod lockom.
+  Detalj naloga koristi eksplicitni izvorni scope umjesto gornjeg izbora firme.
+- Bez izmjene baze. TSC/lint i npm test prolaze; stvarna testna baza provjerava
+  status i metadata para, isti broj/iznose, odsustvo iz glavne knjige dok je
+  nacrt, prava/scope, zaključavanja, zavisnosti, audit rollback i paralelne
+  zahtjeve. Kopiranje plata ostaje kompatibilno. Testna baza se briše.
+  Browser potvrđuje Vrati u nacrt za PL-2026-0013 bez izmjene korisničkog naloga.
+  Usklađeni aktivna dokumentacija i planer.
+
+## 2026-10-23 — Grupno kopiranje obračunatih plata
+
+- Dodato Kopiraj obračune na Plate i Obračun plata; nova agencijska stranica
+  bira izvorni/ciljni mjesec, prikazuje broj radnika/neto/izvornih obračuna i
+  omogućava pojedinačan ili zajednički izbor firmi. Nema zavisnosti od aktivne
+  firme/godine, niti promjene njihovog izbora pri kopiranju.
+- Kopiraju se ulazne stavke i fond sati redovnog rada; datumi pravilno prelaze
+  na kraj ciljnog mjeseca i relativni mjesec isplate. Postojeći payroll algoritam
+  računa po ciljnim pravilima, uključujući mjesečnu istoriju dopunskih obračuna.
+  Kopije odmah imaju CALCULATED, nove radnike/stavke/snapshote i bez izvornog
+  naloga ili oznaka slanja. Knjiženje ostaje odvojeno. Podijeljeni su postojeća
+  validacija ulaza i mapiranje rezultata; algoritam prima opcionu DB transakciju.
+- Backend ponavlja provjere korisnika, agencije, firmi/dodjele i tri prava;
+  zaključava korisnika/firmu/godinu/izvore i PDV periode, provjerava verzije,
+  aktivne radnike, važenje šifarnika i dostupne poreske stope. Duplikat ciljnog
+  mjeseca se preskače. Cijela firma je jedna transakcija sa auditom; kvar kasnijeg
+  izvora poništava i ranije kopije te firme. Ostale označene firme se obrađuju.
+- Nema migracije niti novih tabela. TSC/lint i npm test prolaze. Nova rollback
+  regresija provjerava stvarne podatke, selekciju/scope/prava, promjenu stope,
+  periode/godine, više izvora, neto i audit rollback. U svježoj privremenoj bazi
+  prošli su realna konkurentnost kopiranja, zaključavanje poslije preview-a i
+  postojeći payroll lifecycle; baza je uklonjena. Browser prikazuje SUMMA obračun
+  uz aktivnu L GROUP, ispravan izbor mjeseci i brojač; postojeći obračuni nijesu
+  mijenjani, a korisnikov kontekst nije mijenjan. Planer je regenerisan.
+
 ## 2026-10-23 — Povezano kontiranje avansa i umanjenja
 
 - Fiskalizovani avans koristi ADVANCE_INVOICE šemu (kupac D ukupno,

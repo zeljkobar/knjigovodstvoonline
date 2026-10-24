@@ -74,6 +74,7 @@ export function MissingPlateContext({ title }: { title: string }) {
       <header className="admin-header">
         <div>
           <h2>{title}</h2>
+          <a className="secondary-button" href="/agencija/plate/kopiranje">Kopiraj obračune</a>
         </div>
       </header>
       <section className="admin-panel">

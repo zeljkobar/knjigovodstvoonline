@@ -1,4 +1,8 @@
 "use server";
+import { employeeSnapshot, payrollBlockingIssuesForLine } from "@/lib/payroll-calculation-input";
+import { payrollLineResultData } from "@/lib/payroll-line-data";
+import { assertPayrollJournalAccess } from "@/lib/payroll-journal";
+import { requireAnyRole } from "@/lib/auth";
 import { effectivePayrollSettings } from "@/lib/posting-template";
 import {createEmploymentTermination,TerminationError} from "@/lib/create-employment-termination";
 import {employeeContractFields} from "@/lib/employee-contract-fields";
@@ -878,7 +882,20 @@ export async function savePayrollPostingSettings(formData: FormData) {
 export async function postPayrollCalculation(formData: FormData) {
   const returnPath = "/agencija/plate/obracun";
   const calculationId = text(formData.get("obracun_id"));
-  const context = await requirePlatePostContext(returnPath);
+  const requestedJournalId = text(formData.get("nalog_id"));
+  let context: Awaited<ReturnType<typeof requirePlatePostContext>>;
+  if (requestedJournalId && (!/^[0-9a-f-]{36}$/i.test(requestedJournalId) || !/^[0-9a-f-]{36}$/i.test(calculationId))) redirect("/agencija/nalozi?poruka=nalog_greska");
+  if (requestedJournalId) {
+    const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+    const journal = user.agencija_id ? await prisma.nalog.findFirst({ where: { id: requestedJournalId, agencija_id: user.agencija_id, source_type: "PAYROLL", source_module: "PLATE", izvorni_dokument_id: calculationId, is_deleted: false } }) : null;
+    const firm = journal ? await prisma.firma.findFirst({ where: { id: journal.firma_id, agencija_id: user.agencija_id!, aktivan: true, is_deleted: false } }) : null;
+    const year = journal ? await prisma.poslovnaGodina.findFirst({ where: { id: journal.poslovna_godina_id, firma_id: journal.firma_id } }) : null;
+    if (!journal || !firm || !year) redirect("/agencija/nalozi?poruka=nalog_greska");
+    context = { user, agencijaId: user.agencija_id!, firma: firm, godina: year };
+  } else context = await requirePlatePostContext(returnPath);
+  const destination = (message: string) => requestedJournalId
+    ? `/agencija/nalozi/${requestedJournalId}?poruka=${message}`
+    : `${returnPath}?obracun=${calculationId}&poruka=${message}`;
 
   if (!calculationId) {
     redirect(`${returnPath}?poruka=obracun_obavezan`);
@@ -902,6 +919,7 @@ export async function postPayrollCalculation(formData: FormData) {
 
   try {
     result = await prisma.$transaction(async (tx) => {
+      await assertPayrollJournalAccess(tx, { userId: context.user.id, agencyId: context.agencijaId }, context.firma.id, requestedJournalId ? "post" : undefined);
       const years = await tx.$queryRaw<Array<{ zakljucena: boolean }>>(
         Prisma.sql`SELECT zakljucena FROM poslovne_godine WHERE id = ${context.godina.id}::uuid AND firma_id = ${context.firma.id}::uuid FOR UPDATE`
       );
@@ -931,8 +949,9 @@ export async function postPayrollCalculation(formData: FormData) {
           stavke: true,
           nalog: {
             select: {
-              id: true,
-              is_deleted: true
+              id: true, is_deleted: true, status: true, agencija_id: true, firma_id: true,
+              poslovna_godina_id: true, source_type: true, source_module: true,
+              izvorni_dokument_id: true, broj: true, sifra: true, vrsta_naloga_id: true
             }
           }
         }
@@ -942,10 +961,12 @@ export async function postPayrollCalculation(formData: FormData) {
         throw new Error("obracun_ne_postoji");
       }
 
+      if (requestedJournalId && calculation.nalog_id !== requestedJournalId) throw new Error("knjizenje_greska");
       if (
+        calculation.locked_at ||
         calculation.status === payrollStatuses.posted ||
         calculation.status === payrollStatuses.locked ||
-        (calculation.nalog_id && calculation.nalog && !calculation.nalog.is_deleted)
+        (calculation.nalog && !calculation.nalog.is_deleted && calculation.nalog.status !== "DRAFT")
       ) {
         throw new Error("obracun_vec_proknjizen");
       }
@@ -958,6 +979,13 @@ export async function postPayrollCalculation(formData: FormData) {
         throw new Error("obracun_nije_obradjen");
       }
 
+      const reusableJournal = calculation.nalog && !calculation.nalog.is_deleted ? calculation.nalog : null;
+      if (reusableJournal) {
+        await tx.$queryRaw`SELECT id FROM nalozi WHERE id=${reusableJournal.id}::uuid FOR UPDATE`;
+        if (reusableJournal.source_type !== "PAYROLL" || reusableJournal.source_module !== "PLATE" || reusableJournal.agencija_id !== context.agencijaId || reusableJournal.firma_id !== context.firma.id || reusableJournal.poslovna_godina_id !== context.godina.id || reusableJournal.izvorni_dokument_id !== calculation.id) throw new Error("knjizenje_greska");
+      }
+      const periods = await tx.$queryRaw<Array<{status:string}>>`SELECT status FROM pdv_periodi WHERE firma_id=${context.firma.id}::uuid AND datum_od<=${calculation.datum_obracuna}::date AND datum_do>=${calculation.datum_obracuna}::date FOR UPDATE`;
+      if (periods.some(p => p.status === "LOCKED")) throw new Error("pdv_period_zakljucan");
       const monthlyHistory = await postedMonthlyPayrollLines(tx, calculation);
       for (const line of calculation.stavke) {
         const details = line.detalji as Record<string, unknown> | null;
@@ -984,7 +1012,7 @@ export async function postPayrollCalculation(formData: FormData) {
           journalType.agencija_id === context.agencijaId ||
           journalType.firma_id === context.firma.id);
 
-      if (!journalType || !journalTypeAllowed) {
+      if (!journalType || !journalTypeAllowed || (reusableJournal && reusableJournal.vrsta_naloga_id !== journalType.id)) {
         throw new Error("knjizenje_vrsta_naloga");
       }
 
@@ -1096,8 +1124,8 @@ export async function postPayrollCalculation(formData: FormData) {
           broj: true
         }
       });
-      const journalNumber = (lastJournal?.broj ?? 0) + 1;
-      const journalCode = formatJournalCode(
+      const journalNumber = reusableJournal?.broj ?? (lastJournal?.broj ?? 0) + 1;
+      const journalCode = reusableJournal?.sifra ?? formatJournalCode(
         journalType.prefiks,
         context.godina.godina,
         journalNumber
@@ -1107,7 +1135,11 @@ export async function postPayrollCalculation(formData: FormData) {
         .replaceAll("{mjesec}", String(calculation.mjesec).padStart(2, "0"))
         .replaceAll("{godina}", String(calculation.godina));
       const postedAt = new Date();
-      const journal = await tx.nalog.create({
+      const journal = reusableJournal ? await tx.nalog.update({
+        where: { id: reusableJournal.id },
+        data: { datum: calculation.datum_obracuna, datum_knjizenja: calculation.datum_obracuna, opis: journalDescription, poslovna_jedinica_id: calculation.poslovna_jedinica_id, updated_by: context.user.id, source_sync_status: "SYNCED" },
+        select: { id: true, broj: true, sifra: true }
+      }) : await tx.nalog.create({
         data: {
           agencija_id: context.agencijaId,
           firma_id: context.firma.id,
@@ -1119,7 +1151,7 @@ export async function postPayrollCalculation(formData: FormData) {
           datum: calculation.datum_obracuna,
           datum_knjizenja: calculation.datum_obracuna,
           opis: journalDescription,
-          status: journalStatuses.posted,
+          status: journalStatuses.draft,
           source_type: "PAYROLL",
           source_module: "PLATE",
           source_sync_status: "SYNCED",
@@ -1137,6 +1169,7 @@ export async function postPayrollCalculation(formData: FormData) {
         }
       });
 
+      if (reusableJournal) await tx.stavkaNaloga.deleteMany({ where: { nalog_id: reusableJournal.id } });
       for (let index = 0; index < postingLines.length; index += 1) {
         const line = postingLines[index]!;
 
@@ -1160,6 +1193,7 @@ export async function postPayrollCalculation(formData: FormData) {
         });
       }
 
+      await tx.nalog.update({ where: { id: journal.id }, data: { status: "POSTED", proknjizen_at: postedAt, proknjizen_by: context.user.id, updated_by: context.user.id } });
       const postedCalculation = await tx.plateObracun.update({
         where: {
           id: calculation.id
@@ -1203,7 +1237,7 @@ export async function postPayrollCalculation(formData: FormData) {
     });
   } catch (error) {
     const knownMessages = new Set([
-      "godina_zakljucena",
+      "godina_zakljucena", "prava", "pdv_period_zakljucan",
       "obracun_porez_promijenjen",
       "obracun_ne_postoji",
       "obracun_vec_proknjizen",
@@ -1220,18 +1254,14 @@ export async function postPayrollCalculation(formData: FormData) {
         ? error.message
         : "knjizenje_greska";
 
-    redirect(
-      `${returnPath}?obracun=${calculationId}&poruka=${message}`
-    );
+    redirect(destination(message));
   }
 
   revalidatePath(returnPath);
   revalidatePath("/agencija/nalozi");
   revalidatePath(`/agencija/nalozi/${result.journal.id}`);
   revalidatePath("/agencija/izvjestaji");
-  redirect(
-    `${returnPath}?obracun=${result.calculation.id}&poruka=obracun_proknjizen`
-  );
+  redirect(destination(requestedJournalId ? "nalog_proknjizen" : "obracun_proknjizen"));
 }
 
 export async function saveM4MonthlyPayment(formData: FormData) {
@@ -1605,127 +1635,6 @@ async function getEditableCalculation(calculationId: string, context: Awaited<Re
   }
 
   return calculation;
-}
-
-function employeeSnapshot(employee: {
-  ime: string;
-  prezime: string;
-  jmbg: string | null;
-  opstina: string | null;
-  poreska_opstina: string | null;
-  tekuci_racun: string | null;
-  radno_mjesto: string | null;
-  neto_iznos_cent: number;
-  bruto_iznos_cent: number;
-  koeficijent_slozenosti: { toString(): string } | null;
-}) {
-  return JSON.parse(
-    JSON.stringify({
-      ime: employee.ime,
-      prezime: employee.prezime,
-      jmbg: employee.jmbg,
-      opstina: employee.opstina,
-      poreskaOpstina: employee.poreska_opstina,
-      tekuciRacun: employee.tekuci_racun,
-      radnoMjesto: employee.radno_mjesto,
-      netoIznosCent: employee.neto_iznos_cent,
-      brutoIznosCent: employee.bruto_iznos_cent,
-      koeficijentSlozenosti: employee.koeficijent_slozenosti?.toString() ?? null
-    })
-  ) as Prisma.InputJsonValue;
-}
-
-function payrollBlockingIssuesForLine({
-  employee,
-  line,
-  calculationDate,
-  calculationFrom,
-  calculationTo,
-  requiresEmployment
-}: {
-  employee: {
-    ime: string;
-    prezime: string;
-    jmbg: string | null;
-    opstina: string | null;
-    poreska_opstina: string | null;
-    datum_pocetka: Date | null;
-    datum_prestanka: Date | null;
-    minuli_rad_godina: number;
-  };
-  line: {
-    datum_od: Date;
-    datum_do: Date;
-    ukupno_sati: number;
-    input_neto_cent: number;
-    input_bruto_cent: number;
-    fiksni_dio_cent: number;
-    koeficijent_slozenosti: { toString(): string } | null;
-    sifra_primanja_id: string;
-    vrsta_obracuna_id: string;
-    koristi_minuli_rad: boolean;
-  };
-  calculationDate: Date;
-  calculationFrom: Date;
-  calculationTo: Date;
-  requiresEmployment: boolean;
-}) {
-  const issues: string[] = [];
-  const employeeName = `${employee.prezime} ${employee.ime}`;
-
-  if (!employee.jmbg?.trim()) {
-    issues.push(`${employeeName}: nedostaje JMBG.`);
-  }
-
-  if (!(employee.poreska_opstina ?? employee.opstina)?.trim()) {
-    issues.push(`${employeeName}: nedostaje poreska opština/opština.`);
-  }
-
-  if (!line.sifra_primanja_id || !line.vrsta_obracuna_id) {
-    issues.push(`${employeeName}: nedostaje šifra primanja ili vrsta obračuna.`);
-  }
-
-  if (line.ukupno_sati <= 0) {
-    issues.push(`${employeeName}: sati za obračun moraju biti veći od nule.`);
-  }
-
-  const allowedPeriod = allowedPayrollPeriod({
-    calculationFrom,
-    calculationTo,
-    employmentFrom: requiresEmployment ? employee.datum_pocetka : null,
-    employmentTo: requiresEmployment ? employee.datum_prestanka : null
-  });
-
-  if (
-    !allowedPeriod ||
-    !isPayrollPeriodAllowed({ from: line.datum_od, to: line.datum_do, allowed: allowedPeriod })
-  ) {
-    issues.push(
-      `${employeeName}: period stavke mora biti unutar mjeseca obračuna i trajanja zaposlenja.`
-    );
-  }
-
-  if (
-    line.input_neto_cent === 0 &&
-    line.input_bruto_cent === 0 &&
-    line.fiksni_dio_cent === 0 &&
-    Number(line.koeficijent_slozenosti ?? 0) === 0
-  ) {
-    issues.push(`${employeeName}: nedostaje neto/bruto/fiksni dio ili koeficijent za obračun.`);
-  }
-
-  if (
-    line.koristi_minuli_rad &&
-    effectiveSeniorityYears({
-      manualYears: employee.minuli_rad_godina,
-      startDate: employee.datum_pocetka,
-      referenceDate: calculationDate
-    }) === 0
-  ) {
-    issues.push(`${employeeName}: uključen je minuli rad, ali nema navršenih godina staža.`);
-  }
-
-  return issues;
 }
 
 async function createCalculationWorkerWithDefaultLine({
@@ -2598,29 +2507,7 @@ export async function calculatePayrollCalculation(formData: FormData) {
           id: existingLine.id
         },
         data: {
-          iznos_za_obracun_cent: line.amountForCalculationCents,
-          osnovica_cent: line.baseAmountCents,
-          neto_cent: line.netAmountCents,
-          bruto_cent: line.grossAmountCents,
-          oporezivi_bruto_cent: line.taxableGrossCents,
-          porez_cent: line.personalIncomeTaxCents,
-          prirez_cent: line.surtaxCents,
-          zaposleni_pio_cent: line.employeePioCents,
-          zaposleni_zdravstvo_cent: line.employeeHealthCents,
-          zaposleni_nezaposleni_cent: line.employeeUnemploymentCents,
-          poslodavac_pio_cent: line.employerPioCents,
-          poslodavac_zdravstvo_cent: line.employerHealthCents,
-          poslodavac_nezaposleni_cent: line.employerUnemploymentCents,
-          fond_rada_cent: line.laborFundCents,
-          sindikat_cent: line.unionCents,
-          privredna_komora_cent: line.chamberCents,
-          doprinosi_zaposleni_cent: line.totalEmployeeContributionsCents,
-          doprinosi_poslodavac_cent: line.totalEmployerContributionsCents,
-          ukupni_trosak_cent: line.totalCostCents,
-          neto_za_isplatu_cent: line.netForPaymentCents,
-          stopa_prireza: line.surtaxRate,
-          koeficijent_minuli_rad: line.seniorityCoefficient,
-          detalji: line.details as Prisma.InputJsonValue,
+          ...payrollLineResultData(line),
           status: payrollStatuses.calculated,
           updated_by: context.user.id
         }

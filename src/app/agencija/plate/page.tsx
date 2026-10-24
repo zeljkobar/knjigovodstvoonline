@@ -58,7 +58,7 @@ export default async function PlatePage({ searchParams }: PageProps) {
   if (!context.allowed) {
     return (
       <section className="admin-panel">
-        <p className="empty-state">Nemate pravo za pregled modula plate.</p>
+        <p className="empty-state">Nemate pravo za pregled modula plate ove firme.</p><a className="secondary-button" href="/agencija/plate/kopiranje">Kopiraj obračune dostupnih firmi</a>
       </section>
     );
   }
@@ -141,9 +141,10 @@ export default async function PlatePage({ searchParams }: PageProps) {
             {context.firma.naziv} / {context.godina.godina}
           </p>
         </div>
+        <div className="header-actions"><a className="secondary-button" href="/agencija/plate/kopiranje">Kopiraj obračune</a>
         <a className="primary-button" href={showForm ? closeFormHref : openCreateHref}>
           {showForm ? "Zatvori formu" : "Dodaj radnika"}
-        </a>
+        </a></div>
       </header>
 
       {message ? <p className="admin-message">{message}</p> : null}

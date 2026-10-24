@@ -11,6 +11,8 @@ import { openingBalanceJournalType } from "@/lib/opening-balance";
 import { pdvReturnStatuses } from "@/lib/pdv";
 import { hasPermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { PayrollJournalError, reopenPayrollJournal } from "@/lib/payroll-journal";
+import { postPayrollCalculation } from "../plate/actions";
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -582,7 +584,7 @@ export async function updateDraftJournalLines(formData: FormData) {
     }
   });
 
-  if (!nalog || nalog.status !== journalStatuses.draft || ["OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN", "agencija.robno.avansni-racuni"].includes(nalog.source_module ?? "")) {
+  if (!nalog || nalog.status !== journalStatuses.draft || ["PLATE", "OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN", "agencija.robno.avansni-racuni"].includes(nalog.source_module ?? "")) {
     redirectJournals("nalog_greska");
   }
 
@@ -685,9 +687,17 @@ export async function postJournal(formData: FormData) {
       korisnici: { some: { korisnik_id: user.id, is_deleted: false } }
     }) }
   };
-  const source = await prisma.nalog.findFirst({ where: scope, select: { firma_id: true, poslovna_godina_id: true } });
+  const source = await prisma.nalog.findFirst({ where: scope, select: { firma_id: true, poslovna_godina_id: true, source_module: true, source_type: true, izvorni_dokument_id: true } });
   if (!source) redirectJournals("nalog_greska");
   if (!(await canUseJournals(user, source.firma_id, "post"))) redirectJournalDetail(nalogId, "prava");
+
+  if (source.source_module === "PLATE" || source.source_type === "PAYROLL") {
+    if (!source.izvorni_dokument_id) redirectJournalDetail(nalogId, "nalog_greska");
+    const payrollForm = new FormData();
+    payrollForm.set("nalog_id", nalogId);
+    payrollForm.set("obracun_id", source.izvorni_dokument_id);
+    return postPayrollCalculation(payrollForm);
+  }
 
   const result = await prisma.$transaction(async (tx) => {
     // Re-read all posting preconditions under locks; two requests cannot post twice.
@@ -742,7 +752,7 @@ export async function reopenJournal(formData: FormData) {
   const nalogId = value(formData, "nalog_id");
   const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
 
-  if (!user.agencija_id || !nalogId) {
+  if (!user.agencija_id || !/^[0-9a-f-]{36}$/i.test(nalogId)) {
     redirectJournals("nalog_greska");
   }
 
@@ -776,6 +786,20 @@ export async function reopenJournal(formData: FormData) {
       }
     }
   });
+
+  if (nalog?.source_module === "PLATE") {
+    try {
+      await reopenPayrollJournal({ userId: user.id, agencyId: user.agencija_id }, nalogId);
+    } catch (error) {
+      if (error instanceof PayrollJournalError) redirectJournalDetail(nalogId, error.message);
+      throw error;
+    }
+    revalidatePath("/agencija/nalozi");
+    revalidatePath(`/agencija/nalozi/${nalogId}`);
+    revalidatePath("/agencija/plate", "layout");
+    revalidatePath("/agencija/izvjestaji", "layout");
+    redirectJournalDetail(nalogId, "nalog_nacrt");
+  }
 
   if (
     !nalog ||
@@ -884,7 +908,7 @@ export async function deleteJournal(formData: FormData) {
     redirectJournals("prava");
   }
 
-  if (nalog.status !== journalStatuses.draft || ["OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN", "agencija.robno.avansni-racuni"].includes(nalog.source_module ?? "")) {
+  if (nalog.status !== journalStatuses.draft || ["PLATE", "OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN", "agencija.robno.avansni-racuni"].includes(nalog.source_module ?? "")) {
     redirectJournals("nalog_greska");
   }
 

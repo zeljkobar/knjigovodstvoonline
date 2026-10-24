@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 
 function normalizeMunicipality(value: string) {
@@ -19,14 +20,14 @@ function containsMunicipality(value: string, municipality: string) {
   );
 }
 
-export async function findMunicipalitySurtax(value: string | null | undefined, validOn: Date) {
+export async function findMunicipalitySurtax(value: string | null | undefined, validOn: Date, db: Prisma.TransactionClient = prisma) {
   const normalizedValue = normalizeMunicipality(String(value ?? ""));
 
   if (!normalizedValue) {
     return null;
   }
 
-  const rows = await prisma.platePrirezStopa.findMany({
+  const rows = await db.platePrirezStopa.findMany({
     where: {
       aktivan: true,
       valid_from: { lte: validOn },
