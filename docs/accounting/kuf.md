@@ -161,3 +161,18 @@ agencije. Šeme se ne kopiraju i raniji nalozi se ne prepravljaju. Konta se
 razrješavaju u ciljnoj firmi uz postojeća prava, ravnotežu i zaključavanja.
 Vrste knjiga se uparuju po tipu i šifri. Pravila po polju i lokalna vrsta naloga
 imaju prednost; KIF import i SEP automatika koriste iste efektivne šeme.
+
+## Domaće / ino konto partnera — 2026-10-25
+
+Na redu Ukupan iznos šema ima Domaći partner i Ino partner. Konto se bira prema
+`komitent.is_foreign`, dok `vat_transaction_type` dokumenta ostaje mjerodavan
+za PDV. Postojeće ukupno konto je domaće; ino konto treba posebno podesiti.
+Nedostajuće ino konto zaustavlja knjiženje cijelog pokušaja uz jasnu poruku.
+Ista pravila važe pri dopuni naloga i za negativne iznose; stare stavke ostaju.
+
+`UKUPAN_IZNOS_INO` je samo prateće pravilo konta u postojećoj tabeli; ne dodaje
+još jedan bruto iznos. D/P se uzima iz osnovnog reda Ukupan iznos. Template i
+kopiranje šeme uključuju oba konta; prazno lokalno ino konto vraća nasljeđivanje.
+Čuvanje provjerava aktivna analitička konta i upisuje audit u transakciji.
+Pazar i SOURCE_DOCUMENT zapisi zadržavaju svoje tokove, a carinski KUF uvoz
+koristi postojeću posebnu šemu za uvoz. Nema migracije.

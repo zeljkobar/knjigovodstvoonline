@@ -4,6 +4,9 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Domaća/ino KIF/KUF konta su implementirana bez migracije. U postojećim šemama
+  dopuniti Ino partner (npr. kupci 2030, dobavljači 4340), po firmi ili templateu;
+  za ino partnera nema prećutnog korišćenja domaćeg konta. Raniji nalozi ostaju.
 - Rasknjižavanje plata završeno: Vrati u nacrt sinhronizuje nalog i obračun;
   Proknjiži uz nacrt ponovo koristi isti broj. Nema migracije. Detalji i QA
   su u CURRENT_STATE; zaključavanja i zavisni obračuni ostaju zaštićeni.

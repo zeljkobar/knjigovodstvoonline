@@ -1998,6 +1998,14 @@ p {
   width: 34%;
 }
 
+.posting-account-label {
+  display: block;
+  margin: 8px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .posting-scheme-table td:nth-child(1) small {
   display: block;
   color: var(--muted);

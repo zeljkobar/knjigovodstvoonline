@@ -4,7 +4,7 @@ import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 
 
 import { useState } from "react";
-import { invoicePostingAccountSources } from "@/lib/account-plan";
+import { invoicePostingAccountSources, invoicePostingForeignTotalField } from "@/lib/account-plan";
 
 type AccountOption = {
   sifra: string;
@@ -14,6 +14,7 @@ type AccountOption = {
 type InvoicePostingRuleRowProps = {
   accountOptions: AccountOption[];
   accountValue: string;
+  foreignAccountValue?: string;
   code: string;
   direction: string;
   label: string;
@@ -23,12 +24,14 @@ type InvoicePostingRuleRowProps = {
 export function InvoicePostingRuleRow({
   accountOptions,
   accountValue,
+  foreignAccountValue = "",
   code,
   direction,
   label,
   source
 }: InvoicePostingRuleRowProps) {
-  const [accountSource, setAccountSource] = useState(source);
+  const isPartnerTotal = code === "UKUPAN_IZNOS";
+  const [accountSource, setAccountSource] = useState(isPartnerTotal ? invoicePostingAccountSources.fixed : source);
   const needsFixedAccount = accountSource === invoicePostingAccountSources.fixed;
 
   return (
@@ -49,14 +52,16 @@ export function InvoicePostingRuleRow({
           value={accountSource}
           onChange={(event) => setAccountSource(event.target.value)}
         >
-          <option value={invoicePostingAccountSources.fixed}>Izabrano konto</option>
-          <option value={invoicePostingAccountSources.inputExpense}>
+          <option value={invoicePostingAccountSources.fixed}>{isPartnerTotal ? "Prema partneru (domaći / ino)" : "Izabrano konto"}</option>
+          {!isPartnerTotal ? <option value={invoicePostingAccountSources.inputExpense}>
             Konto iz unosa računa
-          </option>
+          </option> : null}
         </select>
       </td>
       <td>
+        {isPartnerTotal ? <span className="posting-account-label">Domaći partner</span> : null}
         <AccountSearchSelect
+          aria-label={isPartnerTotal ? "Konto domaćeg partnera" : `Konto: ${label}`}
           name={`sifra_konta_${code}`}
           defaultValue={accountValue}
           disabled={!needsFixedAccount}
@@ -69,6 +74,20 @@ export function InvoicePostingRuleRow({
             </option>
           ))}
         </AccountSearchSelect>
+        {isPartnerTotal ? <>
+          <span className="posting-account-label">Ino partner</span>
+          <AccountSearchSelect
+            aria-label="Konto ino partnera"
+            name={`sifra_konta_${invoicePostingForeignTotalField}`}
+            defaultValue={foreignAccountValue}
+          >
+            <option value="">-</option>
+            {accountOptions.map(account => <option key={`ino-${account.sifra}`} value={account.sifra}>
+              {account.sifra} - {account.naziv}
+            </option>)}
+          </AccountSearchSelect>
+          <small className="muted-text">Obavezno za knjiženje računa ino partnera.</small>
+        </> : null}
       </td>
     </tr>
   );

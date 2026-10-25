@@ -64,6 +64,14 @@ godinu, a ako nije podešena posljednju dostupnu konfiguraciju templatea. Privat
 partneri druge firme se izostavljaju, nedostupna/deaktivirana konta blokiraju
 postojeće kontrole knjiženja. Vrsta naloga mora biti dozvoljena ciljnoj firmi.
 
+KIF/KUF ukupno konto razdvaja domaćeg i ino partnera prema `is_foreign`.
+Prateći ključ `UKUPAN_IZNOS_INO` čuva samo dodatno konto u istim pravilima;
+iznos se ne udvostručava, a D/P koristi glavno pravilo. Resolver nasljeđuje
+prateći ključ po istim pravilima kao osnovni; čuvanje praznog lokalnog ino
+konta uklanja taj lokalni override. Standardni servis knjiženja (i SEP) traži
+ino konto za ino partnera, uz postojeće transakcije, prava, period i balans.
+PDV tip računa i carinski KUF tok ostaju nezavisni. Nema promjene šeme baze.
+
 Resolver koristi i serverska automatika. Read-only forme prikazuju efektivne
 vrijednosti; čuvanje kreira/mijenja samo lokalna podešavanja. Lokalni identiteti
 KIF/KUF vrsta i OS kategorija ne zamrzavaju šeme. Bankovni računi se ne prenose;

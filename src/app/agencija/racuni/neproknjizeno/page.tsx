@@ -27,6 +27,7 @@ const poruke: Record<string, string> = {
   knjizenje_kontekst: "Izaberite aktivnu firmu i poslovnu godinu.",
   knjizenje_pdv: "Definišite aktivne PDV stope prije knjiženja.",
   knjizenje_vrsta_naloga: "Za ovu vrstu KIF/KUF knjige prvo izaberite vrstu naloga u podešavanjima.",
+  knjizenje_ino_konto: "Nije podešeno konto za ino partnera. Dopunite šemu u Računi / Podešavanja.",
   knjizenje_sema: "Šema kontiranja nije kompletna za ovu vrstu knjige.",
   knjizenje_konto: "Neko konto iz šeme nije aktivno analitičko konto.",
   knjizenje_nalog_zakljucan: "Postojeći nalog je već proknjižen i ne može se dopuniti.",

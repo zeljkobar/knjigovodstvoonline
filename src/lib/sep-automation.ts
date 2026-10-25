@@ -128,7 +128,7 @@ export async function processSepAutomationCompany(config: SepAutomatikaPodesavan
         const pending = await prisma.kifEntry.findMany({ where: { agencija_id: config.agencija_id, firma_id: firm.id, poslovna_godina_id: year.id, kif_book_id: book.id, sep_automation: true, posting_status: "UNPOSTED", journal_id: null, is_deleted: false }, select: { id: true } });
         if (pending.length) {
           const posted = await postInvoiceBookInContext({ documentType: "KIF", bookId: book.id, finalize: true, entryIds: pending.map(entry => entry.id), beforeWrite: () => authorize(execution) }, execution);
-          if (!posted.ok) throw new AutomationError(posted.reason === "knjizenje_rucni_nacrt" ? "Postojeći nalog je ručno ostavljen u nacrtu. Provjerite ga i proknjižite prije nastavka automatike." : `Knjiženje nije završeno (${posted.reason}). Provjerite KIF šemu, konta i zaključavanja.`);
+          if (!posted.ok) throw new AutomationError(posted.reason === "knjizenje_rucni_nacrt" ? "Postojeći nalog je ručno ostavljen u nacrtu. Provjerite ga i proknjižite prije nastavka automatike." : posted.reason === "knjizenje_ino_konto" ? "U KIF šemi nije podešeno konto ino kupca. Dopunite ga u Računi / Podešavanja." : `Knjiženje nije završeno (${posted.reason}). Provjerite KIF šemu, konta i zaključavanja.`);
           result.proknjizeno += pending.length;
         }
       } catch (error) {

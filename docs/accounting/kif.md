@@ -147,3 +147,18 @@ i knjiže kroz Nalozi; samo POSTED ulazi u glavnu knjigu. Primjer: avans 242,00
 i konačni račun iz različitih mjeseci, svaki dokument ostaje u svom periodu.
 Nedostajuća šema ili zaključan period blokira lokalno knjiženje; fiskalni rezultat
 ostaje sačuvan za nastavak bez novog slanja. Kontrolisani storno/obnova je zaseban tok.
+
+## Domaće / ino konto partnera — 2026-10-25
+
+Na redu Ukupan iznos šema ima Domaći partner i Ino partner. Konto se bira prema
+`komitent.is_foreign`, dok `vat_transaction_type` dokumenta ostaje mjerodavan
+za PDV. Postojeće ukupno konto je domaće; ino konto treba posebno podesiti.
+Nedostajuće ino konto zaustavlja knjiženje cijelog pokušaja uz jasnu poruku.
+Ista pravila važe pri dopuni naloga i za negativne iznose; stare stavke ostaju.
+
+`UKUPAN_IZNOS_INO` je samo prateće pravilo konta u postojećoj tabeli; ne dodaje
+još jedan bruto iznos. D/P se uzima iz osnovnog reda Ukupan iznos. Template i
+kopiranje šeme uključuju oba konta; prazno lokalno ino konto vraća nasljeđivanje.
+Čuvanje provjerava aktivna analitička konta i upisuje audit u transakciji.
+Pazar i SOURCE_DOCUMENT zapisi zadržavaju svoje tokove, a carinski KUF uvoz
+koristi postojeću posebnu šemu za uvoz. Nema migracije.

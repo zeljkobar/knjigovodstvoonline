@@ -50,7 +50,7 @@ async function response(action,data) {
   const makeBook=async(kind,month=6,deleted=false)=>{
    const isKif=kind==='KIF';
    const rt=await tx.racunVrsta.create({data:{agencija_id:agency.id,firma_id:firm.id,dokument_tip:kind,sifra:randomUUID(),naziv:kind,vrsta_naloga_id:type.id}});
-   const rules=[['UKUPAN_IZNOS',isKif?'D':'P',isKif?'2010':'4300'],['OSNOVICA_R21',isKif?'P':'D',isKif?'6000':'5000'],['PDV_R21',isKif?'P':'D',isKif?'2600':'2700']];
+   const rules=[['UKUPAN_IZNOS',isKif?'D':'P',isKif?'2010':'4300'],['UKUPAN_IZNOS_INO',isKif?'D':'P',isKif?'2010':'4300'],['OSNOVICA_R21',isKif?'P':'D',isKif?'6000':'5000'],['PDV_R21',isKif?'P':'D',isKif?'2600':'2700']];
    for(const [field,direction,account] of rules) await tx.racunKontiranjePravilo.create({data:{racun_vrsta_id:rt.id,polje_sifra:field,polje_naziv:field,smjer:direction,konto_izvor:'FIXED',sifra_konta:account}});
    const n=++bookNumber;return tx[isKif?'kifBook':'kufBook'].create({data:{...scope,racun_vrsta_id:rt.id,redni_broj:n,mjesec:month,[isKif?'internal_kif_number':'internal_kuf_number']:kind+n,[isKif?'kif_date':'kuf_date']:date(`2026-${String(month).padStart(2,'0')}-15`),is_deleted:deleted}});
   };

@@ -13,6 +13,7 @@ import {
   invoicePostingDocumentTypes,
   invoicePostingAccountSources,
   invoicePostingFields,
+  invoicePostingForeignTotalField,
   importPostingSchemeFields,
   isImportAccountPurpose,
   invoicePostingDefaultScope,
@@ -581,7 +582,7 @@ export async function saveInvoicePostingRules(formData: FormData) {
 
   const activeAccountCodes = new Set(
     mergeCompanyAccountPlan(baseAccounts, companyOverrides)
-      .filter((account) => account.aktivan)
+      .filter((account) => account.aktivan && account.tip_konta === "analiticko" && account.sifra.trim().length >= 4)
       .map((account) => account.sifra)
   );
   const fields = invoicePostingFields(invoiceType.dokument_tip, activeVatRates);
@@ -596,8 +597,9 @@ export async function saveInvoicePostingRules(formData: FormData) {
     }
 
     if (
-      source !== invoicePostingAccountSources.fixed &&
-      source !== invoicePostingAccountSources.inputExpense
+      (source !== invoicePostingAccountSources.fixed &&
+      source !== invoicePostingAccountSources.inputExpense) ||
+      (field.code === "UKUPAN_IZNOS" && source !== invoicePostingAccountSources.fixed)
     ) {
       redirect(`/agencija/racuni/podesavanja?vrsta=${typeId}&poruka=sema_izvor`);
     }
@@ -614,7 +616,22 @@ export async function saveInvoicePostingRules(formData: FormData) {
     };
   });
 
-  const savedRules = await prisma.$transaction(async (tx) => {
+  const foreignAccountCode = value(formData, `sifra_konta_${invoicePostingForeignTotalField}`);
+  if (foreignAccountCode && !activeAccountCodes.has(foreignAccountCode)) {
+    redirect(`/agencija/racuni/podesavanja?vrsta=${typeId}&poruka=sema_ino_konto`);
+  }
+  const totalRule = rules.find(rule => rule.code === "UKUPAN_IZNOS")!;
+  if (foreignAccountCode) rules.push({
+    code: invoicePostingForeignTotalField,
+    label: "Ukupan iznos — ino partner",
+    direction: totalRule.direction,
+    accountSource: invoicePostingAccountSources.fixed,
+    accountCode: foreignAccountCode,
+    vatRateCode: null,
+    order: 11
+  });
+
+  await prisma.$transaction(async (tx) => {
     await tx.racunVrsta.update({
       where: {
         id: invoiceType.id
@@ -625,7 +642,11 @@ export async function saveInvoicePostingRules(formData: FormData) {
       }
     });
 
-    return Promise.all(
+    // An empty local value leaves the field available for template inheritance.
+    if (!foreignAccountCode) await tx.racunKontiranjePravilo.deleteMany({ where: {
+      racun_vrsta_id: invoiceType.id, polje_sifra: invoicePostingForeignTotalField
+    } });
+    const savedRules = await Promise.all(
       rules.map((rule) =>
         tx.racunKontiranjePravilo.upsert({
         where: {
@@ -667,17 +688,17 @@ export async function saveInvoicePostingRules(formData: FormData) {
       })
       )
     );
-  });
 
-  await auditLog({
-    korisnikId: user.id,
-    agencijaId: user.agencija_id,
-    firmaId: invoiceType.firma_id,
-    modul: "agencija.racuni.podesavanja",
-    akcija: "save_invoice_posting_rules",
-    tipEntiteta: "RacunVrsta",
-    entitetId: invoiceType.id,
-    novaVrijednost: savedRules
+    await auditLogInTransaction(tx, {
+      korisnikId: user.id,
+      agencijaId: user.agencija_id,
+      firmaId: invoiceType.firma_id,
+      modul: "agencija.racuni.podesavanja",
+      akcija: "save_invoice_posting_rules",
+      tipEntiteta: "RacunVrsta",
+      entitetId: invoiceType.id,
+      novaVrijednost: savedRules
+    });
   });
 
   revalidatePath("/agencija/racuni/podesavanja");

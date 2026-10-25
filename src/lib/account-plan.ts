@@ -63,6 +63,9 @@ export const invoicePostingAccountSources = {
   inputExpense: "INPUT_EXPENSE"
 } as const;
 
+// Account-only companion to UKUPAN_IZNOS; it never creates a second amount line.
+export const invoicePostingForeignTotalField = "UKUPAN_IZNOS_INO";
+
 export const defaultInvoiceBookTypes = [
   ["KUF", "VIRMANI", "Virmani", "Knjiga ulaznih faktura - virmani"],
   ["KUF", "KARTICA", "Kartica", "Knjiga ulaznih faktura - kartica"],

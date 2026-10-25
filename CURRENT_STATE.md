@@ -1,12 +1,35 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-10-23. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-10-25. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Domaća i ino konta KIF/KUF partnera — 2026-10-25
+
+- Računi → Podešavanja na redu Ukupan iznos imaju pretražive izbore Domaći
+  partner i Ino partner. Postojeće konto ostaje domaće; ino konto se posebno
+  bira po vrsti knjige/firme (npr. KIF 2020/2030, KUF 4330/4340).
+- Knjiženje bira konto isključivo prema komitent.is_foreign. Ukupan iznos se
+  knjiži jednom; PDV i dalje koristi vat_transaction_type sa samog računa.
+  Miješana knjiga, dopuna istog POSTED naloga i negativni iznosi su podržani.
+  Nedostajuće ino konto blokira knjiženje uz objašnjenje i bez djelimičnih upisa.
+- Ino konto je dodatno pravilo UKUPAN_IZNOS_INO u postojećoj tabeli, a ne novo
+  iznosno polje. Šema i D/P ukupnog iznosa ostaju zajednički. Radi nasljeđivanje
+  iz template firme i kopiranje podešavanja; prazno lokalno ino konto vraća
+  nasljeđivanje. Sačuvana konta moraju biti aktivna analitička; audit čuvanja
+  šeme je u istoj transakciji. Postojeći nalozi se ne prepravljaju.
+- Pazar naplata, SOURCE_DOCUMENT računi i posebna carinska KUF šema zadržavaju
+  svoje tokove. Nema migracije ni promjene purge redoslijeda; dodatno pravilo
+  briše se postojećim CASCADE pravilom uz vrstu knjige.
+- QA: TSC, lint, npm test; izolovana PostgreSQL regresija stvarnog čuvanja,
+  oba konta, poreske nezavisnosti, template/local override/kopiranja, dopune i
+  negativnog računa, prava/scope, zaključavanja, audit rollbacka i purge-a.
+  Prošli i postojeći template/accounting/KUF-delete/SEP testovi. Browser
+  potvrđuje oba izbora bez čuvanja korisničkih podešavanja.
 
 ## Rasknjižavanje naloga plata — 2026-10-23
 

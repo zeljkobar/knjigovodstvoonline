@@ -1,7 +1,7 @@
 import { effectiveDefaultAccounts, effectiveInvoiceType } from "@/lib/posting-template";
 import "server-only";
 import type { Prisma } from "@prisma/client";
-import { accountOverrideTypes, invoicePostingDocumentTypes, invoicePostingAccountSources, invoicePostingFields, importAccountPurposes, importPostingSchemeFields, invoicePostingDefaultScope } from "./account-plan";
+import { accountOverrideTypes, invoicePostingDocumentTypes, invoicePostingAccountSources, invoicePostingFields, invoicePostingForeignTotalField, importAccountPurposes, importPostingSchemeFields, invoicePostingDefaultScope } from "./account-plan";
 import { invoiceExecutionUser, type InvoiceExecution } from "./invoice-execution";
 import { normalizeFiscalInvoiceNumber } from "./invoice-number";
 import { formatJournalCode, journalStatuses } from "./journals";
@@ -408,6 +408,7 @@ export async function postInvoiceBookInContext(
               dobavljac_id: true,
               dobavljac: {
                 select: {
+                  is_foreign: true,
                   naziv: true
                 }
               },
@@ -722,9 +723,11 @@ export async function postInvoiceBookInContext(
 
         for (const field of fields) {
           const rule = ruleByField.get(field.code);
-          const source = rule?.konto_izvor ?? field.accountSource;
-          const accountCode =
-            source === invoicePostingAccountSources.inputExpense
+          const foreignPartnerTotal = field.code === "UKUPAN_IZNOS" && entry.dobavljac.is_foreign;
+          const source = foreignPartnerTotal ? invoicePostingAccountSources.fixed : rule?.konto_izvor ?? field.accountSource;
+          const accountCode = foreignPartnerTotal
+            ? ruleByField.get(invoicePostingForeignTotalField)?.sifra_konta
+            : source === invoicePostingAccountSources.inputExpense
               ? entry.expense_account?.sifra
               : rule?.sifra_konta;
           const amountCents = amountForKufField(field.code, field.vatRateCode, entry);
@@ -734,7 +737,8 @@ export async function postInvoiceBookInContext(
           }
 
           if (!accountCode) {
-            return { ok: false as const, reason: "knjizenje_sema" };
+            return { ok: false as const, reason: foreignPartnerTotal ? "knjizenje_ino_konto" : "knjizenje_sema",
+              ...(foreignPartnerTotal ? { detail: `${entry.dobavljac.naziv} · ${entry.supplier_invoice_number}: u Računi / Podešavanja dopunite konto za ino partnera.` } : {}) };
           }
 
           entryLines.push({
@@ -981,6 +985,7 @@ export async function postInvoiceBookInContext(
             kupac_id: true,
             kupac: {
               select: {
+                is_foreign: true,
                 naziv: true
               }
             },
@@ -1216,9 +1221,11 @@ export async function postInvoiceBookInContext(
         }
 
         const rule = ruleByField.get(field.code);
-        const source = rule?.konto_izvor ?? field.accountSource;
-        const accountCode =
-          source === invoicePostingAccountSources.inputExpense
+        const foreignPartnerTotal = field.code === "UKUPAN_IZNOS" && entry.kupac.is_foreign;
+        const source = foreignPartnerTotal ? invoicePostingAccountSources.fixed : rule?.konto_izvor ?? field.accountSource;
+        const accountCode = foreignPartnerTotal
+          ? ruleByField.get(invoicePostingForeignTotalField)?.sifra_konta
+          : source === invoicePostingAccountSources.inputExpense
             ? entry.revenue_account?.sifra
             : rule?.sifra_konta;
         const amountCents = amountForKifField(field.code, field.vatRateCode, entry);
@@ -1228,7 +1235,8 @@ export async function postInvoiceBookInContext(
         }
 
         if (!accountCode) {
-          return { ok: false as const, reason: "knjizenje_sema" };
+          return { ok: false as const, reason: foreignPartnerTotal ? "knjizenje_ino_konto" : "knjizenje_sema",
+            ...(foreignPartnerTotal ? { detail: `${entry.kupac.naziv} · ${entry.customer_invoice_number}: u Računi / Podešavanja dopunite konto za ino partnera.` } : {}) };
         }
 
         entryLines.push({

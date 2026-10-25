@@ -14,6 +14,7 @@ import {
   invoicePostingDefaultScope,
   invoicePostingDocumentTypes,
   invoicePostingFields,
+  invoicePostingForeignTotalField,
   importPostingSchemeFields,
   mergeCompanyAccountPlan
 } from "@/lib/account-plan";
@@ -44,6 +45,7 @@ const poruke: Record<string, string> = {
   sema_izvor: "Izvor konta nije ispravan.",
   sema_vrsta_naloga: "Izaberite vrstu naloga za ovu vrstu knjige.",
   prava: "Nemate pravo za upravljanje podešavanjima KIF/KUF knjiga.",
+  sema_ino_konto: "Ino konto mora biti aktivno analitičko konto firme.",
   sema_konto:
     "Šema nije sačuvana: za svako polje sa izvorom 'Izabrano konto' morate izabrati konto.",
   uvoz_sema_sacuvana: "Šema za uvoz je sačuvana.",
@@ -538,6 +540,7 @@ export default async function RacuniPodesavanjaPage({
                 </div>
               </div>
 
+              <p className="admin-hint">Konto ukupnog iznosa bira se prema oznaci Domaći / Ino komitent na partneru. PDV tretman određuje se na računu.</p>
               <form action={saveInvoicePostingRules}>
                 <input type="hidden" name="racun_vrsta_id" value={selectedType.id} />
                 <div className="admin-form single-row-form">
@@ -576,6 +579,7 @@ export default async function RacuniPodesavanjaPage({
                             key={`${selectedType.id}-${field.code}`}
                             accountOptions={accountOptions}
                             accountValue={selectedAccount}
+                            foreignAccountValue={rulesByField.get(invoicePostingForeignTotalField)?.sifra_konta ?? ""}
                             code={field.code}
                             direction={direction}
                             label={field.label}

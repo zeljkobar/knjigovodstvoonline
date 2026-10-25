@@ -1,5 +1,28 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-10-25 — Posebna domaća i ino konta partnera u KIF/KUF šemama
+
+- Uz Ukupan iznos dodati pretraživi izbori Domaći partner / Ino partner.
+  Domaće konto se zadržava; ino se čuva kao UKUPAN_IZNOS_INO u postojećim
+  pravilima. Nije dodat novi iznos, tabela ili migracija.
+- Zajednički servis knjiženja (ručno i SEP) čita oznaku is_foreign partnera;
+  ne koristi PDV tip računa za izbor konta. Bez ino konta vraća jasnu poruku
+  i transakcijski poništava i ranije upise u istom pokušaju. Dopuna i negativni
+  računi koriste isti izbor; stare stavke/nalog i poreski tretman ostaju.
+- Nasljeđivanje po ključu već obuhvata ino pravilo; lokalni izbor ima prednost,
+  prazna lokalna vrijednost vraća template. Kopiranje šema i purge preko
+  racun_vrste CASCADE ostaju kompatibilni. Aktivna analitička konta provjeravaju
+  se pri čuvanju i u ciljnoj firmi pri knjiženju. Audit čuvanja je sada atomski.
+- TSC/lint i npm test prolaze. Nova izolovana DB regresija provjerava stvarne
+  actions i knjiženja domaćih/ino KIF/KUF, miješane knjige, odvojen PDV tip,
+  nedostajuće/deaktivirano konto, isti nalog/dopunu, negativne iznose,
+  template/local override/kopiranje, pravo/scope, godinu/PDV, audit rollback i
+  trajno brisanje testne firme. Prošli postojeći accounting, template,
+  KUF-delete i SEP testovi; privremena baza je uklonjena. Browser prikazuje
+  oba izbora uz sačuvano domaće konto; korisnička šema nije mijenjana.
+- Dokumentacija i planer su usklađeni; ino konta se dopunjavaju kroz šemu,
+  bez automatskog prepisivanja postojećih podešavanja ili knjiženja.
+
 ## 2026-10-23 — Kontrolisano rasknjižavanje i ponovno knjiženje plata
 
 - Uklonjena opšta zabrana povrata PLATE naloga; namjenski servis atomski

@@ -248,8 +248,8 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
   ],
   racuni: [
     { href: "/agencija/racuni/sep", label: "Preuzmi sa SEP-a", roles: adminOnly },
-    { href: "/agencija/racuni/kif", label: "KIF", permissions: [{ modul: "izlazni_racuni", akcija: "view" }] },
-    { href: "/agencija/racuni/kuf", label: "KUF", permissions: [{ modul: "ulazni_racuni", akcija: "view" }] },
+    { href: "/agencija/racuni/kif", label: "Novi KIF", permissions: [{ modul: "izlazni_racuni", akcija: "view" }] },
+    { href: "/agencija/racuni/kuf", label: "Novi KUF", permissions: [{ modul: "ulazni_racuni", akcija: "view" }] },
     { href: "/agencija/racuni/pregled-kif", label: "Pregled KIF", permissions: [{ modul: "izlazni_racuni", akcija: "view" }] },
     { href: "/agencija/racuni/pregled-kuf", label: "Pregled KUF", permissions: [{ modul: "ulazni_racuni", akcija: "view" }] },
     {
