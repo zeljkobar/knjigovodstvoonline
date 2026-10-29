@@ -8,6 +8,20 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## MAPR datum bez milisekundi — 2026-10-29
+
+- Potvrđen uzrok SEP greške: MAPR za datum sa `.000Z` vraća HTTP 404,
+  dok isti trenutak bez milisekundi vraća račun. Zajednički helper priprema
+  datum za KIF/KUF import, robnu kalkulaciju i MAPR preview API; fiskalni
+  identitet, vremenska zona i keš ključevi ostaju nepromijenjeni.
+- HTTP greške sada prikazuju status i razlikuju neuspješnu provjeru/404 od
+  ograničenja broja zahtjeva/429. Potvrđen stvarni račun read-only kroz oba
+  formata; testovi zahtjeva, TSC/lint i rollback MAPR/SEP DB regresije prolaze.
+  Nakon restarta lokalnog dev servera read-only su potvrđena i oba računa iz
+  neuspjele SEP obrade. Instrumentation timer zadržava raniji kod do restarta;
+  HMR stranica nije dovoljan za aktiviranje ispravke pozadinske obrade.
+  Korisnički računi nijesu uvezeni niti knjiženi; stari rezultat traži retry.
+
 ## Mail nalozi agencije u bazi — 2026-10-29
 
 - Podešavanja → Mail nalozi omogućava više IMAP naloga po agenciji. Firma

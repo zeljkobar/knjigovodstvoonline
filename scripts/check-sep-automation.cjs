@@ -45,6 +45,7 @@ const date=s=>new Date(s+'T00:00:00Z');
   global.fetch=async(url,options)=>{
     assert.equal(url,'https://mapr.tax.gov.me/ic/api/verifyInvoice');maprCalls++;
     const q=new URLSearchParams(options.body),iic=q.get('iic');const ordinal=Number(iic.slice(-1));
+    assert.equal(q.get('dateTimeCreated'),'2026-06-12T10:00:00Z','SEP UTC timestamps must reach MAPR without fractional seconds');
     return {ok:true,json:async()=>({iic,fic:'FIC',seller:{name:'Seller',idNum:q.get('tin')},buyer:{name:'Buyer fixture',idNum:'87654321'},dateTimeCreated:'2026-06-12T12:00:00+02:00',invoiceNumber:`bu/${ordinal}/2026/cr`,sameTaxes:[{vatRate:21,priceBeforeVat:100,vatAmount:21}],totalPrice:121})};
   };
   const load=sourceLoader(mocks),automation=load('src/lib/sep-automation.ts');

@@ -1,5 +1,21 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-10-29 — MAPR provjera i ispravka SEP datuma
+
+- Read-only provjera istog računa potvrdila HTTP 404 za datum sa milisekundama,
+  a HTTP 200 i isti račun bez njih; javni MAPR frontend i API su dostupni.
+- Zajednički mapr-request helper normalizuje samo mrežni format datuma u
+  KIF/KUF importu, kalkulacijama i preview API-ju. Identitet dokumenta i keš
+  ostaju isti. HTTP 404/429 i ostali statusi više nijesu opšta poruka o nedostupnosti.
+- TSC/lint, testovi zahtjeva i stvarne PostgreSQL rollback regresije za MAPR
+  cache i SEP automatiku prolaze. Popravljeni aplikacijski čitač potvrđen živim
+  MAPR računom za originalni i SEP UTC datum, bez poslovnih upisa ili knjiženja.
+- Stari rezultat obrade ostaje za korisnički retry; produkcija nije mijenjana.
+- Naknadno potvrđen stari kod u živom pozadinskom procesu: instrumentation
+  timer ne preuzima HMR izmjene stranica. Lokalni dev restartovan; read-only
+  provjera ograničena na oba IKOF-a iz greške sada uspijeva za oba računa,
+  bez uvoza/knjiženja. Za aktiviranje izmjena schedulera potreban je restart.
+
 ## 2026-10-29 — Mail nalozi u bazi i lokalni prenos .env konfiguracije
 
 - Dodati šifrovani IMAP nalozi po agenciji, admin forma i izbor naloga u

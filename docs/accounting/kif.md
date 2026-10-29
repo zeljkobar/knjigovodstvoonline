@@ -65,6 +65,14 @@ KIF dokument čuva konačni tip prometa. Dozvoljene vrijednosti za KIF:
 
 Konfiguracija firmi/sertifikata/KIF vrste nalazi se u Podešavanja → SEP automatika.
 
+MAPR zahtjev šalje datum na nivou sekunde: MAPR odbija milisekunde iz
+`Date.toISOString()` sa HTTP 404. Zajednički `mapr-request.ts` uklanja ih samo
+pri slanju (KIF/KUF import, preview i kalkulacije); izvorni link i kanonski
+fiskalni identitet/keš ostaju isti. Greške navode HTTP status; nakon ispravke
+neuspjela obrada ponavlja se iz pregleda, bez ručnog mijenjanja istorije.
+Poslije izmjena pozadinskog SEP koda restartovati aplikaciju i u razvoju:
+instrumentation timer može zadržati staru funkciju i poslije HMR osvježavanja.
+
 - Administrator uključuje samo odabrane firme i bira sertifikat i KIF vrstu.
 - U 04:00 počinje redna obrada. Od 1. u mjesecu do juče; prvog dana novog
   mjeseca cijeli prethodni mjesec. Excel je samo privremeni memorijski sadržaj.

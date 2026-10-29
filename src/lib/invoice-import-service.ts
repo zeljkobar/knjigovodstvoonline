@@ -11,6 +11,7 @@ import {
 } from "@/lib/account-plan";
 import { isDirectFiscalTenantUser } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
+import { dateTimeForMapr, maprHttpError } from "@/lib/mapr-request";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { vatTransactionTypes } from "@/lib/vat-transaction";
@@ -118,10 +119,6 @@ function fiscalSearchParams(qrUrl: string) {
   return query ? new URLSearchParams(query) : null;
 }
 
-function dateTimeForMapr(crtd: string) {
-  return crtd.replace(/\+(\d{2}:\d{2})$/, " $1");
-}
-
 function parseFiscalDate(value: string) {
   const normalized = value.trim().replace(/ (\d{2}:\d{2})$/, "+$1");
   const date = new Date(normalized);
@@ -198,7 +195,7 @@ async function verifyMaprInvoice(qrUrl: string): Promise<MaprInvoice | { success
     });
 
     if (!maprRes.ok) {
-      return { success: false, message: "MAPR servis nije dostupan." };
+      return { success: false, message: maprHttpError(maprRes.status) };
     }
 
     const invoice = (await maprRes.json()) as Record<string, unknown>;

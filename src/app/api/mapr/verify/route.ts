@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
+import { dateTimeForMapr, maprHttpError } from "@/lib/mapr-request";
 import { hasAnyPermission } from "@/lib/permissions";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -23,10 +24,6 @@ function fiscalSearchParams(qrUrl: string) {
   const query = queryFromSearch || queryFromHash;
 
   return query ? new URLSearchParams(query) : null;
-}
-
-function dateTimeForMapr(crtd: string) {
-  return crtd.replace(/\+(\d{2}:\d{2})$/, " $1");
 }
 
 export async function POST(req: NextRequest) {
@@ -99,7 +96,7 @@ export async function POST(req: NextRequest) {
 
     if (!maprRes.ok) {
       return NextResponse.json(
-        { success: false, message: "MAPR servis nije dostupan." },
+        { success: false, message: maprHttpError(maprRes.status) },
         { status: 502 }
       );
     }

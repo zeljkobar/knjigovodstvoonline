@@ -1,4 +1,5 @@
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
+import { dateTimeForMapr, maprHttpError } from "@/lib/mapr-request";
 
 export type MaprInvoiceItem = {
   sourceLineKey: string;
@@ -105,10 +106,6 @@ function fiscalSearchParams(qrUrl: string) {
   return query ? new URLSearchParams(query) : null;
 }
 
-function dateTimeForMapr(crtd: string) {
-  return crtd.replace(/\+(\d{2}:\d{2})$/, " $1");
-}
-
 function party(invoice: Record<string, unknown>, key: string) {
   const value = invoice[key] as Record<string, unknown> | null;
   if (!value || typeof value !== "object") return null;
@@ -162,7 +159,7 @@ export async function fetchMaprInvoice(qrUrl: string, timeoutMs = 20000): Promis
   }
 
   if (!response.ok) {
-    throw new MaprInvoiceError("MAPR servis nije dostupan.");
+    throw new MaprInvoiceError(maprHttpError(response.status));
   }
 
   const invoice = (await response.json()) as Record<string, unknown>;

@@ -4,6 +4,10 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- MAPR format datuma ispravljen: zahtjev ide bez milisekundi, a greške nose
+  HTTP status. Poslije preuzimanja ispravke restartovati server (uključujući
+  lokalni dev zbog instrumentation timera), pa ponoviti neuspjelu SEP obradu iz
+  Dashboard → Automatski obrađena dokumenta; istorijske greške se ne prepisuju.
 - Mail nalozi lokalno prebačeni u bazu. Pri produkcijskom prelasku primijeniti
   `20261029110000_agencija_mail_nalozi` i `20261029120000_mail_automatika_opt_in`,
   generisati Prisma pa pokrenuti `npm run mail:migrate-env` sa postojećim

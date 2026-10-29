@@ -16,11 +16,12 @@ const originalFetch=global.fetch;
  await tx.firmaKonto.create({data:{firma_id:firm.id,sifra:'5000',naziv:'Trošak',tip_konta:'analiticko'}});
  await tx.pdvStopa.create({data:{agencija_id:agency.id,sifra:'R21',naziv:'PDV21',procenat:'21'}});
  let user=admin,context={firmaId:firm.id,poslovnaGodinaId:year.id},allowed=true,calls=0,offline=false;
- const link=iic=>'https://mapr.tax.gov.me/ic/#/verify?'+new URLSearchParams({iic,tin:'01234567',crtd:'2026-06-12T10:00:00+02:00',prc:'121.00'});
+ const link=iic=>'https://mapr.tax.gov.me/ic/#/verify?'+new URLSearchParams({iic,tin:'01234567',crtd:'2026-06-12T10:00:00.000+02:00',prc:'121.00'});
  global.fetch=async(url,options)=>{
   assert.equal(url,'https://mapr.tax.gov.me/ic/api/verifyInvoice');calls++;
   if(offline) throw Error('MAPR unavailable');
   const q=new URLSearchParams(options.body);
+  assert.equal(q.get('dateTimeCreated'),'2026-06-12T10:00:00 02:00');
   return Response.json({seller:{name:'QA supplier',idNum:q.get('tin')},iic:q.get('iic'),dateTimeCreated:'2026-06-12T08:00:53.000+0000',invoiceNumber:q.get('iic')+'/2026',sameTaxes:[{vatRate:21,priceBeforeVat:100,vatAmount:21}],totalPriceToPay:121});
  };
  const mocks={'server-only':{},'@/lib/prisma':{prisma:transactionProxy(tx)},'@/lib/auth':{getCurrentUser:async()=>user,isDirectFiscalTenantUser:()=>false},'@/lib/work-context':{readWorkContext:async()=>context},'@/lib/permissions':{hasPermission:async()=>allowed},'next/headers':{headers:async()=>new Map()}};
