@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { checkImapConnection } from "./actions";
+import { checkSavedMailAccount } from "../../podesavanja/mail-nalozi/actions";
 
-export default function ConnectionTest() {
+export default function ConnectionTest({ accountId }: { accountId: string }) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
   return (
@@ -12,7 +12,7 @@ export default function ConnectionTest() {
         setMessage("");
         startTransition(async () => {
           try {
-            const result = await checkImapConnection();
+            const result = await checkSavedMailAccount(accountId);
             setMessage(result.ok
               ? `Veza uspješna. INBOX je otvoren samo za čitanje. Broj poruka: ${result.messageCount}.`
               : result.message);

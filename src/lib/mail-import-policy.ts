@@ -5,8 +5,9 @@ export const mailImportLabels: Record<string, string> = {
   ERROR: "Greška", SKIPPED: "Preskočen"
 };
 export class MailImportError extends Error {}
-export function mailSourceKey(folder: string, validity: string, uid: number) {
-  return createHash("sha256").update(JSON.stringify([folder, validity, uid])).digest("hex");
+export function mailSourceKey(folder: string, validity: string, uid: number, accountId?: string) {
+  const hash = createHash("sha256").update(JSON.stringify([folder, validity, uid])).digest("hex");
+  return accountId ? `${accountId}:${hash}` : hash;
 }
 export function attachmentHash(content: Uint8Array) {
   return createHash("sha256").update(content).digest("hex");

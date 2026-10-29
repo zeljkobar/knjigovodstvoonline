@@ -2,8 +2,8 @@ import "server-only";
 import { ImapFlow, type ImapFlowOptions } from "imapflow";
 
 const messages = {
-  CONFIG: "IMAP nije podešen. Provjerite IMAP varijable u serverskom .env fajlu; obavezni su TLS, port 993 i INBOX.",
-  AUTH: "Prijava nije uspjela. Provjerite IMAP korisničko ime i lozinku u serverskom .env fajlu.",
+  CONFIG: "IMAP nije podešen. Provjerite sačuvani mail nalog agencije; obavezni su TLS, port 993 i INBOX.",
+  AUTH: "Prijava nije uspjela. Provjerite IMAP korisničko ime i lozinku u podešavanjima mail naloga.",
   NETWORK: "IMAP server nije dostupan ili je veza prekinuta. Provjerite mrežu, adresu servera i port pa pokušajte ponovo.",
   TLS: "TLS provjera nije uspjela. Provjerite sertifikat, naziv servera i sistemsko vrijeme. Provjera sertifikata mora ostati uključena.",
   MAILBOX: "INBOX nije moguće otvoriti u režimu samo za čitanje. Provjerite pristup sandučetu.",
@@ -58,11 +58,12 @@ type ProbeClient = {
 };
 
 export async function probeImap(
-  env: ImapEnvironment = process.env,
+  env: ImapEnvironment,
   createClient: (options: ImapFlowOptions) => ProbeClient = (options) => new ImapFlow(options),
-  timeoutMs = 25_000
+  timeoutMs = 25_000,
+  savedOptions?: ImapFlowOptions
 ): Promise<ImapTestResult> {
-  const options = imapOptions(env);
+  const options = savedOptions ?? imapOptions(env);
   if (!options) return failure("CONFIG");
   let client: ProbeClient | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -100,16 +101,17 @@ export async function probeImap(
   }
 }
 
-// One connection at a time per Node process; no automatic authentication retries.
-let running = false;
-let nextAllowedAt = 0;
-export async function testImapConnection(): Promise<ImapTestResult> {
-  if (running || Date.now() < nextAllowedAt) return failure("BUSY");
-  running = true;
+// One test per agency/account at a time per process; no automatic authentication retries.
+const checks = new Map<string, { running: boolean; nextAllowedAt: number }>();
+export async function testImapConnection(options: ImapFlowOptions, scope: string): Promise<ImapTestResult> {
+  const state = checks.get(scope) ?? { running: false, nextAllowedAt: 0 };
+  if (state.running || Date.now() < state.nextAllowedAt) return failure("BUSY");
+  state.running = true; checks.set(scope, state);
   try {
-    return await probeImap();
+    return await probeImap({}, undefined, 25_000, options);
   } finally {
-    running = false;
-    nextAllowedAt = Date.now() + 15_000;
+    state.running = false;
+    state.nextAllowedAt = Date.now() + 15_000;
+    setTimeout(() => { if (checks.get(scope) === state && !state.running) checks.delete(scope); }, 16_000).unref();
   }
 }

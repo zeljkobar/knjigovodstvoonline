@@ -25,8 +25,8 @@
 Konfiguracija je na `/agencija/podesavanja/sep-automatika`, dok Dashboard
 `/agencija/automatski-obradjena-dokumenta` objedinjuje SEP dnevne rezultate i
 AUTO_BANK_RUN audit uz filtere i ponavljanje SEP-a. Oba ekrana su administratorska;
-svaki upit je scoped po agenciji, a mail rezultati dodatno po postojećem
-IMAP_AGENCY_ID ovlašćenju i izvodi:manage. Stare adrese preusmjeravaju.
+svaki upit je scoped po agenciji, a mail rezultati dodatno po agencijskom
+mail scope-u i izvodi:manage. Stare adrese preusmjeravaju.
 
 `sep-automation.ts` pokreće server-side instrumentacija u 04:00 Europe/Podgorica,
 uz opt-in postavke `sep_automatika_podesavanja` i trajni dnevni red/rezultat
@@ -299,6 +299,22 @@ sadrži validirane cente, klasifikacije i dokumentovane promjene. Immutable
 su FK i backend scope; potvrda i prenos se serijalizuju zaključavanjem firme.
 Jedna potvrđena revizija po godini garantovana je parcijalnim unique indeksom.
 Potvrda ne pravi GL nalog. Čista štampa je `/stampa/osnovna-sredstva/poreska-amortizacija/[id]`.
+
+### Mail nalozi u bazi (2026-10-29)
+
+`agencija_mail_nalozi` je agencijski registar IMAP identiteta; lozinka koristi
+AES-256-GCM i MAIL_ENCRYPTION_KEY, uz AAD agencija+ID naloga. UI i audit imaju
+samo javne metadata. `firma_mail_podesavanja.mail_nalog_id` bira jedan nalog,
+uz isto-agencijski FK. Runtime resolver ponavlja scope/aktivnost i izbor firme
+prije dešifrovanja; nema IMAP_* fallback-a. Port je 993/TLS uz provjeru sertifikata.
+
+Identitet poruke je ID naloga + prethodni SHA-256 folder/UIDVALIDITY/UID.
+`mail_izvod_obrade` čuva vezu na isti nalog. Jednokratni idempotentni CLI prenosi
+stare reference i postavke, potvrđuje read-only prijavu i čisti stare .env
+ključeve tek nakon uspjeha. Purge firme uklanja samo njene veze i istoriju;
+agencijsko sanduče ostaje za druge firme. Automatika traži eksplicitni opt-in
+naloga uz postojeći globalni runtime flag i prava. Lokalni prenos je završen;
+produkcijski postupak je u accounting/izvodi.md.
 
 ### Dnevni mail izvodi (2026-10-01)
 

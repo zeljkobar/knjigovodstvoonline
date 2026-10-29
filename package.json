@@ -43,7 +43,8 @@
     "test:sep-automation": "node --test tests/sep-automation.test.cjs",
     "test:sep-automation-db": "node scripts/check-sep-automation.cjs",
     "test:theme-db": "node scripts/check-theme.cjs",
-    "test:posting-template-db": "node scripts/check-posting-template.cjs"
+    "test:posting-template-db": "node scripts/check-posting-template.cjs",
+    "mail:migrate-env": "node scripts/migrate-imap-account.cjs"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",

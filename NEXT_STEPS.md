@@ -4,6 +4,13 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Mail nalozi lokalno prebačeni u bazu. Pri produkcijskom prelasku primijeniti
+  `20261029110000_agencija_mail_nalozi` i `20261029120000_mail_automatika_opt_in`,
+  generisati Prisma pa pokrenuti `npm run mail:migrate-env` sa postojećim
+  serverskim .env. Komanda čuva novi ključ, prenosi nalog/postavke/istoriju,
+  potvrđuje read-only vezu i tek zatim uklanja stare IMAP ključeve. Koraci za
+  PM2 su u docs/accounting/izvodi.md. Sačuvati serverski MAIL_ENCRYPTION_KEY uz
+  backup; server tokom lokalne implementacije nije mijenjan.
 - Domaća/ino KIF/KUF konta su implementirana bez migracije. U postojećim šemama
   dopuniti Ino partner (npr. kupci 2030, dobavljači 4340), po firmi ili templateu;
   za ino partnera nema prećutnog korišćenja domaćeg konta. Raniji nalozi ostaju.
@@ -80,13 +87,14 @@
   i poništavanja poreskog prenosa. Zastarjele revizije pri ispravkama su blokirane.
 - Na produkciji primijeniti `20260926140000_firma_mail_podesavanja` i
   `20260927120000_mail_izvod_obrade`, regenerisati Prisma klijent i restartovati
-  aplikaciju. Podesiti `IMAP_AGENCY_ID` za odgovarajuću agenciju.
+  aplikaciju. Pristup sada određuju mail nalozi u bazi; slijediti novi prelazak iznad.
 - Uvoz filtriranih mail priloga na klik, statusi i zaštita od ponavljanja/
   premještanja su implementirani. Sljedeće: korisnička provjera uvoza za banke,
   dnevna obrada u 10:00 i knjiženje spremnih mail izvoda su implementirani.
   Deployovati i provjeriti prvi rezultat u Dashboard → Automatski obrađena dokumenta.
   Produkcijski BANK_AUTOMATION_ENABLED=true; deploy skripta ga postavlja pri restartu.
-  Šifrovana konfiguracija više sandučića ostaje buduća faza.
+  Šifrovani mail nalozi i izbor po firmi završeni su 2026-10-29; nove naloge
+  treba eksplicitno uključiti u automatiku ako je potrebna.
 - Na produkciji primijeniti migraciju `20260923120000_opsti_virmani`, dodijeliti
   radnicima potrebna prava za novi modul i uraditi probnu štampu tri opšta
   virmana na stvarnom obrascu. Lokalni ekran je statički provjeren; puna browser

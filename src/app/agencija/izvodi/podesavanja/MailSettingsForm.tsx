@@ -7,10 +7,11 @@ import { loadCompanyMailFolders, saveCompanyMailSettings } from "./mail-actions"
 import styles from "./settings.module.css";
 
 const blank = (): MailRule => ({ sender: "", subject: "", attachment: "" });
-export default function MailSettingsForm({ firmaId, godinaId, initial }: {
-  firmaId: string; godinaId: string;
-  initial: { folder: string; subfolders: boolean; inbox: boolean; active: boolean; rules: MailRule[]; version: string };
+export default function MailSettingsForm({ firmaId, godinaId, initial, accounts }: {
+  firmaId: string; godinaId: string; accounts: Array<{ id: string; naziv: string; username: string }>;
+  initial: { mailAccountId: string; folder: string; subfolders: boolean; inbox: boolean; active: boolean; rules: MailRule[]; version: string };
 }) {
+  const [accountId, setAccountId] = useState(initial.mailAccountId);
   const [rules, setRules] = useState(initial.rules.length ? initial.rules : [blank()]);
   const [folders, setFolders] = useState<Array<{ path: string; selectable: boolean }>>([]);
   const [folderMessage, setFolderMessage] = useState("");
@@ -27,6 +28,10 @@ export default function MailSettingsForm({ firmaId, godinaId, initial }: {
       <input type="hidden" name="godina_id" value={godinaId} />
       <input type="hidden" name="version" value={initial.version} />
       <input type="hidden" name="pravila" value={JSON.stringify(rules)} />
+      <label>Mail nalog agencije<select name="mail_nalog_id" value={accountId} required onChange={event => { setAccountId(event.target.value); setFolders([]); setFolderMessage(""); }}>
+        <option value="">Izaberite mail nalog</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.naziv} · {account.username}</option>)}
+      </select></label>
+      <Link href="/agencija/podesavanja/mail-nalozi">Dodaj / izmijeni mail naloge agencije</Link>
       <label><input type="checkbox" name="aktivno" defaultChecked={initial.active} /> Uključi pregled mailova za ovu firmu</label>
       <label>Folder firme
         <select name="folder" defaultValue={initial.folder}>
@@ -35,9 +40,9 @@ export default function MailSettingsForm({ firmaId, godinaId, initial }: {
           {folders.map((item) => <option key={item.path} value={item.path}>{item.path}{item.selectable ? "" : " (grupa foldera)"}</option>)}
         </select>
       </label>
-      <div><button type="button" className="secondary-button" disabled={loading || pending} onClick={() => startLoad(async () => {
+      <div><button type="button" className="secondary-button" disabled={loading || pending || !accountId} onClick={() => startLoad(async () => {
         try {
-          const result = await loadCompanyMailFolders();
+          const result = await loadCompanyMailFolders(accountId);
           if (result.ok) { setFolders(result.folders); setFolderMessage(`Učitano foldera: ${result.folders.length}.`); }
           else setFolderMessage(result.message);
         } catch { setFolderMessage("Foldere nije moguće učitati. Provjerite prijavu."); }

@@ -1,12 +1,43 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-10-25. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-10-29. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Mail nalozi agencije u bazi — 2026-10-29
+
+- Podešavanja → Mail nalozi omogućava više IMAP naloga po agenciji. Firma
+  u Izvodi → Podešavanja bira jedan nalog i svoje foldere/pravila. Naloge
+  održava administrator uz izvodi/manage; kredencijali se ne nasljeđuju preko
+  template firme. Server i korisničko ime su identitet naloga; promjena adrese
+  traži novi nalog. Lozinka se mijenja bez prikaza postojeće vrijednosti.
+- `agencija_mail_nalozi.lozinka_sifrovana` koristi AES-256-GCM, zaseban
+  MAIL_ENCRYPTION_KEY i AAD agencija+nalog. UI/audit ne nose lozinku niti
+  ciphertext. FK agencija+mail_nalog_id štiti veze firmi i istorije obrade.
+  Brisanje firme uklanja njene postavke/istoriju, a agencijski nalog ostaje.
+- Pregled, test, download, ručni uvoz i automatika sada čitaju bazu. Runtime
+  ne koristi stare IMAP_* varijable. Linkovi i red uvoza nose ID naloga;
+  promjena naloga odbija stare reference. Ključ poruke uključuje nalog,
+  folder, UIDVALIDITY i UID. Stare obrađene reference prenose se bez dupliranja.
+- Automatika traži globalni runtime flag i eksplicitno uključivanje na
+  nalogu. Novi nalozi nemaju automatsko knjiženje; prenos preuzima raniji flag.
+  Zaključavanja, prava, račun firme i deduplikacija izvoda ostaju isti.
+- Lokalne migracije `20261029110000_agencija_mail_nalozi` i
+  `20261029120000_mail_automatika_opt_in` su primijenjene, Prisma obnovljena i
+  dev restartovan. `npm run mail:migrate-env` prenio je postojeći nalog,
+  povezao 3 postavke firme i 39 obrada, potom potvrdio read-only INBOX vezu.
+  Tek nakon provjere uklonjeno je sedam starih IMAP ključeva iz lokalnog .env;
+  novi ključ ostaje lokalno uz prava 0600. Produkcijski server nije mijenjan.
+- TSC/lint, npm test, stvarni izolovani DB test šifrovanja/prenosa/istorije,
+  tenant i FK izolacije, bez tajni u UI/auditu, revizija, rollbacka i purge-a;
+  prošli postojeći mail import/automatika i SEP regresije. Stvarna DB IMAP
+  provjera uspješna sa 2542 poruke, bez čitanja sadržaja i promjene oznaka.
+  Browser alat nije bio dostupan; forma je renderovana u regresiji. Koraci
+  za produkcijski prelazak su u docs/accounting/izvodi.md.
 
 ## Domaća i ino konta KIF/KUF partnera — 2026-10-25
 
@@ -683,7 +714,8 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   INBOX se preskače bez bar jednog popunjenog uslova, i kada je uključen.
 - Detalj i download ponovo provjeravaju aktivnu firmu, folder, UIDVALIDITY i
   uslove poruke. Promjena firme u drugom tabu blokira stari link. Konfiguracija
-  veze/lozinka ostaju u `.env`, a pravila su u `firma_mail_podesavanja`.
+  veze/šifrovane lozinke sada je u `agencija_mail_nalozi`, a pravila su u
+  `firma_mail_podesavanja` (dopuna 2026-10-29).
 - Migracija `20260926140000_firma_mail_podesavanja` lokalno je primijenjena,
   Prisma regenerisana i dev server restartovan. Purge pokriva novu tabelu;
   transakcijski test kreiranja/čitanja i purge-a testne firme je prošao uz
@@ -696,7 +728,7 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 ## IMAP osnova — 2026-09-26 (proširena pravilima iznad)
 
 - `/agencija/izvodi/imap` je dostupan kroz Izvodi → Mailovi samo adminu
-  agencije vezane preko `IMAP_AGENCY_ID` u `.env`. Stranica i server action
+  agencije i njenih naloga u bazi (dopuna 2026-10-29). Stranica i server action
   provjeravaju ulogu, agenciju i `izvodi:manage`; audit bilježi agenciju.
   Stari platformski ekran je uklonjen. Konfiguracija i lozinka ostaju u `.env`.
 - ImapFlow koristi obavezni TLS na portu 993, provjeru sertifikata/hostname-a,

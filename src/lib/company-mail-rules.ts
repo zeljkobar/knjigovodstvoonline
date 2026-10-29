@@ -1,5 +1,6 @@
 export type MailRule = { sender: string; subject: string; attachment: string };
 export type CompanyMailConfig = {
+  agencyId?: string; mailAccountId?: string;
   firmaId: string; folder: string | null; includeSubfolders: boolean; includeInbox: boolean;
   rules: MailRule[];
 };

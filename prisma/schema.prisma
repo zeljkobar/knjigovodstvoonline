@@ -34,6 +34,7 @@ enum KomitentScope {
 }
 
 model Agencija {
+  mailNalozi AgencijaMailNalog[]
   povratiDobavljacu PovratDobavljacu[]
   knjizenjeTemplate AgencijaKnjizenjeTemplate?
   sepAutomatika SepAutomatikaPodesavanje[]
@@ -2637,6 +2638,8 @@ model OsPromjena {
 }
 
 model MailIzvodObrada {
+  mail_nalog_id String? @db.Uuid
+  mail_nalog AgencijaMailNalog? @relation(fields: [agencija_id, mail_nalog_id], references: [agencija_id, id], onDelete: Restrict)
   agencija Agencija @relation(fields: [agencija_id], references: [id])
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id String @db.Uuid
@@ -3675,7 +3678,35 @@ model AuditLog {
   @@map("audit_log")
 }
 
+model AgencijaMailNalog {
+  automatska_obrada Boolean @default(false)
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  agencija Agencija @relation(fields: [agencija_id], references: [id])
+  naziv String
+  host String
+  port Int @default(993)
+  korisnicko_ime String
+  lozinka_sifrovana String
+  aktivan Boolean @default(true)
+  is_deleted Boolean @default(false)
+  deleted_at DateTime?
+  deleted_by String? @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  created_by String? @db.Uuid
+  updated_by String? @db.Uuid
+  firme FirmaMailPodesavanje[]
+  obrade MailIzvodObrada[]
+  @@unique([agencija_id, id])
+  @@unique([agencija_id, host, korisnicko_ime])
+  @@index([agencija_id, aktivan, is_deleted])
+  @@map("agencija_mail_nalozi")
+}
+
 model FirmaMailPodesavanje {
+  mail_nalog_id String? @db.Uuid
+  mail_nalog AgencijaMailNalog? @relation(fields: [agencija_id, mail_nalog_id], references: [agencija_id, id], onDelete: Restrict)
   id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id         String   @db.Uuid
   agencija            Agencija @relation(fields: [agencija_id], references: [id])

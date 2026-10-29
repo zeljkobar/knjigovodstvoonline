@@ -105,10 +105,11 @@ test("mailbox is restricted to the configured agency administrator", () => {
   }
 });
 test("page and server action enforce agency access before opening mailbox", () => {
-  const action = readFileSync("src/app/agencija/izvodi/imap/actions.ts", "utf8");
+  const action = readFileSync("src/app/agencija/podesavanja/mail-nalozi/actions.ts", "utf8");
   const page = readFileSync("src/app/agencija/izvodi/imap/page.tsx", "utf8");
   const guardPosition = action.indexOf("await requireImapAgency()");
-  assert.ok(guardPosition >= 0 && guardPosition < action.indexOf("await testImapConnection()"));
+  assert.ok(guardPosition >= 0 && guardPosition < action.indexOf("await testImapConnection("));
   assert.ok(page.includes("await requireImapCompany("));
   assert.ok(action.includes("agencijaId: user.agencija_id"));
+  assert.ok(!action.includes("process.env.IMAP_PASS"));
 });

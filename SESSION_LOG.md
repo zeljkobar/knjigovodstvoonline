@@ -1,5 +1,30 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-10-29 — Mail nalozi u bazi i lokalni prenos .env konfiguracije
+
+- Dodati šifrovani IMAP nalozi po agenciji, admin forma i izbor naloga u
+  postojećim podešavanjima firme. AES-256-GCM + AAD agencija/nalog; ključ je
+  samo u environmentu. Public projekcije i audit isključuju tajne. Server i
+  korisničko ime su nepromjenljiv identitet; prazna lozinka čuva postojeću.
+- Pregled, test, download, uvoz i scheduler uklonjeni sa globalnog .env naloga.
+  Referenca poruke je namespaced nalogom; stari link/queue poslije promjene
+  naloga se odbija. Scheduler obrađuje samo eksplicitno uključene naloge.
+- Dvije ručne migracije lokalno deployovane; Prisma generisana i dev ponovo
+  pokrenut. Purge briše firmine reference/istoriju, a zadržava agencijski nalog;
+  isti-tenant kompozitni FK-ovi provjereni stvarnom bazom.
+- CLI mail:migrate-env je idempotentan, veže postojeće postavke, prenosi ključeve
+  istorije i auditira samo brojače. Lokalni nalog prenesen: 3 firme, 39 obrada.
+  Read-only veza sa dešifrovanim DB kredencijalima uspješna; .env zadržava
+  MAIL_ENCRYPTION_KEY, stari IMAP ključevi uklonjeni i prava fajla su 0600.
+  Dodatna imap:check provjera iz aplikacijskog resolvera potvrđuje INBOX/2542.
+- TSC/lint/npm test i izolovani DB testovi naloga, starog mail uvoza/dnevnog
+  knjiženja i SEP-a prolaze; testna baza uklonjena. Regresija pokriva prava,
+  tenant/FK izolaciju, bez tajni u UI/auditu, revizije/rollback, zadržavanje
+  agencijskog naloga pri purge-u i čuvanje foldera/pravila/reference istorije.
+  Browser alat nije dostupan; forma renderovana u regresiji, server vraća 200.
+- Produkcija nije dirana. Postupak sa postojećim serverskim .env i PM2 opisan
+  u docs/accounting/izvodi.md; ključ se trajno čuva uz sigurnu rezervnu kopiju.
+
 ## 2026-10-25 — Posebna domaća i ino konta partnera u KIF/KUF šemama
 
 - Uz Ukupan iznos dodati pretraživi izbori Domaći partner / Ino partner.

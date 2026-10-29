@@ -35,7 +35,7 @@ export default async function AutomaticDocumentsPage({ searchParams }: { searchP
   const from = validDay(query.od) ?? `${selectedYear}-01-01`, to = validDay(query.do) ?? `${selectedYear}-12-31`;
   const source = query.izvor === "SEP" || query.izvor === "BANK" ? query.izvor : "";
   const status = Object.hasOwn(statuses, query.status ?? "") ? query.status! : "";
-  const bankAccess = canAccessAgencyImap(user, process.env.IMAP_AGENCY_ID) && await hasPermission(user, { modul: "izvodi", akcija: "manage" });
+  const bankAccess = canAccessAgencyImap(user, user.agencija_id ?? undefined) && await hasPermission(user, { modul: "izvodi", akcija: "manage" });
   const scope = { agencija_id: agencyId, ...(selected ? { firma_id: selected.id } : {}), firma: { is_deleted: false } };
   const [sepRuns, bankRuns, configs] = await Promise.all([
     source === "BANK" || from > to ? [] : prisma.sepAutomatikaObrada.findMany({ where: { ...scope, dan: { gte: new Date(`${from}T00:00:00Z`), lte: new Date(`${to}T00:00:00Z`) }, ...(status ? { status } : {}) }, include: { firma: { select: { naziv: true } } }, orderBy: { dan: "desc" }, take: 200 }),

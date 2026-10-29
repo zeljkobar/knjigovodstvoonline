@@ -8,8 +8,8 @@ import { canAccessAgencyImap } from "@/lib/imap-access-policy";
 
 export async function requireImapAgency() {
   const user = await requireRole("admin_agencije");
-  // This phase has one .env mailbox. Never expose it to another tenant.
-  if (!canAccessAgencyImap(user, process.env.IMAP_AGENCY_ID)) notFound();
+  // Mail credentials are loaded only from records belonging to this tenant.
+  if (!canAccessAgencyImap(user, user.agencija_id ?? undefined)) notFound();
   await requirePermissionForUser(user, { modul: "izvodi", akcija: "manage" });
   return user;
 }

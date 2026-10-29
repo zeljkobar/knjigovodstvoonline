@@ -2,8 +2,9 @@ import "server-only";
 import { ImapFlow, type FetchMessageObject, type MessageStructureObject } from "imapflow";
 import { simpleParser } from "mailparser";
 import { matchesMailRules, matchesMailFolder, type CompanyMailConfig, type MailMetadata } from "./company-mail-rules";
-import { imapOptions, safeImapError } from "./imap-connection";
+import { safeImapError } from "./imap-connection";
 
+import { mailAccountOptions, MailAccountError } from "./mail-accounts";
 import { mailSourceKey } from "./mail-import-policy";
 
 export const MAIL_PAGE_SIZE = 25;
@@ -31,10 +32,12 @@ export function mailPage(value: unknown) {
 }
 
 let activeConnections = 0;
-async function withMailClient<T>(read: (client: ImapFlow) => Promise<T>): Promise<T> {
+async function withMailClient<T>(scope: { agencyId?: string; mailAccountId?: string; firmaId?: string }, read: (client: ImapFlow) => Promise<T>): Promise<T> {
   if (activeConnections >= 3) throw new MailError("Sanduče je trenutno zauzeto. Pokušajte ponovo za nekoliko sekundi.");
-  const options = imapOptions(process.env);
-  if (!options) throw new MailError("IMAP podešavanja nijesu potpuna.");
+  let options;
+  try { options = await mailAccountOptions(scope.agencyId ?? "", scope.mailAccountId ?? "", scope.firmaId); }
+  catch (error) { throw new MailError(error instanceof MailAccountError ? error.message : "Mail nalog nije dostupan."); }
+  if (activeConnections >= 3) throw new MailError("Sanduče je trenutno zauzeto. Pokušajte ponovo za nekoliko sekundi.");
   activeConnections++;
   const client = new ImapFlow(options);
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -79,14 +82,14 @@ async function openFolder(client: ImapFlow, folder: string) {
   return mailbox;
 }
 
-export async function listMailFolders() {
-  return withMailClient(async (client) => (await client.list()).map((folder) => ({
+export async function listMailFolders(agencyId: string, mailAccountId: string) {
+  return withMailClient({ agencyId, mailAccountId },async (client) => (await client.list()).map((folder) => ({
     path: folder.path, delimiter: folder.delimiter, selectable: !folder.flags.has("\\Noselect")
   })));
 }
 
 export async function listCompanyInbox(config: CompanyMailConfig, requestedPage: number, completed: ReadonlySet<string> = new Set()) {
-  return withMailClient(async (client) => {
+  return withMailClient(config, async (client) => {
     const folders = await client.list();
     if (config.folder && !folders.some((folder) => folder.path === config.folder)) throw new MailError("Podešeni folder više ne postoji. Provjerite podešavanja firme.");
     const selected = folders.filter((folder) => !folder.flags.has("\\Noselect") && matchesMailFolder(config, folder.path, folder.delimiter));
@@ -103,7 +106,7 @@ export async function listCompanyInbox(config: CompanyMailConfig, requestedPage:
       const query = config.rules.length > 0 && senders.length === config.rules.length
         ? (senders.length === 1 ? { from: senders[0] } : { or: senders.map((from) => ({ from })) }) : { all: true };
       const found = await client.search(query, { uid: true });
-      const uids = (Array.isArray(found) ? found : []).filter(uid => !completed.has(mailSourceKey(folder.path, mailbox.uidValidity.toString(), uid)));
+      const uids = (Array.isArray(found) ? found : []).filter(uid => !completed.has(mailSourceKey(folder.path, mailbox.uidValidity.toString(), uid, config.mailAccountId)));
       scanned += uids.length;
       if (scanned > 20000) throw new MailError("Previše poruka za jednu provjeru. Suzite foldere ili pravila pošiljaoca.");
       for (let offset = 0; offset < uids.length; offset += 100) {
@@ -127,7 +130,7 @@ export async function listCompanyInbox(config: CompanyMailConfig, requestedPage:
     const count = messages.length;
     const pages = Math.max(1, Math.ceil(count / MAIL_PAGE_SIZE));
     const page = Math.min(mailPage(requestedPage), pages);
-    return { count, page, pages, references: messages.map(({ uid, validity, folder }) => ({ uid, validity, folder })), messages: messages.slice((page - 1) * MAIL_PAGE_SIZE, page * MAIL_PAGE_SIZE) };
+    return { count, page, pages, references: messages.map(({ uid, validity, folder }) => ({ uid, validity, folder, mailAccountId: config.mailAccountId! })), messages: messages.slice((page - 1) * MAIL_PAGE_SIZE, page * MAIL_PAGE_SIZE) };
   });
 }
 
@@ -139,7 +142,7 @@ export async function parseMailSource(source: Buffer) {
 
 async function readMail(uid: number, validity: string, folder: string, config: CompanyMailConfig) {
   const ref = mailReference(uid, validity);
-  return withMailClient(async (client) => {
+  return withMailClient(config, async (client) => {
     const folders = await client.list();
     const selected = folders.find((item) => item.path === folder && !item.flags.has("\\Noselect") && matchesMailFolder(config, item.path, item.delimiter));
     if (!selected) throw new MailError("Folder ne pripada podešavanjima izabrane firme.");

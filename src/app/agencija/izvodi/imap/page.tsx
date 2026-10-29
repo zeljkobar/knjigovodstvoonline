@@ -19,7 +19,7 @@ function dateLabel(value: string | null) {
 }
 
 export default async function ImapConnectionPage({ searchParams }: {
-  searchParams?: Promise<{ page?: string; uid?: string; validity?: string; folder?: string; firma?: string }>;
+  searchParams?: Promise<{ page?: string; uid?: string; validity?: string; folder?: string; firma?: string; mail?: string }>;
 }) {
   const params = await searchParams;
   const { user, firma } = await requireImapCompany(params?.uid ? params.firma || "missing" : undefined);
@@ -39,6 +39,7 @@ export default async function ImapConnectionPage({ searchParams }: {
   let error = "";
   try {
     if (params?.uid) {
+      if (params.mail !== config.mailAccountId) throw new MailError("Mail nalog je promijenjen. Osvježite spisak poruka.");
       ref = mailReference(params.uid, params.validity);
       detail = await getMailDetail(ref.uid, ref.validity, params.folder || "", config);
       await auditLog({ korisnikId: user.id, agencijaId: user.agencija_id, firmaId: firma.id,
@@ -51,8 +52,8 @@ export default async function ImapConnectionPage({ searchParams }: {
     error = caught instanceof MailError ? caught.message : "Mailove trenutno nije moguće prikazati. Pokušajte ponovo.";
   }
 
-  const messageKeys = inbox?.messages.map((mail) => mailSourceKey(mail.folder, mail.validity, mail.uid)) || [];
-  if (params?.uid && ref) messageKeys.push(mailSourceKey(params.folder || "", ref.validity, ref.uid));
+  const messageKeys = inbox?.messages.map((mail) => mailSourceKey(mail.folder, mail.validity, mail.uid, config.mailAccountId)) || [];
+  if (params?.uid && ref) messageKeys.push(mailSourceKey(params.folder || "", ref.validity, ref.uid, config.mailAccountId));
   const records = year && messageKeys.length ? await prisma.mailIzvodObrada.findMany({ where: {
     agencija_id: user.agencija_id!, firma_id: firma.id, poslovna_godina_id: year.id,
     poruka_kljuc: { in: messageKeys }
@@ -73,13 +74,13 @@ export default async function ImapConnectionPage({ searchParams }: {
         <form action={path} method="get"><button className="secondary-button" type="submit">Osvježi spisak</button></form>
       </header>
       <Link href="/agencija/izvodi/podesavanja">Podešavanja foldera i pravila firme</Link>
-      <details className="admin-panel"><summary>Provjera IMAP veze</summary><ConnectionTest /></details>
+      <details className="admin-panel"><summary>Provjera IMAP veze</summary><ConnectionTest accountId={config.mailAccountId} /></details>
       <MailImport key={`${firma.id}-${year?.id}`} firmaId={firma.id} yearId={year?.id || ""} disabled={!canImport} />
       {error && <p className="admin-message" role="alert">{error}</p>}
       {params?.uid && <Link className="table-link" href={`${path}?page=${page}`}>← Nazad na spisak</Link>}
       {detail && ref && <section className="admin-panel" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
         <h3>{detail.subject}</h3>
-        {importStatus(mailSourceKey(params?.folder || "", ref.validity, ref.uid))}
+        {importStatus(mailSourceKey(params?.folder || "", ref.validity, ref.uid, config.mailAccountId))}
         <p><strong>Od:</strong> {detail.from}<br /><strong>Za:</strong> {detail.to}<br /><strong>Datum:</strong> {dateLabel(detail.date)}</p>
         <hr />
         <div style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", lineHeight: 1.6 }}>{detail.text}</div>
@@ -87,7 +88,7 @@ export default async function ImapConnectionPage({ searchParams }: {
         {detail.attachments.length > 0 && <div>
           <h3>Prilozi ({detail.attachments.length})</h3>
           <ul>{detail.attachments.map((attachment) => <li key={attachment.index}>
-            <a className="table-link" href={`${path}/prilog?firma=${firma.id}&folder=${encodeURIComponent(params?.folder || "")}&uid=${ref.uid}&validity=${ref.validity}&index=${attachment.index}`}>
+            <a className="table-link" href={`${path}/prilog?firma=${firma.id}&mail=${config.mailAccountId}&folder=${encodeURIComponent(params?.folder || "")}&uid=${ref.uid}&validity=${ref.validity}&index=${attachment.index}`}>
               {attachment.filename}
             </a> — {Math.ceil(attachment.size / 1024)} KB
           </li>)}</ul>
@@ -101,8 +102,8 @@ export default async function ImapConnectionPage({ searchParams }: {
               <td>{mail.seen ? "Pročitano" : <strong>Nepročitano</strong>}</td>
               <td style={{ minWidth: 200, maxWidth: 650, overflowWrap: "anywhere" }}>
                 <div>{mail.from}</div><small>Folder: {mail.folder}</small>
-                <div>{importStatus(mailSourceKey(mail.folder, mail.validity, mail.uid))}</div>
-                <Link prefetch={false} className="table-link" href={`${path}?page=${inbox.page}&firma=${firma.id}&folder=${encodeURIComponent(mail.folder)}&uid=${mail.uid}&validity=${mail.validity}`}>
+                <div>{importStatus(mailSourceKey(mail.folder, mail.validity, mail.uid, config.mailAccountId))}</div>
+                <Link prefetch={false} className="table-link" href={`${path}?page=${inbox.page}&firma=${firma.id}&mail=${config.mailAccountId}&folder=${encodeURIComponent(mail.folder)}&uid=${mail.uid}&validity=${mail.validity}`}>
                   {mail.seen ? mail.subject : <strong>{mail.subject}</strong>}
                 </Link>
               </td>

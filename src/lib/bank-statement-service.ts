@@ -1829,9 +1829,8 @@ function learnedDescriptionCondition(description: string | null | undefined) {
 export type ScheduledBankContext = { userId: string; agencyId: string; companyId: string; yearId: string };
 
 async function scheduledContext(context: ScheduledBankContext) {
-  if (context.agencyId !== process.env.IMAP_AGENCY_ID) throw new Error("IMAP agencija nije dostupna.");
   const user = await prisma.korisnik.findFirst({ where: { id: context.userId, agencija_id: context.agencyId, rola: "admin_agencije", aktivan: true, is_deleted: false, agencija: { aktivan: true, is_deleted: false } }, include: { agencija: true, firme: { select: { firma_id: true } } } });
-  const config = (await getCompanyMailConfigs(context.agencyId)).find(c => c.firmaId === context.companyId);
+  const config = (await getCompanyMailConfigs(context.agencyId, true)).find(c => c.firmaId === context.companyId);
   if (!user || !config || (!config.folder && !(config.includeInbox && config.rules.length))) throw new Error("Automatska obrada firme nije dostupna.");
   return { user: user, workContext: { firmaId: context.companyId, poslovnaGodinaId: context.yearId } };
 }
@@ -3978,7 +3977,7 @@ export async function postReadyBankStatements() {
 
 // Each request processes one message. The browser queue keeps large batches bounded
 // and repeats these authorization/context checks for every message.
-export async function importBankStatementMailMessage(input: { firmaId: string; yearId: string; folder: string; validity: string; uid: number }, scheduled?: ScheduledBankContext) {
+export async function importBankStatementMailMessage(input: { firmaId: string; yearId: string; folder: string; validity: string; uid: number; mailAccountId: string }, scheduled?: ScheduledBankContext) {
   const automated = scheduled ? await getActiveContext("create", scheduled) : null;
   if (scheduled && (!automated?.firma || automated.firma.id !== input.firmaId || scheduled.yearId !== input.yearId)) throw new Error("Firma ili godina nije dostupna.");
   const { user, firma } = automated?.firma ? { user: automated.user, firma: automated.firma } : await requireImapCompany(input.firmaId);
@@ -3989,7 +3988,8 @@ export async function importBankStatementMailMessage(input: { firmaId: string; y
   if (!year || year.zakljucena) throw new Error("Izaberite otvorenu poslovnu godinu.");
   const config = (await getCompanyMailConfigs(user.agencija_id!)).find((item) => item.firmaId === firma.id);
   if (!config) throw new Error("Mail pregled firme nije uključen.");
-  const sourceKey = mailSourceKey(input.folder, input.validity, input.uid);
+  if (input.mailAccountId !== config.mailAccountId) throw new Error("Mail nalog firme je promijenjen. Osvježite spisak poruka.");
+  const sourceKey = mailSourceKey(input.folder, input.validity, input.uid, config.mailAccountId);
   const scope = { agencija_id: user.agencija_id!, firma_id: firma.id, poslovna_godina_id: year.id };
   if ((await completedMailKeys(scope, sourceKey)).has(sourceKey)) {
     const saved = await prisma.mailIzvodObrada.findMany({ where: { ...scope, poruka_kljuc: sourceKey }, orderBy: { created_at: "asc" } });
@@ -4007,7 +4007,7 @@ export async function importBankStatementMailMessage(input: { firmaId: string; y
       firma_id_poslovna_godina_id_kljuc: { firma_id: firma.id, poslovna_godina_id: year.id, kljuc: key }
     }, create: {
       agencija_id: user.agencija_id!, firma_id: firma.id, poslovna_godina_id: year.id,
-      kljuc: key, poruka_kljuc: sourceKey, naziv_priloga: filename.slice(0, 500), sadrzaj_hash: hash,
+      mail_nalog_id: config.mailAccountId, kljuc: key, poruka_kljuc: sourceKey, naziv_priloga: filename.slice(0, 500), sadrzaj_hash: hash,
       status, razlog: reason, izvod_id: statementId, updated_by: user.id
     }, update: { naziv_priloga: filename.slice(0, 500), sadrzaj_hash: hash, status, razlog: reason, izvod_id: statementId, updated_by: user.id } });
     results.push({ filename, status, reason, statementId });

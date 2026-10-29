@@ -7,6 +7,7 @@ import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import MailSettingsForm from "./MailSettingsForm";
+import { agencyMailAccounts } from "@/lib/mail-accounts";
 import { canAccessAgencyImap } from "@/lib/imap-access-policy";
 import { parseMailRules } from "@/lib/company-mail-rules";
 import styles from "./settings.module.css";
@@ -35,7 +36,8 @@ export default async function PodesavanjaIzvodaPage({
     return <MissingContext title="Podešavanja izvoda" />;
   }
 
-  const mailEnabled = canAccessAgencyImap(user, process.env.IMAP_AGENCY_ID);
+  const mailEnabled = canAccessAgencyImap(user, user.agencija_id ?? undefined);
+  const mailAccounts = mailEnabled ? await agencyMailAccounts(user.agencija_id!, true) : [];
   const mailSettings = mailEnabled ? await prisma.firmaMailPodesavanje.findFirst({
     where: { firma_id: firma.id, agencija_id: user.agencija_id, is_deleted: false }
   }) : null;
@@ -243,8 +245,8 @@ export default async function PodesavanjaIzvodaPage({
           </form>
         )}
       </section>
-      {mailEnabled && <MailSettingsForm key={`${firma.id}-${mailSettings?.updated_at.toISOString() || "new"}`} firmaId={firma.id} godinaId={godina.id}
-        initial={{ folder: mailSettings?.folder || "", subfolders: mailSettings?.ukljuci_podfoldere || false,
+      {mailEnabled && <MailSettingsForm key={`${firma.id}-${mailSettings?.updated_at.toISOString() || "new"}`} firmaId={firma.id} godinaId={godina.id} accounts={mailAccounts.map(a => ({ id: a.id, naziv: a.naziv, username: a.korisnicko_ime }))}
+        initial={{ mailAccountId: mailSettings?.mail_nalog_id ?? "", folder: mailSettings?.folder || "", subfolders: mailSettings?.ukljuci_podfoldere || false,
           inbox: mailSettings?.ukljuci_inbox ?? true, active: mailSettings?.aktivno ?? true,
           rules: parseMailRules(mailSettings?.pravila || []), version: mailSettings?.updated_at.toISOString() || "" }} />}
     </div>

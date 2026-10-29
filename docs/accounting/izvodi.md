@@ -227,20 +227,24 @@ Audit log mora pokriti upload, parsiranje, ručne izmjene, povezivanje
 komitenta/fakture, ručno kontiranje, ignorisanje stavke, učenje žiro računa,
 pravila knjiženja, knjiženje, vraćanje u nacrt i brisanje.
 
-## IMAP provjera veze (prva faza)
+## Mail nalozi agencije i provjera IMAP veze — 2026-10-29
 
-Admin agencije otvara Izvodi → Mailovi (`/agencija/izvodi/imap`) i bira
-`Testiraj IMAP vezu`. Stranica i serverska akcija provjeravaju ulogu,
-`izvodi:manage` i poklapanje agencije sa `IMAP_AGENCY_ID` iz `.env`. Prazan ID,
-druge agencije, radnici i klijenti nemaju pristup. Audit uključuje agenciju.
-Provjera je na nivou agencije i ne zavisi od firme ili poslovne godine jer
-ne mijenja poslovne podatke. Stari platformski ekran je uklonjen.
+Administrator sa izvodi:manage otvara Podešavanja → Mail nalozi
+(`/agencija/podesavanja/mail-nalozi`). Agencija može imati više naloga;
+svaka firma u Izvodi → Podešavanja bira jedan nalog i svoje foldere/pravila.
+Drugi tenant, radnik i klijent nemaju pristup. Test veze postoji i uz nalog
+na Mailovi stranici. Ne zavisi od godine niti mijenja poslovne podatke.
 
-Konfiguracija: `IMAP_AGENCY_ID` (ID agencije kojoj pripada sanduče), `IMAP_HOST`, `IMAP_PORT=993`, `IMAP_SECURE=true`, `IMAP_USER`,
-`IMAP_PASS`, `IMAP_FOLDER=INBOX`. Stvarne vrijednosti, naročito lozinka, ostaju
-isključivo u lokalnom/serverskom `.env`; primjer ne sadrži stvarni nalog.
-Next.js učitava environment vrijednosti: znak `$` u lozinci treba zapisati kao
-`\$`. Poslije promjene serverskog `.env` restartovati aplikacijski proces.
+Server, korisničko ime, port 993 i šifrovana lozinka su u
+`agencija_mail_nalozi`. AES-256-GCM koristi MAIL_ENCRYPTION_KEY (32 bajta,
+base64) iz environmenta i AAD agencija+nalog. Ključ se trajno čuva uz backup;
+lozinka/ciphertext se ne prikazuju niti auditiraju. Prazna lozinka pri izmjeni
+zadržava postojeću. Promjena servera/adrese traži novi nalog radi identiteta
+istorije. Novi nalozi podrazumijevano nemaju automatsko knjiženje.
+
+Runtime ne učitava IMAP_* iz .env. Veza na nalog u firmi i istoriji obrade ima
+kompozitni isto-agencijski FK. Učitavanje naloga provjerava aktivnost agencije,
+naloga i, za sadržaj firme, postojeći izbor aktivnog naloga te firme.
 
 ImapFlow otvara direktni TLS uz provjeru lanca sertifikata i naziva servera,
 minimum TLS 1.2, pa `EXAMINE INBOX` (read-only). Vraća samo broj poruka i
@@ -250,7 +254,7 @@ ishod i korisnika, bez parametara veze, serverskog odgovora ili lozinke.
 
 Veza/greeting/socket imaju rok 10 sekundi, cijela provjera 25 sekundi.
 Nema automatskih retry prijava. Ograničenje jednog istovremenog testa i pauze
-15 sekundi važi po Node procesu. Lokalni operator koristi `npm run imap:check`;
+15 sekundi važi po nalogu/agenciji u Node procesu. Lokalni operator koristi `npm run imap:check` (ako ih je više, dodati `-- ID_NALOGA`);
 regresione provjere su `npm run test:imap`. Sam test veze ne preuzima sadržaj.
 
 
@@ -273,7 +277,7 @@ Cijela poruka, uključujući priloge, ograničena je na 10 MB; prikaz teksta na
 200.000 znakova. Detalj i preuzimanje ponovo čitaju poruku u memoriju, bez
 čuvanja na disk ili u bazu. IMAP operacija ima rok 30 sekundi i najviše tri
 paralelne veze po Node procesu. Poruke iznad limita ostaju za mail klijent.
-Automatski uvoz izvoda, slanje, brisanje i izmjena oznaka nijesu implementirani.
+Uvoz izvoda je opisan u nastavku; pregled ne šalje/čuva oznake niti briše mailove.
 
 
 ## Mail podešavanja firme i filtrirani pregled
@@ -281,7 +285,7 @@ Automatski uvoz izvoda, slanje, brisanje i izmjena oznaka nijesu implementirani.
 Od 2026-09-26 pregled iznad proširen je na aktivnu firmu i njene izvore.
 Izvodi → Podešavanja → Preuzimanje iz maila čuva folder, uključivanje
 podfoldera, INBOX-a, aktivnost i pravila u `firma_mail_podesavanja`. Veza i
-lozinka ostaju na nivou agencije u `.env`. Bez aktivnih podešavanja nema liste.
+šifrovana lozinka su u agencijskom nalogu u bazi. Bez aktivnog naloga i podešavanja nema liste.
 
 Pravilo ima tri opciona polja: tačnu adresu pošiljaoca, subject sadrži i naziv
 priloga sadrži. Poređenje ne razlikuje veličinu slova, normalizuje Unicode i
@@ -300,10 +304,10 @@ neprimjetnog izostavljanja rezultata. Stranice imaju po 25 rezultata sortiranih
 po prijemu. Provjeravaju se samo pravila izabrane firme; pravila drugih firmi
 ne utiču na prikaz i ne izazivaju upozorenja o preklapanju.
 
-Detalj/download nose firmu, folder, UID i UIDVALIDITY i ponovo provjeravaju
+Detalj/download nose firmu, ID mail naloga, folder, UID i UIDVALIDITY i ponovo provjeravaju
 sesiju, aktivnu firmu i njena pravila prije čitanja sadržaja. Sačuvana podešavanja
 su na nivou firme; izmjena traži otvorenu aktivnu godinu, pravo i audit.
-Uvoz na klik i deduplikacija opisani su u nastavku. Zakazani uvoz i automatsko knjiženje nijesu uključeni.
+Uvoz na klik, deduplikacija i opciona dnevna automatika opisani su u nastavku.
 
 
 ## Uvoz priloga na klik — 2026-09-27
@@ -321,7 +325,7 @@ jednoznačno pripadati firmi; skraćeni račun i puni zapis sa nulama porede se
 u istom 18-cifrenom obliku. Konto banke dolazi iz podešavanja računa, a datum
 izvoda mora pripadati aktivnoj poslovnoj godini. Nečitljiv format, nepoznat
 račun, nedostajući broj/datum/stanja/stavke ili nepodešen konto zahtijevaju
-provjeru. Automatsko knjiženje i zakazani rad nijesu uključeni.
+provjeru. Ručni klik ne knjiži automatski; zakazani tok je odvojen.
 
 `bank_statements.sadrzaj_hash` pamti SHA-256 izvornog priloga i pri ručnom
 uvozu. Unikatni indeks po firmi sprečava dupliranje istog sadržaja. Transakcija
@@ -331,7 +335,7 @@ identitetom, a različitim datumom/iznosima ili obrisanim izvodom, traži provje
 Ne prepisuje postojeći izvod. Neuspjeh baze se ne proglašava duplikatom.
 
 `mail_izvod_obrade` je tehnička evidencija pokušaja, sa scope-om agencija/firma/
-godina, hash-em reference folder+UIDVALIDITY+UID, indeksom/nazivom/hash-em priloga,
+godina, ID-jem naloga i hash-em reference folder+UIDVALIDITY+UID, indeksom/nazivom/hash-em priloga,
 statusom i opcionom vezom na izvod. Binarni prilozi ostaju samo u memoriji.
 Parsiran tekst i stavke čuvaju se kao kod postojećeg ručnog uvoza. Audit bilježi
 ishode, korisnika i firmu, bez lozinki ili sadržaja maila. Ponovni pokušaj
@@ -347,7 +351,7 @@ rollback svih izmjena), `npm run db:check-company-purge`.
 ### Preskakanje završenih mailova (2026-10-01)
 
 Red uvoza izostavlja poznate završene poruke prije preuzimanja zaglavlja/priloga.
-Identitet je folder + UIDVALIDITY + UID, uz agenciju, firmu i godinu. Svi zapisi
+Identitet je mail nalog + folder + UIDVALIDITY + UID, uz agenciju, firmu i godinu. Svi zapisi
 moraju biti završeni (IMPORTED/DUPLICATE sa neobrisanim izvodom ili SKIPPED), uz
 bar jedan uspješan izvod. ERROR/REVIEW, marker nezavršene obrade i obrisana veza
 ostavljaju poruku za retry. Server action ponavlja provjeru prije download-a.
@@ -365,8 +369,8 @@ Kod ručnog deploya postaviti flag u serverskom okruženju i restartovati PM2 sa
 pokrenut Node/PM2 server; raspored nije namijenjen serverless hostingu.
 
 U 10:00 Europe/Podgorica (uz automatski ljetnji/zimski pomak) prolazi kroz aktivne
-mail konfiguracije samo `IMAP_AGENCY_ID` agencije, uz aktivnog administratora kao
-audit izvršioca. Firme bez izvora, neaktivne firme i isključen mail se preskaču.
+mail konfiguracije agencija čiji nalog ima `automatska_obrada=true`, uz
+aktivnog administratora iste agencije kao audit izvršioca. Firme bez izvora, neaktivne firme i isključen mail se preskaču.
 Bira otvorenu godinu koja obuhvata današnji datum; druga godina izvoda ostaje za
 ručnu provjeru. Uvozi nezavršene poruke i knjiži samo READY izvode sa mail porijeklom.
 Ručni nacrti se ne knjiže ovim poslom. Izolovana greška knjiženja ne zaustavlja
@@ -402,3 +406,50 @@ razrješavaju u ciljnoj firmi uz postojeća prava, ravnotežu i zaključavanja.
 Bankovna mapa koristi samo istu banku i jednoznačnu šemu; bankovni računi i
 mail izvori ostaju sopstveni. Lokalna pravila imaju prednost; isključeni lokalni
 red maskira isto naslijeđeno pravilo.
+
+## Prenos postojećeg serverskog maila iz .env u bazu
+
+Lokalni prenos je završen. Produkciju odraditi poslije objavljivanja ovih
+izmjena, koristeći postojeći serverski .env i njegovu bazu. Prije prelaska
+sačuvati sigurnu rezervnu kopiju baze i .env; novi ključ se čuva uz buduće backup-e.
+
+U folderu projekta na serveru, uz zaustavljen aplikacijski proces:
+
+```bash
+pm2 stop knjigovodstvoonline
+git pull --ff-only origin main
+npm ci
+npx prisma migrate deploy
+npx prisma generate
+BANK_AUTOMATION_ENABLED=true npm run mail:migrate-env
+```
+
+Za ranije isključenu automatiku koristiti `BANK_AUTOMATION_ENABLED=false` i pri
+prenosu i pri restartu. Vrijednost `true` prati podrazumijevani postojeći deploy.
+
+Komanda sama generiše MAIL_ENCRYPTION_KEY ako ga nema i nema ranijih šifrovanih
+naloga. Čuva ga u .env bez ispisa, šifruje postojeći IMAP nalog, povezuje postavke
+firmi, dodaje isti ID istorijskim ključevima i radi EXAMINE INBOX. Tek kada
+read-only veza uspije uklanja IMAP_AGENCY_ID/HOST/PORT/SECURE/USER/PASS/FOLDER.
+Ako je provjera neuspješna stari podaci ostaju, a ista komanda se bezbjedno
+ponavlja. Postojeći šifrovani nalog sa drugom lozinkom ili nedostajući ključ
+zaustavlja prenos; postojeći ključ se nikad automatski prepisuje.
+
+Prije builda potvrditi da je prenos uspješan, pa završiti u istom folderu:
+
+```bash
+npm run build
+BANK_AUTOMATION_ENABLED=true PORT=3004 pm2 restart knjigovodstvoonline --update-env
+pm2 save
+```
+
+Runtime flag postaviti na prethodno korišćenu vrijednost ako automatika treba
+ostati isključena. Pri prenosu oznaka automatike naloga preuzima raniji flag;
+novi nalozi zahtijevaju zasebno uključivanje u UI. Provjeriti Podešavanja →
+Mail nalozi, izbor naloga/foldera u Izvodi → Podešavanja i read-only test veze.
+Nema potrebe za ručnim prepisivanjem lozinke niti prikazivanjem ključa u terminalu.
+Lokalni i serverski prenos izvršavaju se nezavisno, svaki nad svojim podacima.
+
+Regresija: `scripts/check-mail-accounts.cjs` uz izolovani TEST_DATABASE_URL,
+postojeći check-mail-import i npm test. Purge firme briše njene postavke i obrade;
+agencijski mail nalog se zadržava za druge firme.

@@ -28,3 +28,9 @@ test("compact and zero-padded domestic bank accounts identify the same company",
   assert.notEqual(normalizeStatementAccount("510-121622-88"), normalizeStatementAccount("510-121623-88"));
   for (const value of ["", "text", "abc51012162288", "510-121622-8", "1234567890123456789"]) assert.equal(normalizeStatementAccount(value), "");
 });
+
+test("mail identity includes the mailbox while retaining the legacy reference hash", () => {
+  const legacy = mailSourceKey("INBOX", "123", 7);
+  assert.equal(mailSourceKey("INBOX", "123", 7, "one"), `one:${legacy}`);
+  assert.notEqual(mailSourceKey("INBOX", "123", 7, "one"), mailSourceKey("INBOX", "123", 7, "two"));
+});

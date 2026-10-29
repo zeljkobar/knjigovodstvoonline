@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     if (rawIndex === null || !/^\d{1,4}$/.test(rawIndex)) throw new MailError("Neispravna oznaka priloga.");
     const config = (await getCompanyMailConfigs(user.agencija_id!)).find((item) => item.firmaId === firma.id);
     if (!config) throw new MailError("Mail podešavanja firme nijesu uključena.");
+    if (request.nextUrl.searchParams.get("mail") !== config.mailAccountId) throw new MailError("Mail nalog je promijenjen. Osvježite spisak.");
     const attachment = await getMailAttachment(ref.uid, ref.validity, Number(rawIndex), request.nextUrl.searchParams.get("folder") || "", config);
     await auditLog({ korisnikId: user.id, agencijaId: user.agencija_id, firmaId: firma.id,
       modul: "izvodi", akcija: "IMAP_DOWNLOAD_ATTACHMENT", tipEntiteta: "IMAP_CONNECTION",

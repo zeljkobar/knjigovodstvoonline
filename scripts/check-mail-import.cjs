@@ -12,13 +12,12 @@ const { PrismaClient } = require('@prisma/client');
 const db = new PrismaClient();
 const rollback = new Error('ROLLBACK_TEST');
 let verified = false;
-const previousImapAgency = process.env.IMAP_AGENCY_ID;
 (async () => {
   try {
     await db.$transaction(async (tx) => {
       const agency = await tx.agencija.create({data:{naziv:'Mail regression fixture'}});
       const user = await tx.korisnik.create({data:{agencija_id:agency.id,korisnicko_ime:require('node:crypto').randomUUID(),lozinka_hash:'disabled',rola:'admin_agencije'}});
-      process.env.IMAP_AGENCY_ID = agency.id;
+      const mailbox=await tx.agencijaMailNalog.create({data:{agencija_id:agency.id,naziv:'Test mail',host:'imap.example.com',korisnicko_ime:'test@example.com',lozinka_sifrovana:'fixture',automatska_obrada:true}});
       if (!await tx.vrstaNaloga.findFirst({where:{sifra:'BANK_STATEMENT',aktivan:true}})) await tx.vrstaNaloga.create({data:{sifra:'BANK_STATEMENT',naziv:'Izvod test',prefiks:'IZ',sistemska:true}});
       const firma = await tx.firma.create({ data: { agencija_id: user.agencija_id, naziv: 'Temporary mail import regression' } });
       const year = await tx.poslovnaGodina.create({ data: { firma_id: firma.id, godina: 2026, datum_od: new Date('2026-01-01'), datum_do: new Date('2026-12-31') } });
@@ -52,7 +51,7 @@ const previousImapAgency = process.env.IMAP_AGENCY_ID;
         '@/lib/permissions': { hasPermission: async () => allowed, requirePermissionForUser: async () => { if (!allowed) throw new Error('DENIED'); } },
         '@/lib/work-context': { readWorkContext: async () => context },
         '@/app/agencija/izvodi/imap/access': { requireImapCompany: async (id) => { if (id !== firma.id) throw new Error('DENIED'); return { user, firma }; } },
-        '@/lib/company-mail-settings': { getCompanyMailConfigs: async () => mailEnabled ? [{ firmaId: firma.id, folder:'INBOX', includeInbox:true, rules:[] }] : [] },
+        '@/lib/company-mail-settings': { getCompanyMailConfigs: async () => mailEnabled ? [{ firmaId: firma.id, agencyId:agency.id, mailAccountId:mailbox.id, folder:'INBOX', includeInbox:true, rules:[] }] : [] },
         '@/lib/imap-mail': { listCompanyInbox: async () => { discovered++; return {references:[]}; }, getMailImportAttachments: async () => { downloads++; return fixture(); }, MailError: class extends Error {} }
       };
       const cache = new Map();
@@ -79,7 +78,8 @@ const previousImapAgency = process.env.IMAP_AGENCY_ID;
       assert.equal(firstRead.contentHash, policy.attachmentHash(firstPdf));
       assert.equal(secondRead.contentHash, policy.attachmentHash(secondPdf));
       assert.notEqual(firstRead.contentHash, secondRead.contentHash);
-      const ref = { firmaId: firma.id, yearId: year.id, folder: 'INBOX', validity: '1', uid: 1 };
+      const ref = { mailAccountId:mailbox.id, firmaId: firma.id, yearId: year.id, folder: 'INBOX', validity: '1', uid: 1 };
+      await assert.rejects(actions.importBankStatementMailMessage({...ref,mailAccountId:'wrong-account'}),/promijenjen/);
       const originalFixture = fixture;
       const beforeNoise = await tx.mailIzvodObrada.count({where:{firma_id:firma.id}});
       fixture = () => [{index:0,filename:'logo.png',content:Buffer.from('logo'),contentType:'image/png'}];
@@ -96,7 +96,7 @@ const previousImapAgency = process.env.IMAP_AGENCY_ID;
       assert.equal(statement.lines.length, 1); assert.equal(statement.journal_id, null); assert.notEqual(statement.status, 'POSTED');
       const completed = load(path.join(root, 'src/lib/mail-import-completion.ts'));
       const scope = {agencija_id:user.agencija_id,firma_id:firma.id,poslovna_godina_id:year.id};
-      const sourceKey = policy.mailSourceKey(ref.folder,ref.validity,ref.uid);
+      const sourceKey = policy.mailSourceKey(ref.folder,ref.validity,ref.uid,mailbox.id);
       assert.ok((await completed.completedMailKeys(scope)).has(sourceKey));
       const beforeRepeat = downloads;
       result = await actions.importBankStatementMailMessage(ref); assert.equal(result[0].statementId, statementId);
@@ -175,4 +175,4 @@ const previousImapAgency = process.env.IMAP_AGENCY_ID;
     }, { timeout: 60000 });
   } catch (error) { if (error !== rollback) throw error; }
   console.log(JSON.stringify({ dailyAutomationAndPosting: verified, noRepeatDaily: verified, lockedPeriodAndBalance: verified, importAndLines: verified, repeatAndMoveDeduplication: verified, legacyManualDuplicate: verified, wrongAccountYearAndScopeRejected: verified, lockedYearAndPermissionsRejected: verified, deleteAndReimport: verified, purge: verified, rolledBack: true }));
-})().catch(error => { console.error(error instanceof assert.AssertionError ? error.message : 'Mail import database regression failed'); process.exitCode = 1; }).finally(() => { if(previousImapAgency===undefined)delete process.env.IMAP_AGENCY_ID;else process.env.IMAP_AGENCY_ID=previousImapAgency;return db.$disconnect(); });
+})().catch(error => { console.error(error instanceof assert.AssertionError ? error.message : 'Mail import database regression failed'); process.exitCode = 1; }).finally(() => { return db.$disconnect(); });
