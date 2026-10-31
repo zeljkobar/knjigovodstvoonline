@@ -1,5 +1,58 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-10-31 — Zamjena konta na postojećim proknjiženim nalozima
+
+- Dodat podmeni Nalozi → Zamjena konta i mala forma sa pretraživim trenutnim/
+  novim kontom, vrstom naloga i opcionim datumima. Pregled prikazuje sve naloge,
+  broj/zbir svih stavki i prvih 250 detaljnih redova; potvrda obuhvata cijeli skup.
+- Koristi aktivni firma/godina kontekst i samo POSTED, neobrisane naloge izabrane
+  vrste. Iznosi/partneri/opisi/datumi i ID/broj/status/vrijeme knjiženja ostaju.
+  Interni draft/edit/post i audit snimci su jedna transakcija, bez novog naloga.
+- Potpisan pregled sa postojećim SESSION_SECRET veže korisnika/scope/filtere i
+  puni snimak podataka; rok 20 minuta. Re-read pod lockom i Serializable
+  transakcija blokiraju promijenjene podatke, dupli klik i konkurentne ciljeve.
+- Bankovni nalozi provjeravaju se prema izvornom izvodu i sinhronizuju aktivna
+  kontra konta odnosno konto banke u zaglavlju, da budući repost zadrži ispravku.
+  Pravila/podešavanja i ignorisane stavke ostaju izvan promjene. Drugi zaštićeni
+  automatski izvori imaju objašnjenje i blokiraju cijelu grupu; nema preskakanja.
+- Prava nalozi view/update/post i dodatno izvodi update/post, aktivan korisnik/
+  agencija/dodjela, konto/partner/jedinica, ravnoteža, godina/PDV i zavisnosti
+  provjeravaju se backendom. Nema šeme/migracije, nove tabele ni .env izmjene.
+- QA: TSC, ciljani ESLint i npm test. Stvarni PostgreSQL test 263 stavke,
+  no-write preview, tip/godina/datumi, nacrti/deleted van skupa, prava/scope,
+  tamper/expiry/replay/stale pregled, atomic audit/base-link rollback,
+  kontra/header i rasknjižavanje/repost. Prošli stvarni konkurentni potvrda/
+  različiti ciljevi/zaključavanje perioda te postojeći bank-reopen i accounting-core.
+  Zasebna migrirana testna baza uklonjena; korisnički podaci nijesu mijenjani.
+  Browser alat nedostupan (native pipe startup); SSR forme i stanja je provjeren.
+- Usklađeni CURRENT_STATE/NEXT_STEPS, arhitektura, bruto bilans/izvodi i CSV
+  planer; Excel regenerisan. Commit/push nije rađen bez novog zahtjeva.
+
+## 2026-10-31 — Rasknjižavanje i ispravka bankovnih izvoda
+
+- Dodato Vrati u nacrt na detalju izvoda i povezanog IZV naloga. Atomski tok
+  vraća nalog u DRAFT i izvod u NEEDS_REVIEW; ID/broj/veza i postojeći izbori
+  konta/partnera/faktura ostaju. Nacrt je izvan glavne knjige.
+- Alokacije nacrta ostaju predlozi bez uticaja na payment_status i otvorene
+  iznose; računaju se samo aktivni POSTED izvodi sa POSTED nalogom. Ponovno
+  knjiženje osvježava fakture i obnavlja stavke istog naloga, bez dupliranja.
+- Sačuvaj predlog naloga vraća spreman izvod u READY i prikazuje Proknjiži
+  izvod. Mail automatika ga ne preuzima jer već ima nalog. Generička izmjena,
+  brisanje i knjiženje bankovnog naloga su blokirani; nalog vodi nazad na izvod.
+- Dodati backend scope/prava/dodjela, svježe provjere godine/PDV perioda i
+  zavisnosti, isti lock redoslijed i optimistička revizija forme. Audit svih
+  poslovnih prelaza je u transakciji; ponovljen povrat ne pravi dupli audit.
+- QA: npm test, TSC i ciljani ESLint. U zasebnoj migriranoj i zatim uklonjenoj
+  PostgreSQL bazi prošli stvarni post/draft/edit/repost, KIF/KUF djelimična
+  plaćanja i GL, retained izbori, prava/scope/zaključavanja, audit rollback,
+  SSR oba ekrana, dupli zahtjevi, stara revizija i paralelno zaključavanje godine.
+  Prošli i postojeći accounting-core i mail-import/automatika DB testovi.
+  Korisnički izvodi i produkcija nijesu mijenjani. Ručni browser prolaz ostaje
+  korisnički QA nakon deploya. Nema migracije, novih tabela niti .env promjena.
+- Usklađeni CURRENT_STATE, NEXT_STEPS, docs/accounting/izvodi.md i CSV planer;
+  regenerisan Excel. Prema korisnikovoj potvrdi preknjižavanje pazara već
+  pokriva postojeća šema kontiranja i nije otvoren razvojni zadatak.
+
 ## 2026-10-30 — VG/Summa uvoz periodičnog izvještaja u postojeću formu pazara
 
 - Na izričit zahtjev korisnika implementirana podešavanja po firmi i Uvezi

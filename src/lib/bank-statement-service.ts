@@ -1,3 +1,4 @@
+import { BankStatementError, assertBankStatementAccess, assertBankJournalOwnership, lockBankStatement, postedBankAllocationWhere, refreshBankInvoicePayment, refreshBankPaymentStatuses, reopenBankStatement } from "@/lib/bank-statement-lifecycle";
 import { effectiveBankRules, effectiveBankSetting } from "@/lib/posting-template";
 import "server-only";
 import { completedMailKeys } from "@/lib/mail-import-completion";
@@ -106,104 +107,6 @@ function centsToDecimal(cents: number) {
 
 function decimalToCents(value: Prisma.Decimal | number | string | null | undefined) {
   return Math.round(Number(value ?? 0) * 100);
-}
-
-function paymentStatus(totalCents: number, paidCents: number) {
-  if (paidCents <= 0) {
-    return "UNPAID";
-  }
-
-  if (paidCents < totalCents) {
-    return "PARTIALLY_PAID";
-  }
-
-  if (paidCents === totalCents) {
-    return "PAID";
-  }
-
-  return "OVERPAID";
-}
-
-async function refreshKifPaymentStatus(
-  tx: Prisma.TransactionClient,
-  entryId: string,
-  userId: string
-) {
-  const entry = await tx.kifEntry.findUnique({
-    where: {
-      id: entryId
-    },
-    select: {
-      total_gross: true
-    }
-  });
-
-  if (!entry) {
-    return;
-  }
-
-  const allocations = await tx.bankStatementLineAllocation.aggregate({
-    where: {
-      kif_entry_id: entryId
-    },
-    _sum: {
-      amount: true
-    }
-  });
-
-  await tx.kifEntry.update({
-    where: {
-      id: entryId
-    },
-    data: {
-      payment_status: paymentStatus(
-        decimalToCents(entry.total_gross),
-        decimalToCents(allocations._sum.amount)
-      ),
-      updated_by: userId
-    }
-  });
-}
-
-async function refreshKufPaymentStatus(
-  tx: Prisma.TransactionClient,
-  entryId: string,
-  userId: string
-) {
-  const entry = await tx.kufEntry.findUnique({
-    where: {
-      id: entryId
-    },
-    select: {
-      total_gross: true
-    }
-  });
-
-  if (!entry) {
-    return;
-  }
-
-  const allocations = await tx.bankStatementLineAllocation.aggregate({
-    where: {
-      kuf_entry_id: entryId
-    },
-    _sum: {
-      amount: true
-    }
-  });
-
-  await tx.kufEntry.update({
-    where: {
-      id: entryId
-    },
-    data: {
-      payment_status: paymentStatus(
-        decimalToCents(entry.total_gross),
-        decimalToCents(allocations._sum.amount)
-      ),
-      updated_by: userId
-    }
-  });
 }
 
 async function resolveCompanyAccount(
@@ -2561,9 +2464,12 @@ export async function updateBankStatementLines(formData: FormData) {
       id: true,
       status: true,
       bank_account_konto_id: true,
+      updated_at: true,
+      journal_id: true,
       journal: {
         select: {
-          is_deleted: true
+          is_deleted: true,
+          status: true
         }
       }
     }
@@ -2573,7 +2479,8 @@ export async function updateBankStatementLines(formData: FormData) {
 
   if (
     !statement ||
-    (statement.status === bankStatementStatuses.posted && hasValidJournal) ||
+    statement.status === bankStatementStatuses.posted ||
+    (hasValidJournal && statement.journal?.status !== "DRAFT") ||
     !statement.bank_account_konto_id
   ) {
     redirectStatements("izvod_greska", statementId);
@@ -2588,6 +2495,13 @@ export async function updateBankStatementLines(formData: FormData) {
   const ignoredIds = new Set(formData.getAll("ignored_line_id").map((item) => String(item)));
 
   await prisma.$transaction(async (tx) => {
+    const current = await lockBankStatement(tx, { userId: user.id, agencyId: agencijaId }, {
+      id: statement.id, firma_id: firma.id, poslovna_godina_id: poslovnaGodina.id
+    }, ["update"], true);
+    if (current.statement.updated_at.getTime() !== statement.updated_at.getTime() ||
+        (value(formData, "statement_version") && value(formData, "statement_version") !== current.statement.updated_at.toISOString())) {
+      throw new BankStatementError("izvod_promijenjen");
+    }
     const affectedKifEntryIds = new Set<string>();
     const affectedKufEntryIds = new Set<string>();
 
@@ -2704,6 +2618,7 @@ export async function updateBankStatementLines(formData: FormData) {
             if (entry) {
               const allocated = await tx.bankStatementLineAllocation.aggregate({
                 where: {
+                  ...postedBankAllocationWhere,
                   kif_entry_id: entry.id
                 },
                 _sum: {
@@ -2754,6 +2669,7 @@ export async function updateBankStatementLines(formData: FormData) {
             if (entry) {
               const allocated = await tx.bankStatementLineAllocation.aggregate({
                 where: {
+                  ...postedBankAllocationWhere,
                   kuf_entry_id: entry.id
                 },
                 _sum: {
@@ -2980,11 +2896,11 @@ export async function updateBankStatementLines(formData: FormData) {
     }
 
     for (const entryId of affectedKifEntryIds) {
-      await refreshKifPaymentStatus(tx, entryId, user.id);
+      await refreshBankInvoicePayment(tx, "KIF", entryId, user.id);
     }
 
     for (const entryId of affectedKufEntryIds) {
-      await refreshKufPaymentStatus(tx, entryId, user.id);
+      await refreshBankInvoicePayment(tx, "KUF", entryId, user.id);
     }
 
     const lines = await tx.bankStatementLine.findMany({
@@ -3005,22 +2921,19 @@ export async function updateBankStatementLines(formData: FormData) {
       },
       data: {
         status: isReady ? bankStatementStatuses.ready : bankStatementStatuses.needsReview,
-        journal_id: null,
+        journal_id: current.statement.journal_id,
         posted_at: null,
         posted_by: null,
         updated_by: user.id
       }
     });
-  });
-
-  await auditLog({
-    korisnikId: user.id,
-    agencijaId: user.agencija_id,
-    firmaId: firma.id,
-    modul: "agencija.izvodi",
-    akcija: "update_lines",
-    tipEntiteta: "BankStatement",
-    entitetId: statement.id
+    await auditLogInTransaction(tx, {
+      korisnikId: user.id, agencijaId, firmaId: firma.id, modul: "agencija.izvodi",
+      akcija: "update_lines", tipEntiteta: "BankStatement", entitetId: statement.id
+    });
+  }).catch(error => {
+    if (error instanceof BankStatementError) redirectStatements(error.message, statement.id);
+    throw error;
   });
 
   revalidatePath("/agencija/izvodi");
@@ -3047,7 +2960,6 @@ export async function reapplyBankStatementRules(formData: FormData) {
       firma_id: firma.id,
       poslovna_godina_id: poslovnaGodina.id,
       is_deleted: false,
-      journal_id: null,
       status: {
         not: bankStatementStatuses.posted
       }
@@ -3084,6 +2996,10 @@ export async function reapplyBankStatementRules(formData: FormData) {
   const rules = await effectiveBankRules(prisma, agencijaId, firma.id);
 
   const appliedCount = await prisma.$transaction(async (tx) => {
+    const current = await lockBankStatement(tx, { userId: user.id, agencyId: agencijaId }, {
+      id: statement.id, firma_id: firma.id, poslovna_godina_id: poslovnaGodina.id
+    }, ["update"], true);
+    if (current.statement.updated_at.getTime() !== statement.updated_at.getTime()) throw new BankStatementError("izvod_promijenjen");
     let applied = 0;
 
     for (const line of statement.lines) {
@@ -3182,20 +3098,15 @@ export async function reapplyBankStatementRules(formData: FormData) {
       }
     });
 
+    await auditLogInTransaction(tx, {
+      korisnikId: user.id, agencijaId, firmaId: firma.id, modul: "agencija.izvodi",
+      akcija: "reapply_posting_rules", tipEntiteta: "BankStatement", entitetId: statement.id,
+      novaVrijednost: { applied_lines: applied }
+    });
     return applied;
-  });
-
-  await auditLog({
-    korisnikId: user.id,
-    agencijaId,
-    firmaId: firma.id,
-    modul: "agencija.izvodi",
-    akcija: "reapply_posting_rules",
-    tipEntiteta: "BankStatement",
-    entitetId: statement.id,
-    novaVrijednost: {
-      applied_lines: appliedCount
-    }
+  }).catch(error => {
+    if (error instanceof BankStatementError) redirectStatements(error.message, statement.id);
+    throw error;
   });
 
   revalidatePath("/agencija/izvodi");
@@ -3208,6 +3119,25 @@ export async function reapplyBankStatementRules(formData: FormData) {
   });
 
   redirect(`/agencija/izvodi?${params.toString()}`);
+}
+
+export async function reopenPostedBankStatement(formData: FormData) {
+  const { user, firma, poslovnaGodina } = await getActiveContext("post");
+  const statementId = value(formData, "statement_id");
+  if (!user.agencija_id || !firma || !poslovnaGodina) redirectStatements("izvod_greska");
+  try {
+    await reopenBankStatement({ userId: user.id, agencyId: user.agencija_id }, {
+      statementId, companyId: firma.id, yearId: poslovnaGodina.id
+    });
+  } catch (error) {
+    if (error instanceof BankStatementError) redirectStatements(error.message, statementId);
+    throw error;
+  }
+  revalidatePath("/agencija/izvodi", "layout");
+  revalidatePath("/agencija/nalozi", "layout");
+  revalidatePath("/agencija/racuni", "layout");
+  revalidatePath("/agencija/izvjestaji", "layout");
+  redirectStatements("izvod_nacrt", statementId);
 }
 
 export async function deleteBankStatement(formData: FormData) {
@@ -3648,6 +3578,7 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
     await tx.$queryRaw`SELECT id FROM poslovne_godine WHERE id=${poslovnaGodinaId}::uuid FOR UPDATE`;
     const currentYear = await tx.poslovnaGodina.findFirst({ where: { id: poslovnaGodinaId, firma_id: firmaId, zakljucena: false, firma: { agencija_id: agencijaId, aktivan: true, is_deleted: false } } });
     if (!currentYear) throw new Error("Godina je zaključana ili firma nije dostupna.");
+    await assertBankStatementAccess(tx, { userId: user.id, agencyId: agencijaId }, firmaId, ["post"]);
     const defaultJournalType = await tx.vrstaNaloga.findFirst({
       where: {
         aktivan: true,
@@ -3689,12 +3620,17 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
         };
       }> | null;
 
-      if (!statement || statement.journal_id || !statement.bank_account_konto_id) {
+      if (!statement || (scheduled && statement.journal_id) || !statement.bank_account_konto_id) {
         continue;
       }
 
+      if (statement.journal_id) await tx.$queryRaw`SELECT id FROM nalozi WHERE id=${statement.journal_id}::uuid FOR UPDATE`;
+      const draftJournal = statement.journal_id ? await assertBankJournalOwnership(tx, statement) : null;
+      if (draftJournal && draftJournal.status !== "DRAFT") throw new BankStatementError("izvod_greska");
       const bankSetting = await effectiveBankSetting(tx, firmaId, statement.company_bank_account_id, true);
-      const journalType = bankSetting?.journal_type ?? defaultJournalType;
+      const journalType = draftJournal
+        ? await tx.vrstaNaloga.findUniqueOrThrow({ where: { id: draftJournal.vrsta_naloga_id } })
+        : bankSetting?.journal_type ?? defaultJournalType;
 
       const openingBalance = Math.round(Number(statement.opening_balance) * 100);
       const totalInflow = Math.round(Number(statement.total_inflow) * 100);
@@ -3736,7 +3672,7 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
       for (const line of activeLines) {
         if (line.partner_id && !await tx.komitent.findFirst({ where: { id: line.partner_id, OR: [{ agencija_id: null }, { agencija_id: agencijaId, firma_id: null }, { agencija_id: agencijaId, firma_id: firmaId }] } })) throw new Error("Partner nije dostupan ovoj firmi.");
       }
-      const broj = parseStatementJournalNumber(statement.statement_number);
+      const broj = draftJournal?.broj ?? parseStatementJournalNumber(statement.statement_number);
 
       if (!broj) {
         throw new Error("izvod_broj_naloga_greska");
@@ -3747,7 +3683,7 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
           agencija_id: agencijaId,
           firma_id: firmaId,
           poslovna_godina_id: poslovnaGodinaId,
-          poslovna_jedinica_id: statement.poslovna_jedinica_id,
+          ...(draftJournal ? { id: { not: draftJournal.id } } : {}),
           vrsta_naloga_id: journalType.id,
           broj
         },
@@ -3762,12 +3698,18 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
 
       const sifra = formatJournalCode(journalType.prefiks, poslovnaGodinaValue, broj);
 
-      const nalog = await tx.nalog.create({
+      if (draftJournal) await tx.stavkaNaloga.deleteMany({ where: { nalog_id: draftJournal.id } });
+      const nalog = draftJournal ? await tx.nalog.update({ where: { id: draftJournal.id }, data: {
+        datum: statement.statement_date, poslovna_jedinica_id: statement.poslovna_jedinica_id,
+        datum_knjizenja: new Date(), status: journalStatuses.posted,
+        proknjizen_at: new Date(), proknjizen_by: user.id, updated_by: user.id
+      }, select: { id: true } }) : await tx.nalog.create({
         data: {
           agencija_id: agencijaId,
           firma_id: firmaId,
           poslovna_godina_id: poslovnaGodinaId,
           vrsta_naloga_id: journalType.id,
+          poslovna_jedinica_id: statement.poslovna_jedinica_id,
           broj,
           sifra,
           datum: statement.statement_date,
@@ -3889,11 +3831,13 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
           updated_by: user.id
         }
       });
-      await auditLogInTransaction(tx, { korisnikId: user.id, agencijaId, firmaId, modul: "agencija.izvodi", akcija: scheduled ? "AUTO_POST" : "post_statement", tipEntiteta: "BankStatement", entitetId: statement.id, novaVrijednost: { journalId: nalog.id }, napomena: scheduled ? "Automatska dnevna obrada" : null });
+      await refreshBankPaymentStatuses(tx, statement.id, user.id);
+      await auditLogInTransaction(tx, { korisnikId: user.id, agencijaId, firmaId, modul: "agencija.izvodi", akcija: scheduled ? "AUTO_POST" : "post_statement", tipEntiteta: "BankStatement", entitetId: statement.id, staraVrijednost: draftJournal ?? undefined, novaVrijednost: { journalId: nalog.id, reused: Boolean(draftJournal) }, napomena: scheduled ? "Automatska dnevna obrada" : null });
       postedIds.push(statement.id);
     }
   }, { isolationLevel: "Serializable", timeout: 30000 }).catch((error) => {
     if (scheduled) throw error;
+    if (error instanceof BankStatementError) redirectStatements(error.message);
     if (error instanceof Error && error.message === "partner_obavezan") {
       redirectStatements("partner_obavezan");
     }
@@ -3928,7 +3872,9 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
   });
 
   revalidatePath("/agencija/izvodi");
-  revalidatePath("/agencija/nalozi");
+  revalidatePath("/agencija/nalozi", "layout");
+  revalidatePath("/agencija/racuni", "layout");
+  revalidatePath("/agencija/izvjestaji", "layout");
   redirectStatements("izvodi_proknjizeni", postedIds[0]);
 }
 
@@ -3945,7 +3891,6 @@ export async function postReadyBankStatements() {
       firma_id: firma.id,
       poslovna_godina_id: poslovnaGodina.id,
       status: bankStatementStatuses.ready,
-      journal_id: null,
       is_deleted: false
     },
     orderBy: [

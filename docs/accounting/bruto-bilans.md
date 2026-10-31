@@ -85,3 +85,26 @@ stavke perioda na A4 pejzažno. Prava su `nalozi:view`, za štampu i `nalozi:exp
   početnog stanja (vidi [`NEXT_STEPS.md`](../../NEXT_STEPS.md)).
 
 Knjiženje zahtijeva analitički konto sa najmanje četiri znaka u šifri. Konta sa jednom, dvije ili tri cifre služe za grupisanje. Pravilo štite backend provjere, DB CHECK ograničenja i triggeri stavki/statusa naloga. Istorijske testne stavke nijesu preknjižene migracijom.
+
+## Grupna zamjena konta — 2026-10-31
+
+Nalozi → Zamjena konta mijenja konto na postojećim POSTED stavkama aktivne
+firme/godine za tačno izabranu vrstu naloga i opcioni period. Ne prenosi saldo
+novim nalogom. Prvo Prikaži stavke prikazuje zbir cijelog skupa, spisak svih
+naloga i do 250 detaljnih redova; Potvrdi zamjenu obuhvata navedeni cijeli skup.
+Iznosi i strana duguje/potražuje, partneri, opisi, datumi, ID/broj/status i
+izvorni metadata knjiženja ostaju. Kartice/bruto bilans nakon potvrde čitaju
+isto knjiženje na novom kontu. Nacrti i obrisani nalozi nijesu obuhvaćeni.
+
+Podržani su ručni nalozi dostupnih vrsta i pravilno povezani bankovni nalozi.
+Kod izvoda se istovremeno ispravljaju izvorna aktivna kontra konta ili konto
+banke zaglavlja, tako da naknadni repost zadrži ispravku. Šeme i pravila za
+buduća knjiženja podešavaju se zasebno. KIF/KUF, plate, PDV i drugi modulski
+izvori sa zavisnostima ostaju u svojim tokovima ispravke; blokiraju cijelu
+grupnu zamjenu uz objašnjenje, bez tihog preskakanja.
+
+Potrebna su prava nalozi:view/update/post i za bankovne izvore izvodi:update/post.
+Novi konto mora biti aktivan analitički; obavezni partner/jedinica moraju već
+postojati na stavci. Godina/PDV period moraju biti otvoreni. Potpis pregleda
+veže korisnika/kontekst i izvorni snimak na 20 minuta; promjena podataka traži
+novi pregled. Transakcija i audit su atomski, dupli klik ne ponavlja posao.

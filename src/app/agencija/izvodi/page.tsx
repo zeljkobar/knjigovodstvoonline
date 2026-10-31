@@ -6,6 +6,7 @@ import {
   postReadyBankStatements,
   postSelectedBankStatements,
   reapplyBankStatementRules,
+  reopenPostedBankStatement,
   updateBankStatementLines
 } from "./actions";
 import { BankStatementImportForm } from "./BankStatementImportForm";
@@ -13,7 +14,8 @@ import { PartnerSearchInput } from "@/components/PartnerSearchInput";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { bankStatementLineBlockers } from "@/lib/bank-statement-rules";
-import { requirePermissionForUser } from "@/lib/permissions";
+import { postedBankAllocationWhere } from "@/lib/bank-statement-lifecycle";
+import { hasPermission, requirePermissionForUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -26,6 +28,11 @@ type IzvodiPageProps = {
 };
 
 const messages: Record<string, string> = {
+  izvod_nacrt: "Izvod i nalog su vraćeni u nacrt. Ispravite predlog naloga, sačuvajte ga i ponovo proknjižite izvod.",
+  pdv_period_zakljucan: "PDV period je zaključan. Izvod nije moguće rasknjižiti ili mijenjati.",
+  prava: "Nemate pravo za ovu akciju.",
+  izvod_promijenjen: "Izvod je u međuvremenu promijenjen. Osvježite stranicu i ponovite izmjenu.",
+  izvod_nalog_veze: "Veza izvoda i naloga nije ispravna ili nalog ima druge zavisnosti. Izmjena je blokirana.",
   godina_zakljucena: "Poslovna godina je zaključena.",
   izvod_obavezno: "Popunite bankovni račun, konto banke, broj, datum i stanja izvoda.",
   izvod_prazan: "Dodajte fajl ili tekst izvoda.",
@@ -303,6 +310,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                 select: {
                   id: true,
                   sifra: true,
+                  status: true,
                   is_deleted: true
                 }
               },
@@ -365,8 +373,8 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
               select: {
                 id: true,
                 sifra: true,
-                is_deleted: true,
-                status: true
+                status: true,
+                is_deleted: true
               }
             },
             lines: {
@@ -429,6 +437,8 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
         })
       : null;
 
+  const canPost = Boolean(activeCompany && activeYear && !activeYear.zakljucena && await hasPermission(user, { firmaId: activeCompany.id, modul: "izvodi", akcija: "post" }));
+  const canUpdate = Boolean(activeCompany && activeYear && !activeYear.zakljucena && await hasPermission(user, { firmaId: activeCompany.id, modul: "izvodi", akcija: "update" }));
   const selectedBalanceOk = selectedStatement ? statementBalanceOk(selectedStatement) : false;
   const selectedReady =
     selectedStatement?.lines.every((line) =>
@@ -529,6 +539,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
             ],
             include: {
               bankStatementAllocations: {
+                where: postedBankAllocationWhere,
                 select: {
                   amount: true
                 }
@@ -567,6 +578,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
             ],
             include: {
               bankStatementAllocations: {
+                where: postedBankAllocationWhere,
                 select: {
                   amount: true
                 }
@@ -765,12 +777,24 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                   <Link className="secondary-button compact-action" href="/agencija/izvodi">
                     Povrat na spisak izvoda
                   </Link>
-                  {effectiveStatementStatus(selectedStatement) !== "POSTED" && !selectedStatement.journal ? (
+                  {canUpdate && effectiveStatementStatus(selectedStatement) !== "POSTED" && (!selectedStatement.journal || selectedStatement.journal.status === "DRAFT") ? (
                     <form action={reapplyBankStatementRules}>
                       <input name="statement_id" type="hidden" value={selectedStatement.id} />
                       <button className="secondary-button compact-action" type="submit">
                         Ponovo primijeni pravila
                       </button>
+                    </form>
+                  ) : null}
+                  {canPost && canUpdate && selectedStatement.status === "POSTED" && selectedStatement.journal?.status === "POSTED" ? (
+                    <form action={reopenPostedBankStatement}>
+                      <input name="statement_id" type="hidden" value={selectedStatement.id} />
+                      <button className="secondary-button compact-action" type="submit">Vrati u nacrt</button>
+                    </form>
+                  ) : null}
+                  {canPost && selectedStatement.status === "READY" && selectedBalanceOk && selectedReady ? (
+                    <form action={postSelectedBankStatements}>
+                      <input name="statement_id" type="hidden" value={selectedStatement.id} />
+                      <button className="primary-button compact-action" type="submit">Proknjiži izvod</button>
                     </form>
                   ) : null}
                   {selectedStatement.journal ? (
@@ -789,6 +813,9 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                 </div>
               </div>
 
+              {selectedStatement.journal?.status === "DRAFT" ? (
+                <p className="status-banner">Nalog je u nacrtu i ne ulazi u glavnu knjigu. Veze sa fakturama ostaju sačuvane kao predlog; uplate se ponovo aktiviraju nakon knjiženja izvoda.</p>
+              ) : null}
               {selectedStatementBlockers.length > 0 ? (
                 <div className="status-banner error statement-blockers">
                   <strong>Knjiženje je blokirano:</strong>
@@ -892,6 +919,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                 </div>
               ) : (
                 <form action={updateBankStatementLines}>
+                  <input name="statement_version" type="hidden" value={selectedStatement.updated_at.toISOString()} />
                   <input name="statement_id" type="hidden" value={selectedStatement.id} />
                   <div className="responsive-table statement-preview-table">
                     <table>
@@ -1083,7 +1111,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                   </div>
                   <button
                     className="primary-button"
-                    disabled={effectiveStatementStatus(selectedStatement) === "POSTED"}
+                    disabled={!canUpdate || effectiveStatementStatus(selectedStatement) === "POSTED"}
                     type="submit"
                   >
                     Sačuvaj predlog naloga

@@ -68,6 +68,28 @@ Rezultati/audit čuvaju brojače, IKOF reference i bezbjedne greške bez tajni i
 JSON sadržaja računa. Purge briše obrade i postavke prije KIF vrsta/firme;
 agencijski administratorski sertifikat se zadržava.
 
+### Grupna zamjena konta u postojećim nalozima
+
+`journal-account-replacement.ts` opslužuje Nalozi → Zamjena konta. Preview čita
+POSTED stavke aktivne firme/godine, tačne vrste i opcionog perioda iz jednog
+RepeatableRead snimka. Nema upisa poslovnih podataka pri pregledu. HMAC dokaz
+koristi postojeći SESSION_SECRET sa zasebnim purpose prefiksom; nosi korisnika,
+scope/filtere, hash punog snimka, nonce i rok od 20 minuta. U browser ide DTO,
+spisak svih naloga i do 250 detaljnih redova uz broj/zbir kompletnog skupa.
+
+Potvrda ponovo provjerava kontekst/prava i snimak pod lockovima firma → godina
+→ izvodi → nalozi → PDV periodi, u Serializable transakciji. Konto se mijenja
+na tačnim ID-jevima stavki; interni draft/edit/post nije vidljiv drugim čitaocima.
+Sve ostale poslovne vrijednosti i izvorno vrijeme knjiženja ostaju. Audit snima
+stare naloge/izvode i novi konto, ID-jeve i broj promjena; nonce sprečava replay.
+
+Bankovni journal/source redovi moraju se jednoznačno poklapati, uključujući
+zbirne bankovne redove i aktivne kontra redove. Konto se sinhronizuje na tim
+izvornim poljima, tako da ponovno knjiženje zadrži ispravku. Pravila/template
+šeme budućeg knjiženja se ne mijenjaju. Drugi modulski izvori, zavisnosti,
+zaključavanja i neispravna analitika blokiraju cijeli posao, uz razlog u pregledu.
+Nema nove tabele/ključa niti dodatnih purge veza.
+
 ### Template firme za kontiranje
 
 `agencija_knjizenje_template` čuva najviše jedan izbor po agenciji. Složeni FK

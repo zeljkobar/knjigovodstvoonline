@@ -10934,3 +10934,6 @@ button.kuf-delete-icon:focus-visible { outline: 3px solid var(--border, #93c5fd)
 .pazar-import-panel { border: 1px solid var(--border-color, #c7d7e8); padding: 1rem; border-radius: .65rem; }
 .pazar-import-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; align-items: end; margin-top: 1rem; }
 .pazar-import-panel h4 { margin: 0 0 .25rem; }
+.account-replacement-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.account-replacement-fields label { display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 900px) { .account-replacement-fields { grid-template-columns: 1fr; } }

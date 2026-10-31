@@ -212,8 +212,9 @@ async function response(action,data) {
    await response(statements.updateBankStatementLines,allocationForm);
    await response(statements.updateBankStatementLines,allocationForm);
    assert.equal(await tx.bankStatementLineAllocation.count({where:{bank_statement_line_id:paymentLine.id}}),1);
-   assert.equal((await tx.kifEntry.findUniqueOrThrow({where:{id:sale.id}})).payment_status,['PARTIALLY_PAID','PAID','OVERPAID'][i-1]);
+   assert.equal((await tx.kifEntry.findUniqueOrThrow({where:{id:sale.id}})).payment_status,['UNPAID','PARTIALLY_PAID','PAID'][i-1], 'draft allocation does not settle invoice');
    await response(statements.postSelectedBankStatements,{statement_id:statement.id});
+   assert.equal((await tx.kifEntry.findUniqueOrThrow({where:{id:sale.id}})).payment_status,['PARTIALLY_PAID','PAID','OVERPAID'][i-1]);
    assert.equal(await balance('2010'),expected);
    const saved=await tx.bankStatement.findUniqueOrThrow({where:{id:statement.id}});assert.ok(saved.journal_id);
    await response(statements.postSelectedBankStatements,{statement_id:statement.id});

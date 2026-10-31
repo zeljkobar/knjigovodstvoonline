@@ -4,13 +4,25 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Grupna Zamjena konta je implementirana u Nalozima, bez migracije/.env promjene.
+  Prikaži stavke pa Potvrdi zamjenu mijenja postojeća POSTED knjiženja aktivne
+  firme/godine i izabrane vrste, uz opcioni period, audit i sinhronizaciju izvoda.
+  Nakon deploya provjeriti prvi namjerni korisnički prolaz 4140 → 4147 / Izvodi.
+  Automatski izvori drugih zaštićenih modula zadržavaju svoje tokove ispravke.
+- Rasknjižavanje izvoda je implementirano bez migracije: Vrati u nacrt na izvodu
+  ili nalogu, ispravka/čuvanje predloga i Proknjiži izvod koriste isti nalog/broj.
+  Draft alokacije ne zatvaraju fakture; mail automatika ne preuzima rasknjižen
+  izvod. Nakon deploya provjeriti prvi namjerni korisnički UI prolaz na otvorenoj
+  godini/periodu. Izbor konta i povezivanja je postojeća forma; split alokacije
+  jedne stavke na više faktura ostaju odvojena dorada.
 - Uvoz pazara VG/Summa implementiran na postojećoj KIF formi. Pri deployu,
   uz zaustavljenu aplikaciju, primijeniti 20261030090000_fiskalni_portali_pazar,
   generisati Prisma i pokrenuti `npm run fiscal-portals:key` prije builda/restarta.
   Sačuvati ključ uz backup. Administrator na pravoj firmi bira provajdera/nalog
   u KIF/KUF → Podešavanja → Fiskalni portali. Server nije mijenjan; živi browser
   prolaz preuzimanja i prvog namjernog KIF upisa ostaje nakon podešavanja firme.
-  Preknjižavanje pazara na kupce i izvještaj iz budućeg Fiscal API-ja ostaju odvojeno.
+  Preknjižavanje pazara na kupce pokriva postojeća šema kontiranja.
+  Izvještaj iz budućeg Fiscal API-ja ostaje odvojeno.
 - MAPR format datuma ispravljen: zahtjev ide bez milisekundi, a greške nose
   HTTP status. Poslije preuzimanja ispravke restartovati server (uključujući
   lokalni dev zbog instrumentation timera), pa ponoviti neuspjelu SEP obradu iz
@@ -278,7 +290,7 @@
   automatizovani testovi za validacije, prava i konkurentne zahtjeve.
 - **Modul 5/7 Izvodi:** dodati parsere za ostale banke, dodatne uslove pravila
   po formatima banaka, split alokacije jedne uplate na više KIF/KUF računa i
-  vraćanje proknjiženog izvoda u nacrt.
+  dodatnu doradu pravila knjiženja.
 - **Modul 6:** KUF batch MAPR cache završen; bolji QA štampe na mnogo redova.
   Cache ručne MAPR forme i KIF-a ostaje van ovog popravljenog toka.
 - **Modul 8:** ručni QA postojećeg IRMS XML-a i štampa prijave. Zaključavanje/otključavanje, verzije i DB testovi knjiženja završeni 2026-10-07.

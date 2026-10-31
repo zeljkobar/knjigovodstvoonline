@@ -27,6 +27,9 @@ type NalogDetailPageProps = {
 };
 
 const poruke: Record<string, string> = {
+  izvod_uredjivanje: "Nalog izvoda se ispravlja i ponovo knjiži kroz modul Izvodi.",
+  izvod_nalog_veze: "Nalog ima druge veze ili nije pravilno povezan sa izvodom.",
+  izvod_greska: "Izvod nije dostupan za rasknjižavanje.",
   nalog_kreiran: "Nalog je sacuvan kao nacrt.",
   nalog_proknjizen: "Nalog je proknjizen.",
   nalog_nacrt: "Nalog je vracen u nacrt.",
@@ -129,6 +132,7 @@ export default async function NalogDetailPage({
       opis: true,
       status: true,
       source_type: true,
+      bankStatements: { where: { is_deleted: false }, select: { id: true } },
       source_module: true,
       izvorni_dokument_id: true,
       poslovna_jedinica: {
@@ -215,7 +219,9 @@ export default async function NalogDetailPage({
   );
   const balanced = Math.round(totalDebit * 100) === Math.round(totalCredit * 100);
   const isAdvanceJournal = nalog.source_module === "agencija.robno.avansni-racuni";
+  const isBankJournal = nalog.source_module === "IZVODI" || nalog.source_type === "BANK_STATEMENT" || Boolean(nalog.bankStatements?.length);
   const isPayrollJournal = nalog.source_module === "PLATE" || nalog.source_type === "PAYROLL";
+  const canReopenBank = !isBankJournal || await hasPermission(user, { firmaId: nalog.firma_id, modul: "izvodi", akcija: "post" }) && await hasPermission(user, { firmaId: nalog.firma_id, modul: "izvodi", akcija: "update" });
   const isTravelJournal = nalog.source_module === "PUTNI_NALOZI";
   const isProtectedSourceJournal = ["OSNOVNA_SREDSTVA", "SUPPLIER_RETURN"].includes(nalog.source_module ?? "") || isTravelJournal;
   const depreciationBatchHref =
@@ -226,7 +232,7 @@ export default async function NalogDetailPage({
     nalog.sifra ||
     formatJournalCode(nalog.vrsta_naloga.prefiks, nalog.poslovna_godina.godina, nalog.broj);
   const [baseAccounts, companyOverrides] =
-    canUpdate && nalog.status === journalStatuses.draft && !nalog.poslovna_godina.zakljucena && !isPayrollJournal
+    canUpdate && nalog.status === journalStatuses.draft && !nalog.poslovna_godina.zakljucena && !isPayrollJournal && !isBankJournal
       ? await Promise.all([
           prisma.konto.findMany({
             where: {
@@ -415,7 +421,7 @@ export default async function NalogDetailPage({
       </section>
 
       {canUpdate && nalog.status === journalStatuses.draft &&
-      !nalog.poslovna_godina.zakljucena && !isProtectedSourceJournal && !isAdvanceJournal && !isPayrollJournal ? (
+      !nalog.poslovna_godina.zakljucena && !isProtectedSourceJournal && !isAdvanceJournal && !isPayrollJournal && !isBankJournal ? (
         <section className="admin-panel">
           <div className="panel-header">
             <h3>Izmijeni stavke</h3>
@@ -443,6 +449,12 @@ export default async function NalogDetailPage({
       ) : null}
 
       {isAdvanceJournal && nalog.izvorni_dokument_id ? <section className="admin-panel"><p>Stavke su preuzete iz šeme avansa i zaštićene od direktnih izmjena.</p><Link className="secondary-button" href={`/agencija/robno/izlazne-fakture/${nalog.izvorni_dokument_id}`}>Otvori avansni dokument</Link></section> : null}
+      {isBankJournal && (nalog.bankStatements?.[0]?.id || nalog.izvorni_dokument_id) ? (
+        <section className="admin-panel">
+          <p>Ispravke i ponovno knjiženje rade se kroz izvod. Vraćanje u nacrt poništava knjiženje i privremeno otvara povezane fakture.</p>
+          <Link className="secondary-button" href={`/agencija/kontekst?${new URLSearchParams({ firma_id: nalog.firma_id, poslovna_godina_id: nalog.poslovna_godina_id, returnTo: `/agencija/izvodi?izvod=${nalog.bankStatements?.[0]?.id ?? nalog.izvorni_dokument_id}&tab=nalog` })}`}>Otvori izvod</Link>
+        </section>
+      ) : null}
       {isPayrollJournal && nalog.izvorni_dokument_id ? (
         <section className="admin-panel">
           <p>Vraćanje naloga u nacrt vraća obračun u status „Obračunat“. Ponovno knjiženje koristi isti nalog i broj.</p>
@@ -473,13 +485,13 @@ export default async function NalogDetailPage({
                 ) : null}
               </>
             ) : null}
-            {canPost && (!isPayrollJournal || canPostPayroll) && nalog.status === journalStatuses.draft && !isProtectedSourceJournal ? (
+            {canPost && (!isPayrollJournal || canPostPayroll) && nalog.status === journalStatuses.draft && !isProtectedSourceJournal && !isBankJournal ? (
               <form action={postJournal} data-journal-post-form="true">
                 <input name="nalog_id" type="hidden" value={nalog.id} />
                 <button type="submit">Proknjiži nalog (F9)</button>
               </form>
             ) : null}
-            {canUpdate && (!isPayrollJournal || canPostPayroll) && nalog.status === journalStatuses.posted && !isProtectedSourceJournal ? (
+            {canUpdate && (!isPayrollJournal || canPostPayroll) && nalog.status === journalStatuses.posted && !isProtectedSourceJournal && canReopenBank ? (
               <form action={reopenJournal}>
                 <input name="nalog_id" type="hidden" value={nalog.id} />
                 <button className="secondary-button" type="submit">

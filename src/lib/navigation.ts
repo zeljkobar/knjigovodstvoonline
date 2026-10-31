@@ -186,6 +186,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/nalozi/dnevnik-knjizenja", label: "Dnevnik knjiženja" },
     { href: "/agencija/nalozi/novi", label: "Novi nalog" },
     { href: "/agencija/nalozi/nacrti", label: "Nacrti" },
+    { href: "/agencija/nalozi/zamjena-konta", label: "Zamjena konta", permissions: [{ modul: "nalozi", akcija: "view" }, { modul: "nalozi", akcija: "update" }, { modul: "nalozi", akcija: "post" }] },
     { href: "/agencija/nalozi/vrste", label: "Vrste naloga", roles: adminOnly },
     { href: "/agencija/nalozi/pocetno-stanje", label: "Početno stanje" },
     { href: "/agencija/nalozi/partneri", label: "Partneri" },

@@ -1,12 +1,59 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-10-30. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-10-31. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Grupna zamjena konta u nalozima — 2026-10-31
+
+- Nalozi → Zamjena konta (`/agencija/nalozi/zamjena-konta`) bira trenutni i
+  novi konto, jednu vrstu naloga i opcioni period aktivne firme/godine. Obuhvata
+  samo POSTED neobrisane naloge; mijenja postojeće stavke, bez novog naloga.
+- Prikaži stavke daje broj stavki/naloga, ukupno duguje/potražuje, spisak svih
+  pogođenih naloga i prvih 250 detaljnih redova. Potvrdi zamjenu obuhvata cijeli
+  prikazani skup. Potpis pregleda koristi postojeći SESSION_SECRET, veže
+  korisnika/scope/filtere/snimak i ističe za 20 minuta. Izmijenjen pregled,
+  promijenjeni podaci i ponovljena potvrda odbijaju se na backendu.
+- Iznosi, partneri, datumi, opisi, ID/broj/status naloga i izvorno vrijeme
+  knjiženja ostaju isti. Interni draft/edit/post je jedna transakcija sa
+  auditom prije/poslije; ne postoji vidljivi djelimični rezultat.
+- Za bankovne naloge provjerava se potpuno slaganje sa izvodom i mijenjaju
+  odgovarajuća kontra konta izvornih aktivnih stavki, odnosno konto banke u
+  zaglavlju. Ponovno rasknjižavanje/knjiženje zadržava novo konto. Ignorisane
+  stavke i pravila/podešavanja budućeg knjiženja nijesu dio ove zamjene.
+- Backend traži nalozi view/update/post; za bankovne izvore i izvodi update/post.
+  Zaključana godina/PDV, neispravan konto/partner/jedinica, neuravnotežen nalog
+  i automatski nalozi drugih zaštićenih modula blokiraju cijeli skup uz razlog.
+  Ručni nalozi bilo koje dostupne vrste i pravilno povezani bankovni nalozi
+  su podržani; obračunski/KIF/KUF/robni izvori ispravljaju se u svom modulu.
+- Nema migracije, nove tabele ni .env promjene. Prošli TSC/lint/npm test,
+  SSR forme/prava i DB lifecycle 263 stavke, tačan scope/datumi, tamper/expiry,
+  audit rollback, lazy konto link, izvod/header/repost i konkurentne potvrde/
+  zaključavanje perioda. Izolovana testna baza uklonjena; produkcija nije dirana.
+  Browser alat nije dostupan; ručni UI prolaz ostaje nakon deploya.
+
+## Rasknjižavanje i ispravka bankovnih izvoda — 2026-10-31
+
+- Detalj proknjiženog izvoda i njegovog naloga imaju Vrati u nacrt. Jedna
+  transakcija vraća nalog u DRAFT, izvod u NEEDS_REVIEW i uklanja metadata
+  knjiženja. Nalog i broj se zadržavaju; nacrt ne ulazi u glavnu knjigu.
+- Konta, partneri i veze sa KIF/KUF računima ostaju za ispravku. Alokacije
+  nacrta su predlog: status plaćanja i otvoreni iznosi računaju samo aktivne
+  POSTED izvode sa POSTED nalogom. Drugi proknjiženi izvodi ostaju uračunati.
+- Nakon Sačuvaj predlog naloga spreman izvod ima Proknjiži izvod. Ponovno
+  knjiženje obnavlja stavke istog naloga iz ispravljenog izvoda; nema duplog
+  naloga niti redova. Ručna izmjena/brisanje i generičko knjiženje naloga
+  izvoda su blokirani. Nalog sadrži link nazad na izvod kroz pravi kontekst.
+- Backend ponovo provjerava korisnika/agenciju, firmu/dodjelu, izvodi update/post
+  (sa naloga i nalozi update), godinu/PDV period i veze naloga pod zaključavanjem.
+  Rasknjižen izvod se ne vraća automatski u knjiženje mail automatikom. Audit
+  rasknjižavanja, izmjena i ponovnog knjiženja je atomski; stari obrazac se odbija.
+- Nema migracije niti novih tabela. Produkcija i korisnički izvodi nijesu
+  mijenjani tokom razvoja. Detaljne provjere su u SESSION_LOG.
 
 ## Uvoz pazara — VG eFiskal i Summa Fiskal — 2026-10-30
 
@@ -36,8 +83,9 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   i postojeće računovodstveno jezgro u izolovanoj uklonjenoj bazi. Novi VG
   klijent potvrđen read-only na živom nalogu bez fajla na disku. Browser alat
   nije dostupan; forma je renderovana u regresiji. Produkcija nije mijenjana.
-- Posebno preknjižavanje pazara na kupce i budući izvještaj Fiscal API-ja nijesu
-  dio ovog koraka. OFFICE fakture se ne miješaju sa Summa POS izvještajem.
+- Preknjižavanje pazara na kupce koristi postojeću šemu kontiranja; nije novi
+  razvojni zadatak. Budući izvještaj Fiscal API-ja nije dio ovog koraka.
+  OFFICE fakture se ne miješaju sa Summa POS izvještajem.
 
 ## MAPR datum bez milisekundi — 2026-10-29
 

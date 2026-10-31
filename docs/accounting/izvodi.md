@@ -75,8 +75,49 @@ stavke, import sesiju, kontrole, povezivanje sa fakturama i generiše jedan nalo
 - Još otvoreno za pun MVP:
   - parseri za ostale banke,
   - split alokacije kada jedna stavka izvoda zatvara više KIF/KUF računa,
-  - vraćanje proknjiženog izvoda u nacrt,
   - dodatni tipovi pravila po specifičnim formatima banaka i dalja UX dorada.
+
+## Rasknjižavanje i ispravke — 2026-10-31
+
+Na detalju proknjiženog izvoda dostupno je **Vrati u nacrt**. Ista akcija na
+povezanom nalogu koristi isti backend tok. Potrebna su prava izvodi/update i
+izvodi/post; ulaz sa naloga traži i nalozi/update. Administrator ima ova prava,
+a radnik mora imati aktivnu dodjelu firme i eksplicitna prava.
+
+Jedna transakcija vraća nalog u DRAFT, izvod u NEEDS_REVIEW (Za provjeru),
+uklanja datume/korisnike knjiženja i preračunava statuse plaćanja povezanih
+KIF/KUF računa. Nalog i njegov broj ostaju, kao i konta, partneri i izbori
+faktura. Alokacije na nacrtu ostaju kao predlog, ali ne zatvaraju fakture:
+plaćanja obuhvataju samo neobrisane POSTED izvode sa neobrisanim POSTED nalogom.
+Uplate sa drugih proknjiženih izvoda i dalje važe.
+
+Korisnik u tabu Predlog naloga ispravi konta/partnere/povezivanje, zatim bira
+**Sačuvaj predlog naloga**. Kada je izvod spreman, **Proknjiži izvod** ponovo
+popunjava stavke istog naloga i aktivira plaćanja. Zadržavaju se ID, broj, šifra
+i vrsta naloga. Stare stavke nacrta se zamjenjuju u istoj transakciji, uz audit
+snimak; nema fizičkog brisanja naloga niti proknjiženih dokumenata. Direktno
+uređivanje/brisanje ili generičko knjiženje naloga izvoda nije dozvoljeno.
+Na nalogu postoji Otvori izvod sa odgovarajućim kontekstom firme/godine.
+
+Zaključana godina ili PDV period, promjena prava, neispravna veza naloga ili
+njegove druge zavisnosti blokiraju izmjenu. Firma, godina, izvod i nalog se
+zaključavaju istim redom pri izmjeni/rasknjižavanju/knjiženju; stara revizija
+obrasca se odbija. Audit je dio transakcije. Ponovljen povrat ne pravi dupli
+audit, a ponovljeno knjiženje ne pravi novi nalog. Mail automatika preuzima
+samo READY izvode bez naloga, pa rasknjižen izvod zahtijeva ručnu potvrdu.
+Nema nove migracije niti promjene strukture/purge redoslijeda.
+
+## Zamjena konta na proknjiženim izvodima
+
+Nalozi → Zamjena konta može ispraviti sve stavke određenog konta u jednoj
+vrsti naloga, za aktivnu firmu/godinu i opcioni period (npr. 4140 → 4147,
+vrsta Izvodi). Pregled prethodi potvrdi. Konto se mijenja u istim nalozima i
+istovremeno u odgovarajućim aktivnim stavkama izvoda, odnosno zaglavlju za
+zbirno konto banke. Nakon vraćanja u nacrt i ponovnog knjiženja novo konto
+ostaje. Izvodi moraju tačno odgovarati svojim nalozima; odstupanja traže
+prethodno usklađivanje kroz postojeći draft/edit/post tok. Ignorisane stavke,
+kontiranje budućih izvoda i podešavanja banke se ne prepisuju. Za cijelu grupu
+važe prava, zaključavanja, ravnoteža, obavezna analitika i atomski audit.
 
 ## Kasnije
 - CSV/Excel import za dodatne banke.

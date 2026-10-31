@@ -12,6 +12,7 @@ import { pdvReturnStatuses } from "@/lib/pdv";
 import { hasPermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { PayrollJournalError, reopenPayrollJournal } from "@/lib/payroll-journal";
+import { BankStatementError, reopenBankStatement } from "@/lib/bank-statement-lifecycle";
 import { postPayrollCalculation } from "../plate/actions";
 
 function value(formData: FormData, key: string) {
@@ -575,6 +576,7 @@ export async function updateDraftJournalLines(formData: FormData) {
       firma_id: true,
       status: true,
       source_module: true,
+      bankStatements: { select: { id: true } },
       poslovna_jedinica_id: true,
       poslovna_godina: {
         select: {
@@ -584,7 +586,7 @@ export async function updateDraftJournalLines(formData: FormData) {
     }
   });
 
-  if (!nalog || nalog.status !== journalStatuses.draft || ["PLATE", "OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN", "agencija.robno.avansni-racuni"].includes(nalog.source_module ?? "")) {
+  if (!nalog || nalog.bankStatements.length > 0 || nalog.status !== journalStatuses.draft || ["IZVODI", "PLATE", "OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN", "agencija.robno.avansni-racuni"].includes(nalog.source_module ?? "")) {
     redirectJournals("nalog_greska");
   }
 
@@ -687,10 +689,11 @@ export async function postJournal(formData: FormData) {
       korisnici: { some: { korisnik_id: user.id, is_deleted: false } }
     }) }
   };
-  const source = await prisma.nalog.findFirst({ where: scope, select: { firma_id: true, poslovna_godina_id: true, source_module: true, source_type: true, izvorni_dokument_id: true } });
+  const source = await prisma.nalog.findFirst({ where: scope, select: { firma_id: true, poslovna_godina_id: true, source_module: true, source_type: true, izvorni_dokument_id: true, bankStatements: { select: { id: true } } } });
   if (!source) redirectJournals("nalog_greska");
   if (!(await canUseJournals(user, source.firma_id, "post"))) redirectJournalDetail(nalogId, "prava");
 
+  if (source.source_module === "IZVODI" || source.source_type === "BANK_STATEMENT" || source.bankStatements.length > 0) redirectJournalDetail(nalogId, "izvod_uredjivanje");
   if (source.source_module === "PLATE" || source.source_type === "PAYROLL") {
     if (!source.izvorni_dokument_id) redirectJournalDetail(nalogId, "nalog_greska");
     const payrollForm = new FormData();
@@ -706,7 +709,7 @@ export async function postJournal(formData: FormData) {
     const journal = await tx.nalog.findFirst({ where: scope, include: {
       poslovna_godina: true, stavke: { include: { firma_konto: true } }
     } });
-    if (!journal || journal.status !== journalStatuses.draft || ["OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN"].includes(journal.source_module ?? "")) return "nalog_greska";
+    if (!journal || journal.status !== journalStatuses.draft || ["IZVODI", "OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN"].includes(journal.source_module ?? "")) return "nalog_greska";
     if (journal.poslovna_godina.zakljucena) return "godina_zakljucena";
     if (journal.datum < journal.poslovna_godina.datum_od || journal.datum > journal.poslovna_godina.datum_do) return "nalog_datum";
     const periods = await tx.$queryRaw<{status: string}[]>`SELECT status FROM pdv_periodi WHERE firma_id=${journal.firma_id}::uuid AND datum_od<=${journal.datum} AND datum_do>=${journal.datum} FOR UPDATE`;
@@ -779,6 +782,8 @@ export async function reopenJournal(formData: FormData) {
       firma_id: true,
       status: true,
       source_module: true,
+      source_type: true,
+      bankStatements: { select: { id: true } },
       poslovna_godina: {
         select: {
           zakljucena: true
@@ -786,6 +791,20 @@ export async function reopenJournal(formData: FormData) {
       }
     }
   });
+
+  if (nalog && (nalog.source_module === "IZVODI" || nalog.source_type === "BANK_STATEMENT" || nalog.bankStatements.length > 0)) {
+    try {
+      await reopenBankStatement({ userId: user.id, agencyId: user.agencija_id }, { journalId: nalogId });
+    } catch (error) {
+      if (error instanceof BankStatementError) redirectJournalDetail(nalogId, error.message);
+      throw error;
+    }
+    revalidatePath("/agencija/nalozi", "layout");
+    revalidatePath("/agencija/izvodi", "layout");
+    revalidatePath("/agencija/racuni", "layout");
+    revalidatePath("/agencija/izvjestaji", "layout");
+    redirectJournalDetail(nalogId, "nalog_nacrt");
+  }
 
   if (nalog?.source_module === "PLATE") {
     try {
@@ -892,6 +911,7 @@ export async function deleteJournal(formData: FormData) {
       status: true,
       source_module: true,
       source_type: true,
+      bankStatements: { select: { id: true } },
       poslovna_godina: {
         select: {
           zakljucena: true
@@ -908,7 +928,7 @@ export async function deleteJournal(formData: FormData) {
     redirectJournals("prava");
   }
 
-  if (nalog.status !== journalStatuses.draft || ["PLATE", "OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN", "agencija.robno.avansni-racuni"].includes(nalog.source_module ?? "")) {
+  if (nalog.bankStatements.length > 0 || nalog.status !== journalStatuses.draft || ["IZVODI", "PLATE", "OSNOVNA_SREDSTVA", "PUTNI_NALOZI", "SUPPLIER_RETURN", "agencija.robno.avansni-racuni"].includes(nalog.source_module ?? "")) {
     redirectJournals("nalog_greska");
   }
 

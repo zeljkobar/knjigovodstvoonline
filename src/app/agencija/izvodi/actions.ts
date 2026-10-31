@@ -41,3 +41,7 @@ export async function postReadyBankStatements() {
 export async function importBankStatementMailMessage(input: Parameters<typeof service.importBankStatementMailMessage>[0]) {
   return service.importBankStatementMailMessage(input);
 }
+
+export async function reopenPostedBankStatement(formData: FormData) {
+  return service.reopenPostedBankStatement(formData);
+}
