@@ -1,12 +1,43 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-10-29. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-10-30. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Uvoz pazara — VG eFiskal i Summa Fiskal — 2026-10-30
+
+- KIF/KUF → Podešavanja → Fiskalni portali bira provajdera aktivne firme.
+  VG nalog koristi šifrovanu lozinku (AES-256-GCM, AAD agencija/firma/nalog),
+  poseban FISCAL_PORTAL_ENCRYPTION_KEY, provjeru veze i izbor podrazumijevane
+  kase. Summa čita isključivo lokalne fiskalizovane POS_RECEIPT/POS_RETURN.
+- U postojećoj formi Unesi pazar, Uvezi izvještaj bira kasu i period unutar
+  KIF mjeseca, popunjava poresku razradu/naplatu i automatski pokreće Excel
+  download. VG fajl ostaje originalan, Summa generiše Excel iz istih podataka.
+  Fajlovi/kolačići/lozinke su samo u memoriji; nema arhive niti report JSON-a u bazi.
+- Uvoz ne kreira KIF ni nalog: korisnik zasebno potvrđuje Unesi pazar u KIF,
+  zatim koristi postojeće knjiženje. Dodati RANGE period, tačan uvezeni PDV
+  bez ponovnog obračuna i porijeklo na KIF zapisu. Miješana neto naplata može
+  imati negativnu komponentu, ali ukupno negativan izvještaj traži posebnu obradu.
+- Potpis uvoza veže korisnika/agenciju/firmu/godinu/knjigu/kasu/period i verziju
+  podešavanja. Summa provjerava promjenu izvora i već prenesene/knjižene račune.
+  Duplikati i preklapanja blokiraju se i pri čuvanju pod lockom firme/godine;
+  postojeći POS batch takođe prepoznaje novouvezene pazare. Audit je atomski.
+- Migracija 20261030090000_fiskalni_portali_pazar je lokalno primijenjena;
+  ključ dodat samo u git-ignorisani .env i dev restartovan. Za server su potrebni
+  migrate deploy, generate, npm run fiscal-portals:key, build i restart.
+  Firma prethodno probanog VG naloga nije pronađena u lokalnoj bazi; pristupni
+  podaci nijesu upisani na pogrešnu firmu. Podešavaju se na stvarnoj firmi.
+- Prošli TSC/lint, npm test, sintetički VG/SSR testovi, stvarni DB uvoz,
+  prava/scope/FK, audit rollback, promjena izvora, purge, paralelni dupli uvoz
+  i postojeće računovodstveno jezgro u izolovanoj uklonjenoj bazi. Novi VG
+  klijent potvrđen read-only na živom nalogu bez fajla na disku. Browser alat
+  nije dostupan; forma je renderovana u regresiji. Produkcija nije mijenjana.
+- Posebno preknjižavanje pazara na kupce i budući izvještaj Fiscal API-ja nijesu
+  dio ovog koraka. OFFICE fakture se ne miješaju sa Summa POS izvještajem.
 
 ## MAPR datum bez milisekundi — 2026-10-29
 

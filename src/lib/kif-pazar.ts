@@ -5,6 +5,7 @@ export const kifEntryKinds = {
 
 export const pazarPeriodTypes = {
   daily: "DAILY",
+  range: "RANGE",
   monthly: "MONTHLY"
 } as const;
 

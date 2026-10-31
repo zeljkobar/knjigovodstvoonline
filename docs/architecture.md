@@ -20,6 +20,25 @@
   sa AAD scope-om agencije i korisnika. Pri deployu sačuvati i obezbijediti ključ
   nezavisno od baze; njegova zamjena zahtijeva ponovni upload ili re-enkripciju.
 
+### Fiskalni portali i uvoz pazara
+
+`fiskalni_portali_firmi` ima jedan provajder po firmi i složeni FK na
+agencija/firma scope. VG kredencijali šifrovani su posebnim ključem i AAD-om;
+public projekcije/audit ih ne iznose. Settings su u KIF/KUF podešavanjima,
+uvoz na postojećoj KifPazarForm. `vg-fiscal-client.ts` šalje samo dozvoljene
+HTTPS login/list/export zahtjeve uz privremeni cookie jar/CSRF, bez browsera.
+`pazar-import.ts` daje isti form DTO za VG Excel i lokalni Summa POS obračun.
+Summa koristi samo POS_RECEIPT/POS_RETURN i Podgorica granice dana.
+
+Excel se vraća browseru u memoriji uz podatke forme; nema diska, fajl arhive
+ni report cache tabele. KIF zapis dobija izvor/kasu/hash tek poslije korisničke
+potvrde. HMAC dokaz veže scope, period, kasu, verziju i rok; potvrda ponovo
+provjerava izvor i postojeće pazare pod DB lockom. Već prenesen/knjižen Summa
+POS promet blokira se, a stari POS batch prepoznaje novouvezene izvještaje.
+Purge uklanja portal credentials prije firme; KIF metapodaci nemaju potomke.
+`npm run fiscal-portals:key` inicijalizuje ključ bez ispisa/rotiranja postojeće
+vrijednosti. Serverske rute nikada ne vraćaju kredencijale ni kolačiće browseru.
+
 ### SEP automatika
 
 Konfiguracija je na `/agencija/podesavanja/sep-automatika`, dok Dashboard

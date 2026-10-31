@@ -34,6 +34,7 @@ enum KomitentScope {
 }
 
 model Agencija {
+  fiskalniPortali FirmaFiskalniPortal[]
   mailNalozi AgencijaMailNalog[]
   povratiDobavljacu PovratDobavljacu[]
   knjizenjeTemplate AgencijaKnjizenjeTemplate?
@@ -206,6 +207,7 @@ model AgencijaBankovniRacun {
 }
 
 model Firma {
+  fiskalniPortal FirmaFiskalniPortal?
   povratiDobavljacu PovratDobavljacu[]
   knjizenjeTemplate AgencijaKnjizenjeTemplate[]
   sepAutomatika SepAutomatikaPodesavanje?
@@ -1922,6 +1924,9 @@ model KifEntry {
   pazar_period_to           DateTime?                     @db.Date
   pazar_report_number       String?
   pazar_cash_register       String?
+  pazar_source_provider     String?
+  pazar_source_device       String?
+  pazar_source_digest       String?
   vat_transaction_type      String                        @default("DOMESTIC")
   is_export                 Boolean                       @default(false)
   export_declaration_number String?
@@ -1967,6 +1972,7 @@ model KifEntry {
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@index([firma_id, kupac_id, customer_invoice_number, invoice_date])
   @@index([firma_id, entry_kind, pazar_period_from, pazar_period_to])
+  @@index([firma_id, pazar_source_provider, pazar_source_device, pazar_period_from, pazar_period_to], map: "kif_entries_pazar_source_idx")
   @@index([firma_id, poslovna_godina_id, vat_transaction_type])
   @@index([firma_id, poslovna_godina_id, posting_mode, posting_status])
   @@index([poslovna_jedinica_id, invoice_date])
@@ -4068,4 +4074,27 @@ model SepAutomatikaObrada {
   @@unique([firma_id, dan])
   @@index([agencija_id, dan])
   @@map("sep_automatika_obrade")
+}
+
+model FirmaFiskalniPortal {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  firma_id String @unique @db.Uuid
+  provider String
+  korisnicko_ime String?
+  lozinka_sifrovana String?
+  podrazumijevana_kasa String?
+  aktivan Boolean @default(true)
+  is_deleted Boolean @default(false)
+  deleted_at DateTime?
+  deleted_by String? @db.Uuid
+  created_at DateTime @default(now())
+  created_by String? @db.Uuid
+  updated_at DateTime @updatedAt
+  updated_by String? @db.Uuid
+  agencija Agencija @relation(fields: [agencija_id], references: [id], onUpdate: NoAction)
+  firma Firma @relation(fields: [agencija_id, firma_id], references: [agencija_id, id], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([agencija_id, firma_id])
+  @@index([agencija_id, firma_id])
+  @@map("fiskalni_portali_firmi")
 }

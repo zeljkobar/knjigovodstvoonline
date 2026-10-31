@@ -1,5 +1,31 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-10-30 — VG/Summa uvoz periodičnog izvještaja u postojeću formu pazara
+
+- Na izričit zahtjev korisnika implementirana podešavanja po firmi i Uvezi
+  izvještaj na postojećoj formi. VG HTTPS prijava/CSRF/kolačići i izvoz rade
+  bez browsera; adrese su strogo ograničene, veličina i vrijeme odgovora takođe.
+  Summa koristi postojeću bazu POS_RECEIPT/POS_RETURN sa Podgorica granicama dana.
+- Excel se prosljeđuje browseru kroz memoriju i originalan VG fajl ostaje isti;
+  nema server arhive, report JSON cache-a ni tajni u auditu/UI. Novi ključ se
+  čuva izvan baze; CLI fiscal-portals:key ga ne prepisuje niti ispisuje.
+- KIF formu popunjava tačna poreska/naplatna razrada, uključujući mjesečna
+  zaokruživanja. Dodati RANGE i metapodaci porijekla. Potvrda unosa/knjiženje
+  ostaju odvojeni. Poslovna godina/PDV, prava, potpis, verzija konfiguracije,
+  promjena Summa izvora, već obrađeni POS promet i preklapanja provjeravaju se
+  na backendu; upisi i audit su u istoj transakciji. POS batch ne duplira uvoz.
+- Ručna migracija lokalno primijenjena, Prisma obnovljena, .env ključ podešen
+  bez ispisa i dev restartovan. Purge pokriva 84 direktne tabele; nova tabela
+  nema podređene zapise, KIF metapodaci nestaju sa roditeljem.
+- TSC/lint/npm test, SSR, živa read-only VG provjera i izolovana PostgreSQL
+  regresija stvarnih settings/create akcija, roundinga, kripto/scope/FK,
+  audit rollbacka, POS-only/storna, duplikata, source revizije, godine, purge-a
+  i paralelnog uvoza prolaze; prošlo i postojeće accounting core knjiženje.
+  Privremena testna baza uklonjena. Browser alat nije dostupan. Prethodno dati
+  VG nalog nije sačuvan jer odgovarajuća firma ne postoji u lokalnoj bazi.
+- Produkcija i Fiscal API nijesu mijenjani. Posebna šema preknjižavanja pazara
+  na kupce ostaje za naknadni dogovor/implementaciju.
+
 ## 2026-10-29 — MAPR provjera i ispravka SEP datuma
 
 - Read-only provjera istog računa potvrdila HTTP 404 za datum sa milisekundama,

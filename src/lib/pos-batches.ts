@@ -39,6 +39,7 @@ export async function generatePosKifBatch(input: {
   }
 
   return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM firme WHERE id=${input.firmaId}::uuid AND agencija_id=${input.agencijaId}::uuid FOR UPDATE`;
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`pos-kif-batch:${input.firmaId}:${input.mode}:${period.from.toISOString()}`}))`;
     const [year, book, settings, businessUnit, invoices] = await Promise.all([
       tx.poslovnaGodina.findFirst({ where: { id: input.poslovnaGodinaId, firma_id: input.firmaId }, select: { zakljucena: true } }),
@@ -74,7 +75,10 @@ export async function generatePosKifBatch(input: {
       where: {
         firma_id: input.firmaId,
         entry_kind: kifEntryKinds.pazar,
-        poslovna_jedinica_id: input.businessUnitId,
+        OR: [
+          { poslovna_jedinica_id: input.businessUnitId },
+          { pazar_source_provider: "SUMMA_FISKAL", pazar_source_device: { in: [...new Set(invoices.map(i => i.pos_register_id).filter((id): id is string => Boolean(id)))] } }
+        ],
         is_deleted: false,
         NOT: { source_type: "POS_KIF_BATCH" },
         pazar_period_from: { lte: period.to },

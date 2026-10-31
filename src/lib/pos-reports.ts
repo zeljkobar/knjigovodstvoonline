@@ -1,5 +1,6 @@
 import { decimalToScaled } from "@/lib/inventory-calculation";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 export const posPaymentLabels: Record<string, string> = {
   CASH: "Gotovina",
@@ -44,8 +45,8 @@ export async function loadPosReport(input: {
   start: Date;
   end: Date;
   registerId?: string;
-}) {
-  const invoices = await prisma.fiskalniIzlazniRacun.findMany({
+}, db: Pick<Prisma.TransactionClient, "fiskalniIzlazniRacun"> = prisma) {
+  const invoices = await db.fiskalniIzlazniRacun.findMany({
     where: {
       agencija_id: input.agencijaId,
       firma_id: input.firmaId,

@@ -1,6 +1,7 @@
 "use client";
 
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
+import { PazarImportPanel, type ImportedPazarForm } from "@/components/PazarImportPanel";
 
 
 import { useMemo, useState } from "react";
@@ -22,6 +23,7 @@ type RevenueAccount = {
 };
 
 type InitialPazar = {
+  sourceImported?: boolean;
   id: string;
   periodType: string;
   periodFrom: string;
@@ -35,6 +37,7 @@ type InitialPazar = {
   taxLines: Array<{
     vatRateId: string;
     taxBase: string;
+    vatAmount?: string;
   }>;
   payments: Array<{
     method: string;
@@ -45,6 +48,7 @@ type InitialPazar = {
 type KifPazarFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   bookId: string;
+  companyId: string;
   defaultDailyDate: string;
   defaultMonth: string;
   disabled?: boolean;
@@ -84,6 +88,7 @@ function money(cents: number) {
 export function KifPazarForm({
   action,
   bookId,
+  companyId,
   defaultDailyDate,
   defaultMonth,
   disabled = false,
@@ -105,6 +110,20 @@ export function KifPazarForm({
     Object.fromEntries(initial?.payments.map((line) => [line.method, line.amount]) ?? [])
   );
   const [paymentsTouched, setPaymentsTouched] = useState(Boolean(initial));
+  const [importToken, setImportToken] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
+  const imported = Boolean(importToken || initial?.sourceImported);
+  const [vatOverrides, setVatOverrides] = useState<Record<string, string>>(() => Object.fromEntries(initial?.taxLines.filter(t => t.vatAmount !== undefined).map(t => [t.vatRateId, t.vatAmount!]) ?? []));
+  const [periodFrom, setPeriodFrom] = useState(initial?.periodFrom ?? defaultDailyDate), [periodTo, setPeriodTo] = useState(initial?.periodTo ?? defaultDailyDate);
+  const [month, setMonth] = useState(initial?.periodFrom.slice(0, 7) ?? defaultMonth);
+  const [reportNumber, setReportNumber] = useState(initial?.reportNumber ?? ""), [cashRegister, setCashRegister] = useState(initial?.cashRegister ?? "");
+  function applyImport(data: ImportedPazarForm, token: string) {
+    setPeriodType(data.periodType); setPeriodFrom(data.periodFrom); setPeriodTo(data.periodTo); setMonth(data.periodFrom.slice(0, 7));
+    setTotal(data.total); setCashRegister(data.cashRegister); setReportNumber(data.reportNumber);
+    setBases(Object.fromEntries(rates.map(r => [r.id, data.taxLines.find(t => t.vatRateId === r.id)?.taxBase ?? "0,00"])));
+    setVatOverrides(Object.fromEntries(rates.map(r => [r.id, data.taxLines.find(t => t.vatRateId === r.id)?.vatAmount ?? "0,00"])));
+    setPayments(Object.fromEntries(data.payments.map(p => [p.method, p.amount]))); setPaymentsTouched(true); setImportToken(token);
+  }
 
   const totalCents = parseMoneyToCents(total);
   const effectivePayments = useMemo(() => {
@@ -130,7 +149,7 @@ export function KifPazarForm({
           : safePercent > 0
             ? Math.round((remainingTotalCents * 100) / (100 + safePercent))
             : remainingTotalCents;
-      const vatCents =
+      const vatCents = vatOverrides[rate.id] !== undefined ? parseMoneyToCents(vatOverrides[rate.id]) :
         safePercent > 0
           ? manualBase === undefined
             ? Math.max(0, remainingTotalCents - baseCents)
@@ -148,7 +167,7 @@ export function KifPazarForm({
         vatCents
       };
     });
-  }, [bases, rates, totalCents]);
+  }, [bases, rates, totalCents, vatOverrides]);
   const taxTotals = useMemo(
     () =>
       calculatedTaxLines.reduce(
@@ -173,8 +192,10 @@ export function KifPazarForm({
   );
 
   return (
-    <form className="admin-form kif-pazar-form" action={action}>
+    <form className="admin-form kif-pazar-form" action={action} aria-busy={importBusy} onSubmit={event => { if (importBusy) event.preventDefault(); }}>
       <input name="kif_book_id" type="hidden" value={bookId} />
+      <input name="pazar_import_token" type="hidden" value={importToken}/>
+      {!initial ? <PazarImportPanel bookId={bookId} companyId={companyId} month={defaultMonth} disabled={disabled} onImport={applyImport} onBusyChange={setImportBusy}/> : null}
       {initial ? <input name="kif_entry_id" type="hidden" value={initial.id} /> : null}
 
       <label>
@@ -182,13 +203,15 @@ export function KifPazarForm({
         <select
           name="pazar_period_type"
           value={periodType}
-          disabled={disabled}
+          disabled={disabled || imported}
           onChange={(event) => setPeriodType(event.target.value)}
         >
           <option value={pazarPeriodTypes.daily}>Dnevni</option>
           <option value={pazarPeriodTypes.monthly}>Mjesečni</option>
+          <option value={pazarPeriodTypes.range}>Period</option>
         </select>
       </label>
+      {imported ? <input type="hidden" name="pazar_period_type" value={periodType}/> : null}
 
       {periodType === pazarPeriodTypes.monthly ? (
         <label>
@@ -196,20 +219,21 @@ export function KifPazarForm({
           <input
             name="pazar_month"
             type="month"
-            defaultValue={
-              initial?.periodFrom ? initial.periodFrom.slice(0, 7) : defaultMonth
-            }
+            value={month} onChange={event => setMonth(event.target.value)} readOnly={imported}
             required
             disabled={disabled}
           />
         </label>
-      ) : (
+      ) : periodType === pazarPeriodTypes.range ? <>
+        <label>Od<input name="pazar_from" type="date" value={periodFrom} onChange={e => setPeriodFrom(e.target.value)} readOnly={imported} disabled={disabled} required/></label>
+        <label>Do<input name="pazar_to" type="date" value={periodTo} onChange={e => setPeriodTo(e.target.value)} readOnly={imported} disabled={disabled} required/></label>
+      </> : (
         <label>
           <span>Datum pazara</span>
           <input
             name="pazar_date"
             type="date"
-            defaultValue={initial?.periodFrom ?? defaultDailyDate}
+            value={periodFrom} onChange={e => { setPeriodFrom(e.target.value); setPeriodTo(e.target.value); }} readOnly={imported}
             required
             disabled={disabled}
           />
@@ -220,7 +244,7 @@ export function KifPazarForm({
         <span>Broj izvještaja</span>
         <input
           name="pazar_report_number"
-          defaultValue={initial?.reportNumber ?? ""}
+          value={reportNumber} onChange={e => setReportNumber(e.target.value)}
           placeholder="npr. Z-31/07/2026"
           disabled={disabled}
         />
@@ -230,7 +254,7 @@ export function KifPazarForm({
         <span>Kasa / poslovna jedinica</span>
         <input
           name="pazar_cash_register"
-          defaultValue={initial?.cashRegister ?? ""}
+          value={cashRegister} onChange={e => setCashRegister(e.target.value)} readOnly={imported}
           placeholder="Opciono"
           disabled={disabled}
         />
@@ -326,6 +350,7 @@ export function KifPazarForm({
                       disabled={disabled}
                       onChange={(event) => {
                         const nextValue = event.target.value;
+                        setVatOverrides(current => { const next = { ...current }; delete next[rate.id]; return next; });
 
                         setBases((current) => {
                           const next = {
@@ -347,8 +372,8 @@ export function KifPazarForm({
                     <input
                       name="output_vat_amount"
                       inputMode="decimal"
-                      readOnly
-                      tabIndex={-1}
+                      onChange={event => setVatOverrides(current => ({ ...current, [rate.id]: event.target.value }))}
+                      disabled={disabled}
                       value={centsInput(rate.vatCents)}
                     />
                   </td>
@@ -405,6 +430,7 @@ export function KifPazarForm({
           type="submit"
           disabled={
             disabled ||
+            importBusy ||
             rates.length === 0 ||
             totalCents <= 0 ||
             Math.abs(taxTotals.base + taxTotals.vat - totalCents) > 1 ||

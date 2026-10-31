@@ -73,6 +73,9 @@ export async function purgeCompanyData(
     obrisano[tabela] = await tx.$executeRaw(query);
   };
 
+  // Company portal credentials have no child tables; report files are never stored.
+  await izvrsi("fiskalni_portali_firmi", Prisma.sql`DELETE FROM fiskalni_portali_firmi WHERE firma_id=${firmaId}::uuid`);
+
   // SEP run summaries/configuration have no children. Remove config before its KIF type;
   // Removing a template company clears the agency selection; no child tables.
   await izvrsi("agencija_knjizenje_template", Prisma.sql`DELETE FROM agencija_knjizenje_template WHERE firma_id=${firmaId}::uuid`);

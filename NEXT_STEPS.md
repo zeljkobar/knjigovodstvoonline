@@ -4,6 +4,13 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Uvoz pazara VG/Summa implementiran na postojećoj KIF formi. Pri deployu,
+  uz zaustavljenu aplikaciju, primijeniti 20261030090000_fiskalni_portali_pazar,
+  generisati Prisma i pokrenuti `npm run fiscal-portals:key` prije builda/restarta.
+  Sačuvati ključ uz backup. Administrator na pravoj firmi bira provajdera/nalog
+  u KIF/KUF → Podešavanja → Fiskalni portali. Server nije mijenjan; živi browser
+  prolaz preuzimanja i prvog namjernog KIF upisa ostaje nakon podešavanja firme.
+  Preknjižavanje pazara na kupce i izvještaj iz budućeg Fiscal API-ja ostaju odvojeno.
 - MAPR format datuma ispravljen: zahtjev ide bez milisekundi, a greške nose
   HTTP status. Poslije preuzimanja ispravke restartovati server (uključujući
   lokalni dev zbog instrumentation timera), pa ponoviti neuspjelu SEP obradu iz

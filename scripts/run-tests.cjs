@@ -15,7 +15,7 @@ if(!dbOnly) {
   run(['node_modules/typescript/bin/tsc','-p','tests/tsconfig.all.json']);
   const files=fs.readdirSync('tests').filter(f=>f.endsWith('.test.ts')).sort().map(f=>path.join('.test-build/tests',f.replace(/\.ts$/,'.js')));
   run(['--conditions=react-server','--test',...files]);
-  run(['--test','tests/payroll-calculation.test.cjs','tests/invoice-posting-rates.test.cjs','tests/calculation-posting-rates.test.cjs','tests/pdv-controls.test.cjs','tests/sep.test.cjs','tests/sep-automation.test.cjs','tests/mapr-request.test.cjs','tests/automatic-documents.test.cjs','tests/theme.test.cjs','tests/invoice-posting-status.test.cjs','tests/account-search-select.test.cjs','tests/partner-summary.test.cjs','tests/posting-journal.test.cjs','tests/advance-invoice.test.cjs','tests/payroll-copy.test.cjs','tests/payroll-journal.test.cjs','tests/foreign-partner-posting.test.cjs','tests/mail-secrets.test.cjs']);
+  run(['--test','tests/payroll-calculation.test.cjs','tests/invoice-posting-rates.test.cjs','tests/calculation-posting-rates.test.cjs','tests/pdv-controls.test.cjs','tests/sep.test.cjs','tests/sep-automation.test.cjs','tests/mapr-request.test.cjs','tests/pazar-import.test.cjs','tests/automatic-documents.test.cjs','tests/theme.test.cjs','tests/invoice-posting-status.test.cjs','tests/account-search-select.test.cjs','tests/partner-summary.test.cjs','tests/posting-journal.test.cjs','tests/advance-invoice.test.cjs','tests/payroll-copy.test.cjs','tests/payroll-journal.test.cjs','tests/foreign-partner-posting.test.cjs','tests/mail-secrets.test.cjs']);
   run(['scripts/check-outgoing-invoice-delete.cjs']);
   run(['scripts/check-client-permission-matrix.cjs']);
   run(['scripts/check-company-purge-coverage.mjs']);
@@ -27,7 +27,7 @@ if(dbOnly||all) {
   const url=new URL(process.env.TEST_DATABASE_URL);
   if(!/_test(?:_|$)/i.test(url.pathname)) throw new Error('Naziv testne baze mora sadržati _test.');
   process.env.DATABASE_URL=process.env.TEST_DATABASE_URL;
-  for(const name of ['sep','mapr-import-cache','travel-orders','pdv-periods','pdv-concurrency','payroll-concurrency','payroll-lifecycle','payroll-copy','payroll-copy-concurrency','calculation-deletion','supplier-return','advance-invoices','invoice-book-creation','kuf-entry-deletion','calculation-rates','agency-financial-templates','account-length','employment-contracts','deadlines','agency-statistics','bank-statement-warnings','agency-profile','accounting-core','accounting-concurrency','invoice-lifecycle','office-storno','client-portal','fixed-assets','fixed-assets-tax','mail-import','sep-automation','theme','posting-template','foreign-partner-posting','mail-accounts']) {
+  for(const name of ['sep','mapr-import-cache','travel-orders','pdv-periods','pdv-concurrency','payroll-concurrency','payroll-lifecycle','payroll-copy','payroll-copy-concurrency','calculation-deletion','supplier-return','advance-invoices','invoice-book-creation','kuf-entry-deletion','calculation-rates','agency-financial-templates','account-length','employment-contracts','deadlines','agency-statistics','bank-statement-warnings','agency-profile','accounting-core','accounting-concurrency','invoice-lifecycle','office-storno','client-portal','fixed-assets','fixed-assets-tax','mail-import','sep-automation','theme','posting-template','foreign-partner-posting','mail-accounts','pazar-import','pazar-import-concurrency']) {
     run(['scripts/check-'+name+'.cjs']);
   }
 }

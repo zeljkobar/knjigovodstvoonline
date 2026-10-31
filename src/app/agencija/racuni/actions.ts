@@ -34,6 +34,8 @@ import { hasPermission, requirePermissionForUser, type PermissionAction } from "
 import { prisma } from "@/lib/prisma";
 import { normalizeVatTransactionType, vatTransactionTypes } from "@/lib/vat-transaction";
 import { readWorkContext } from "@/lib/work-context";
+import { checkPazarImportProof } from "@/lib/pazar-import";
+import { pazarDate, reportCents } from "@/lib/pazar-import-policy";
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -3105,6 +3107,12 @@ function parsePazarPeriod(formData: FormData) {
       : null;
   }
 
+  if (periodType === pazarPeriodTypes.range) {
+    try { const periodFrom = pazarDate(value(formData, "pazar_from")), periodTo = pazarDate(value(formData, "pazar_to"));
+      return periodFrom <= periodTo ? { periodType, periodFrom, periodTo } : null;
+    } catch { return null; }
+  }
+
   if (periodType !== pazarPeriodTypes.monthly) {
     return null;
   }
@@ -3136,6 +3144,8 @@ function normalizedPazarCashRegister(formData: FormData) {
   return raw ? raw.replace(/\s+/g, " ").toUpperCase() : null;
 }
 
+function parsePazarAmount(value: string) { try { return reportCents(value.trim().replace(",", ".") || "0"); } catch { return null; } }
+
 function parsePazarTaxLines(
   formData: FormData,
   activeRates: Array<{
@@ -3156,15 +3166,14 @@ function parsePazarTaxLines(
 
   for (let index = 0; index < rateIds.length; index += 1) {
     const rate = ratesById.get(rateIds[index]);
-    const baseCents = parseMoneyToCents(bases[index] ?? "");
-    const vatCents = parseMoneyToCents(vatAmounts[index] ?? "");
+    const baseCents = parsePazarAmount(bases[index] ?? "");
+    const vatCents = parsePazarAmount(vatAmounts[index] ?? "");
 
     if (
       !rate ||
       baseCents === null ||
       vatCents === null ||
-      baseCents < 0 ||
-      vatCents < 0 ||
+      (baseCents !== 0 && vatCents !== 0 && Math.sign(baseCents) !== Math.sign(vatCents)) ||
       (Number(rate.procenat.toString()) === 0 && vatCents !== 0)
     ) {
       return null;
@@ -3206,7 +3215,7 @@ function parsePazarPayments(formData: FormData, totalCents: number) {
 
   for (let index = 0; index < methods.length; index += 1) {
     const method = methods[index];
-    const amountCents = parseMoneyToCents(amounts[index] ?? "");
+    const amountCents = parsePazarAmount(amounts[index] ?? "");
 
     if (
       !isPazarPaymentMethod(method) ||
@@ -3218,7 +3227,7 @@ function parsePazarPayments(formData: FormData, totalCents: number) {
 
     seen.add(method);
 
-    if (amountCents > 0) {
+    if (amountCents !== 0) {
       payments.push({
         payment_method: method,
         amountCents
@@ -3322,6 +3331,7 @@ export async function createKifPazar(formData: FormData) {
   const revenueAccountCode = value(formData, "revenue_account_code");
   const note = nullableValue(formData, "note");
   const requestedBusinessUnitId = nullableValue(formData, "poslovna_jedinica_id");
+  const importToken = value(formData, "pazar_import_token");
 
   if (!kifBookId || !period || totalCents === null || totalCents <= 0) {
     redirectKifEntry(kifBookId, "kif_pazar_obavezno");
@@ -3331,7 +3341,7 @@ export async function createKifPazar(formData: FormData) {
     prisma.firma.findFirst({
       where: {
         id: workContext.firmaId,
-        agencija_id: user.agencija_id,
+        agencija_id: user.agencija_id!,
         is_deleted: false,
         aktivan: true,
         ...(user.rola === "admin_agencije"
@@ -3363,7 +3373,7 @@ export async function createKifPazar(formData: FormData) {
     prisma.kifBook.findFirst({
       where: {
         id: kifBookId,
-        agencija_id: user.agencija_id,
+        agencija_id: user.agencija_id!,
         firma_id: workContext.firmaId,
         poslovna_godina_id: workContext.poslovnaGodinaId,
         status: "OPEN",
@@ -3372,6 +3382,7 @@ export async function createKifPazar(formData: FormData) {
       select: {
         id: true,
         mjesec: true,
+        kif_date: true,
         racun_vrsta: {
           select: {
             dokument_tip: true,
@@ -3391,7 +3402,7 @@ export async function createKifPazar(formData: FormData) {
     }),
     prisma.pdvStopa.findMany({
       where: {
-        agencija_id: user.agencija_id,
+        agencija_id: user.agencija_id!,
         aktivna: true
       },
       orderBy: [
@@ -3477,11 +3488,20 @@ export async function createKifPazar(formData: FormData) {
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM firme WHERE id=${firma.id}::uuid AND agencija_id=${user.agencija_id}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM poslovne_godine WHERE id=${poslovnaGodina.id}::uuid AND firma_id=${firma.id}::uuid FOR UPDATE`;
+    if (!await tx.poslovnaGodina.count({ where: { id: poslovnaGodina.id, firma_id: firma.id, zakljucena: false } }) ||
+        !await tx.firma.count({ where: { id: firma.id, agencija_id: user.agencija_id!, aktivan: true, is_deleted: false } }) ||
+        !await tx.kifBook.count({ where: { id: kifBook.id, agencija_id: user.agencija_id!, firma_id: firma.id, poslovna_godina_id: poslovnaGodina.id, status: "OPEN", is_deleted: false } })) return { ok: false as const, reason: "kif_pazar_greska" };
+    const locked = await tx.$queryRaw<{status: string}[]>`SELECT status FROM pdv_periodi WHERE firma_id=${firma.id}::uuid AND ((datum_od<=${period.periodTo}::date AND datum_do>=${period.periodFrom}::date) OR (datum_od<=${kifBook.kif_date}::date AND datum_do>=${kifBook.kif_date}::date)) FOR UPDATE`;
+    if (locked.some(p => p.status === "LOCKED")) return { ok: false as const, reason: "kif_pazar_greska" };
+    let source: Awaited<ReturnType<typeof checkPazarImportProof>> | null = null;
+    if (importToken) { try { source = await checkPazarImportProof(tx, importToken, { agencyId: user.agencija_id!, companyId: firma.id, yearId: poslovnaGodina.id, bookId: kifBook.id, userId: user.id, from: period.periodFrom.toISOString().slice(0,10), to: period.periodTo.toISOString().slice(0,10), cashRegister }); }
+      catch { return { ok: false as const, reason: "kif_pazar_uvoz" }; } }
     const overlap = await tx.kifEntry.findFirst({
       where: {
         firma_id: firma.id,
         entry_kind: kifEntryKinds.pazar,
-        poslovna_jedinica_id: businessUnitId,
         is_deleted: false,
         pazar_period_from: {
           lte: period.periodTo
@@ -3555,6 +3575,7 @@ export async function createKifPazar(formData: FormData) {
         pazar_period_to: period.periodTo,
         pazar_report_number: reportNumber,
         pazar_cash_register: cashRegister,
+        pazar_source_provider: source?.provider, pazar_source_device: source?.deviceId, pazar_source_digest: source?.digest,
         invoice_date: period.periodTo,
         vat_transaction_type: vatTransactionTypes.domestic,
         total_base: centsToDecimal(taxData.baseTotalCents),
@@ -3590,28 +3611,13 @@ export async function createKifPazar(formData: FormData) {
       }
     });
 
+    await auditLogInTransaction(tx, { korisnikId: user.id, agencijaId: user.agencija_id, firmaId: firma.id, modul: "agencija.racuni.kif", akcija: "create_pazar", tipEntiteta: "KifEntry", entitetId: created.id, novaVrijednost: { ...created, period, cashRegister, payments, source: source ? { provider: source.provider, device: source.deviceId, digest: source.digest } : null } });
     return { ok: true as const, created };
   });
 
   if (!result.ok) {
     redirectKifEntry(kifBook.id, result.reason);
   }
-
-  await auditLog({
-    korisnikId: user.id,
-    agencijaId: user.agencija_id,
-    firmaId: firma.id,
-    modul: "agencija.racuni.kif",
-    akcija: "create_pazar",
-    tipEntiteta: "KifEntry",
-    entitetId: result.created.id,
-    novaVrijednost: {
-      ...result.created,
-      period,
-      cashRegister,
-      payments
-    }
-  });
 
   revalidatePath("/agencija/racuni/kif");
   revalidatePath("/agencija/racuni/pregled-kif");
@@ -3653,7 +3659,7 @@ export async function updateKifPazar(formData: FormData) {
       prisma.firma.findFirst({
         where: {
           id: workContext.firmaId,
-          agencija_id: user.agencija_id,
+          agencija_id: user.agencija_id!,
           is_deleted: false,
           aktivan: true,
           ...(user.rola === "admin_agencije"
@@ -3685,7 +3691,7 @@ export async function updateKifPazar(formData: FormData) {
       prisma.kifBook.findFirst({
         where: {
           id: kifBookId,
-          agencija_id: user.agencija_id,
+          agencija_id: user.agencija_id!,
           firma_id: workContext.firmaId,
           poslovna_godina_id: workContext.poslovnaGodinaId,
           status: "OPEN",
@@ -3694,6 +3700,7 @@ export async function updateKifPazar(formData: FormData) {
         select: {
           id: true,
           mjesec: true,
+          kif_date: true,
           racun_vrsta: {
             select: {
               dokument_tip: true,
@@ -3715,7 +3722,7 @@ export async function updateKifPazar(formData: FormData) {
         where: {
           id: entryId,
           kif_book_id: kifBookId,
-          agencija_id: user.agencija_id,
+          agencija_id: user.agencija_id!,
           firma_id: workContext.firmaId,
           poslovna_godina_id: workContext.poslovnaGodinaId,
           entry_kind: kifEntryKinds.pazar,
@@ -3726,12 +3733,14 @@ export async function updateKifPazar(formData: FormData) {
         select: {
           id: true,
           source_type: true,
+          updated_at: true, total_base: true, total_output_vat: true, total_gross: true,
+          pazar_source_provider: true, pazar_source_device: true, pazar_period_from: true, pazar_period_to: true, pazar_cash_register: true,
           poslovna_jedinica_id: true
         }
       }),
       prisma.pdvStopa.findMany({
         where: {
-          agencija_id: user.agencija_id,
+          agencija_id: user.agencija_id!,
           aktivna: true
         },
         orderBy: [
@@ -3828,11 +3837,17 @@ export async function updateKifPazar(formData: FormData) {
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM firme WHERE id=${firma.id}::uuid AND agencija_id=${user.agencija_id}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM poslovne_godine WHERE id=${poslovnaGodina.id}::uuid AND firma_id=${firma.id}::uuid FOR UPDATE`;
+    if (!await tx.poslovnaGodina.count({ where: { id: poslovnaGodina.id, firma_id: firma.id, zakljucena: false } }) ||
+        !await tx.kifEntry.count({ where: { id: existingEntry.id, agencija_id: user.agencija_id!, firma_id: firma.id, kif_book_id: kifBook.id, is_deleted: false, posting_status: "UNPOSTED", journal_id: null, updated_at: existingEntry.updated_at } })) return { ok: false as const, reason: "kif_pazar_greska" };
+    const locked = await tx.$queryRaw<{status: string}[]>`SELECT status FROM pdv_periodi WHERE firma_id=${firma.id}::uuid AND ((datum_od<=${period.periodTo}::date AND datum_do>=${period.periodFrom}::date) OR (datum_od<=${kifBook.kif_date}::date AND datum_do>=${kifBook.kif_date}::date)) FOR UPDATE`;
+    if (locked.some(p => p.status === "LOCKED")) return { ok: false as const, reason: "kif_pazar_greska" };
+    if (existingEntry.pazar_source_provider && (existingEntry.pazar_period_from?.getTime() !== period.periodFrom.getTime() || existingEntry.pazar_period_to?.getTime() !== period.periodTo.getTime() || existingEntry.pazar_cash_register !== cashRegister)) return { ok: false as const, reason: "kif_pazar_uvoz" };
     const overlap = await tx.kifEntry.findFirst({
       where: {
         firma_id: firma.id,
         entry_kind: kifEntryKinds.pazar,
-        poslovna_jedinica_id: businessUnitId,
         is_deleted: false,
         id: {
           not: existingEntry.id
@@ -3931,28 +3946,13 @@ export async function updateKifPazar(formData: FormData) {
       }
     });
 
+    await auditLogInTransaction(tx, { korisnikId: user.id, agencijaId: user.agencija_id, firmaId: firma.id, modul: "agencija.racuni.kif", akcija: "update_pazar", tipEntiteta: "KifEntry", entitetId: updated.id, staraVrijednost: existingEntry, novaVrijednost: { ...updated, period, cashRegister, payments } });
     return { ok: true as const, updated };
   });
 
   if (!result.ok) {
     redirectKifEntry(kifBook.id, result.reason);
   }
-
-  await auditLog({
-    korisnikId: user.id,
-    agencijaId: user.agencija_id,
-    firmaId: firma.id,
-    modul: "agencija.racuni.kif",
-    akcija: "update_pazar",
-    tipEntiteta: "KifEntry",
-    entitetId: result.updated.id,
-    novaVrijednost: {
-      ...result.updated,
-      period,
-      cashRegister,
-      payments
-    }
-  });
 
   revalidatePath("/agencija/racuni/kif");
   revalidatePath("/agencija/racuni/pregled-kif");

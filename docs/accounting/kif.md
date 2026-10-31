@@ -92,7 +92,7 @@ KIF može sadržati i zbirni pazar za firme koje promet evidentiraju preko
 fiskalne kase, bez pojedinačnih izlaznih faktura za svaki promet.
 
 - Pazar je poseban KIF zapis (`entry_kind = PAZAR`), a ne izlazna faktura.
-- Period je dnevni ili mjesečni i mora pripadati mjesecu otvorene KIF knjige.
+- Period je dnevni, mjesečni ili od–do (RANGE) i mora pripadati mjesecu otvorene KIF knjige.
 - Čuvaju se broj izvještaja, opciona kasa/poslovna jedinica, ukupan iznos,
   osnovice i izlazni PDV po aktivnim stopama.
 - Ukupan pazar se automatski raspoređuje na najveću aktivnu stopu. Kada
@@ -106,6 +106,50 @@ fiskalne kase, bez pojedinačnih izlaznih faktura za svaki promet.
   naplaćen i zato ne ulazi među otvorene kupčeve fakture.
 - Poreske stavke pazara ulaze u KIF, izlazni PDV, PDV prijavu, štampu i Excel
   izvoz na isti način kao poreske stavke izlazne fakture.
+
+### Uvoz izvještaja u formu pazara
+
+KIF/KUF → Podešavanja → Fiskalni portali čuva aktivnog provajdera po firmi:
+VG eFiskal ili Summa Fiskal. Administrator uređuje povezivanje; preuzimanje
+traži prava izlazni_racuni create/export i stvarni scope firme/godine.
+Lozinka VG-a šifrovana je AES-256-GCM sa AAD agencija/firma/nalog; ključ
+FISCAL_PORTAL_ENCRYPTION_KEY ostaje van baze. Promjena korisničkog imena traži
+ponovni unos lozinke. Poslije čuvanja provjera veze učitava kase i omogućava
+izbor podrazumijevane kase. Ovi podaci se ne kopiraju kroz template firmu.
+
+Na formi Unesi pazar dugme Uvezi izvještaj otvara kasu i mjesec knjige ili
+datume u tom mjesecu. Za tekući mjesec kraj je najviše današnji Podgorica datum.
+VG koristi originalni Periodični fiskalni izvještaj; Summa sabira samo lokalne
+fiskalizovane POS račune/storna, bez OFFICE faktura, VG-a ili MAPR-a. Preuzimanje
+popunjava postojeću formu i pokreće download Excela na korisnikov računar.
+Excel/kolačići i plaintext lozinka su samo u memoriji zahtjeva; fajl i report
+JSON se nikad ne arhiviraju na serveru ili u bazi. Summa Excel je napravljen
+iz istog obračuna koji puni formu; VG download je originalan fajl provajdera.
+
+PIB, period, razrada poreza i zbir naplate moraju odgovarati izvještaju.
+Mora postojati jednoznačna aktivna PDV stopa za svaki korišćeni procenat.
+Uvezeni PDV se zadržava tačno, bez ponovnog računanja iz mjesečne osnovice;
+korisnik ga može provjeriti/korigovati uz postojeću kontrolu ukupnog iznosa.
+Oslobođeni promet iz VG-a ulazi u postojeći 0% red KIF-a. Metode naplate se
+mapiraju na postojeću šemu gotovina/kartice/virman/ostalo; negativna komponenta
+neto naplate je dozvoljena. Ukupno negativan izvještaj se odbija uz objašnjenje.
+
+Preuzimanje nije poslovni upis: korisnik zatim potvrđuje Unesi pazar u KIF,
+pa posebno knjiži postojeću knjigu. Potpis uvoza važi dva sata i vezan je za
+korisnika, kontekst, kasu, period i verziju povezivanja. Pri potvrdi provjeravaju
+se zaključavanja, duplikati/preklapanja i izvor; Summa odbija već prenesen ili
+knjižen POS promet i promjene nakon preuzimanja. Upis i audit su atomski pod
+lockom firme/godine. Kasa/period uvezenog zapisa ne mijenjaju se naknadno.
+Sačuvani pazar drži samo izvor/kasu/period/hash; njegovo brisanje prati postojeća
+pravila, a ponovno preuzimanje bez prethodnog čuvanja ne rezerviše period.
+
+Prvi deploy, uz zaustavljenu aplikaciju: primijeniti migracije pomoću
+`npx prisma migrate deploy`, zatim `npx prisma generate`, `npm run fiscal-portals:key`,
+build i restart. CLI ne prikazuje niti prepisuje postojeći ključ; kod postojećih
+povezivanja bez ključa potrebno je vratiti prvobitni ključ iz backupa.
+Sačuvati ključ uz sigurnu rezervnu kopiju baze. Regresije: npm test,
+scripts/check-pazar-import.cjs i check-pazar-import-concurrency.cjs (izolovana testna baza).
+Preknjižavanje pazara na kupce nije dio ovog uvoza.
 
 ## Knjiženje
 - Cijela knjiga se knjiži **odjednom u jedan nalog** po šemi.

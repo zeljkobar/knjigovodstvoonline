@@ -78,6 +78,7 @@ const poruke: Record<string, string> = {
   kif_pazar_preklapanje:
     "Pazar za ovu kasu i period preklapa se sa već unesenim dnevnim ili mjesečnim pazarom.",
   kif_pazar_greska: "Pazar nije sačuvan. Provjerite podatke.",
+  kif_pazar_uvoz: "Uvoz je istekao, promet ili podešavanja su promijenjeni ili pazar već postoji. Ponovo preuzmite izvještaj. Kasa i period sačuvanog uvoza ne mogu se mijenjati.",
   prava: "Nemate pravo za ovu akciju nad izlaznim računima.",
   knjizenje_kreiran: "Nalog je kreiran.",
   knjizenje_dodato: "Novi računi su dodati na postojeći nalog.",
@@ -278,6 +279,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             pazar_period_to: true,
             pazar_report_number: true,
             pazar_cash_register: true,
+            pazar_source_provider: true,
             invoice_date: true,
             due_date: true,
             vat_transaction_type: true,
@@ -687,6 +689,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
             <KifPazarForm
               action={editingPazar ? updateKifPazar : createKifPazar}
               bookId={kifBook.id}
+              companyId={activeCompany.id}
               defaultDailyDate={defaultDailyDate}
               defaultMonth={defaultMonth}
               defaultRevenueAccount={defaultRevenueAccount}
@@ -698,6 +701,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                 editingPazar.pazar_period_to
                   ? {
                       id: editingPazar.id,
+                      sourceImported: Boolean(editingPazar.pazar_source_provider),
                       periodType: editingPazar.pazar_period_type,
                       periodFrom: inputDate(editingPazar.pazar_period_from),
                       periodTo: inputDate(editingPazar.pazar_period_to),
@@ -712,7 +716,8 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                         .filter((line) => line.vat_rate_id)
                         .map((line) => ({
                           vatRateId: line.vat_rate_id!,
-                          taxBase: decimalInput(line.tax_base)
+                          taxBase: decimalInput(line.tax_base),
+                          vatAmount: decimalInput(line.output_vat_amount)
                         })),
                       payments: editingPazar.pazar_payments.map((payment) => ({
                         method: payment.payment_method,
@@ -951,7 +956,7 @@ export default async function KifBookPage({ params, searchParams }: KifBookPageP
                         <small>
                           {entry.pazar_period_type === pazarPeriodTypes.monthly
                             ? "Mjesečni"
-                            : "Dnevni"}{" "}
+                            : entry.pazar_period_type === pazarPeriodTypes.range ? "Period" : "Dnevni"}{" "}
                           · {displayDate(entry.pazar_period_from)}
                           {entry.pazar_period_from.getTime() !==
                           entry.pazar_period_to.getTime()

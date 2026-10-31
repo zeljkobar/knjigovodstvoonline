@@ -365,6 +365,7 @@ export default async function RacuniPodesavanjaPage({
           <h2>Podešavanja računa</h2>
           <p>Vrste KIF/KUF knjiga i šeme kontiranja po poljima.</p>
         </div>
+        {activeCompany ? <Link className="secondary-button" href="/agencija/racuni/fiskalni-portali">Fiskalni portali</Link> : null}
       </header>
 
       {message ? <p className="admin-message">{message}</p> : null}
