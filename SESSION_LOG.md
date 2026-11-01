@@ -1,5 +1,30 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-01 — Uvoz 27 globalnih radnih mjesta
+
+- Po izričitom zahtjevu vlasnika preuzet autorizovani read-only snimak svih
+  27 pozicija/naziva/punih opisa sa `summasummarum.me/pozicije.html`. Kreirana
+  statička data migracija `20261101140000_globalne_pozicije_summa`; kredencijali
+  i sesija nijesu upisivani u repozitorijum ili dokumentaciju. Izvorni sajt
+  nije mijenjan i ne poziva se tokom migracije.
+- Globalni naziv se poredi case-insensitive i bez spoljnih razmaka. Ažuriraju
+  se samo puni opisi postojećih globalnih redova, uz očuvanje ID/naziva/aktivnosti;
+  nedostajući se dodaju kao globalni. Agencijske verzije i custom redovi,
+  podaci zaposlenih i snapshot ugovora se ne mijenjaju. Transakcija/table lock,
+  audit prije/poslije, ponovljena primjena bez novih izmjena ili duplog audita.
+- Lokalno dopunjeni Administrativni radnik, Konobar, Prodavac i Vozač; dodata
+  23 nova. Knjigovođa ostaje: ukupno 28 globalnih. Byte-for-byte potvrđeno svih
+  27 opisa prema snimku sajta i zadržavanje postojećih ID-jeva/agencijskih redova;
+  zabilježeno 27 import audit zapisa. Migracija deploy + generate završeni,
+  dev restartovan, admin stranica odgovara HTTP 200.
+- QA: TSC, ciljani ESLint, rollback migracioni test svih 27/opisa/ID-jeva,
+  neaktivnosti, override i istog agencijskog naziva, zaposlenog/snapshot-a,
+  audita i ponovljenog SQL-a; company purge čuva cijeli katalog. Prošla i
+  regresija ugovora/otkaza/obračuna/štampe/prava/purge i coverage 84 tabele.
+  Nema nove tabele/FK; schema/purge komentar i dokumentacija/CSV planer dopunjeni,
+  Excel regenerisan. Server mora zasebno migrate deploy, generate i restart;
+  nema nove `.env` postavke. Commit/push nije rađen.
+
 ## 2026-11-01 — Čuvanje ručnog naloga poslije Entera
 
 - Reprodukovan prijavljeni Save problem: fokus/Enter na prazan red upisuje

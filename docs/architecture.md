@@ -518,6 +518,15 @@ Obje koriste postojeće scope, transakcioni audit i provjeru verzije.
 
 
 ### Radna mjesta i ugovori o radu
+Data migracija `20261101140000_globalne_pozicije_summa` nosi statički snimak
+27 naziva/punih opisa sa postojećeg sajta (01.11.2026). Ažurira samo opis
+istoimenog globalnog reda uz očuvanje ID-ja i aktivacije, ili dodaje nedostajući
+red; poređenje koristi lower/btrim naziva. Ne mijenja agencijske redove/override,
+zaposlene ili sačuvane ugovore. Jedna transakcija uz table lock i audit
+`import_global_job` čuva prije/poslije; ponavljanje je no-op. Lokalno 23 nova,
+četiri dopunjena i zadržani Knjigovođa: 28 globalnih. Migracija ne traži
+kredencijale, spoljni pristup ili promjenu `.env`; struktura i purge ostaju isti.
+
 `radna_mjesta` ima globalni red (agencija null), agencijski red ili override preko
 `globalno_id`; unique agencija/globalno sprečava duple verzije. Zaposleni referencira
 osnovni identitet, čitanje razrješava agencijsku verziju. Šifarnik nema firma_id i

@@ -1,0 +1,48 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Actual data migration in a rollback-only fixture. */
+require('@next/env').loadEnvConfig(process.cwd(),false,{info(){},error(){}});
+const assert=require('node:assert/strict'),fs=require('node:fs'),{randomUUID}=require('node:crypto');
+const{PrismaClient}=require('@prisma/client');
+const{sourceLoader,transactionProxy}=require('../tests/helpers/source-loader.cjs');
+const db=new PrismaClient(),rollback=Error('ROLLBACK_JOB_IMPORT');
+const names=['Administrativni radnik','Čistač i pomoćno osoblje','Frizer','Građevinski inženjer','Higjeničar/ka','Izvodjac osnovnih gradjevinskih radova','Izvrsni direktor','Komercijalista','Konobar','Moler','Noćni čuvar','Novinar','Pica majstor','Pomoćni radnik na otpadu','Pomoćni radnik u kuhinji','Pomoćni radnik u proizvodnji','Poslovođa','Prodavac','Radnik u servisu','Recepcioner','Rudarski inženjer','Rukovalac građevinskih masina','Sanker','Trener','Turistički vodič','Upravitelj čamca','Vozač'];
+const sql=fs.readFileSync('prisma/migrations/20261101140000_globalne_pozicije_summa/migration.sql','utf8');
+const body=sql.slice(sql.indexOf('WITH source('),sql.lastIndexOf('COMMIT;')).trim();
+const normalized=s=>s.trim().toLocaleLowerCase('sr-Latn');
+(async()=>{try{await db.$transaction(async tx=>{
+ const agency=await tx.agencija.create({data:{naziv:'Job import fixture '+randomUUID()}});
+ const employer=await tx.firma.create({data:{agencija_id:agency.id,naziv:'Job import employer'}});
+ const user=await tx.korisnik.create({data:{agencija_id:agency.id,korisnicko_ime:randomUUID(),lozinka_hash:'disabled',rola:'admin_agencije'}});
+ let original=await tx.radnoMjesto.findFirst({where:{agencija_id:null,naziv:'Administrativni radnik'}});
+ if(!original)original=await tx.radnoMjesto.create({data:{naziv:'Administrativni radnik',opis_poslova:'Old description'}});
+ await tx.radnoMjesto.update({where:{id:original.id},data:{naziv:' administrativni radnik ',opis_poslova:'Original fixture description',aktivno:false}});
+ const agencyJob=await tx.radnoMjesto.create({data:{agencija_id:agency.id,naziv:'Konobar',opis_poslova:'Private agency duties'}});
+ const override=await tx.radnoMjesto.create({data:{agencija_id:agency.id,globalno_id:original.id,naziv:'Agency administrator',opis_poslova:'Agency override duties'}});
+ const employee=await tx.plateRadnik.create({data:{agencija_id:agency.id,firma_id:employer.id,ime:'Fixture',prezime:'Worker',radno_mjesto_id:original.id,radno_mjesto:'Historical position'}});
+ const contract=await tx.ugovorORadu.create({data:{agencija_id:agency.id,firma_id:employer.id,radnik_id:employee.id,broj:randomUUID(),datum:new Date('2026-11-01'),snapshot:{opis_poslova:'Original saved contract duties'},verzija_predloska:'fixture',created_by:user.id,updated_by:user.id}});
+ const before=await tx.radnoMjesto.findMany({orderBy:{id:'asc'}});
+ const auditBefore=await tx.auditLog.count({where:{akcija:'import_global_job'}});
+ const globalsBefore=before.filter(r=>!r.agencija_id);
+ const matches=globalsBefore.filter(r=>names.some(n=>normalized(n)===normalized(r.naziv)));
+ const missing=names.filter(n=>!matches.some(r=>normalized(r.naziv)===normalized(n)));
+ const apply=async()=>{await tx.$executeRawUnsafe('LOCK TABLE radna_mjesta IN SHARE ROW EXCLUSIVE MODE');await tx.$executeRawUnsafe(body);};
+ await apply();
+ const after=await tx.radnoMjesto.findMany({orderBy:{id:'asc'}}),globals=after.filter(r=>!r.agencija_id);
+ assert.equal(globals.length,globalsBefore.length+missing.length);
+ for(const name of names){const rows=globals.filter(r=>normalized(r.naziv)===normalized(name));assert.ok(rows.length>0,name);assert.ok(rows.every(r=>r.globalno_id===null&&r.opis_poslova.length>40),name);}
+ for(const old of globalsBefore)assert.ok(globals.some(r=>r.id===old.id),old.naziv+' keeps its ID');
+ for(const old of before.filter(r=>r.agencija_id||!names.some(n=>normalized(n)===normalized(r.naziv))))assert.deepEqual(after.find(r=>r.id===old.id),old,'unrelated/agency row unchanged');
+ const imported=globals.find(r=>r.id===original.id);assert.equal(imported.naziv,' administrativni radnik ');assert.equal(imported.aktivno,false);assert.match(imported.opis_poslova,/Ažuriranje dokumentacije/);
+ assert.deepEqual(await tx.plateRadnik.findUniqueOrThrow({where:{id:employee.id}}),employee);
+ assert.deepEqual(await tx.ugovorORadu.findUniqueOrThrow({where:{id:contract.id}}),contract);
+ const changes=after.filter(r=>!before.some(b=>b.id===r.id&&b.opis_poslova===r.opis_poslova));
+ assert.equal(await tx.auditLog.count({where:{akcija:'import_global_job'}}),auditBefore+changes.length);
+ const editedAudit=await tx.auditLog.findFirstOrThrow({where:{akcija:'import_global_job',entitet_id:original.id},orderBy:{created_at:'desc'}});assert.equal(editedAudit.stara_vrijednost.opis_poslova,'Original fixture description');assert.equal(editedAudit.nova_vrijednost.opis_poslova,imported.opis_poslova);assert.equal(editedAudit.korisnik_id,null);
+ const auditAfter=await tx.auditLog.count({where:{akcija:'import_global_job'}});
+ await apply();assert.deepEqual(await tx.radnoMjesto.findMany({orderBy:{id:'asc'}}),after);assert.equal(await tx.auditLog.count({where:{akcija:'import_global_job'}}),auditAfter);
+ const load=sourceLoader({'@/lib/prisma':{prisma:transactionProxy(tx)}}),{jobPositions}=load('src/lib/job-positions.ts');
+ const available=await jobPositions(agency.id,tx);assert.equal(available.find(r=>r.id===original.id).opis_poslova,override.opis_poslova);assert.ok(available.find(r=>r.id===agencyJob.id));
+ await load('src/lib/company-purge.ts').purgeCompanyData(tx,{agencijaId:agency.id,firmaId:employer.id,potvrdaNaziva:employer.naziv,korisnikId:user.id});
+ assert.deepEqual(await tx.radnoMjesto.findMany({orderBy:{id:'asc'}}),after);assert.equal(await tx.plateRadnik.count({where:{firma_id:employer.id}}),0);
+ console.log('PASS job import: all 27 positions/full descriptions, global-only matching, retained IDs/activation, agency jobs/overrides and employee/contract snapshots untouched, exact audit, repeat SQL no-op, shared catalog survives company purge. Fixtures rolled back.');
+ throw rollback;
+},{timeout:60000});}catch(e){if(e!==rollback)throw e;}finally{await db.$disconnect();}})().catch(e=>{console.error(e);process.exitCode=1});

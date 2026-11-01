@@ -3915,6 +3915,8 @@ model FirmaRokZadatak {
   @@map("firma_rok_zadaci")
 }
 
+/// Globalni katalog (agencija_id null) i agencijske verzije; data migracije
+/// dopunjavaju opise globalnih redova uz očuvanje ID-jeva i postojećih veza.
 model RadnoMjesto {
  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
  agencija_id String? @db.Uuid

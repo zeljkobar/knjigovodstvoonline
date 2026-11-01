@@ -4,6 +4,11 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Za globalna radna mjesta na serveru primijeniti
+  `20261101140000_globalne_pozicije_summa` preko `npx prisma migrate deploy`,
+  zatim generate/restart. Lokalno je uvezeno svih 27 sa sajta bez dupliranja
+  četiri postojeća reda; sa Knjigovođom ukupno 28. Deploy skripta trenutno
+  ne primjenjuje migracije; `.env` se ne mijenja.
 - Ručni editor naloga izvoda je završen: Predlog naloga → Edituj nalog →
   Sačuvaj (F8) → Proknjiži (F9). Ispravljeno čuvanje nakon Entera na prazan
   red i lažna oznaka nesnimljenih izmjena pri samom fokusu. Korisnik može ispraviti izvod 3

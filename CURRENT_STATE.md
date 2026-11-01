@@ -8,6 +8,25 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Globalna radna mjesta sa postojećeg sajta — 2026-11-01
+
+- Preuzeto svih 27 naziva i punih opisa sa `summasummarum.me/pozicije.html`,
+  uključujući pet dodatnih pozicija koje je vlasnik zatražio kao globalne.
+  Četiri postojeća globalna reda dobila su pune opise uz iste ID-jeve; dodata
+  su 23 nova. Postojeći Knjigovođa ostaje, ukupno lokalno 28 globalnih mjesta.
+- Data migracija `20261101140000_globalne_pozicije_summa` sadrži cijeli snimak
+  bez kredencijala ili mrežnog pristupa pri deployu. Globalne redove prepoznaje
+  po nazivu bez razlike velikih slova/spoljnih razmaka; čuva ID/naziv/aktivnost,
+  agencijske verzije, zaposlenje i snimljene ugovore. Ponovljeni SQL je no-op;
+  insert/update audit bilježi prije/poslije sa sistemskim izvršiocem.
+- Migracija lokalno primijenjena, Prisma generisana, dev restartovan. Prošli
+  poređenje svih 27 opisa sa izvornim snimkom, TSC/lint, rollback test migracije
+  (scope/override/ID/audit/idempotentnost/purge), regresija ugovora i purge
+  pokriće. Globalni katalog ostaje nakon brisanja firme; nema novih FK/tabela.
+- Za server poslije povlačenja koda: `npx prisma migrate deploy`,
+  `npx prisma generate`, restart aplikacije. Deploy skripta sama ne poziva
+  migrate deploy. Nema nove `.env` postavke. Commit/push ove dopune nije rađen.
+
 ## Ručno uređivanje konačnog naloga izvoda — 2026-11-01
 
 - Dopuna Save-a: neupotrijebljen red sa samim automatskim opisom ne blokira
