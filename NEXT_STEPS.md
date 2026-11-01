@@ -4,6 +4,26 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Ručni editor naloga izvoda je završen: Predlog naloga → Edituj nalog →
+  Sačuvaj (F8) → Proknjiži (F9). Ispravljeno čuvanje nakon Entera na prazan
+  red i lažna oznaka nesnimljenih izmjena pri samom fokusu. Korisnik može ispraviti izvod 3
+  prema originalnoj dokumentaciji; parser više ne blokira ispravan ručni nalog.
+  Stvarni iznosi nijesu automatski korigovani. POSTED prvo vratiti u nacrt.
+  Na produkciji primijeniti `20261101120000_bank_manual_journal`, generate i
+  restart; lokalno završeno. Nema nove `.env` postavke. Dorada parsera za
+  stare CKB 3/9/10 ostaje zasebna uz originalne PDF fajlove.
+- Ispravljena READY kontrola izvoda i grupno knjiženje: refresh programa,
+  zatim Proknjiži spremne. U AUTO režimu matematički neispravni su Za provjeru i
+  preskaču uz poruku; čuvanje/pravila/import više ih ne označavaju READY.
+  Stari CKB izvodi 9/10 zahtijevaju originalne 009.pdf/010.pdf za preciznu
+  doradu parsera i kontrolisani ponovni uvoz; sami iznosi nijesu mijenjani.
+  Živa dijagnostička proba poništena je u cijelosti; nema migracije/.env izmjene.
+- CBCG pretraga izvoda je implementirana i korisnik je 2026-11-01 potvrdio da radi. U Chrome/Edge Reload postojećeg
+  `browser-extensions/irms-helper` na 1.1.0, odobriti CBCG pristup ako se traži
+  i osvježiti program. Provjeriti cijeli korisnički tok na nepovezanom računu:
+  dugme CBCG, eventualni ručni OK, povrat podataka/zatvaranje taba i potvrda
+  partnera. Novi čitač je potvrđen na živom sajtu, a protokol/SSR/DB rollback
+  provjere prolaze. Nema migracije niti .env promjene.
 - Grupna Zamjena konta je implementirana u Nalozima, bez migracije/.env promjene.
   Prikaži stavke pa Potvrdi zamjenu mijenja postojeća POSTED knjiženja aktivne
   firme/godine i izabrane vrste, uz opcioni period, audit i sinhronizaciju izvoda.

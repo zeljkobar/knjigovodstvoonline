@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   bankStatementLineBlockers,
+  bankStatementAmountBlockers,
+  bankStatementAmountsReady,
   bestBankStatementRuleForLine,
   type BankStatementRuleMatchInput
 } from "../src/lib/bank-statement-rules";
@@ -9,6 +11,26 @@ import {
 type TestRule = BankStatementRuleMatchInput & {
   id: string;
 };
+
+test("spremnost izvoda provjerava oba zbira i smjer, a ne samo oznake READY", () => {
+  const statement = { opening_balance: "10.00", total_inflow: "0.30", total_outflow: "0.20", closing_balance: "10.10", lines: [
+    { line_number: 1, direction: "INFLOW", inflow_amount: "0.10", outflow_amount: "0", posting_status: "READY" },
+    { line_number: 2, direction: "INFLOW", inflow_amount: "0.20", outflow_amount: "0", posting_status: "READY" },
+    { line_number: 3, direction: "OUTFLOW", inflow_amount: "0", outflow_amount: "0.20", posting_status: "READY" }
+  ] };
+  assert.equal(bankStatementAmountsReady(statement), true);
+  assert.deepEqual(bankStatementAmountBlockers(statement), []);
+  const commission = { ...statement, lines: statement.lines.map((line, index) => index === 2 ? { ...line, inflow_amount: "0.36" } : line) };
+  assert.equal(bankStatementAmountsReady(commission), false);
+  assert.match(bankStatementAmountBlockers(commission).join(" "), /smjer.*Zbir priliva.*0,66.*0,30/);
+  const wrongDirection = { ...statement, lines: statement.lines.map((line, index) => index === 0 ? { ...line, direction: "OUTFLOW" } : line) };
+  assert.equal(bankStatementAmountsReady(wrongDirection), false);
+  assert.equal(bankStatementAmountsReady({ ...statement, lines: statement.lines.map(line => ({ ...line, posting_status: "IGNORED" })) }), false);
+  assert.equal(bankStatementAmountsReady({ ...statement, total_inflow: "1.00" }), false);
+  assert.equal(bankStatementAmountsReady({ ...statement, opening_balance: null }), false);
+  assert.equal(bankStatementAmountsReady({ ...statement, lines: [] }), false);
+  assert.equal(bankStatementAmountsReady({ ...statement, lines: statement.lines.map(line => ({ ...line, posting_status: "NEEDS_REVIEW" })) }), false);
+});
 
 function rule(overrides: Partial<TestRule> & Pick<TestRule, "id">): TestRule {
   return {

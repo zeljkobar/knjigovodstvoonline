@@ -3073,6 +3073,41 @@ td small {
   width: 18%;
 }
 
+.statement-cbcg-lookup {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.manual-bank-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.manual-bank-fields .journal-lines-table {
+  min-width: 1280px;
+}
+
+.manual-bank-fields .journal-lines-table th:first-child { width: 3%; }
+.manual-bank-fields .journal-lines-table th:nth-child(2) { width: 8%; }
+.manual-bank-fields .journal-lines-table th:nth-child(3) { width: 16%; }
+.manual-bank-fields .journal-lines-table th:nth-child(4) { width: 18%; }
+.manual-bank-fields .journal-lines-table th:nth-child(5) { width: 8%; }
+.manual-bank-fields .journal-lines-table th:nth-child(6),
+.manual-bank-fields .journal-lines-table th:nth-child(7) { width: 11%; }
+.manual-bank-fields .journal-lines-table th:nth-child(8),
+.manual-bank-fields .journal-lines-table th:nth-child(9) { width: 9%; }
+.manual-bank-fields .journal-lines-table th:nth-child(10) { width: 7%; }
+
+.statement-cbcg-lookup > .table-link {
+  justify-self: start;
+}
+
 .statement-col-account {
   width: 18%;
 }

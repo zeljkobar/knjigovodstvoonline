@@ -32,7 +32,7 @@ async function reply(action,data){try{await action(form(data));throw Error('Expe
  let user=admin,context={firmaId:company.id,poslovnaGodinaId:year.id},failAudit=false;
  const base={'@/lib/prisma':{prisma:transactionProxy(tx)},'@/lib/auth':{getCurrentUser:async()=>user,isDirectFiscalTenantUser:()=>false,requireAnyRole:async roles=>{if(!roles.includes(user.rola))throw Error('ROLE');return user;}},'@/lib/work-context':{readWorkContext:async()=>context},'next/headers':{headers:async()=>new Map()},'next/cache':{revalidatePath(){}},'next/navigation':{redirect:url=>{throw Error('REDIRECT:'+url);}},'next/link':{__esModule:true,default:({children,...props})=>React.createElement('a',props,children)}};
  const audit=sourceLoader(base)('src/lib/audit.ts');
- const load=sourceLoader({...base,'@/lib/audit':{...audit,auditLogInTransaction:async(t,input,...args)=>{if(failAudit&&['reopen_statement','post_statement','update_lines'].includes(input.akcija))throw Error('AUDIT_FAILURE');return audit.auditLogInTransaction(t,input,...args);}}});
+ const load=sourceLoader({...base,'@/lib/audit':{...audit,auditLogInTransaction:async(t,input,...args)=>{if(failAudit&&['reopen_statement','sync_draft_statement','post_statement','update_lines'].includes(input.akcija))throw Error('AUDIT_FAILURE');return audit.auditLogInTransaction(t,input,...args);}}});
  const service=load('src/lib/bank-statement-service.ts'),life=load('src/lib/bank-statement-lifecycle.ts'),journals=load('src/app/agencija/nalozi/actions.ts');
  const make=async(number,inflow,outflow)=>{
   const statement=await tx.bankStatement.create({data:{...scope,company_bank_account_id:bank.id,bank_account_konto_id:accounts['2410'].id,statement_number:String(number),statement_date:date('2026-06-20'),status:'READY',total_inflow:String(inflow),total_outflow:String(outflow),closing_balance:String(inflow-outflow),lines:{create:[{line_number:1,posting_date:date('2026-06-20'),description:'Customer payment',direction:'INFLOW',inflow_amount:String(inflow),credit_account_id:accounts['2020'].id,partner_id:partner.id,posting_status:'READY'},{line_number:2,posting_date:date('2026-06-20'),description:'Supplier payment',direction:'OUTFLOW',outflow_amount:String(outflow),debit_account_id:accounts['4330'].id,partner_id:partner.id,posting_status:'READY'}]}}});
@@ -101,6 +101,101 @@ async function reply(action,data){try{await action(form(data));throw Error('Expe
  assert.equal(Number((await tx.bankStatementLineAllocation.aggregate({where:{...life.postedBankAllocationWhere,kuf_entry_id:invoice.KUF.id},_sum:{amount:true}}))._sum.amount),40);
  html=renderToStaticMarkup(await page({searchParams:Promise.resolve({izvod:first.statement.id,tab:'nalog'})}));assert.match(html,/>Vrati u nacrt</);assert.doesNotMatch(html,/>Proknjiži izvod</);
  assert.match(await reply(service.postSelectedBankStatements,{statement_id:first.statement.id}),/nema_spremnih_izvoda/);assert.equal(await balance('2410'),6000);
- console.log('PASS bank reopen: real post→draft→correction→post, same journal/number, GL and KIF/KUF payments, retained draft selections, locks/rights/scope, atomic audit rollback, repeat and SSR.');
+ // CBCG's compact form updates one unresolved row through the same guarded
+ // action, preserving the other rows and learning the account on confirmation.
+ const cbcgStatement=await tx.bankStatement.create({data:{...scope,company_bank_account_id:bank.id,bank_account_konto_id:accounts['2410'].id,statement_number:'98',statement_date:date('2026-06-20'),status:'NEEDS_REVIEW',total_inflow:'10',total_outflow:'3',closing_balance:'7',lines:{create:[
+  {line_number:1,posting_date:date('2026-06-20'),description:'Unresolved account',direction:'INFLOW',inflow_amount:'10',credit_account_id:accounts['2020'].id,counterparty_account_number:'530-19109-13',counterparty_account_number_normalized:'5301910913',posting_status:'NEEDS_REVIEW'},
+  {line_number:2,posting_date:date('2026-06-20'),description:'Do not change',direction:'OUTFLOW',outflow_amount:'3',debit_account_id:accounts['4330'].id,partner_id:partner.id,posting_status:'IGNORED'}]}}});
+ const cbcgLines=await tx.bankStatementLine.findMany({where:{bank_statement_id:cbcgStatement.id},orderBy:{line_number:'asc'}});
+ html=renderToStaticMarkup(await page({searchParams:Promise.resolve({izvod:cbcgStatement.id})}));assert.match(html,/>CBCG<\/button>/);
+ const compact={statement_id:cbcgStatement.id,statement_version:cbcgStatement.updated_at.toISOString(),line_id:cbcgLines[0].id,line_direction:'INFLOW',partner_id:partner.id,credit_account_code:'2020',debit_account_code:'',allocation_target:''};
+ failAudit=true;await assert.rejects(()=>service.updateBankStatementLines(form(compact)),/AUDIT_FAILURE/);failAudit=false;
+ assert.equal((await tx.bankStatementLine.findUniqueOrThrow({where:{id:cbcgLines[0].id}})).partner_id,null);
+ assert.match(await reply(service.updateBankStatementLines,compact),/stavke_sacuvane/);
+ assert.equal((await tx.bankStatementLine.findUniqueOrThrow({where:{id:cbcgLines[0].id}})).partner_id,partner.id);
+ assert.deepEqual(await tx.bankStatementLine.findUniqueOrThrow({where:{id:cbcgLines[1].id}}),cbcgLines[1]);
+ assert.equal((await tx.partnerBankAccount.findFirstOrThrow({where:{agencija_id:agency.id,normalized_account_number:'5301910913'}})).partner_id,partner.id);
+ assert.match(await reply(service.updateBankStatementLines,compact),/izvod_promijenjen/);
+ html=renderToStaticMarkup(await page({searchParams:Promise.resolve({izvod:cbcgStatement.id})}));assert.doesNotMatch(html,/>CBCG<\/button>/);
+ await tx.bankStatementLine.update({where:{id:cbcgLines[0].id},data:{partner_id:null,posting_status:'NEEDS_REVIEW'}});
+ const latest=await tx.bankStatement.findUniqueOrThrow({where:{id:cbcgStatement.id}});const latestForm={...compact,statement_version:latest.updated_at.toISOString()};
+ await tx.pdvPeriod.update({where:{id:period.id},data:{status:'LOCKED'}});assert.match(await reply(service.updateBankStatementLines,latestForm),/pdv_period_zakljucan/);await tx.pdvPeriod.update({where:{id:period.id},data:{status:'OPEN'}});
+ await tx.poslovnaGodina.update({where:{id:year.id},data:{zakljucena:true}});
+ html=renderToStaticMarkup(await page({searchParams:Promise.resolve({izvod:cbcgStatement.id})}));assert.doesNotMatch(html,/>CBCG<\/button>/);assert.match(await reply(service.updateBankStatementLines,latestForm),/godina_zakljucena/);
+ await tx.poslovnaGodina.update({where:{id:year.id},data:{zakljucena:false}});
+ await tx.korisnikPravo.create({data:{agencija_id:agency.id,firma_id:company.id,korisnik_id:worker.id,modul:'izvodi',akcija:'view',dozvoljeno:true}});
+ user=worker;html=renderToStaticMarkup(await page({searchParams:Promise.resolve({izvod:cbcgStatement.id})}));assert.doesNotMatch(html,/>CBCG<\/button>/);user=admin;
+ context={firmaId:other.id,poslovnaGodinaId:year.id};assert.match(await reply(service.updateBankStatementLines,latestForm),/izvod_greska/);
+ context={firmaId:company.id,poslovnaGodinaId:year.id};
+ // Historical READY flags with inconsistent header/rows must not poison a
+ // valid batch, nor become READY again after saving or applying rules.
+ const invalid=await make(99,8,3);
+ await tx.bankStatementLine.update({where:{id:invalid.lines[0].id},data:{inflow_amount:'9'}});
+ html=renderToStaticMarkup(await page({searchParams:Promise.resolve({izvod:invalid.statement.id})}));
+ assert.match(html,/Zbir priliva stavki 9,00 ne odgovara prilivu zaglavlja 8,00/);assert.doesNotMatch(html,/>Proknjiži izvod</);
+ html=renderToStaticMarkup(await page({searchParams:Promise.resolve({})}));
+ assert.match(html,new RegExp('disabled=""[^>]*name="statement_id"[^>]*value="'+invalid.statement.id+'"'));
+ assert.match(await reply(service.postSelectedBankStatements,{statement_id:invalid.statement.id}),/izvod_promet_greska/);
+ assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:invalid.statement.id}})).journal_id,null);
+ const valid=await make(100,7,2);
+ assert.match(await reply(service.postReadyBankStatements,{}),/izvodi_proknjizeni_dio_za_provjeru/);
+ assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:valid.statement.id}})).status,'POSTED');
+ assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:invalid.statement.id}})).journal_id,null);
+ // No historical record is written merely to change its label during a read.
+ assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:invalid.statement.id}})).status,'READY');
+ assert.match(await reply(service.updateBankStatementLines,invalid.data),/stavke_sacuvane/);
+ assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:invalid.statement.id}})).status,'NEEDS_REVIEW');
+ assert.match(await reply(service.reapplyBankStatementRules,{statement_id:invalid.statement.id}),/pravila_/);
+ assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:invalid.statement.id}})).status,'NEEDS_REVIEW');
+ await tx.bankStatement.update({where:{id:invalid.statement.id},data:{status:'READY'}});
+ assert.match(await reply(service.postReadyBankStatements,{}),/izvodi_za_provjeru/);
+ // Old generic journal reopening left a POSTED source attached to a DRAFT
+ // journal. Show the actual state and repair only on an explicit guarded edit.
+ const legacy=await make(101,8,3);await reply(service.postSelectedBankStatements,{statement_id:legacy.statement.id});
+ const legacySource=await tx.bankStatement.findUniqueOrThrow({where:{id:legacy.statement.id}}),oldReopen=date('2026-06-10');
+ await tx.nalog.update({where:{id:legacySource.journal_id},data:{status:'DRAFT',vracen_u_nacrt_at:oldReopen,vracen_u_nacrt_by:admin.id}});
+ html=renderToStaticMarkup(await page({searchParams:Promise.resolve({})}));assert.match(html,/Nalog u nacrtu/);
+ html=renderToStaticMarkup(await page({searchParams:Promise.resolve({izvod:legacy.statement.id,tab:'nalog'})}));
+ assert.match(html,/Uskladi sa nacrtom/);assert.match(html,/<button class="primary-button" type="submit">Sačuvaj predlog naloga<\/button>/);
+ assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:legacy.statement.id}})).status,'POSTED'); // SSR is read-only
+ assert.match(await reply(service.updateBankStatementLines,{...legacy.data,statement_version:new Date(0).toISOString()}),/izvod_promijenjen/);
+ await tx.poslovnaGodina.update({where:{id:year.id},data:{zakljucena:true}});assert.match(await reply(service.updateBankStatementLines,legacy.data),/godina_zakljucena/);await tx.poslovnaGodina.update({where:{id:year.id},data:{zakljucena:false}});
+ await tx.pdvPeriod.update({where:{id:period.id},data:{status:'LOCKED'}});assert.match(await reply(service.updateBankStatementLines,legacy.data),/pdv_period_zakljucan/);await tx.pdvPeriod.update({where:{id:period.id},data:{status:'OPEN'}});
+ await tx.korisnikPravo.updateMany({where:{korisnik_id:worker.id,modul:'izvodi',akcija:'update'},data:{dozvoljeno:true}});
+ await tx.korisnikPravo.updateMany({where:{korisnik_id:worker.id,modul:'izvodi',akcija:'post'},data:{dozvoljeno:false}});
+ user=worker;assert.match(await reply(service.updateBankStatementLines,legacy.data),/prava/);
+ html=renderToStaticMarkup(await page({searchParams:Promise.resolve({izvod:legacy.statement.id,tab:'nalog'})}));
+ assert.doesNotMatch(html,/Uskladi sa nacrtom<\/button>/);assert.match(html,/<button class="primary-button" disabled="" type="submit">Sačuvaj predlog naloga/);user=admin;
+ assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:legacy.statement.id}})).status,'POSTED');
+ failAudit=true;await assert.rejects(()=>service.updateBankStatementLines(form(legacy.data)),/AUDIT_FAILURE/);failAudit=false;
+ assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:legacy.statement.id}})).status,'POSTED');
+ assert.ok((await tx.nalog.findUniqueOrThrow({where:{id:legacySource.journal_id}})).proknjizen_at);
+ await tx.kifEntry.update({where:{id:invoice.KIF.id},data:{journal_id:legacySource.journal_id}});
+ assert.match(await reply(service.updateBankStatementLines,legacy.data),/izvod_nalog_veze/);await tx.kifEntry.update({where:{id:invoice.KIF.id},data:{journal_id:null}});
+ assert.match(await reply(service.updateBankStatementLines,legacy.data),/stavke_sacuvane/);
+ const normalized=await tx.bankStatement.findUniqueOrThrow({where:{id:legacy.statement.id}}),normalizedJournal=await tx.nalog.findUniqueOrThrow({where:{id:legacySource.journal_id}});
+ assert.equal(normalized.status,'READY');assert.equal(normalized.posted_at,null);assert.equal(normalized.journal_id,legacySource.journal_id);
+ assert.equal(normalizedJournal.proknjizen_at,null);assert.equal(normalizedJournal.proknjizen_by,null);assert.equal(normalizedJournal.datum_knjizenja,null);assert.equal(normalizedJournal.vracen_u_nacrt_at.getTime(),oldReopen.getTime());
+ assert.equal(await tx.auditLog.count({where:{entitet_id:legacy.statement.id,akcija:'sync_draft_statement'}}),1);
+ html=renderToStaticMarkup(await page({searchParams:Promise.resolve({izvod:legacy.statement.id,tab:'nalog'})}));assert.match(html,/>Proknjiži izvod</);
+ await reply(service.postSelectedBankStatements,{statement_id:legacy.statement.id});
+ assert.match(await reply(service.updateBankStatementLines,legacy.data),/izvod_greska/);
+ assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:legacy.statement.id}})).journal_id,legacySource.journal_id);
+ assert.equal(await tx.nalog.count({where:{izvorni_dokument_id:legacy.statement.id}}),1);
+ // The explicit sync/reopen action also accepts the legacy pair and is idempotent.
+ await tx.nalog.update({where:{id:legacySource.journal_id},data:{status:'DRAFT'}});
+ await life.reopenBankStatement({userId:admin.id,agencyId:agency.id},{statementId:legacy.statement.id});
+ assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:legacy.statement.id}})).status,'NEEDS_REVIEW');
+ await life.reopenBankStatement({userId:admin.id,agencyId:agency.id},{statementId:legacy.statement.id});
+ assert.equal(await tx.auditLog.count({where:{entitet_id:legacy.statement.id,akcija:'sync_draft_statement'}}),2);
+ await tx.bankStatement.update({where:{id:legacy.statement.id},data:{status:'POSTED'}});
+ await tx.bankStatementLine.update({where:{id:legacy.lines[0].id},data:{inflow_amount:'9'}});
+ await reply(service.updateBankStatementLines,legacy.data);
+ assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:legacy.statement.id}})).status,'NEEDS_REVIEW');
+ assert.equal(String((await tx.bankStatementLine.findUniqueOrThrow({where:{id:legacy.lines[0].id}})).inflow_amount),'9');
+ await tx.bankStatement.update({where:{id:legacy.statement.id},data:{status:'POSTED'}});
+ assert.match(await reply(service.reapplyBankStatementRules,{statement_id:legacy.statement.id}),/pravila_/);
+ assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:legacy.statement.id}})).status,'NEEDS_REVIEW');
+ console.log('PASS bank lifecycle: legacy POSTED/DRAFT sync, guarded save/reopen/repost, original journal/amounts, read-only SSR, math quarantine, mixed batch, CBCG, scope/rights/period/version/dependencies and atomic audit rollback.');
  throw rollback;
 },{timeout:120000});}catch(e){if(e!==rollback)throw e;}finally{await db.$disconnect();}})().catch(e=>{console.error(e);process.exitCode=1;});

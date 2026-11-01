@@ -1,4 +1,5 @@
 import "server-only";
+import { manualBankAllocationsValid } from "./bank-manual-journal";
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { requireAnyRole } from "./auth";
@@ -97,6 +98,9 @@ function bankChange(journal: Journal, fromId: string): BankChange {
       statement.poslovna_godina_id !== journal.poslovna_godina_id || statement.id !== journal.izvorni_dokument_id ||
       journal.source_module !== "IZVODI" || journal.source_type !== "BANK_STATEMENT") fail("Veza naloga i izvoda nije ispravna.");
   const result: BankChange = { statementId: statement.id, header: false, debitIds: [], creditIds: [] };
+  // A reviewed manual ledger intentionally differs from parsed source rows.
+  // Replace its actual ledger accounts without rewriting the original import.
+  if (statement.journal_mode === "MANUAL") return result;
   let index = 0;
   function expect(accountId: string | null, debit: number, credit: number, partnerId: string | null) {
     const line = journal.stavke[index++];
@@ -165,6 +169,11 @@ async function replacementSnapshot(tx: Prisma.TransactionClient, actor: Actor, f
       try {
         await assertBankStatementAccess(tx, { userId: actor.userId, agencyId: actor.agencyId }, actor.companyId, ["update", "post"]);
         bankChanges.push(bankChange(journal, source.id));
+        const manual = journal.bankStatements[0];
+        if (manual?.journal_mode === "MANUAL" && !await manualBankAllocationsValid(tx, actor, manual.id,
+          journal.stavke.map(row => ({ ...row, konto_id: row.konto_id === source.id ? target.id : row.konto_id })))) {
+          block("Zamjena mijenja postojeće povezivanje sa fakturama. Provjerite ga kroz Edituj nalog izvoda.");
+        }
       } catch (error) {
         if (error instanceof BankStatementError) block("Potrebna su prava izmjene i knjiženja izvoda.");
         else if (error instanceof AccountReplacementError) block(error.message);

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { JournalPartnerCell } from "@/components/JournalPartnerCell";
+import { parseScaledInteger } from "@/lib/inventory-calculation";
 
 type AccountOption = {
   analitika_obavezna: boolean;
@@ -27,6 +28,8 @@ type JournalLinesEditorProps = {
   datalistId: string;
   initialLines?: JournalLineInitialValue[];
   minimumRows?: number;
+  allowRemoveRows?: boolean;
+  onActivity?: () => void;
 };
 
 type OpenItem = {
@@ -64,13 +67,16 @@ export function JournalLinesEditor({
   accounts,
   datalistId,
   initialLines = [],
-  minimumRows = 5
+  minimumRows = 5,
+  allowRemoveRows = false,
+  onActivity
 }: JournalLinesEditorProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [rowCount, setRowCount] = useState(
     Math.max(initialLines.length + 5, minimumRows)
   );
   const [totals, setTotals] = useState(() => calculateInitialTotals(initialLines));
+  const [removedRows, setRemovedRows] = useState<Set<number>>(() => new Set());
   const [openItemsModal, setOpenItemsModal] =
     useState<OpenItemsModalState | null>(null);
   const rows = createEmptyRows(rowCount);
@@ -84,14 +90,18 @@ export function JournalLinesEditor({
     const lineDescription = wrapper?.querySelector<HTMLInputElement>(
       `input[name="stavka_opis"][data-row-index="${index}"]`
     );
+    const accountCode = getRow(index)?.querySelector<HTMLInputElement>('input[name="konto_sifra"]')?.value.trim();
 
-    if (journalDescription && lineDescription && !lineDescription.value.trim()) {
+    if (accountCode && journalDescription && lineDescription && !lineDescription.value.trim()) {
       lineDescription.value = journalDescription;
+      return true;
     }
+    return false;
   }
 
-  function touchRow(index: number) {
-    defaultLineDescription(index);
+  function touchRow(index: number, changed = true) {
+    const descriptionFilled = defaultLineDescription(index);
+    if (changed || descriptionFilled) onActivity?.();
 
     if (index >= rowCount - 1) {
       setRowCount((current) => current + 5);
@@ -117,9 +127,18 @@ export function JournalLinesEditor({
   }
 
   function getRow(index: number) {
-    return wrapperRef.current?.querySelectorAll<HTMLTableRowElement>("tbody tr")[
-      index
-    ] ?? null;
+    return wrapperRef.current?.querySelector<HTMLTableRowElement>(`tbody tr[data-journal-row="${index}"]`) ?? null;
+  }
+
+  function removeRow(index: number) {
+    onActivity?.();
+    // Uncontrolled inputs keep stable row keys, so deleting one row never
+    // moves another row's partner or amounts into a neighbouring record.
+    const row = getRow(index);
+    row?.querySelectorAll<HTMLInputElement>('input[name="duguje"],input[name="potrazuje"]').forEach(input => { input.value = ""; });
+    recalculateTotals();
+    setRemovedRows(current => new Set([...current, index]));
+    setOpenItemsModal(null);
   }
 
   async function openItemsForRow(index: number) {
@@ -286,15 +305,16 @@ export function JournalLinesEditor({
               <th>Valuta</th>
               <th>Duguje</th>
               <th>Potražuje</th>
+              {allowRemoveRows ? <th>Akcija</th> : null}
             </tr>
           </thead>
           <tbody>
-            {rows.map((_, index) => {
+            {rows.map((_, index) => index).filter(index => !removedRows.has(index)).map((index, visibleIndex) => {
               const initialLine = initialLines[index] ?? null;
 
               return (
-                <tr key={index}>
-                  <td>{index + 1}</td>
+                <tr data-journal-row={index} key={index}>
+                  <td>{visibleIndex + 1}</td>
                   <td>
                     <input
                       autoComplete="off"
@@ -302,7 +322,7 @@ export function JournalLinesEditor({
                       list={datalistId}
                       name="konto_sifra"
                       onChange={() => touchRow(index)}
-                      onFocus={() => touchRow(index)}
+                      onFocus={() => touchRow(index, false)}
                       placeholder="npr. 2020"
                     />
                   </td>
@@ -311,7 +331,7 @@ export function JournalLinesEditor({
                       initialId={initialLine?.partnerId ?? ""}
                       initialNaziv={initialLine?.partnerNaziv ?? ""}
                       initialPib={initialLine?.partnerPib ?? null}
-                      onActivity={() => touchRow(index)}
+                      onActivity={(changed) => touchRow(index, changed)}
                     />
                   </td>
                   <td>
@@ -320,7 +340,7 @@ export function JournalLinesEditor({
                       defaultValue={initialLine?.description ?? ""}
                       name="stavka_opis"
                       onChange={() => touchRow(index)}
-                      onFocus={() => touchRow(index)}
+                      onFocus={() => touchRow(index, false)}
                       placeholder="Opis stavke"
                     />
                   </td>
@@ -330,7 +350,7 @@ export function JournalLinesEditor({
                       name="broj_dokumenta"
                       onDoubleClick={() => openItemsForRow(index)}
                       onChange={() => touchRow(index)}
-                      onFocus={() => touchRow(index)}
+                      onFocus={() => touchRow(index, false)}
                       placeholder="Broj"
                       title="Dupli klik za otvorene stavke partnera"
                     />
@@ -340,7 +360,7 @@ export function JournalLinesEditor({
                       defaultValue={initialLine?.documentDate ?? ""}
                       name="datum_dokumenta"
                       onChange={() => touchRow(index)}
-                      onFocus={() => touchRow(index)}
+                      onFocus={() => touchRow(index, false)}
                       type="date"
                     />
                   </td>
@@ -349,7 +369,7 @@ export function JournalLinesEditor({
                       defaultValue={initialLine?.documentDueDate ?? ""}
                       name="datum_valute"
                       onChange={() => touchRow(index)}
-                      onFocus={() => touchRow(index)}
+                      onFocus={() => touchRow(index, false)}
                       type="date"
                     />
                   </td>
@@ -362,7 +382,7 @@ export function JournalLinesEditor({
                         touchRow(index);
                         recalculateTotals();
                       }}
-                      onFocus={() => touchRow(index)}
+                      onFocus={() => touchRow(index, false)}
                       step="0.01"
                       type="number"
                     />
@@ -376,17 +396,19 @@ export function JournalLinesEditor({
                         touchRow(index);
                         recalculateTotals();
                       }}
-                      onFocus={() => touchRow(index)}
+                      onFocus={() => touchRow(index, false)}
                       step="0.01"
                       type="number"
                     />
                   </td>
+                  {allowRemoveRows ? <td><button type="button" className="table-button table-button-danger" onClick={() => removeRow(index)}>Obriši stavku</button></td> : null}
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+      {allowRemoveRows ? <button type="button" className="secondary-button" onClick={() => { onActivity?.(); setRowCount(current => current + 1); }}>Dodaj stavku</button> : null}
       <div className="journal-balance-summary">
         <div>
           <span>Ukupno duguje</span>
@@ -480,9 +502,8 @@ export function JournalLinesEditor({
 }
 
 function parseMoney(value: string | undefined) {
-  const parsed = Number(String(value ?? "").trim().replace(",", "."));
-
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  const parsed = parseScaledInteger(String(value ?? "").trim(), 2);
+  return parsed !== null && parsed > BigInt(0) ? Number(parsed) : 0;
 }
 
 function calculateInitialTotals(initialLines: JournalLineInitialValue[]) {
@@ -503,7 +524,7 @@ function sumMoneyInputs(inputs: NodeListOf<HTMLInputElement>) {
 }
 
 function formatMoney(value: number) {
-  return value.toLocaleString("sr-Latn", {
+  return (value / 100).toLocaleString("sr-Latn", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });

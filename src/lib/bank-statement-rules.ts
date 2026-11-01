@@ -1,3 +1,51 @@
+import { parseScaledInteger } from "./inventory-calculation";
+
+type StatementAmounts = {
+  opening_balance: unknown;
+  closing_balance: unknown;
+  total_inflow: unknown;
+  total_outflow: unknown;
+  lines: Array<{
+    line_number?: number;
+    inflow_amount: unknown;
+    outflow_amount: unknown;
+    posting_status: string;
+    direction: string;
+  }>;
+};
+
+// Shared by import, editing, rule application, the list and posting. A stored
+// READY flag is insufficient when an old parser produced inconsistent amounts.
+export function bankStatementAmountBlockers(statement: StatementAmounts) {
+  const cents = (value: unknown) => parseScaledInteger(String(value ?? ""), 2);
+  const [opening, inflow, outflow, closing] = [statement.opening_balance, statement.total_inflow,
+    statement.total_outflow, statement.closing_balance].map(cents);
+  if (opening === null || inflow === null || outflow === null || closing === null) return ["Iznosi zaglavlja izvoda nijesu ispravni."];
+  const issues: string[] = [];
+  const money = (amount: bigint) => new Intl.NumberFormat("sr-Latn-ME", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(amount) / 100);
+  if (opening + inflow - outflow !== closing) issues.push("Početno stanje + priliv - odliv nije jednako krajnjem stanju.");
+  const active = statement.lines.filter(line => line.posting_status !== "IGNORED");
+  if (!active.length) issues.push("Izvod nema aktivnih stavki za knjiženje.");
+  let lineInflow = BigInt(0), lineOutflow = BigInt(0);
+  for (const [index, line] of active.entries()) {
+    const debit = cents(line.outflow_amount), credit = cents(line.inflow_amount);
+    if (debit === null || credit === null) { issues.push(`Stavka ${line.line_number ?? index + 1}: iznos nije ispravan.`); continue; }
+    lineInflow += credit;
+    lineOutflow += debit;
+    if ((line.direction === "INFLOW" && debit !== BigInt(0)) || (line.direction === "OUTFLOW" && credit !== BigInt(0)) || !["INFLOW", "OUTFLOW"].includes(line.direction)) {
+      issues.push(`Stavka ${line.line_number ?? index + 1}: smjer se ne slaže sa iznosima priliva/odliva. Provjerite originalni izvod.`);
+    }
+  }
+  if (lineInflow !== inflow) issues.push(`Zbir priliva stavki ${money(lineInflow)} ne odgovara prilivu zaglavlja ${money(inflow)}.`);
+  if (lineOutflow !== outflow) issues.push(`Zbir odliva stavki ${money(lineOutflow)} ne odgovara odlivu zaglavlja ${money(outflow)}.`);
+  return issues;
+}
+
+export function bankStatementAmountsReady(statement: StatementAmounts) {
+  return bankStatementAmountBlockers(statement).length === 0
+    && statement.lines.every(line => ["READY", "IGNORED"].includes(line.posting_status));
+}
+
 export type BankStatementRuleMatchInput = {
   firma_id: string | null;
   direction: string;

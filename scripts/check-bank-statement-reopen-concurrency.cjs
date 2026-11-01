@@ -45,8 +45,24 @@ async function reply(action,data){try{await action(form(data));return'OK';}catch
  await locked;const waiting=life.reopenBankStatement(actor,{statementId:statement.id});release();await closing;await assert.rejects(()=>waiting,/godina_zakljucena/);
  assert.equal((await db.bankStatement.findUniqueOrThrow({where:{id:statement.id}})).status,'POSTED');assert.equal((await db.nalog.findUniqueOrThrow({where:{id:posted.journal_id}})).status,'POSTED');
  await db.poslovnaGodina.update({where:{id:year.id},data:{zakljucena:false}});
+ // Manual mode uses the same locks and rejects two saves with one revision.
+ await life.reopenBankStatement(actor,{statementId:statement.id});
+ const manual=load('src/lib/bank-manual-journal.ts'),manualActor={...actor,companyId:company.id,yearId:year.id};
+ const revision=async()=>{const s=await db.bankStatement.findUniqueOrThrow({where:{id:statement.id},include:{journal:true}});return{statement_id:s.id,statement_version:s.updated_at.toISOString(),journal_id:s.journal_id,journal_version:s.journal.updated_at.toISOString()};};
+ const manualForm=data=>{const f=new FormData();for(const[k,v]of Object.entries(data))for(const x of[].concat(v))f.append(k,String(x));return f;};
+ const manualData={...await revision(),datum:'2026-06-20',opis:'Concurrent manual',konto_sifra:['2410','6000'],komitent_id:['',''],stavka_opis:['Bank','Income'],broj_dokumenta:['1','1'],datum_dokumenta:['',''],datum_valute:['',''],duguje:['20',''],potrazuje:['','20']};
+ const saves=await Promise.allSettled([manual.saveManualBankJournal(manualActor,manualForm(manualData)),manual.saveManualBankJournal(manualActor,manualForm(manualData))]);
+ assert.equal(saves.filter(r=>r.status==='fulfilled').length,1);assert.ok(saves.some(r=>r.status==='rejected'&&r.reason.message==='izvod_promijenjen'));
+ const savedRows=await db.stavkaNaloga.findMany({where:{nalog_id:posted.journal_id},orderBy:{id:'asc'}});
+ const postData=await revision();
+ const manualPosts=await Promise.allSettled([manual.postManualBankJournal(manualActor,manualForm(postData)),manual.postManualBankJournal(manualActor,manualForm(postData))]);
+ assert.equal(manualPosts.filter(r=>r.status==='fulfilled').length,1);
+ assert.equal(await db.auditLog.count({where:{entitet_id:statement.id,akcija:'manual_journal_post'}}),1);
+ assert.deepEqual(await db.stavkaNaloga.findMany({where:{nalog_id:posted.journal_id},orderBy:{id:'asc'}}),savedRows);
+ assert.equal((await db.bankStatement.findUniqueOrThrow({where:{id:statement.id}})).journal_mode,'MANUAL');
  console.log('PASS concurrent bank reopen/edit/repost: one audit, stale edit rejected, one unchanged journal/number, no duplicate lines, concurrent year close blocks reopen.');
+ console.log('PASS concurrent manual saves/posts: one winner, stale save rejected, one post audit, source/journal agree and ledger rows never regenerated.');
 }finally{
- if(company){const {purgeCompanyData}=sourceLoader({'@/lib/prisma':{prisma:db}})('src/lib/company-purge.ts');await db.$transaction(tx=>purgeCompanyData(tx,{agencijaId:agency.id,firmaId:company.id,potvrdaNaziva:company.naziv,korisnikId:admin?.id}),{timeout:30000});}
+ if(company){const {purgeCompanyData}=sourceLoader({'@/lib/prisma':{prisma:db}})('src/lib/company-purge.ts');await db.$transaction(async tx=>{await purgeCompanyData(tx,{agencijaId:agency.id,firmaId:company.id,potvrdaNaziva:company.naziv,korisnikId:admin?.id});await tx.auditLog.deleteMany({where:{agencija_id:agency.id}});await tx.aktivnostDogadjaj.deleteMany({where:{agencija_id:agency.id}});await tx.korisnik.delete({where:{id:admin.id}});await tx.agencija.delete({where:{id:agency.id}})},{timeout:30000});}
  await db.$disconnect();
 }})().catch(e=>{console.error(e);process.exitCode=1});

@@ -1,3 +1,5 @@
+importScripts("cbcg-common.js", "cbcg-worker.js");
+
 const pendingKey = (tabId) => `irms-pending-${tabId}`;
 
 async function savePending(tabId, pending) {

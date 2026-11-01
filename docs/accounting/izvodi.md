@@ -77,7 +77,99 @@ stavke, import sesiju, kontrole, povezivanje sa fakturama i generiše jedan nalo
   - split alokacije kada jedna stavka izvoda zatvara više KIF/KUF računa,
   - dodatni tipovi pravila po specifičnim formatima banaka i dalja UX dorada.
 
+## Spremnost i grupna obrada — 2026-11-01
+
+U AUTO režimu READY zahtijeva i tačnu matematičku kontrolu: stanje zaglavlja, zbir aktivnih
+priliva/odliva jednak zaglavlju i smjer svake stavke saglasan njenim iznosima.
+Stavka ne može istovremeno sadržati priliv i odliv. Ignorisanje nenultog prometa
+koje kvari zbir takođe blokira knjiženje. Kontrola je zajednička pri importu,
+čuvanju predloga, primjeni pravila, prikazu i backend knjiženju.
+
+Istorijski READY zapis sa neispravnim iznosima prikazuje se **Za provjeru** uz
+tačne razlike; čitanje ne mijenja bazu. **Proknjiži spremne** preskače takve
+zapise i knjiži ispravne, uz poruku o preskočenima. Kada su svi sporni, nema
+knjiženja. Direktno odabrani neispravan izvod blokira se i otvara njegov detalj.
+Ostale provjere (prava/scope, konta/partner, godina/PDV, ravnoteža, zavisnosti i
+audit) ostaju obavezne i njihova greška poništava grupnu transakciju. Pogrešno
+parsiran iznos ne prepravlja se automatski prema očekivanom saldu: provjeriti
+originalni izvod i tek zatim kontrolisano ponoviti uvoz neproknjiženog dokumenta.
+
+## Ručni konačni nalog — 2026-11-01
+
+**Predlog naloga → Edituj nalog** otvara puni nalog na
+`/agencija/izvodi/[id]/nalog`. Isti ulaz postoji na detalju povezanog naloga.
+Ako je nalog proknjižen, prvo **Vrati u nacrt**. Mogu se mijenjati datum,
+opis i poslovna jedinica, svaka konto/partner/opis/dokument/datum/duguje/potražuje
+vrijednost, uključujući zbirnu banku, te dodavati i brisati stavke.
+
+**Sačuvaj nalog (F8)** čuva isti ID/broj postojećeg naloga ili pravi prvi nacrt.
+Postavlja `bank_statements.journal_mode=MANUAL` (postojeći izvodi su AUTO).
+Otvaranje editora ne upisuje ništa. Dok nije ručno sačuvan, novi predlog se
+popunjava iz importa, a postojeći iz svojih stvarnih stavki naloga.
+
+Poslije čuvanja konačni nalog određuje knjiženje. Matematičke greške izvornog
+uvoza ostaju upozorenja i ne blokiraju ispravan ručni nalog. Izvorni iznosi i
+smjerovi se ne mijenjaju. Primjena pravila i stari AUTO obrasci ne mogu ga
+prepisati. **Proknjiži nalog (F9)**, potvrda na nalogu i grupno knjiženje koriste
+iste sačuvane stavke bez regeneracije. Mail automatika ga ne preuzima.
+
+Nacrt može biti neizbalansiran; za post su obavezni jednak pozitivan zbir u
+centima, jedna pozitivna strana po stavci, aktivna analitička konta, obavezni
+partneri/jedinica, prava view/update/post u oba modula prema akciji, scope,
+otvorena godina/PDV i ispravne veze naloga. Revizija izvoda i naloga odbija
+zastarjele obrasce i konkurentno prepisivanje. Greška ne briše unesene podatke;
+izmijenjen nesnimljen obrazac mora prvo biti sačuvan. F10 popunjava razliku.
+Samo fokus/Enter ne čine snimljen nalog izmijenjenim. Neupotrijebljen red sa
+samim automatskim opisom ne ulazi u nalog; bilo koje drugo uneseno polje
+zahtijeva validnu stavku. Greške čuvanja prikazuju se uz dugme Sačuvaj.
+
+Postojeće alokacije faktura se zadržavaju samo ako stvarni ručni nalog podržava
+isti račun, partnera, smjer i neto iznos za pokriće. Neusklađene veze blokiraju
+Save uz poruku; **Ukloni postojeća povezivanja sa fakturama** eksplicitno ih
+uklanja u istoj transakciji. Post/reopen osvježavaju plaćanja. Audit
+`manual_journal_save`/`manual_journal_post` čuva prije/poslije i uklonjene veze.
+
+Deploy: `20261101120000_bank_manual_journal`, Prisma generate i restart.
+Nema nove `.env` postavke. Mode je kolona postojeće tabele; company purge
+zadržava isti redoslijed brisanja, provjeren rollback testom.
+
+## CBCG za nepoznatog partnera — 2026-10-31
+
+Na neproknjiženom izvodu u otvorenoj godini korisnik sa izvodi/update ima
+**CBCG** uz nepovezan domaći račun u tabu Stavke izvoda ili Predlog naloga.
+Za potvrdu u Stavkama izvoda potrebno je podešeno konto banke. Koristi postojeći
+IRMS Chrome/Edge pomoćnik proširen na 1.1.0; poslije ažuriranja uraditi Reload
+ekstenzije i osvježiti program (detalji u njenom README-u).
+
+Novi tab popunjava račun i pokreće redovnu CBCG pretragu. Ako se pojavi poruka
+o reCAPTCHA provjeri, korisnik potvrđuje OK ili završava regularnu potvrdu;
+čitač nastavlja do stvarnog rezultata. Vraća samo jednog nosioca pod traženim
+računom sa ispravnim PIB-om, nazivom, adresom i sjedištem. Nejasan/prazan rezultat
+ne popunjava partnera. Rok je pet minuta, uz Odustani. Po provjerenom prijemu
+zatvara se samo njegov pomoćni tab i aktivira program.
+
+Jedan dostupan partner po tačnom PIB-u ulazi u izbor; kod više korisnik bira,
+a za novog se otvara popunjen modal koji korisnik provjerava i čuva. Zatim u
+Stavkama potvrđuje **Poveži partnera**, odnosno u Predlogu bira **Sačuvaj predlog
+naloga**. Potvrda koristi postojeće scope/prava/godina/PDV/version/audit provjere.
+Ostali redovi i postojeće konto se ne prepisuju. Postojeće učenje bankovnog
+računa primjenjuje se pri čuvanju kontiranog reda. Pretraga sama ne knjiži,
+ne zaobilazi zaključavanja i ne arhivira CBCG fajl/rezultat. Nema migracije ni
+promjene `.env`; korisnički upisi koriste postojeće tabele partnera i izvoda.
+
 ## Rasknjižavanje i ispravke — 2026-10-31
+
+Stari zapis sa POSTED izvodom i njegovim neobrisanim DRAFT nalogom ima
+kontrolisani oporavak (01.11.2026). Prikazuje se **Nalog u nacrtu**, a
+**Uskladi sa nacrtom**, čuvanje predloga ili primjena pravila usklađuju status
+u istoj transakciji sa auditom. Potrebna su izvodi/update i izvodi/post prava,
+otvorena godina/PDV i ispravne veze izvoda/naloga bez drugih zavisnosti.
+Verzija se provjerava prije usklađivanja pri Save-u. Čitanje ne mijenja bazu.
+Stare oznake knjiženja se čiste, datum ranijeg vraćanja u nacrt se čuva;
+iznosi, partneri, konta i stavke nijesu dio automatske korekcije. Matematički
+ispravan sačuvan predlog daje READY, neispravan ostaje za provjeru. Istinski
+POSTED nalog ne može da se uređuje ovom putanjom. Preview banke koristi
+zaglavlje izvoda i sabira duguje/potražuje odvojeno, pa ne prikriva neravnotežu.
 
 Na detalju proknjiženog izvoda dostupno je **Vrati u nacrt**. Ista akcija na
 povezanom nalogu koristi isti backend tok. Potrebna su prava izvodi/update i
@@ -91,12 +183,14 @@ faktura. Alokacije na nacrtu ostaju kao predlog, ali ne zatvaraju fakture:
 plaćanja obuhvataju samo neobrisane POSTED izvode sa neobrisanim POSTED nalogom.
 Uplate sa drugih proknjiženih izvoda i dalje važe.
 
-Korisnik u tabu Predlog naloga ispravi konta/partnere/povezivanje, zatim bira
+U AUTO režimu korisnik u tabu Predlog naloga ispravi konta/partnere/povezivanje, zatim bira
 **Sačuvaj predlog naloga**. Kada je izvod spreman, **Proknjiži izvod** ponovo
 popunjava stavke istog naloga i aktivira plaćanja. Zadržavaju se ID, broj, šifra
 i vrsta naloga. Stare stavke nacrta se zamjenjuju u istoj transakciji, uz audit
 snimak; nema fizičkog brisanja naloga niti proknjiženih dokumenata. Direktno
-uređivanje/brisanje ili generičko knjiženje naloga izvoda nije dozvoljeno.
+uređivanje AUTO naloga generičkim obrascem i brisanje nijesu dozvoljeni.
+Za puni ručni unos koristi se Edituj nalog; MANUAL nalog podržava i knjiženje
+sa svog detalja uz iste zaštite.
 Na nalogu postoji Otvori izvod sa odgovarajućim kontekstom firme/godine.
 
 Zaključana godina ili PDV period, promjena prava, neispravna veza naloga ili
@@ -105,7 +199,8 @@ zaključavaju istim redom pri izmjeni/rasknjižavanju/knjiženju; stara revizija
 obrasca se odbija. Audit je dio transakcije. Ponovljen povrat ne pravi dupli
 audit, a ponovljeno knjiženje ne pravi novi nalog. Mail automatika preuzima
 samo READY izvode bez naloga, pa rasknjižen izvod zahtijeva ručnu potvrdu.
-Nema nove migracije niti promjene strukture/purge redoslijeda.
+Sam reopen nema migracije. MANUAL proširenje ima migraciju navedenu iznad;
+purge redoslijed ostaje isti.
 
 ## Zamjena konta na proknjiženim izvodima
 
@@ -114,10 +209,12 @@ vrsti naloga, za aktivnu firmu/godinu i opcioni period (npr. 4140 → 4147,
 vrsta Izvodi). Pregled prethodi potvrdi. Konto se mijenja u istim nalozima i
 istovremeno u odgovarajućim aktivnim stavkama izvoda, odnosno zaglavlju za
 zbirno konto banke. Nakon vraćanja u nacrt i ponovnog knjiženja novo konto
-ostaje. Izvodi moraju tačno odgovarati svojim nalozima; odstupanja traže
+ostaje. AUTO izvodi moraju tačno odgovarati svojim nalozima; odstupanja traže
 prethodno usklađivanje kroz postojeći draft/edit/post tok. Ignorisane stavke,
 kontiranje budućih izvoda i podešavanja banke se ne prepisuju. Za cijelu grupu
 važe prava, zaključavanja, ravnoteža, obavezna analitika i atomski audit.
+Kod MANUAL izvoda zamjena mijenja samo konačni nalog i njegovu reviziju, bez
+izmjene uvoza; zadržane alokacije moraju odgovarati i novom kontu.
 
 ## Kasnije
 - CSV/Excel import za dodatne banke.
@@ -254,9 +351,10 @@ pravila (`bank_statement_imports`, `bank_statement_import_lines`,
 
 ## Validacije
 - Izvod mora imati firmu, poslovnu godinu, bankovni račun, broj i datum izvoda.
-- Kontrola početnog/krajnjeg stanja mora proći prije knjiženja.
+- AUTO knjiženje traži ispravnu kontrolu početnog/krajnjeg stanja; MANUAL
+  knjiženje provjerava konačni nalog, a izvorne greške prikazuje kao upozorenja.
 - Stavka ne može imati istovremeno priliv i odliv.
-- Stavka mora biti riješena prije knjiženja.
+- AUTO izvorna stavka mora biti riješena; MANUAL koristi kompletne stavke naloga.
 - Preview mora prikazati konkretan razlog blokade: nedostajuće konto, obavezan
   partner za analitičko konto, nesnimljenu izmjenu ili neispravnu kontrolu
   početnog i krajnjeg stanja.

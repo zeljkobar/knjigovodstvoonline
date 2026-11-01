@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { PayrollJournalError, reopenPayrollJournal } from "@/lib/payroll-journal";
 import { BankStatementError, reopenBankStatement } from "@/lib/bank-statement-lifecycle";
 import { postPayrollCalculation } from "../plate/actions";
+import { manualBankActor, postManualBankJournal } from "@/lib/bank-manual-journal";
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -689,11 +690,27 @@ export async function postJournal(formData: FormData) {
       korisnici: { some: { korisnik_id: user.id, is_deleted: false } }
     }) }
   };
-  const source = await prisma.nalog.findFirst({ where: scope, select: { firma_id: true, poslovna_godina_id: true, source_module: true, source_type: true, izvorni_dokument_id: true, bankStatements: { select: { id: true } } } });
+  const source = await prisma.nalog.findFirst({ where: scope, select: { firma_id: true, poslovna_godina_id: true, source_module: true, source_type: true, izvorni_dokument_id: true, bankStatements: { select: { id: true, journal_mode: true } } } });
   if (!source) redirectJournals("nalog_greska");
   if (!(await canUseJournals(user, source.firma_id, "post"))) redirectJournalDetail(nalogId, "prava");
 
-  if (source.source_module === "IZVODI" || source.source_type === "BANK_STATEMENT" || source.bankStatements.length > 0) redirectJournalDetail(nalogId, "izvod_uredjivanje");
+  if (source.source_module === "IZVODI" || source.source_type === "BANK_STATEMENT" || source.bankStatements.length > 0) {
+    const statement = source.bankStatements[0];
+    if (!statement || statement.journal_mode !== "MANUAL" || value(formData, "statement_id") !== statement.id || value(formData, "journal_id") !== nalogId) redirectJournalDetail(nalogId, "izvod_uredjivanje");
+    try {
+      const actor = await manualBankActor();
+      if (actor.companyId !== source.firma_id || actor.yearId !== source.poslovna_godina_id) throw new BankStatementError("izvod_greska");
+      await postManualBankJournal(actor, formData);
+    } catch (error) {
+      if (error instanceof BankStatementError) redirectJournalDetail(nalogId, error.message);
+      throw error;
+    }
+    revalidatePath("/agencija/nalozi", "layout");
+    revalidatePath("/agencija/izvodi", "layout");
+    revalidatePath("/agencija/racuni", "layout");
+    revalidatePath("/agencija/izvjestaji", "layout");
+    redirectJournalDetail(nalogId, "nalog_proknjizen");
+  }
   if (source.source_module === "PLATE" || source.source_type === "PAYROLL") {
     if (!source.izvorni_dokument_id) redirectJournalDetail(nalogId, "nalog_greska");
     const payrollForm = new FormData();

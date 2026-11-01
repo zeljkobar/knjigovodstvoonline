@@ -24,7 +24,7 @@ type JournalPartnerCellProps = {
   initialId?: string;
   initialNaziv?: string;
   initialPib?: string | null;
-  onActivity?: () => void;
+  onActivity?: (changed?: boolean) => void;
 };
 
 function partnerDisplay(naziv: string, pib?: string | null) {
@@ -127,7 +127,7 @@ export function JournalPartnerCell({
     setResults([]);
     setIsCreateOpen(true);
     setIsSearchOpen(false);
-    onActivity?.();
+    onActivity?.(false);
   }
 
   function handleCreatedPartner(partner: QuickPartnerResult) {
@@ -160,7 +160,7 @@ export function JournalPartnerCell({
           onChange={(event) => handleChange(event.target.value)}
           onFocus={() => {
             setIsSearchOpen(true);
-            onActivity?.();
+            onActivity?.(false);
           }}
           placeholder="Naziv ili PIB"
           value={query}

@@ -10,14 +10,18 @@ import {
   updateBankStatementLines
 } from "./actions";
 import { BankStatementImportForm } from "./BankStatementImportForm";
-import { PartnerSearchInput } from "@/components/PartnerSearchInput";
+import { BankStatementPartnerInput } from "@/components/BankStatementPartnerInput";
+import { cbcgAccountParts } from "@/lib/cbcg-browser-bridge";
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
-import { bankStatementLineBlockers } from "@/lib/bank-statement-rules";
+import { bankStatementAmountBlockers, bankStatementAmountsReady, bankStatementLineBlockers } from "@/lib/bank-statement-rules";
 import { postedBankAllocationWhere } from "@/lib/bank-statement-lifecycle";
 import { hasPermission, requirePermissionForUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
+import { decimalToScaled } from "@/lib/inventory-calculation";
+import { manualBankMessages, manualLedgerBalanced } from "@/lib/bank-manual-journal-input";
+import { postManualBankJournalAction } from "./[id]/nalog/actions";
 
 type IzvodiPageProps = {
   searchParams?: Promise<{
@@ -28,6 +32,10 @@ type IzvodiPageProps = {
 };
 
 const messages: Record<string, string> = {
+  ...manualBankMessages,
+  izvod_promet_greska: "Zbir ili smjer stavki ne odgovara zaglavlju izvoda. Provjerite prikazane razlike i originalni fajl; izvod nije knjižen.",
+  izvodi_za_provjeru: "Preostali izvodi imaju neusaglašene stavke i zahtijevaju provjeru. Nijesu knjiženi.",
+  izvodi_proknjizeni_dio_za_provjeru: "Ispravni izvodi su proknjiženi. Izvodi sa neusaglašenim stavkama nijesu knjiženi i u pregledu su označeni Za provjeru.",
   izvod_nacrt: "Izvod i nalog su vraćeni u nacrt. Ispravite predlog naloga, sačuvajte ga i ponovo proknjižite izvod.",
   pdv_period_zakljucan: "PDV period je zaključan. Izvod nije moguće rasknjižiti ili mijenjati.",
   prava: "Nemate pravo za ovu akciju.",
@@ -79,10 +87,19 @@ function statementHasValidJournal(statement: {
   return Boolean(statement.journal && !statement.journal.is_deleted);
 }
 
-function effectiveStatementStatus(statement: {
+type StatementStatusInput = Parameters<typeof bankStatementAmountBlockers>[0] & {
   status: string;
-  journal: { is_deleted?: boolean | null } | null;
-}) {
+  journal_mode?: string;
+  journal: { status?: string; is_deleted?: boolean | null } | null;
+};
+
+function isLegacyDraft(statement: Pick<StatementStatusInput, "status" | "journal">) {
+  return statement.status === "POSTED" && statementHasValidJournal(statement) && statement.journal?.status === "DRAFT";
+}
+
+function effectiveStatementStatus(statement: StatementStatusInput) {
+  if (isLegacyDraft(statement)) return "NEEDS_REVIEW";
+  if (statement.journal_mode !== "MANUAL" && statement.status === "READY" && bankStatementAmountBlockers(statement).length) return "NEEDS_REVIEW";
   if (statement.status === "POSTED" && !statementHasValidJournal(statement)) {
     return "NEEDS_REVIEW";
   }
@@ -90,15 +107,13 @@ function effectiveStatementStatus(statement: {
   return statement.status;
 }
 
-function effectiveStatementStatusLabel(statement: {
-  status: string;
-  journal: { is_deleted?: boolean | null } | null;
-}) {
+function effectiveStatementStatusLabel(statement: StatementStatusInput) {
+  if (isLegacyDraft(statement)) return "Nalog u nacrtu";
   if (statement.status === "POSTED" && !statementHasValidJournal(statement)) {
     return "Nalog obrisan";
   }
 
-  return statusLabels[statement.status] ?? statement.status;
+  return statusLabels[effectiveStatementStatus(statement)] ?? statement.status;
 }
 
 function money(value: number) {
@@ -299,7 +314,9 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
               total_outflow: true,
               closing_balance: true,
               status: true,
+              journal_mode: true,
               parse_notes: true,
+              lines: { select: { line_number: true, direction: true, posting_status: true, inflow_amount: true, outflow_amount: true } },
               company_bank_account: {
                 select: {
                   naziv_banke: true,
@@ -374,7 +391,9 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                 id: true,
                 sifra: true,
                 status: true,
-                is_deleted: true
+                is_deleted: true,
+                updated_at: true,
+                stavke: { orderBy: { redni_broj: "asc" }, include: { firma_konto: true, komitent: true } }
               }
             },
             lines: {
@@ -439,11 +458,14 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
 
   const canPost = Boolean(activeCompany && activeYear && !activeYear.zakljucena && await hasPermission(user, { firmaId: activeCompany.id, modul: "izvodi", akcija: "post" }));
   const canUpdate = Boolean(activeCompany && activeYear && !activeYear.zakljucena && await hasPermission(user, { firmaId: activeCompany.id, modul: "izvodi", akcija: "update" }));
+  const canEditJournal = Boolean(selectedStatement && canUpdate && effectiveStatementStatus(selectedStatement) !== "POSTED"
+    && await hasPermission(user, { firmaId: activeCompany!.id, modul: "nalozi", akcija: "view" })
+    && await hasPermission(user, { firmaId: activeCompany!.id, modul: "nalozi", akcija: "update" }));
+  const manualJournal = selectedStatement?.journal_mode === "MANUAL";
+  const canEditSelected = Boolean(selectedStatement && canUpdate
+    && !manualJournal && effectiveStatementStatus(selectedStatement) !== "POSTED" && (!isLegacyDraft(selectedStatement) || canPost));
   const selectedBalanceOk = selectedStatement ? statementBalanceOk(selectedStatement) : false;
-  const selectedReady =
-    selectedStatement?.lines.every((line) =>
-      ["READY", "IGNORED"].includes(line.posting_status)
-    ) ?? false;
+  const selectedReady = selectedStatement ? manualJournal ? manualLedgerBalanced(selectedStatement.journal?.stavke ?? []) : bankStatementAmountsReady(selectedStatement) : false;
   const selectedStatementCanBeDeleted = selectedStatement
     ? effectiveStatementStatus(selectedStatement) !== "POSTED" && !statementHasValidJournal(selectedStatement)
     : false;
@@ -465,24 +487,20 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
     }) ?? []
   );
   const selectedStatementBlockers = [
-    ...(selectedStatement && !selectedBalanceOk
-      ? ["Kontrola stanja nije ispravna: početno stanje + priliv - odliv mora biti jednako tekućem stanju."]
-      : []),
+    ...(selectedStatement ? bankStatementAmountBlockers(selectedStatement) : []),
     ...Array.from(selectedLineBlockers.values()).flat()
   ];
   const activePreviewLines =
     selectedStatement?.lines.filter((line) => line.posting_status !== "IGNORED") ?? [];
-  const totalInflowPreview = activePreviewLines.reduce(
-    (sum, line) => sum + Number(line.inflow_amount),
-    0
-  );
-  const totalOutflowPreview = activePreviewLines.reduce(
-    (sum, line) => sum + Number(line.outflow_amount),
-    0
-  );
-  const totalDebitPreview =
-    totalInflowPreview + totalOutflowPreview;
-  const totalCreditPreview = totalDebitPreview;
+  // Bank rows follow the statement header, just like posting. Do not fabricate
+  // a balancing bank inflow from a misparsed commission in a draft's rows.
+  const totalInflowPreview = Number(selectedStatement?.total_inflow ?? 0);
+  const totalOutflowPreview = Number(selectedStatement?.total_outflow ?? 0);
+  const previewAmountCents = (line: (typeof activePreviewLines)[number]) => decimalToScaled(line.inflow_amount, 2) || decimalToScaled(line.outflow_amount, 2);
+  const totalDebitPreview = Number(decimalToScaled(selectedStatement?.total_inflow ?? "0", 2)
+    + activePreviewLines.filter(line => line.direction === "OUTFLOW").reduce((sum, line) => sum + previewAmountCents(line), BigInt(0))) / 100;
+  const totalCreditPreview = Number(decimalToScaled(selectedStatement?.total_outflow ?? "0", 2)
+    + activePreviewLines.filter(line => line.direction === "INFLOW").reduce((sum, line) => sum + previewAmountCents(line), BigInt(0))) / 100;
   const selectedLinePartners = Array.from(
     new Set(
       selectedStatement?.lines
@@ -707,6 +725,10 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                         <tbody>
                           {statements.map((statement) => {
                             const effectiveStatus = effectiveStatementStatus(statement);
+                            const amountBlockers = effectiveStatus === "POSTED" ? [] : bankStatementAmountBlockers(statement);
+                            const parseNotes = amountBlockers.length
+                              ? statement.parse_notes?.replace("Sve stavke su mapirane pravilima; izvod je spreman za knjiženje.", "").replace(/\s*\|\s*$/, "").trim()
+                              : statement.parse_notes;
 
                             return (
                               <tr key={statement.id} className={statement.id === selectedStatementId ? "selected-row" : ""}>
@@ -728,7 +750,9 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                                   <span className={`status-pill status-${effectiveStatus.toLowerCase()}`}>
                                     {effectiveStatementStatusLabel(statement)}
                                   </span>
-                                  {statement.parse_notes ? <small>{statement.parse_notes}</small> : null}
+                                  {parseNotes ? <small>{parseNotes}</small> : null}
+                                  {statement.journal_mode === "MANUAL" ? <small>Ručno uređen nalog</small> : null}
+                                  {amountBlockers.map(issue => <small className="control-issue" key={issue}>{issue}</small>)}
                                 </td>
                                 <td>{money(Number(statement.opening_balance))}</td>
                                 <td>{money(Number(statement.total_outflow))}</td>
@@ -777,7 +801,8 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                   <Link className="secondary-button compact-action" href="/agencija/izvodi">
                     Povrat na spisak izvoda
                   </Link>
-                  {canUpdate && effectiveStatementStatus(selectedStatement) !== "POSTED" && (!selectedStatement.journal || selectedStatement.journal.status === "DRAFT") ? (
+                  {canEditJournal ? <Link className="primary-button compact-action" href={`/agencija/izvodi/${selectedStatement.id}/nalog`}>Edituj nalog</Link> : null}
+                  {canEditSelected && (!selectedStatement.journal || selectedStatement.journal.status === "DRAFT") ? (
                     <form action={reapplyBankStatementRules}>
                       <input name="statement_id" type="hidden" value={selectedStatement.id} />
                       <button className="secondary-button compact-action" type="submit">
@@ -785,15 +810,18 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                       </button>
                     </form>
                   ) : null}
-                  {canPost && canUpdate && selectedStatement.status === "POSTED" && selectedStatement.journal?.status === "POSTED" ? (
+                  {canPost && canUpdate && selectedStatement.status === "POSTED" && (selectedStatement.journal?.status === "POSTED" || isLegacyDraft(selectedStatement)) ? (
                     <form action={reopenPostedBankStatement}>
                       <input name="statement_id" type="hidden" value={selectedStatement.id} />
-                      <button className="secondary-button compact-action" type="submit">Vrati u nacrt</button>
+                      <button className="secondary-button compact-action" type="submit">{isLegacyDraft(selectedStatement) ? "Uskladi sa nacrtom" : "Vrati u nacrt"}</button>
                     </form>
                   ) : null}
-                  {canPost && selectedStatement.status === "READY" && selectedBalanceOk && selectedReady ? (
+                  {canPost && !manualJournal && selectedStatement.status === "READY" && selectedBalanceOk && selectedReady ? (
                     <form action={postSelectedBankStatements}>
                       <input name="statement_id" type="hidden" value={selectedStatement.id} />
+                      <input name="statement_version" type="hidden" value={selectedStatement.updated_at.toISOString()} />
+                      <input name="journal_id" type="hidden" value={selectedStatement.journal_id ?? ""} />
+                      <input name="journal_version" type="hidden" value={selectedStatement.journal?.updated_at.toISOString() ?? ""} />
                       <button className="primary-button compact-action" type="submit">Proknjiži izvod</button>
                     </form>
                   ) : null}
@@ -816,9 +844,12 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
               {selectedStatement.journal?.status === "DRAFT" ? (
                 <p className="status-banner">Nalog je u nacrtu i ne ulazi u glavnu knjigu. Veze sa fakturama ostaju sačuvane kao predlog; uplate se ponovo aktiviraju nakon knjiženja izvoda.</p>
               ) : null}
+              {isLegacyDraft(selectedStatement) ? <p className="status-banner">
+                Izvod ima staru oznaku knjiženja, a povezani nalog je u nacrtu. Uskladi sa nacrtom ili Sačuvaj predlog naloga uskladiće statuse uz provjeru prava i zaključavanja. Iznosi se time ne mijenjaju.
+              </p> : null}
               {selectedStatementBlockers.length > 0 ? (
-                <div className="status-banner error statement-blockers">
-                  <strong>Knjiženje je blokirano:</strong>
+                <div className={`status-banner ${manualJournal ? "" : "error"} statement-blockers`}>
+                  <strong>{manualJournal ? "Napomene izvornog parsiranja — ručno uređen nalog se provjerava zasebno:" : "Knjiženje je blokirano:"}</strong>
                   <ul>
                     {selectedStatementBlockers.map((blocker) => (
                       <li key={blocker}>{blocker}</li>
@@ -883,7 +914,19 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                                   <small>{line.partner.pib}</small>
                                 </>
                               ) : (
-                                "-"
+                                canEditSelected && selectedStatement.bank_account_konto_id && cbcgAccountParts(line.counterparty_account_number ?? "") ? (
+                                  <form action={updateBankStatementLines}>
+                                    <input name="statement_id" type="hidden" value={selectedStatement.id} />
+                                    <input name="statement_version" type="hidden" value={selectedStatement.updated_at.toISOString()} />
+                                    <input name="line_id" type="hidden" value={line.id} />
+                                    <input name="line_direction" type="hidden" value={line.direction} />
+                                    <input name="debit_account_code" type="hidden" value={line.debit_account?.sifra ?? ""} />
+                                    <input name="credit_account_code" type="hidden" value={line.credit_account?.sifra ?? ""} />
+                                    <input name="allocation_target" type="hidden" value={line.allocations[0] ? `${line.allocations[0].document_type}:${line.allocations[0].kif_entry_id ?? line.allocations[0].kuf_entry_id ?? ""}` : ""} />
+                                    {line.posting_status === "IGNORED" ? <input name="ignored_line_id" type="hidden" value={line.id} /> : null}
+                                    <BankStatementPartnerInput key={`${line.id}:${selectedStatement.updated_at.toISOString()}`} account={line.counterparty_account_number} compact disabled={false} initialPartner={null} />
+                                  </form>
+                                ) : "-"
                               )}
                             </td>
                             <td>
@@ -916,6 +959,20 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                       })}
                     </tbody>
                   </table>
+                </div>
+              ) : manualJournal && selectedStatement.journal ? (
+                <div className="admin-stack">
+                  <p className="status-banner">Ručno uređen nalog. Parser ne mijenja ove stavke. Iznosi izvornog izvoda ostaju kao referenca.</p>
+                  <div className="responsive-table"><table><thead><tr><th>#</th><th>Konto</th><th>Partner</th><th>Opis</th><th>Dokument</th><th>Duguje</th><th>Potražuje</th></tr></thead><tbody>
+                    {selectedStatement.journal.stavke.map(line => <tr key={line.id}><td>{line.redni_broj}</td><td>{line.firma_konto.sifra} · {line.firma_konto.naziv}</td><td>{line.komitent?.naziv ?? "—"}</td><td>{line.opis}</td><td>{line.broj_dokumenta}</td><td>{money(Number(line.duguje))}</td><td>{money(Number(line.potrazuje))}</td></tr>)}
+                  </tbody><tfoot><tr><td colSpan={5}>Ukupno naloga</td><td>{money(Number(selectedStatement.journal.stavke.reduce((sum, row) => sum + decimalToScaled(row.duguje, 2), BigInt(0))) / 100)}</td><td>{money(Number(selectedStatement.journal.stavke.reduce((sum, row) => sum + decimalToScaled(row.potrazuje, 2), BigInt(0))) / 100)}</td></tr></tfoot></table></div>
+                  {canPost && selectedStatement.journal.status === "DRAFT" && await hasPermission(user, { firmaId: selectedStatement.firma_id, modul: "nalozi", akcija: "post" }) ? <form action={postManualBankJournalAction}>
+                    <input type="hidden" name="statement_id" value={selectedStatement.id} />
+                    <input type="hidden" name="statement_version" value={selectedStatement.updated_at.toISOString()} />
+                    <input type="hidden" name="journal_id" value={selectedStatement.journal.id} />
+                    <input type="hidden" name="journal_version" value={selectedStatement.journal.updated_at.toISOString()} />
+                    <button type="submit" className="primary-button">Proknjiži nalog</button>
+                  </form> : null}
                 </div>
               ) : (
                 <form action={updateBankStatementLines}>
@@ -1009,7 +1066,10 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                                 <input name="line_direction" type="hidden" value={line.direction} />
                               </td>
                               <td className="statement-col-partner">
-                                <PartnerSearchInput
+                                <BankStatementPartnerInput
+                                  key={`${line.id}:${selectedStatement.updated_at.toISOString()}`}
+                                  account={line.counterparty_account_number}
+                                  disabled={!canEditSelected}
                                   initialPartner={
                                     line.partner
                                       ? {
@@ -1021,8 +1081,6 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                                         }
                                       : null
                                   }
-                                  label=""
-                                  name="partner_id"
                                 />
                               </td>
                               <td className="statement-col-account">
@@ -1111,7 +1169,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                   </div>
                   <button
                     className="primary-button"
-                    disabled={!canUpdate || effectiveStatementStatus(selectedStatement) === "POSTED"}
+                    disabled={!canEditSelected}
                     type="submit"
                   >
                     Sačuvaj predlog naloga

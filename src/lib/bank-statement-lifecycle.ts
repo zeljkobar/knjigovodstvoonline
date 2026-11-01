@@ -90,7 +90,9 @@ export async function lockBankStatement(
     await tx.$queryRaw`SELECT id FROM nalozi WHERE id=${statement.journal_id}::uuid FOR UPDATE`;
   }
   const journal = statement.journal_id ? await assertBankJournalOwnership(tx, statement) : null;
-  if (editable && (statement.status === "POSTED" || (journal && journal.status !== "DRAFT"))) {
+  const legacyDraft = statement.status === "POSTED" && journal?.status === "DRAFT";
+  if (editable && legacyDraft) await assertBankStatementAccess(tx, actor, scope.firma_id, ["update", "post"]);
+  if (editable && ((statement.status === "POSTED" && !legacyDraft) || (journal && journal.status !== "DRAFT"))) {
     throw new BankStatementError("izvod_greska");
   }
   const periods = await tx.$queryRaw<Array<{ status: string }>>`
@@ -100,6 +102,44 @@ export async function lockBankStatement(
     FOR UPDATE`;
   if (periods.some(period => period.status === "LOCKED")) throw new BankStatementError("pdv_period_zakljucan");
   return { statement, journal };
+}
+
+type LockedBankStatement = Awaited<ReturnType<typeof lockBankStatement>>;
+
+async function setLockedBankStatementDraft(
+  tx: Prisma.TransactionClient, actor: BankStatementActor,
+  { statement, journal }: LockedBankStatement, legacyDraft: boolean
+) {
+  if (!journal) throw new BankStatementError("izvod_greska");
+  const lines = await tx.bankStatementLine.findMany({ where: { bank_statement_id: statement.id }, include: { allocations: true } });
+  await tx.nalog.update({ where: { id: journal.id }, data: {
+    status: "DRAFT", datum_knjizenja: null, proknjizen_at: null, proknjizen_by: null,
+    vracen_u_nacrt_at: legacyDraft ? journal.vracen_u_nacrt_at ?? new Date() : new Date(),
+    vracen_u_nacrt_by: legacyDraft ? journal.vracen_u_nacrt_by ?? actor.userId : actor.userId,
+    updated_by: actor.userId
+  } });
+  const reopened = await tx.bankStatement.update({ where: { id: statement.id }, data: {
+    status: "NEEDS_REVIEW", posted_at: null, posted_by: null, updated_by: actor.userId
+  } });
+  await refreshBankPaymentStatuses(tx, statement.id, actor.userId);
+  await auditLogInTransaction(tx, {
+    korisnikId: actor.userId, agencijaId: actor.agencyId, firmaId: statement.firma_id,
+    modul: "agencija.izvodi", akcija: legacyDraft ? "sync_draft_statement" : "reopen_statement",
+    tipEntiteta: "BankStatement", entitetId: statement.id,
+    staraVrijednost: { statement, journal, lines },
+    novaVrijednost: { status: reopened.status, journalId: journal.id, journalStatus: "DRAFT", allocationsActive: false }
+  });
+  return reopened;
+}
+
+// Call only after lock/version checks, within the caller's transaction. Legacy
+// source POSTED + journal DRAFT has no active payments or GL effect to restore.
+export async function syncLegacyBankStatementDraft(
+  tx: Prisma.TransactionClient, actor: BankStatementActor, current: LockedBankStatement
+) {
+  if (current.statement.status !== "POSTED" || current.journal?.status !== "DRAFT") return current.statement;
+  await assertBankStatementAccess(tx, actor, current.statement.firma_id, ["update", "post"]);
+  return setLockedBankStatementDraft(tx, actor, current, true);
 }
 
 export async function refreshBankPaymentStatuses(tx: Prisma.TransactionClient, statementId: string, userId: string) {
@@ -143,23 +183,8 @@ export async function reopenBankStatement(
     const { statement, journal } = await lockBankStatement(tx, actor, source, ["update", "post"], false, target.journalId ? "update" : undefined);
     if (!journal || (target.journalId && journal.id !== target.journalId)) throw new BankStatementError("izvod_greska");
     if (statement.status !== "POSTED" && journal.status === "DRAFT") return statement;
+    if (statement.status === "POSTED" && journal.status === "DRAFT") return syncLegacyBankStatementDraft(tx, actor, { statement, journal });
     if (statement.status !== "POSTED" || journal.status !== "POSTED") throw new BankStatementError("izvod_greska");
-    const lines = await tx.bankStatementLine.findMany({ where: { bank_statement_id: statement.id }, include: { allocations: true } });
-    await tx.nalog.update({ where: { id: journal.id }, data: {
-      status: "DRAFT", datum_knjizenja: null, proknjizen_at: null, proknjizen_by: null,
-      vracen_u_nacrt_at: new Date(), vracen_u_nacrt_by: actor.userId, updated_by: actor.userId
-    } });
-    // A deliberate correction cannot be picked up by the automatic READY queue.
-    const reopened = await tx.bankStatement.update({ where: { id: statement.id }, data: {
-      status: "NEEDS_REVIEW", posted_at: null, posted_by: null, updated_by: actor.userId
-    } });
-    await refreshBankPaymentStatuses(tx, statement.id, actor.userId);
-    await auditLogInTransaction(tx, {
-      korisnikId: actor.userId, agencijaId: actor.agencyId, firmaId: statement.firma_id,
-      modul: "agencija.izvodi", akcija: "reopen_statement", tipEntiteta: "BankStatement", entitetId: statement.id,
-      staraVrijednost: { statement, journal, lines },
-      novaVrijednost: { status: reopened.status, journalId: journal.id, journalStatus: "DRAFT", allocationsActive: false }
-    });
-    return reopened;
+    return setLockedBankStatementDraft(tx, actor, { statement, journal }, false);
   }, { timeout: 30000 });
 }

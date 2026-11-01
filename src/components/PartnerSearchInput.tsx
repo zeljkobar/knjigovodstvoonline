@@ -6,7 +6,7 @@ import {
   type QuickPartnerResult
 } from "@/components/QuickPartnerCreateModal";
 
-type PartnerResult = {
+export type PartnerResult = {
   id: string;
   label: string;
   naziv: string;
@@ -25,6 +25,7 @@ type PartnerSearchInputProps = {
   initialPartner?: PartnerResult | null;
   label?: string;
   name: string;
+  onPartnerChange?: (partner: PartnerResult | null) => void;
   quickCreateEndpoint?: string;
   required?: boolean;
   searchEndpoint?: string;
@@ -41,6 +42,7 @@ export function PartnerSearchInput({
   initialPartner = null,
   label = "Partner",
   name,
+  onPartnerChange,
   quickCreateEndpoint = "/api/partners/quick-create",
   required = false,
   searchEndpoint = "/api/partners/search"
@@ -160,6 +162,7 @@ export function PartnerSearchInput({
   }, [disabled, searchEndpoint]);
 
   function selectPartner(partner: PartnerResult) {
+    onPartnerChange?.(partner);
     setSelected(partner);
     setDetectedPib("");
     setQuery(partner.label);
@@ -208,6 +211,7 @@ export function PartnerSearchInput({
             onChange={(event) => {
               setQuery(event.target.value);
               setSelected(null);
+              onPartnerChange?.(null);
               setDetectedPib("");
             }}
             onFocus={() => {

@@ -1,4 +1,4 @@
-import { BankStatementError, assertBankStatementAccess, assertBankJournalOwnership, lockBankStatement, postedBankAllocationWhere, refreshBankInvoicePayment, refreshBankPaymentStatuses, reopenBankStatement } from "@/lib/bank-statement-lifecycle";
+import { BankStatementError, assertBankStatementAccess, assertBankJournalOwnership, lockBankStatement, postedBankAllocationWhere, refreshBankInvoicePayment, refreshBankPaymentStatuses, reopenBankStatement, syncLegacyBankStatementDraft } from "@/lib/bank-statement-lifecycle";
 import { effectiveBankRules, effectiveBankSetting } from "@/lib/posting-template";
 import "server-only";
 import { completedMailKeys } from "@/lib/mail-import-completion";
@@ -16,12 +16,15 @@ import { accountOverrideTypes } from "@/lib/account-plan";
 import { requireAnyRole, requireRole } from "@/lib/auth";
 import {
   bestBankStatementRuleForLine,
+  bankStatementAmountBlockers,
+  bankStatementAmountsReady,
   normalizeBankPaymentCode
 } from "@/lib/bank-statement-rules";
 import { formatJournalCode, journalStatuses } from "@/lib/journals";
 import { hasPermission, type PermissionAction } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { readWorkContext } from "@/lib/work-context";
+import { postManualBankJournalInTransaction } from "@/lib/bank-manual-journal";
 
 const bankStatementStatuses = {
   imported: "IMPORTED",
@@ -2294,8 +2297,10 @@ async function runBankStatementImport(formData: FormData, mail?: { firmaId: stri
         updated_by: user.id
       };
     }));
-    const allLinesReady = statementLines.every((line) => line.posting_status === lineStatuses.ready);
-    const initialStatus = balanceOk && allLinesReady
+    const amountSnapshot = { opening_balance: centsToDecimal(validOpeningBalance), closing_balance: centsToDecimal(validClosingBalance),
+      total_inflow: centsToDecimal(totalInflow), total_outflow: centsToDecimal(totalOutflow), lines: statementLines };
+    const amountBlockers = bankStatementAmountBlockers(amountSnapshot);
+    const initialStatus = bankStatementAmountsReady(amountSnapshot)
       ? bankStatementStatuses.ready
       : balanceOk
         ? bankStatementStatuses.needsReview
@@ -2354,6 +2359,7 @@ async function runBankStatementImport(formData: FormData, mail?: { firmaId: stri
             : "",
           parsedStatement.notes ?? "",
           balanceOk ? "" : "Početno stanje + priliv - odliv nije jednako krajnjem stanju.",
+          ...amountBlockers,
           initialStatus === bankStatementStatuses.ready
             ? "Sve stavke su mapirane pravilima; izvod je spreman za knjiženje."
             : ""
@@ -2479,7 +2485,7 @@ export async function updateBankStatementLines(formData: FormData) {
 
   if (
     !statement ||
-    statement.status === bankStatementStatuses.posted ||
+    (statement.status === bankStatementStatuses.posted && !(hasValidJournal && statement.journal?.status === "DRAFT")) ||
     (hasValidJournal && statement.journal?.status !== "DRAFT") ||
     !statement.bank_account_konto_id
   ) {
@@ -2498,10 +2504,12 @@ export async function updateBankStatementLines(formData: FormData) {
     const current = await lockBankStatement(tx, { userId: user.id, agencyId: agencijaId }, {
       id: statement.id, firma_id: firma.id, poslovna_godina_id: poslovnaGodina.id
     }, ["update"], true);
+    if (current.statement.journal_mode === "MANUAL") throw new BankStatementError("izvod_rucni_nalog");
     if (current.statement.updated_at.getTime() !== statement.updated_at.getTime() ||
         (value(formData, "statement_version") && value(formData, "statement_version") !== current.statement.updated_at.toISOString())) {
       throw new BankStatementError("izvod_promijenjen");
     }
+    await syncLegacyBankStatementDraft(tx, { userId: user.id, agencyId: agencijaId }, current);
     const affectedKifEntryIds = new Set<string>();
     const affectedKufEntryIds = new Set<string>();
 
@@ -2907,13 +2915,9 @@ export async function updateBankStatementLines(formData: FormData) {
       where: {
         bank_statement_id: statement.id
       },
-      select: {
-        posting_status: true
-      }
+      select: { line_number: true, posting_status: true, direction: true, inflow_amount: true, outflow_amount: true }
     });
-    const isReady = lines.every((line) =>
-      [lineStatuses.ready, lineStatuses.ignored].includes(line.posting_status as typeof lineStatuses.ready)
-    );
+    const isReady = bankStatementAmountsReady({ ...current.statement, lines });
 
     await tx.bankStatement.update({
       where: {
@@ -2960,9 +2964,10 @@ export async function reapplyBankStatementRules(formData: FormData) {
       firma_id: firma.id,
       poslovna_godina_id: poslovnaGodina.id,
       is_deleted: false,
-      status: {
-        not: bankStatementStatuses.posted
-      }
+      OR: [
+        { status: { not: bankStatementStatuses.posted } },
+        { status: bankStatementStatuses.posted, journal: { is: { status: "DRAFT", is_deleted: false } } }
+      ]
     },
     include: {
       lines: {
@@ -2999,7 +3004,9 @@ export async function reapplyBankStatementRules(formData: FormData) {
     const current = await lockBankStatement(tx, { userId: user.id, agencyId: agencijaId }, {
       id: statement.id, firma_id: firma.id, poslovna_godina_id: poslovnaGodina.id
     }, ["update"], true);
+    if (current.statement.journal_mode === "MANUAL") throw new BankStatementError("izvod_rucni_nalog");
     if (current.statement.updated_at.getTime() !== statement.updated_at.getTime()) throw new BankStatementError("izvod_promijenjen");
+    await syncLegacyBankStatementDraft(tx, { userId: user.id, agencyId: agencijaId }, current);
     let applied = 0;
 
     for (const line of statement.lines) {
@@ -3069,20 +3076,14 @@ export async function reapplyBankStatementRules(formData: FormData) {
       where: {
         bank_statement_id: statement.id
       },
-      select: {
-        posting_status: true
-      }
+      select: { line_number: true, posting_status: true, direction: true, inflow_amount: true, outflow_amount: true }
     });
     const balanceOk =
       decimalToCents(statement.opening_balance) +
         decimalToCents(statement.total_inflow) -
         decimalToCents(statement.total_outflow) ===
       decimalToCents(statement.closing_balance);
-    const allLinesReady = lineStates.every((line) =>
-      [lineStatuses.ready, lineStatuses.ignored].includes(
-        line.posting_status as typeof lineStatuses.ready
-      )
-    );
+    const allLinesReady = bankStatementAmountsReady({ ...statement, lines: lineStates });
 
     await tx.bankStatement.update({
       where: {
@@ -3555,7 +3556,7 @@ export async function deleteBankPostingRule(formData: FormData) {
   redirect("/agencija/izvodi/pravila?poruka=pravilo_obrisano");
 }
 
-export async function postSelectedBankStatements(formData: FormData, scheduled?: ScheduledBankContext) {
+export async function postSelectedBankStatements(formData: FormData, scheduled?: ScheduledBankContext, skipInvalidAmounts = false) {
   const { user, firma, poslovnaGodina } = await getActiveContext("post", scheduled);
   const statementIds = formData.getAll("statement_id").map((item) => String(item));
 
@@ -3568,6 +3569,8 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
   }
 
   const postedIds: string[] = [];
+  const skippedInvalidIds: string[] = [];
+  let failedStatementId: string | undefined;
   const agencijaId = user.agencija_id;
   const firmaId = firma.id;
   const poslovnaGodinaId = poslovnaGodina.id;
@@ -3595,6 +3598,7 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
     }
 
     for (const statementId of statementIds) {
+      failedStatementId = statementId;
       await tx.$queryRaw`SELECT id FROM bank_statements WHERE id=${statementId}::uuid FOR UPDATE`;
       const statement = await tx.bankStatement.findFirst({
         where: {
@@ -3620,9 +3624,19 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
         };
       }> | null;
 
-      if (!statement || (scheduled && statement.journal_id) || !statement.bank_account_konto_id) {
+      if (!statement || (scheduled && statement.journal_id)) {
         continue;
       }
+
+      if (statement.journal_mode === "MANUAL") {
+        // A manually reviewed ledger is authoritative. Never regenerate it
+        // from parsed rows, including after reopen or from a batch action.
+        const versions = value(formData, "statement_version") ? formData : undefined;
+        await postManualBankJournalInTransaction(tx, { userId: user.id, agencyId: agencijaId, companyId: firmaId, yearId: poslovnaGodinaId }, statement.id, versions);
+        postedIds.push(statement.id);
+        continue;
+      }
+      if (!statement.bank_account_konto_id) continue;
 
       if (statement.journal_id) await tx.$queryRaw`SELECT id FROM nalozi WHERE id=${statement.journal_id}::uuid FOR UPDATE`;
       const draftJournal = statement.journal_id ? await assertBankJournalOwnership(tx, statement) : null;
@@ -3636,6 +3650,14 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
       const totalInflow = Math.round(Number(statement.total_inflow) * 100);
       const totalOutflow = Math.round(Number(statement.total_outflow) * 100);
       const closingBalance = Math.round(Number(statement.closing_balance) * 100);
+
+      if (bankStatementAmountBlockers(statement).length > 0) {
+        if (skipInvalidAmounts && !scheduled) {
+          skippedInvalidIds.push(statement.id);
+          continue;
+        }
+        throw new BankStatementError("izvod_promet_greska");
+      }
 
       if (openingBalance + totalInflow - totalOutflow !== closingBalance) {
         continue;
@@ -3657,7 +3679,7 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
       }
 
       const periods = await tx.$queryRaw<{status: string}[]>`SELECT status FROM pdv_periodi WHERE firma_id=${firmaId}::uuid AND datum_od<=${statement.statement_date} AND datum_do>=${statement.statement_date} FOR UPDATE`;
-      if (periods.some(p => p.status === "LOCKED")) throw new Error("PDV period je zaključan.");
+      if (periods.some(p => p.status === "LOCKED")) throw new BankStatementError("pdv_period_zakljucan");
       if (statement.statement_date < currentYear.datum_od || statement.statement_date > currentYear.datum_do) throw new Error("Datum izvoda je van poslovne godine.");
       const lineInflow = activeLines.reduce((sum, line) => sum + Math.round(Number(line.inflow_amount) * 100), 0);
       const lineOutflow = activeLines.reduce((sum, line) => sum + Math.round(Number(line.outflow_amount) * 100), 0);
@@ -3837,7 +3859,7 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
     }
   }, { isolationLevel: "Serializable", timeout: 30000 }).catch((error) => {
     if (scheduled) throw error;
-    if (error instanceof BankStatementError) redirectStatements(error.message);
+    if (error instanceof BankStatementError) redirectStatements(error.message, failedStatementId);
     if (error instanceof Error && error.message === "partner_obavezan") {
       redirectStatements("partner_obavezan");
     }
@@ -3856,7 +3878,7 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
   if (scheduled) return postedIds;
 
   if (postedIds.length === 0) {
-    redirectStatements("nema_spremnih_izvoda");
+    redirectStatements(skippedInvalidIds.length ? "izvodi_za_provjeru" : "nema_spremnih_izvoda");
   }
 
   await auditLog({
@@ -3867,7 +3889,8 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
     akcija: "post",
     tipEntiteta: "BankStatement",
     novaVrijednost: {
-      ids: postedIds
+      ids: postedIds,
+      skippedInvalidIds
     }
   });
 
@@ -3875,7 +3898,7 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
   revalidatePath("/agencija/nalozi", "layout");
   revalidatePath("/agencija/racuni", "layout");
   revalidatePath("/agencija/izvjestaji", "layout");
-  redirectStatements("izvodi_proknjizeni", postedIds[0]);
+  redirectStatements(skippedInvalidIds.length ? "izvodi_proknjizeni_dio_za_provjeru" : "izvodi_proknjizeni", postedIds[0]);
 }
 
 export async function postReadyBankStatements() {
@@ -3916,7 +3939,7 @@ export async function postReadyBankStatements() {
     formData.append("statement_id", statement.id);
   }
 
-  return postSelectedBankStatements(formData);
+  return postSelectedBankStatements(formData, undefined, true);
 }
 
 

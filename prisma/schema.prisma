@@ -2686,6 +2686,7 @@ model BankStatement {
   bank_account_konto      FirmaKonto?         @relation("BankStatementBankAccount", fields: [bank_account_konto_id], references: [id])
   journal_id              String?             @db.Uuid
   journal                 Nalog?              @relation(fields: [journal_id], references: [id])
+  journal_mode            String              @default("AUTO")
   statement_number        String
   statement_date          DateTime            @db.Date
   opening_balance         Decimal             @default(0) @db.Decimal(14, 2)

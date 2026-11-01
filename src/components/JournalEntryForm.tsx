@@ -9,12 +9,14 @@ import {
   type KeyboardEvent,
   type ReactNode
 } from "react";
+import { parseScaledInteger } from "@/lib/inventory-calculation";
 
 type JournalEntryFormProps = {
   action: ComponentProps<"form">["action"];
   children: ReactNode;
   className?: string;
   requiredAnalyticsAccounts?: string[];
+  onValidatedSubmit?: (event: FormEvent<HTMLFormElement>) => void;
 };
 
 function isFocusable(element: HTMLElement) {
@@ -53,13 +55,12 @@ function parsePositiveAmount(value: string) {
 }
 
 function parseAmount(value: string | undefined) {
-  const amount = Number(String(value ?? "").trim().replace(",", "."));
-
-  return Number.isFinite(amount) && amount > 0 ? amount : 0;
+  const amount = parseScaledInteger(String(value ?? "").trim(), 2);
+  return amount !== null && amount > BigInt(0) ? Number(amount) : 0;
 }
 
 function formatAmount(value: number) {
-  return value.toFixed(2);
+  return (value / 100).toFixed(2);
 }
 
 function setInputValue(input: HTMLInputElement, value: string) {
@@ -72,7 +73,8 @@ export function JournalEntryForm({
   action,
   children,
   className,
-  requiredAnalyticsAccounts = []
+  requiredAnalyticsAccounts = [],
+  onValidatedSubmit
 }: JournalEntryFormProps) {
   const [localError, setLocalError] = useState<string | null>(null);
   const errorRef = useRef<HTMLParagraphElement | null>(null);
@@ -191,7 +193,7 @@ export function JournalEntryForm({
     );
     const debitInput = activeRow.querySelector<HTMLInputElement>('input[name="duguje"]');
     const creditInput = activeRow.querySelector<HTMLInputElement>('input[name="potrazuje"]');
-    const difference = Math.round((totals.debit - totals.credit) * 100) / 100;
+    const difference = totals.debit - totals.credit;
 
     if (!debitInput || !creditInput || difference === 0) {
       return;
@@ -299,7 +301,9 @@ export function JournalEntryForm({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     if (!validateBeforeSubmit(event.currentTarget)) {
       event.preventDefault();
+      return;
     }
+    onValidatedSubmit?.(event);
   }
 
   return (

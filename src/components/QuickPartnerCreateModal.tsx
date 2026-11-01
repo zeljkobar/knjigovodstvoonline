@@ -20,6 +20,9 @@ type QuickPartnerCreateModalProps = {
   endpoint?: string;
   initialName: string;
   initialPib?: string;
+  initialAddress?: string;
+  initialCity?: string;
+  initialAccountNumber?: string;
   onClose: () => void;
   onCreated: (partner: QuickPartnerResult) => void;
 };
@@ -35,6 +38,9 @@ export function QuickPartnerCreateModal({
   endpoint = "/api/partners/quick-create",
   initialName,
   initialPib = "",
+  initialAddress = "",
+  initialCity = "",
+  initialAccountNumber = "",
   onClose,
   onCreated
 }: QuickPartnerCreateModalProps) {
@@ -42,8 +48,9 @@ export function QuickPartnerCreateModal({
   const [pib, setPib] = useState(initialPib);
   const [type, setType] = useState("kupac_dobavljac");
   const [scope, setScope] = useState("AGENCY");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [city, setCity] = useState("");
+  const [accountNumber, setAccountNumber] = useState(initialAccountNumber);
+  const [address, setAddress] = useState(initialAddress);
+  const [city, setCity] = useState(initialCity);
   const [country, setCountry] = useState("Crna Gora");
   const [isForeign, setIsForeign] = useState(false);
   const [status, setStatus] = useState("");
@@ -74,6 +81,7 @@ export function QuickPartnerCreateModal({
         },
         body: JSON.stringify({
           accountNumber,
+          address,
           city,
           country,
           isForeign,
@@ -139,6 +147,10 @@ export function QuickPartnerCreateModal({
               <option value="kupac_dobavljac">Kupac i dobavljač</option>
               <option value="ostalo">Ostalo</option>
             </select>
+          </label>
+          <label>
+            <span>Adresa</span>
+            <input value={address} onChange={(event) => setAddress(event.target.value)} />
           </label>
           {companyOnly ? (
             <label>

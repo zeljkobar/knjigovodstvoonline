@@ -125,6 +125,8 @@ export async function purgeCompanyData(
 
   // Agencijski mail nalozi ostaju; njihove veze i obrade firme su uklonjene iznad.
   // Izvodi brišu svoje linije kaskadno. Podešavanja i pravila se brišu posebno.
+  // journal_mode is an inline AUTO/MANUAL flag; no new children/FKs. Both
+  // modes' allocations/lines are removed above, before their linked journals.
   await izvrsi(
     "bank_statements",
     Prisma.sql`DELETE FROM bank_statements WHERE firma_id = ${firmaId}::uuid`

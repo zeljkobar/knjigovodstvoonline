@@ -1,12 +1,104 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-10-31. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-11-01. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Ručno uređivanje konačnog naloga izvoda — 2026-11-01
+
+- Dopuna Save-a: neupotrijebljen red sa samim automatskim opisom ne blokira
+  čuvanje. Fokus/Enter ne označavaju snimljen nalog kao izmijenjen; stvarne
+  izmjene i dalje traže F8. Save greška je uz dugme. Reprodukovano prije
+  ispravke i potvrđeno unit testom i stvarnim browser Save/Enter/re-Save/Post tokom.
+
+- U Predlogu naloga i na povezanom nalogu postoji **Edituj nalog**. Otvara
+  puni editor `/agencija/izvodi/[id]/nalog`: datum/opis/jedinica, sva konta
+  uključujući banku, partneri, opisi, dokumenti/datumi, duguje/potražuje,
+  dodavanje i brisanje redova. POSTED nalog prvo se vraća u nacrt.
+- Čuvanje zadržava postojeći ID/broj ili pravi prvi DRAFT. Izvod dobija
+  `journal_mode=MANUAL`; konačni nalog je izvor knjiženja. Izvorni uvoz ostaje
+  sačuvan, a neslaganje parsera je upozorenje. AUTO pravila/stari obrasci ne
+  mogu prepisati ručni nalog; knjiženje i ponavljanje ne regenerišu redove.
+- Nacrt smije biti neizbalansiran; post traži pozitivan balans u centima,
+  aktivna konta i potrebne partnere/jedinicu. Scope/prava oba modula,
+  godina/PDV, vlasništvo/zavisnosti, revizije i atomski audit ostaju obavezni.
+  Postojeće veze faktura zadržavaju se samo kad im ručni nalog odgovara;
+  nepodržane veze korisnik eksplicitno uklanja. Reopen/post usklađuju plaćanja.
+- Prošli TSC/lint/npm test, DB rollback lifecycle i regresije naloga/izvoda/
+  zamjene konta, paralelni Save/Post u zasebnoj testnoj bazi i pravi browser
+  tok na privremenoj firmi (uključujući zadržavanje unosa nakon greške).
+  Testni podaci su uklonjeni; stvarni korisnički izvodi nijesu ručno mijenjani.
+- Migracija `20261101120000_bank_manual_journal` lokalno je primijenjena,
+  Prisma regenerisana i dev restartovan. Purge pokriće i test prolaze;
+  nova kolona ne mijenja redoslijed brisanja. Na serveru migrate deploy,
+  generate i restart poslije deploya; nema nove `.env` postavke.
+
+## Stari proknjižen izvod uz nalog u nacrtu — 2026-11-01
+
+- Stari POSTED izvod sa svojim neobrisanim DRAFT nalogom prikazuje Nalog u
+  nacrtu, uz omogućeno čuvanje za korisnika sa izvodi update/post pravima.
+  Uskladi sa nacrtom, Sačuvaj predlog naloga i Ponovo primijeni pravila mogu
+  uskladiti taj par; ne mijenjaju istinski POSTED nalog niti iznose izvora.
+- Pod istim lockovima/scope/godina/PDV/zavisnosti/version provjerama izvod
+  prelazi u NEEDS_REVIEW, brišu se zastarjele oznake knjiženja i osvježavaju
+  statusi plaćanja uz atomski sync_draft_statement audit. Čuva se postojeći
+  datum vraćanja u nacrt, ID/broj naloga i sve stavke. Read prikaz nema mutacije.
+  Ispravan sačuvan predlog daje READY i omogućava knjiženje istog naloga;
+  neispravni iznosi ostaju za provjeru. Preview banke koristi zaglavlje i
+  posebno sabira kontra stavke, pa ne prikriva neravnotežu lažnim prilivom.
+- Konkretni lokalni izvod 3 usklađen je kroz taj backend, uz audit i provjeru
+  identičnih iznosa/konta/stavki prije/poslije. Nije knjižen; nalog ostaje DRAFT.
+  Read-only SSR potvrđuje omogućen Save i stvarnu neravnotežu 43,60 / 127,48;
+  tri provizije po 0,36 pogrešno su parsirane kao priliv. Konačni nalog sada
+  se može ručno ispraviti kroz Edituj nalog; dorada samog parsera zahtijeva
+  originalni PDF izvoda 3, zajedno sa ranije spornim CKB izvodima 9/10.
+- TSC/lint/npm test i proširena DB rollback regresija prolaze: stari par,
+  prava, zaključavanja, verzija, zavisnosti, audit rollback, Save/rules/sync,
+  idempotentnost i ponovno knjiženje bez duplog naloga. Nema migracije/.env izmjene.
+
+## Spremnost i grupno knjiženje izvoda — 2026-11-01
+
+- Utvrđen uzrok korisničke greške: stari CKB izvodi 9/10 bili su READY iako
+  zbir/smjer stavki ne odgovara zaglavlju. Jedan je priliv prepoznat kao odliv,
+  a provizija 0,36 na drugom kao priliv. Cijela grupa se ranije poništavala.
+- Zajednička kontrola u centima provjerava stanje, zbir priliva/odliva, smjer
+  i aktivne stavke u importu, čuvanju predloga i primjeni pravila. Pregled
+  istorijski neispravan READY prikazuje Za provjeru, sa iznosima razlika,
+  isključenim izborom za knjiženje i bez izmjene zapisa samo pri čitanju.
+- Proknjiži spremne preskače matematički neispravne i javlja djelimični uspjeh;
+  ispravni se knjiže uz postojeća pravila/prava/zaključavanja/audit. Direktni
+  pokušaj spornog izvoda otvara njegov detalj sa razlogom. Nijedna kontrola
+  ravnoteže nije popuštena; nepravilni iznosi se ne popravljaju nagađanjem.
+- TSC/lint/npm test i rollback lifecycle/SSR prolaze. Stara greška i ispravka
+  reprodukovane na istim korisničkim izvodima pod obaveznim rollback-om:
+  223 se uspješno knjiži u probi, 9/10 ostaju bez naloga. Nema migracije niti
+  trajnog knjiženja/izmjene korisničkih podataka. Za korekciju CKB 009.pdf i
+  010.pdf potreban je pregled originalnog PDF rasporeda; parser nije prepravljan
+  na osnovu samog raw teksta, niti su stari iznosi automatski mijenjani.
+
+## CBCG pretraga nepovezanih računa izvoda — 2026-10-31
+
+- Uz nepoznatog partnera u Stavkama izvoda i Predlogu naloga postoji CBCG za
+  domaći račun na izmjenjivom izvodu. Postojeći Chrome/Edge IRMS pomoćnik je
+  proširen na verziju 1.1.0; potrebno je Reload ekstenzije i refresh programa.
+- Otvara svoj tab, popunjava tri dijela računa i regularno traži rezultat.
+  Korisnik potvrđuje eventualnu CBCG/reCAPTCHA poruku; čitač nastavlja da čeka.
+  Prenosi samo jednog nosioca sa tačnim računom i osmocifrenim PIB-om, adresom
+  i gradom. Nakon ACK prijema zatvara samo svoj tab i vraća fokus programu.
+  Zahtjevi su odvojeni po redu/tabu/dokumentu; otkaz/zatvaranje/rok 5 min čiste stanje.
+- Scoped pretraga PIB-a bira jednog postojećeg partnera, kod više traži izbor,
+  a bez partnera otvara popunjen brzi unos uz korisničko čuvanje. Poveži partnera
+  na Stavkama ili Sačuvaj predlog naloga koriste postojeću action sa scope/prava/
+  godina/PDV/version/audit zaštitama. Nema automatskog knjiženja niti nove tabele.
+- Prošli TSC, npm test i rollback PostgreSQL test potvrde jednog reda bez
+  izmjene ostalih, učenja računa, audita, stale verzije i zaključavanja/prava.
+  Novi čitač read-only potvrđen na živom CBCG računu; extension protokol i SSR
+  provjereni automatski. Cijeli korisnički tok učitane ekstenzije ostaje ručni QA.
+  Nema migracije/.env promjene; poslovni korisnički podaci nijesu mijenjani.
 
 ## Grupna zamjena konta u nalozima — 2026-10-31
 

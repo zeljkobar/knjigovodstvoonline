@@ -20,6 +20,62 @@
   sa AAD scope-om agencije i korisnika. Pri deployu sačuvati i obezbijediti ključ
   nezavisno od baze; njegova zamjena zahtijeva ponovni upload ili re-enkripciju.
 
+### Ručni nalog izvoda
+
+`bank_statements.journal_mode` razlikuje AUTO i MANUAL. Novi editor
+`/agencija/izvodi/[id]/nalog` koristi postojeće JournalEntryForm/JournalLinesEditor
+komponente i stvarne stavke vezanog naloga, bez upisa pri GET-u. Save čuva isti
+nalog/broj ili pravi prvi nacrt i prebacuje source u MANUAL. Sve izvorne
+stavke/zaglavlje ostaju. Parser greške postaju upozorenja; AUTO save/rules i
+zastarjeli obrasci ne mogu prepisati korisnički nalog.
+
+`bank-manual-journal.ts` koristi zajednički lifecycle lock redoslijed i prava
+oba modula, DB scope, vlasništvo/zavisnosti, godinu/PDV i optimistic revizije
+source/naloga. DRAFT smije biti neizbalansiran; post provjerava stvarne redove,
+analitiku/jedinicu i pozitivan balans u centima, bez regeneracije. Direktni i
+grupni post delegiraju istom servisu. Reopen zadržava mode i nalog. Postojeće
+alokacije provjeravaju se prema neto kontu/partneru/smjeru/iznosu ili eksplicitno
+uklanjaju sa auditom. Payment statusi se osvježavaju atomski. Grupna zamjena
+konta kod MANUAL mijenja samo ledger, uz istu provjeru zadržanih alokacija.
+
+Migracija `20261101120000_bank_manual_journal` dodaje postojeću kolonu sa
+AUTO defaultom i CHECK AUTO/MANUAL. Nema novog FK/tabele; company purge
+zadržava redoslijed. UI čuva vrijednosti nakon odbijenog Save-a i blokira
+post dok su prikazane izmjene nesnimljene. Fokus/pretraga bez promjene ne
+aktiviraju dirty stanje, a neupotrijebljen red samo sa opisom preskače se
+pri parsiranju. Istovremeni Save/Post testiran je
+u zasebnoj bazi, lifecycle pod rollback-om, a cijeli browser tok na privremenoj
+firmi. Stvarni korisnički nalog nije automatski korigovan niti knjižen.
+
+### Stari izvod uz DRAFT nalog
+
+`bank-statement-lifecycle.ts` podržava istorijski par source POSTED / njegov
+nalog DRAFT. `syncLegacyBankStatementDraft` poziva se tek poslije lockova,
+ownership/dependency, prava, godine/PDV i version provjera u transakciji Save-a
+ili primjene pravila; koristi ga i eksplicitni reopen/sync tok. Čisti stare
+posted oznake, vraća izvod u NEEDS_REVIEW i osvježava payment statuse uz atomski
+audit. Datum originalnog vraćanja u nacrt, ID/broj i izvorne/nalog stavke ostaju.
+UI čita stvarni DRAFT status bez upisa i ne prikazuje Proknjižen. Save može dati
+READY u AUTO režimu tek nakon zajedničke matematičke kontrole; ponovno AUTO
+knjiženje gradi isti nalog. MANUAL režim provjerava i knjiži stvarni ledger. Preview koristi banku iz zaglavlja i posebno zbira kontra redove.
+
+### Browser pomoćnik za IRMS i CBCG
+
+Postojeća MV3 Chrome/Edge ekstenzija `browser-extensions/irms-helper` od 1.1.0
+ima zaseban CBCG protokol uz IRMS. `cbcg-browser-bridge.ts` provjerava source/
+origin/request ID/račun i DTO, pa ACK-om potvrđuje prijem. Worker veže zahtjev
+za pokretački tab i dokument, čuva samo privremenu session evidenciju i poslije
+ACK-a zatvara kreirani tab. Alarm i otkaz čiste zahtjev; postojeći tabovi se ne
+preuzimaju. Čitač koristi vidljivu CBCG Pretragu, čeka i poslije error dijaloga
+i traži jednog nosioca pod odgovarajućim brojem računa. CAPTCHA potvrđuje korisnik.
+
+`BankStatementPartnerInput` traži dostupnog komitenta preko postojećeg exactPib
+API-ja. Više pogodaka zahtijeva izbor, a bez pogodaka predlaže brzi unos sa
+podacima CBCG-a. Čuvanje reda ide postojećom `updateBankStatementLines` action
+(na Stavkama izvoda samo jedan red; u Predlogu naloga cijela forma), sa istim
+backend provjerama, verzijom i auditom. Nema nove tabele, server CAPTCHA proksija
+ni čuvanja registarskog izvještaja.
+
 ### Fiskalni portali i uvoz pazara
 
 `fiskalni_portali_firmi` ima jedan provajder po firmi i složeni FK na

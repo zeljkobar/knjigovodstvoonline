@@ -15,6 +15,7 @@ import { requireAnyRole } from "@/lib/auth";
 import { formatJournalCode, journalStatusLabel, journalStatuses } from "@/lib/journals";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { manualBankMessages } from "@/lib/bank-manual-journal-input";
 
 type NalogDetailPageProps = {
   params: Promise<{
@@ -27,6 +28,7 @@ type NalogDetailPageProps = {
 };
 
 const poruke: Record<string, string> = {
+  ...manualBankMessages,
   izvod_uredjivanje: "Nalog izvoda se ispravlja i ponovo knjiži kroz modul Izvodi.",
   izvod_nalog_veze: "Nalog ima druge veze ili nije pravilno povezan sa izvodom.",
   izvod_greska: "Izvod nije dostupan za rasknjižavanje.",
@@ -132,13 +134,14 @@ export default async function NalogDetailPage({
       opis: true,
       status: true,
       source_type: true,
-      bankStatements: { where: { is_deleted: false }, select: { id: true } },
+      bankStatements: { where: { is_deleted: false }, select: { id: true, journal_mode: true, updated_at: true } },
       source_module: true,
       izvorni_dokument_id: true,
       poslovna_jedinica: {
         select: { sifra: true, naziv: true }
       },
       created_at: true,
+      updated_at: true,
       proknjizen_at: true,
       firma: {
         select: {
@@ -220,6 +223,9 @@ export default async function NalogDetailPage({
   const balanced = Math.round(totalDebit * 100) === Math.round(totalCredit * 100);
   const isAdvanceJournal = nalog.source_module === "agencija.robno.avansni-racuni";
   const isBankJournal = nalog.source_module === "IZVODI" || nalog.source_type === "BANK_STATEMENT" || Boolean(nalog.bankStatements?.length);
+  const manualBank = isBankJournal && nalog.bankStatements?.[0]?.journal_mode === "MANUAL";
+  const canEditBank = isBankJournal && canUpdate && await hasPermission(user, { firmaId: nalog.firma_id, modul: "izvodi", akcija: "update" });
+  const canPostBank = manualBank && canPost && await hasPermission(user, { firmaId: nalog.firma_id, modul: "izvodi", akcija: "post" });
   const isPayrollJournal = nalog.source_module === "PLATE" || nalog.source_type === "PAYROLL";
   const canReopenBank = !isBankJournal || await hasPermission(user, { firmaId: nalog.firma_id, modul: "izvodi", akcija: "post" }) && await hasPermission(user, { firmaId: nalog.firma_id, modul: "izvodi", akcija: "update" });
   const isTravelJournal = nalog.source_module === "PUTNI_NALOZI";
@@ -451,8 +457,9 @@ export default async function NalogDetailPage({
       {isAdvanceJournal && nalog.izvorni_dokument_id ? <section className="admin-panel"><p>Stavke su preuzete iz šeme avansa i zaštićene od direktnih izmjena.</p><Link className="secondary-button" href={`/agencija/robno/izlazne-fakture/${nalog.izvorni_dokument_id}`}>Otvori avansni dokument</Link></section> : null}
       {isBankJournal && (nalog.bankStatements?.[0]?.id || nalog.izvorni_dokument_id) ? (
         <section className="admin-panel">
-          <p>Ispravke i ponovno knjiženje rade se kroz izvod. Vraćanje u nacrt poništava knjiženje i privremeno otvara povezane fakture.</p>
+          <p>{manualBank ? "Ručno uređen nalog. Parser ne prepisuje njegove stavke; knjiženje koristi sačuvan nalog." : "Edituj nalog otvara puni editor. Poslije čuvanja parser više ne mijenja njegove stavke."} Vraćanje u nacrt privremeno otvara povezane fakture.</p>
           <Link className="secondary-button" href={`/agencija/kontekst?${new URLSearchParams({ firma_id: nalog.firma_id, poslovna_godina_id: nalog.poslovna_godina_id, returnTo: `/agencija/izvodi?izvod=${nalog.bankStatements?.[0]?.id ?? nalog.izvorni_dokument_id}&tab=nalog` })}`}>Otvori izvod</Link>
+          {canEditBank && nalog.status === "DRAFT" && !nalog.poslovna_godina.zakljucena ? <Link className="primary-button" href={`/agencija/kontekst?${new URLSearchParams({ firma_id: nalog.firma_id, poslovna_godina_id: nalog.poslovna_godina_id, returnTo: `/agencija/izvodi/${nalog.bankStatements?.[0]?.id ?? nalog.izvorni_dokument_id}/nalog` })}`}>Edituj nalog</Link> : null}
         </section>
       ) : null}
       {isPayrollJournal && nalog.izvorni_dokument_id ? (
@@ -485,9 +492,15 @@ export default async function NalogDetailPage({
                 ) : null}
               </>
             ) : null}
-            {canPost && (!isPayrollJournal || canPostPayroll) && nalog.status === journalStatuses.draft && !isProtectedSourceJournal && !isBankJournal ? (
+            {canPost && (!isPayrollJournal || canPostPayroll) && nalog.status === journalStatuses.draft && !isProtectedSourceJournal && (!isBankJournal || canPostBank) ? (
               <form action={postJournal} data-journal-post-form="true">
                 <input name="nalog_id" type="hidden" value={nalog.id} />
+                {manualBank ? <>
+                  <input name="statement_id" type="hidden" value={nalog.bankStatements[0].id} />
+                  <input name="statement_version" type="hidden" value={nalog.bankStatements[0].updated_at.toISOString()} />
+                  <input name="journal_id" type="hidden" value={nalog.id} />
+                  <input name="journal_version" type="hidden" value={nalog.updated_at.toISOString()} />
+                </> : null}
                 <button type="submit">Proknjiži nalog (F9)</button>
               </form>
             ) : null}
