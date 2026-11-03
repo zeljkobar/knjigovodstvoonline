@@ -1,12 +1,72 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-11-01. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-11-03. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Epsilon uvoz početnog stanja — 2026-11-03
+
+- Korisnik je potvrdio da vidi izbor Primatech/Epsilon na stranici uvoza.
+  Uklonjeno je dodatno dugme Bruto bilans iz zaglavlja početnog stanja;
+  puna provjera upload/povezivanje/čuvanje kroz browser ostaje otvorena.
+- Isti ekran sada ima izbor Primatech/Epsilon; link je Uvoz iz drugog
+  programa. Epsilon čita dostavljeni AS24 raspored KONTO/NAZIV KONTA i
+  I.D./NAZIV-GRAD. Poseban izbor prenosi početne C/D kolone iste godine
+  ili završni SALDO I/J prethodne godine, nikada promet E–H.
+- Izvorni fajlovi nemaju firmu/datum: korisnik unosi odgovarajući datum
+  (01.01. ciljna ili 31.12. prethodna godina) i potvrđuje firmu/presjek.
+  Svi međuzbirovi/znak D/P se provjeravaju u centima; dupli ID/konto,
+  promijenjen raspored ili neispravan zbir se odbijaju. Nulti saldi se preskaču.
+- Dobavljači/kupci razrađuju eksplicitno izabrano izvorno konto; njihov neto
+  zbir mora odgovarati saldu konta. Razrada zamjenjuje zbirni red, bez duplog
+  knjiženja. I.D. nije PIB; prikazuje se uz naziv i traži async ručni izbor.
+  Nedostajuća razrada kupaca/dobavljača ili ciljnog analitičkog konta blokira
+  čuvanje, kao i nezatvoren nenulti saldo klase 5–9. Pregled ostaje moguć.
+- Rezultat koristi isti potpisan pregled, scope/prava/lock, atomski audit i
+  DRAFT tok. Audit čuva EPSILON_V1, izabrane kolone/datum i hash fajlova.
+  Nema migracije/.env izmjene niti stvarnog korisničkog uvoza.
+- Oba stvarna uzorka su pročitana read-only; razrada 4330 odgovara i C/D i
+  I/J. U uzorku nedostaje zbirni pregled kupaca za 2020, pa čuvanje ostaje
+  blokirano do njegovog dodavanja. Za kupce se očekuje isti provjereni
+  I.D./NAZIV-GRAD raspored; drugačiji raspored zahtijeva novi uzorak.
+- Prošli TSC/fokusirani ESLint/npm test i prošireni PostgreSQL rollback:
+  oba režima, blokada bez razrade, ID bez PIB predloga, zamjena zbirnog reda,
+  povezivanje kupaca/dobavljača, DRAFT/audit i dupli uvoz. Primatech regresije
+  ostaju čiste. Interaktivni browser QA ostaje zbog nedostupnog browser hosta.
+
+## Primatech uvoz početnog stanja — 2026-11-03
+
+- Nalozi → Početno stanje → Uvoz iz drugog programa → Primatech otvara
+  `/agencija/nalozi/pocetno-stanje/uvoz`. Jasna polja traže početni nalog na
+  01.01. izabrane godine; opcione zbirne dobavljače/kupce koriste samo za
+  PIB identifikaciju, a zaključni list prethodne godine samo za kontrolu.
+- Podržan je konkretan Primatech XLS/XLSX raspored: do 1.000 stavki, 5 MB
+  po fajlu i 10 MB ukupno. Čita sve stavke i kontroliše redne brojeve/broj,
+  datum i iznose; analitika prometa nije ulaz za ovaj postupak. OJ oznake
+  po redovima nijesu podržane; može se izabrati jedna jedinica za cijeli nalog.
+- Pregled sadrži izvor/cilj, sve stavke, razliku D/P, kontrolu zaključnog
+  salda po izvornim kontima i povezivanje aktivnih konta. Jedinstven dostupan
+  PIB daje predlog partnera; nejasni/bez PIB-a biraju se kroz async pretragu
+  i postojeći brzi unos. Partneri se ne učitavaju masovno niti automatski kreiraju.
+- HMAC pregled važi 30 minuta i veže izvorne stavke/hash fajlova sa korisnikom,
+  agencijom, firmom i godinom. Potvrda ponavlja DB prava view/create, dodjelu,
+  godinu/PDV, konta/partnere/jedinicu. Zaključavanje firme/godine i zajednički
+  advisory lock blokiraju drugi aktivni nalog početnog stanja. Nalog/stavke,
+  eventualni BASE_LINK konta i audit nastaju atomski, bez nove tabele/migracije.
+- Rezultat je OPENING_BALANCE DRAFT; izvorni iznosi se ne koriguju. Neravnoteža
+  uz izričitu potvrdu ostaje za ispravku u editoru prije odvojenog knjiženja.
+  Stari računi/PDV/istorija prometa nijesu rekonstruisani; salda ostaju bez
+  izmišljene razrade. Nema automatskog prenosa iz zaključnog lista bez naloga.
+- Parser potvrđen read-only na stvarnim korisničkim primjerima. Prošli TSC,
+  fokusirani ESLint, npm test i PostgreSQL rollback API/SSR regresija: upload,
+  predlog PIB-a, foreign scope/prava, zastario/potpisan pregled, zaključavanja,
+  deaktivirano konto/jedinica, audit rollback, izvorni centi i dupli uvoz.
+  Browser host nije dostupan; interaktivni prolaz ostaje. Korisnički podaci
+  nijesu uvezeni. Za druge programe potrebni su zasebni provjereni uzorci.
 
 ## Globalna radna mjesta sa postojećeg sajta — 2026-11-01
 

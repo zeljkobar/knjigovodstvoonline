@@ -218,8 +218,8 @@ export default async function PocetnoStanjePage({ searchParams }: PageProps) {
             {targetYear.firma.naziv} / {targetYear.godina}
           </p>
         </div>
-        <Link className="secondary-button" href="/agencija/nalozi/bruto-bilans">
-          Bruto bilans
+        <Link className="secondary-button" href="/agencija/nalozi/pocetno-stanje/uvoz">
+          Uvoz iz drugog programa
         </Link>
       </header>
 

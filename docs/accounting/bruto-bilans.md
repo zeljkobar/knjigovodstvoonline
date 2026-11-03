@@ -84,6 +84,48 @@ stavke perioda na A4 pejzažno. Prava su `nalozi:view`, za štampu i `nalozi:exp
 - Dodatni automatizovani testovi za prava i konkurentne zahtjeve pri kreiranju
   početnog stanja (vidi [`NEXT_STEPS.md`](../../NEXT_STEPS.md)).
 
+## Uvoz početnog stanja iz Primatecha
+
+Na stranici Početno stanje bira se Uvoz iz drugog programa → Primatech. Izvor je Excel nalog
+sa datumom 01.01. aktivne godine. Zbirni dobavljači/kupci služe za identifikaciju
+partnera po PIB-u; njihovi prometi/salda se ne knjiže. Opcioni zaključni list
+služi samo za kontrolu završnog salda po izvornim kontima, sa zaokruživanjem
+kontrolnih salda na cente. Njegov format ne sadrži firmu/datum, pa korisnik
+potvrđuje da je izabrao odgovarajući izvještaj.
+
+Korisnik potvrđuje povezivanje konta/partnera i sva upozorenja, zatim se kreira
+isključivo DRAFT sa izvornim iznosima. Kao i ručni nacrt, smije imati razliku;
+knjiženje ostaje odvojeno i zahtijeva balans. Razlika se ne raspoređuje na
+konto niti se promjena konta dobiti nagađa. Ne kreiraju se KIF/KUF/PDV zapisi
+ili razrada pojedinačnih starih računa. Nalog ostaje nerazrađeno početno stanje
+za izvorne salde partnera dok ne postoji odgovarajuća istorijska razrada.
+
+Pregled je potpisan i vremenski ograničen; backend ponavlja pristup/dodjelu,
+prava view/create, godinu/PDV i ispravnost svih ciljnih veza. Firma/godina i
+advisory lock dijele zaštitu od drugog početnog naloga sa ostalim tokovima.
+Upis svih redova, konta BASE_LINK i audita je jedna transakcija.
+
+## Uvoz početnog stanja iz Epsilona
+
+Na istom ekranu se bira Epsilon. Podržan je raspored KONTO/NAZIV KONTA iz
+zaključnog lista i I.D./NAZIV-GRAD zbirnih partnera. Prenose se eksplicitno
+izabrane kolone: C/D POČETNO STANJE iste godine ili I/J SALDO na 31.12.
+prethodne godine. Datum i firma nijesu sadržani u ovom formatu; korisnik
+ih potvrđuje prije pregleda. Tekući i ukupni promet nikada se ne knjiže.
+
+Neto salda klasa 0–4 formiraju nacrt; nulti saldi se preskaču, nezatvoreni
+nenulti saldi klasa 5–9 blokiraju čuvanje. Svaki red mora imati ispravne
+početne/tekuće/ukupne iznose, neto saldo i D/P znak. Dobavljači/kupci razrađuju
+izabrano izvorno konto, sa tačnom kontrolom zbira; njihovim redovima se
+zamjenjuje zbirni saldo tog konta. Nedostajuća ili neusaglašena razrada
+blokira čuvanje i ne dodjeljuje se proizvoljnom partneru.
+
+I.D. je interna Epsilon šifra, ne PIB. Ostaje u izvornom opisu/audit snimku,
+uz ručno povezivanje dostupnog partnera. Podržana su konta kupaca/dobavljača
+iz jednog zbirnog fajla po vrsti; dodatne posebne analitike zahtijevaju
+odgovarajuću podršku. Nema razrade računa, ponovnog PDV-a ili istorije prometa.
+Zajednički potpis/rok, pristup, zaključavanja i atomski upis ostaju isti.
+
 Knjiženje zahtijeva analitički konto sa najmanje četiri znaka u šifri. Konta sa jednom, dvije ili tri cifre služe za grupisanje. Pravilo štite backend provjere, DB CHECK ograničenja i triggeri stavki/statusa naloga. Istorijske testne stavke nijesu preknjižene migracijom.
 
 ## Grupna zamjena konta — 2026-10-31

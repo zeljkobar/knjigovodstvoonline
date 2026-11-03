@@ -20,6 +20,22 @@
   sa AAD scope-om agencije i korisnika. Pri deployu sačuvati i obezbijediti ključ
   nezavisno od baze; njegova zamjena zahtijeva ponovni upload ili re-enkripciju.
 
+### Uvoz početnog stanja iz drugih programa
+
+`/agencija/nalozi/pocetno-stanje/uvoz` dijeli izbor programa, pregled i
+povezivanje konta/partnera. Primatech čita izvorni početni nalog; opcioni
+zbirni partneri služe samo za PIB, a zaključni list za kontrolu. Epsilon
+formira stavke iz izabranih C/D početnih ili I/J završnih salda; zbirni
+partneri zamjenjuju saldo izvornog konta uz kontrolu zbira. Epsilon I.D.
+nije PIB; datum/firma se potvrđuju jer ih dati format ne sadrži.
+
+`opening-import.ts` ponavlja DB pristup, prava view/create, godinu/PDV i
+ispravnost veza. HMAC pregled čuva izvorne stavke i hash fajlova, vezan za
+korisnika/agenciju/firmu/godinu na 30 minuta. Company/year/advisory lock
+sprečava drugi početni nalog. Nalog DRAFT, stavke, BASE_LINK i audit su
+jedna transakcija. Nema nove tabele/migracije. Knjiženje je odvojeno;
+ne kreiraju se KIF/KUF/PDV niti istorijska razrada starih računa.
+
 ### Ručni nalog izvoda
 
 `bank_statements.journal_mode` razlikuje AUTO i MANUAL. Novi editor

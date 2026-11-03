@@ -2647,3 +2647,20 @@ DB regresija provjerava poredak, smjer salda, avanse i ukupne iznose.
 ## 2026-10-12 — Negativni MAPR račun
 
 - BAR TRADE 31636/2026: totalPrice -15,12, totalPriceToPay 0. Import i zajednički čitač daju prednost ukupnoj vrijednosti. Stari negativni snapshot-i nastavljaju bez MAPR poziva iz poreske razrade. Dodata DB rollback regresija povrata i starog cache-a.
+
+## 2026-11-03 — Primatech uvoz početnog stanja
+
+- Dodat jasno vođen uvoz naloga sa početnog stanja; zbirni partneri samo za PIB, zaključni list samo za kontrolu. Povezivanje konta i async partnera, sve stavke i upozorenja prije potvrde.
+- Potpisan pregled sa rokom/scope i hash-ovima; ponovna DB provjera view/create/dodjele/godine/PDV/konta/partnera/jedinice. Zajednički opening advisory lock i atomski audit/upis; samo DRAFT bez korekcije izvornih centi. Bez migracije i novih env postavki.
+- Stvarni korisnički primjeri parsirani bez upisa. Unit XLS/XLSX i negativne regresije, TSC/ESLint/npm test i PostgreSQL rollback API/SSR provjere prošli. Test pokriva scope, opozvana prava, lock, konto/jedinicu, token/rok, audit rollback i dupli uvoz. Korisnički dokumenti nijesu kreirani ili mijenjani. Browser host nije dostupan; interaktivni QA ostaje.
+
+## 2026-11-03 — Epsilon format početnog stanja
+
+- Epsilon izbor na zajedničkom uvozu: zaključni list kao izvor, C/D početne kolone ili I/J završna salda sa eksplicitnim datumom i potvrdom firme. Stroga kontrola svih grupa iznosa i D/P znaka; nulti saldi se preskaču.
+- Zbirni dobavljači/kupci zamjenjuju saldo izvornog konta tek uz tačan zbir; bez dupliranja. I.D. nije PIB i ne pokreće automatsko povezivanje. Nedostajuće/neslagajuće razrade i nezatvorene klase 5–9 blokiraju čuvanje.
+- Stvarni uzorci read-only potvrđeni za oba režima; nedostaje zbirni pregled kupaca 2020. Prošli unit/TSC/ESLint/npm test i PostgreSQL rollback API regresije kompletnog Epsilon DRAFT/audit toka, kao i prethodne Primatech regresije. Korisnički podaci nijesu uvezeni. Nema migracije/env promjene; browser QA ostaje.
+
+## 2026-11-03 — Završna provjera uvoza i prikaza
+
+- Korisnik potvrdio da vidi padajući izbor Primatech/Epsilon. Dodatno dugme Bruto bilans uklonjeno sa stranice Početno stanje. Puni browser upload/Save prolaz ostaje otvoren.
+- Dokumentacija i planer usklađeni za selektivni commit uvoza; ranije lokalne izmjene zatvaranja stavki/IOS ostaju odvojene. Notion projektni pregled se usklađuje sa ovim obimom. Nema deploya ni uvoza korisničkih podataka.

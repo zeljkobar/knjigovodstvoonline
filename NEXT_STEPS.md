@@ -4,6 +4,22 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Epsilon je dodat u Uvoz iz drugog programa. Izabrati početne C/D kolone
+  iste godine ili završni SALDO I/J prethodne; potvrditi izvorni datum/firmu.
+  Zaključni list i zbirni dobavljači su provjereni na stvarnim uzorcima.
+  Pri stvarnom uvozu dodati i zbirne kupce za nenulti 2020 (isti raspored);
+  bez razrade pregled radi ali čuvanje je blokirano. I.D. nije PIB, partneri
+  se biraju ručno. Prošli unit/TSC/ESLint/npm test i rollback DB/API regresije;
+  izbor programa je korisnik potvrdio. Puni upload/Save browser prolaz ostaje.
+  Nema migracije ili nove env postavke.
+- Primatech početno stanje je implementirano: Nalozi → Početno stanje →
+  Uvoz iz drugog programa → Primatech. Izabrati firmu/godinu, početni nalog i opcione zbirne
+  partnere/zaključni list; pregledati konta/partnere/upozorenja, potvrditi nacrt.
+  Razlike u centima rješavaju se u editoru prije knjiženja. Prošli parser,
+  TSC/ESLint/npm test i DB rollback API/SSR. Prvi interaktivni browser prolaz
+  ostaje; browser host nije dostupan. Nema migracije ili nove env postavke.
+  Pantheon, Primatech formiranje naloga samo iz zaključnog lista i uvoz
+  istorijske razrade računa/prometa ostaju zasebni koraci uz njihove uzorke.
 - Za globalna radna mjesta na serveru primijeniti
   `20261101140000_globalne_pozicije_summa` preko `npx prisma migrate deploy`,
   zatim generate/restart. Lokalno je uvezeno svih 27 sa sajta bez dupliranja
