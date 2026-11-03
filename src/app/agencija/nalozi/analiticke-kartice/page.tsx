@@ -220,7 +220,8 @@ export default async function AnalitickeKarticePage({
           select: {
             id: true,
             sifra: true,
-            naziv: true
+            naziv: true,
+            analitika_obavezna: true
           }
         })
       : null;
@@ -501,7 +502,9 @@ export default async function AnalitickeKarticePage({
           <span>
             Duguje {money(totalDebit)} · Potražuje {money(totalCredit)}
           </span>
-          {variant === "account" && selectedAccountRecord ? (
+          {selectedAccountRecord && selectedPartner && selectedPartner !== "ALL" ? <Link className="secondary-button" href={`/agencija/nalozi/zatvaranje-stavki?${new URLSearchParams({konto:selectedAccount,partner:selectedPartner,...(params?.datum_do?{datum:params.datum_do}:{})})}`}>Zatvaranje stavki</Link> : null}
+          {selectedAccountRecord?.analitika_obavezna && /^[24]/.test(selectedAccountRecord.sifra) && selectedPartner && selectedPartner !== "ALL" && await hasAllPermissions(user,[{firmaId:workContext.firmaId,modul:"izvjestaji",akcija:"view"},{firmaId:workContext.firmaId,modul:"izvjestaji",akcija:"export"}]) ? <Link className="secondary-button" target="_blank" href={`/stampa/ios?${new URLSearchParams({konto:selectedAccount,partner:selectedPartner,...(params?.datum_do?{datum:params.datum_do}:{}),nulti:"1"})}`}>Štampaj IOS</Link> : null}
+          {selectedAccountRecord ? (
             <Link
               className="secondary-button account-card-print-link"
               href={accountPrintHref()}

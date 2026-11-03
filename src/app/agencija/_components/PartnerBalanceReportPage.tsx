@@ -1,5 +1,6 @@
 import { effectiveDefaultAccounts } from "@/lib/posting-template";
 import Link from "next/link";
+import { PrintButton } from "@/components/PrintButton";
 import { decimalToScaled } from "@/lib/inventory-calculation";
 import { requireClientContext } from "@/lib/client-portal";
 import type { Prisma } from "@prisma/client";
@@ -27,6 +28,7 @@ type SearchParams = {
 
 type Props = {
   kind: ReportKind;
+  print?: boolean;
   clientType?: "kupci" | "ino-kupci" | "dobavljaci" | "ino-dobavljaci";
   searchParams?: Promise<SearchParams>;
 };
@@ -117,7 +119,7 @@ function reportScopeHref(
   return `${basePath}?${query.toString()}`;
 }
 
-export async function PartnerBalanceReportPage({ kind, searchParams, clientType }: Props) {
+export async function PartnerBalanceReportPage({ kind, searchParams, clientType, print = false }: Props) {
   const client = clientType ? await requireClientContext(["izvjestaji", "nalozi"]) : null;
   const user = client?.user ?? await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
   const context = client ? { firmaId: client.firma.id, poslovnaGodinaId: client.year.id } : await readWorkContext();
@@ -151,6 +153,11 @@ export async function PartnerBalanceReportPage({ kind, searchParams, clientType 
     return <p className="admin-message">Nemate pravo pregleda ovog izvještaja.</p>;
   }
 
+  const canPrint = !clientType && await hasAllPermissions(user, [
+    { firmaId: context.firmaId, modul: "izvjestaji", akcija: "export" }
+  ]);
+  if (print && !canPrint) return <p className="admin-message">Nemate pravo štampe ovog izvještaja.</p>;
+
   const [company, year, defaults] = await Promise.all([
     prisma.firma.findFirst({
       where: {
@@ -162,7 +169,7 @@ export async function PartnerBalanceReportPage({ kind, searchParams, clientType 
           ? {}
           : { korisnici: { some: { korisnik_id: user.id, is_deleted: false } } })
       },
-      select: { naziv: true }
+      select: { naziv: true, pib: true, adresa: true, grad: true }
     }),
     prisma.poslovnaGodina.findFirst({
       where: { id: context.poslovnaGodinaId, firma_id: context.firmaId },
@@ -300,6 +307,35 @@ export async function PartnerBalanceReportPage({ kind, searchParams, clientType 
     { debit: 0, credit: 0, debitBalance: 0, creditBalance: 0 }
   );
 
+  const printQuery = new URLSearchParams({ vrsta: kind, prikaz: reportScope });
+  if (params?.datum_od) printQuery.set("datum_od", params.datum_od);
+  if (params?.datum_do) printQuery.set("datum_do", params.datum_do);
+  if (partnerQuery) printQuery.set("partner", partnerQuery);
+  const printTitle = reportScope === "ino" ? config.foreignLabel : reportScope === "svi" ? config.allLabel : config.domesticLabel;
+
+  if (print) return (
+    <main className="print-page partner-summary-print-page">
+      <div className="print-toolbar">
+        <Link className="print-button print-back-button" href={reportScopeHref(config.basePath, reportScope, params)}>Nazad na pregled</Link>
+        <PrintButton label="Štampaj pregled" />
+      </div>
+      <article className="partner-summary-print">
+        <header>
+          <div><strong>{company.naziv}</strong><p>{[company.adresa, company.grad].filter(Boolean).join(", ")}</p><p>PIB: {company.pib}</p></div>
+          <div><h1>{printTitle}</h1><p>Poslovna godina: {year.godina}</p><p>{dateFrom || dateTo ? `${dateFrom?.toLocaleDateString("sr-Latn-ME") ?? "Početak godine"} — ${dateTo?.toLocaleDateString("sr-Latn-ME") ?? "Kraj godine"}` : "Cijela poslovna godina"}</p></div>
+        </header>
+        <div className="partner-summary-print-meta"><span>Konta: {selectedCodes.join(", ") || "Nijesu podešena"}{partnerQuery ? ` · Partner: ${partnerQuery}` : ""}</span><span>{rows.length} otvorenih salda</span></div>
+        <table>
+          <colgroup><col style={{ width: "19%" }} /><col style={{ width: "33%" }} /><col span={4} style={{ width: "12%" }} /></colgroup>
+          <thead><tr><th>Konto</th><th>Partner / PIB</th><th>Duguje</th><th>Potražuje</th><th>Saldo duguje</th><th>Saldo potražuje</th></tr></thead>
+          <tbody>{rows.map(row => <tr key={`${row.accountId}:${row.partnerId}`}><td><strong>{row.accountCode}</strong><small>{row.accountName}</small></td><td>{row.partnerName}<small>{row.partnerTaxNumber}</small></td><td>{money(row.debitCents)}</td><td>{money(row.creditCents)}</td><td>{money(Math.max(row.balanceCents, 0))}</td><td>{money(Math.max(-row.balanceCents, 0))}</td></tr>)}{!rows.length ? <tr><td colSpan={6}>{config.empty}</td></tr> : null}</tbody>
+          <tfoot><tr><td colSpan={2}>UKUPNO</td><td>{money(totals.debit)}</td><td>{money(totals.credit)}</td><td>{money(totals.debitBalance)}</td><td>{money(totals.creditBalance)}</td></tr></tfoot>
+        </table>
+        <p className="partner-summary-print-note">Prikazani su samo proknjiženi nalozi u izabranom periodu. Iznosi su u EUR.</p>
+      </article>
+    </main>
+  );
+
   return (
     <div className="admin-stack">
       <header className="admin-header">
@@ -307,6 +343,7 @@ export async function PartnerBalanceReportPage({ kind, searchParams, clientType 
           <h1>{config.title}</h1>
           <p className="muted-text">Pregled otvorenih salda po partnerima.</p>
         </div>
+        {canPrint ? <Link className="secondary-button" target="_blank" href={`/stampa/partneri-izvjestaj?${printQuery.toString()}`}>Štampaj pregled</Link> : null}
       </header>
 
       {clientType && ((showDomestic && !domesticCode) || (showForeign && !foreignCode)) ? <p className="admin-message">Agencija još nije podesila ovaj pregled. Obratite se svom knjigovođi.</p> : null}

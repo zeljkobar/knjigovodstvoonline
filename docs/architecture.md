@@ -614,3 +614,24 @@ ulazne stavke preuzimaju se jer korisnik izričito bira nepromijenjene plate.
 Nema novih tabela. Regresije su `check-payroll-copy.cjs` (rollback) i
 `check-payroll-copy-concurrency.cjs` (zaseban TEST_DATABASE_URL), uz postojeći
 payroll lifecycle i testove algoritma.
+
+### Zatvaranja otvorenih stavki (2026-11-02)
+
+`settlements.ts` upravlja vezama D/P stavki naloga, a `settlement-plan.ts` čistim
+predlozima. `zatvaranja_stavki` čuva pozitivni iznos, efektivni datum i datum
+poništavanja, izvor, snapshot i izvršioca. Firma i izvorni nalozi/stavke se
+zaključavaju; scope/prava i preostala kapaciteta provjeravaju se u transakciji.
+Zatvaranja su dozvoljena u zaključanoj godini jer ne mijenjaju GL. `EXACT`
+traži mutual-unique par; `OLDEST` se potvrđuje uz fingerprint stanja.
+
+`prenosi_otvorenih_stavki` referencira zbirni opening nalog i kanonske izvorne
+stavke. U novoj godini razrada zamjenjuje zbirni red u pomoćnoj evidenciji;
+kontrola po kontu/partneru sprečava dupliranje ili pogrešan zbir. Preneseni izvor
+je zaštićen od izmjene. Poništeni nepreneseni izvor može nestati pri brisanju
+nacrta, uz SET NULL na istorijskoj vezi i sačuvan snapshot.
+
+`bank-settlements.ts` pravi read-only predloge i potvrđuje veze u transakciji
+POSTED izvoda. Ručni nalog ima prednost nad parserom. Legacy alokacije imaju
+projekciju i jedinstveni izvor_ref pri prenosu; KIF/KUF plaćanje ne sabira oba
+izvora. Reopen poništava veze uz audit i refresh statusa. Company purge prvo
+uklanja prenose i zatvaranja, zatim izvore. IOS renderer ostaje naredni korak.

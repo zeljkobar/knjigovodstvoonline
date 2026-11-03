@@ -1,4 +1,6 @@
-import { BankStatementError, assertBankStatementAccess, assertBankJournalOwnership, lockBankStatement, postedBankAllocationWhere, refreshBankInvoicePayment, refreshBankPaymentStatuses, reopenBankStatement, syncLegacyBankStatementDraft } from "@/lib/bank-statement-lifecycle";
+import { invoiceSettlementPaid } from "@/lib/settlements";
+import { postBankSettlements, bankSettlementProposals } from "@/lib/bank-settlements";
+import { BankStatementError, assertBankStatementAccess, assertBankJournalOwnership, lockBankStatement, refreshBankInvoicePayment, refreshBankPaymentStatuses, reopenBankStatement, syncLegacyBankStatementDraft } from "@/lib/bank-statement-lifecycle";
 import { effectiveBankRules, effectiveBankSetting } from "@/lib/posting-template";
 import "server-only";
 import { completedMailKeys } from "@/lib/mail-import-completion";
@@ -2624,20 +2626,8 @@ export async function updateBankStatementLines(formData: FormData) {
             });
 
             if (entry) {
-              const allocated = await tx.bankStatementLineAllocation.aggregate({
-                where: {
-                  ...postedBankAllocationWhere,
-                  kif_entry_id: entry.id
-                },
-                _sum: {
-                  amount: true
-                }
-              });
-              const remainingCents = Math.max(
-                0,
-                decimalToCents(entry.total_gross) - decimalToCents(allocated._sum.amount)
-              );
-              const allocationCents = Math.min(lineAmountCents, remainingCents || lineAmountCents);
+              const remainingCents = Math.max(0, decimalToCents(entry.total_gross) - await invoiceSettlementPaid(tx, "KIF", entry.id));
+              const allocationCents = Math.min(lineAmountCents, remainingCents);
 
               if (allocationCents > 0) {
                 await tx.bankStatementLineAllocation.create({
@@ -2675,20 +2665,8 @@ export async function updateBankStatementLines(formData: FormData) {
             });
 
             if (entry) {
-              const allocated = await tx.bankStatementLineAllocation.aggregate({
-                where: {
-                  ...postedBankAllocationWhere,
-                  kuf_entry_id: entry.id
-                },
-                _sum: {
-                  amount: true
-                }
-              });
-              const remainingCents = Math.max(
-                0,
-                decimalToCents(entry.total_gross) - decimalToCents(allocated._sum.amount)
-              );
-              const allocationCents = Math.min(lineAmountCents, remainingCents || lineAmountCents);
+              const remainingCents = Math.max(0, decimalToCents(entry.total_gross) - await invoiceSettlementPaid(tx, "KUF", entry.id));
+              const allocationCents = Math.min(lineAmountCents, remainingCents);
 
               if (allocationCents > 0) {
                 await tx.bankStatementLineAllocation.create({
@@ -3752,6 +3730,7 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
         }
       });
 
+      const settlementProposals = await bankSettlementProposals(tx, {agencyId:agencijaId,companyId:firmaId,yearId:poslovnaGodinaId,userId:user.id}, statement.id);
       let lineNumber = 1;
 
       if (totalInflow > 0) {
@@ -3828,7 +3807,7 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
             duguje: line.direction === "OUTFLOW" ? centsToDecimal(amount) : "0.00",
             potrazuje: line.direction === "INFLOW" ? centsToDecimal(amount) : "0.00",
             opis: line.description,
-            broj_dokumenta: statement.statement_number,
+            broj_dokumenta: settlementProposals.find(p=>p.lineId===line.id)?.document ?? statement.statement_number,
             datum_dokumenta: line.posting_date,
             datum_valute: line.value_date,
             redni_broj: lineNumber,
@@ -3853,6 +3832,7 @@ export async function postSelectedBankStatements(formData: FormData, scheduled?:
           updated_by: user.id
         }
       });
+      await postBankSettlements(tx, {agencyId:agencijaId,companyId:firmaId,yearId:poslovnaGodinaId,userId:user.id}, statement.id);
       await refreshBankPaymentStatuses(tx, statement.id, user.id);
       await auditLogInTransaction(tx, { korisnikId: user.id, agencijaId, firmaId, modul: "agencija.izvodi", akcija: scheduled ? "AUTO_POST" : "post_statement", tipEntiteta: "BankStatement", entitetId: statement.id, staraVrijednost: draftJournal ?? undefined, novaVrijednost: { journalId: nalog.id, reused: Boolean(draftJournal) }, napomena: scheduled ? "Automatska dnevna obrada" : null });
       postedIds.push(statement.id);

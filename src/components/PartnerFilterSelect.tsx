@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 type PartnerResult = {
   id: string;
@@ -13,6 +13,8 @@ type PartnerFilterSelectProps = {
   initialId?: string;
   initialLabel?: string;
   name?: string;
+  placeholder?: string;
+  onSelectionChange?: (id: string) => void;
 };
 
 function partnerDisplay(naziv: string, pib?: string | null) {
@@ -26,7 +28,9 @@ function dispatchFieldChange(input: HTMLInputElement | null) {
 export function PartnerFilterSelect({
   initialId = "",
   initialLabel = "",
-  name = "partner"
+  name = "partner",
+  placeholder = "Svi partneri — naziv ili PIB",
+  onSelectionChange
 }: PartnerFilterSelectProps) {
   const listId = useId();
   const hiddenRef = useRef<HTMLInputElement | null>(null);
@@ -35,7 +39,7 @@ export function PartnerFilterSelect({
   const [query, setQuery] = useState(initialLabel);
   const [results, setResults] = useState<PartnerResult[]>([]);
 
-  function setSelectedPartnerId(id: string, shouldNotify = false) {
+  const setSelectedPartnerId = useCallback((id: string, shouldNotify = false) => {
     if (!hiddenRef.current || hiddenRef.current.value === id) {
       return;
     }
@@ -44,8 +48,9 @@ export function PartnerFilterSelect({
 
     if (shouldNotify) {
       dispatchFieldChange(hiddenRef.current);
+      onSelectionChange?.(id);
     }
-  }
+  }, [onSelectionChange]);
 
   useEffect(() => {
     const cleanQuery = query.trim();
@@ -103,7 +108,7 @@ export function PartnerFilterSelect({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [query, setSelectedPartnerId]);
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const value = event.target.value;
@@ -111,7 +116,7 @@ export function PartnerFilterSelect({
     const matchedId = valueToId.current.get(trimmed) ?? "";
 
     setQuery(value);
-    setSelectedPartnerId(matchedId);
+    setSelectedPartnerId(matchedId, Boolean(matchedId) || !trimmed);
   }
 
   return (
@@ -121,7 +126,7 @@ export function PartnerFilterSelect({
         list={listId}
         name={`${name}_q`}
         onChange={handleChange}
-        placeholder="Svi partneri — naziv ili PIB"
+        placeholder={placeholder}
         type="search"
         value={query}
       />

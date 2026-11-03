@@ -8,6 +8,15 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Završna provjera preostalih izmjena — 2026-11-03
+
+- Na izričit korisnički zahtjev objedinjena je isporuka zatvaranja stavki,
+  prenesene razrade, IOS-a i dodatne štampe/izbora računa sa bankovnim dopunama.
+- Ponovo prošli TSC/npm test/lint bez grešaka i PostgreSQL rollback
+  lifecycle/SSR, audit, bankovna zatvaranja, IOS i stvarni company purge.
+  Lint zadržava pet ranijih upozorenja. Produkcijski deploy/ručni QA ostaju
+  prema NEXT_STEPS; uključene su dvije migracije zatvaranja stavki.
+
 ## Epsilon uvoz početnog stanja — 2026-11-03
 
 - Korisnik je potvrdio da vidi izbor Primatech/Epsilon na stranici uvoza.
@@ -67,6 +76,99 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   deaktivirano konto/jedinica, audit rollback, izvorni centi i dupli uvoz.
   Browser host nije dostupan; interaktivni prolaz ostaje. Korisnički podaci
   nijesu uvezeni. Za druge programe potrebni su zasebni provjereni uzorci.
+
+## IOS pregled i štampa — 2026-11-02
+
+- Izvještaji → IOS bira datum presjeka, kupce/dobavljače, domaće/ino, konto i
+  pretragu. Označavanje jednog/više ili svih prikazanih partnera otvara štampu;
+  svaki partner ima zaseban A4 portrait obrazac. Postoji pojedinačni link i
+  Štampaj IOS na kartici partnera za konta 2/4 sa partner analitikom.
+- Obrazac sadrži pošiljaoca/primaoca i PIB/adresu, dokument/konto, datume,
+  izvorni iznos, zatvoreno i preostalo D/P, zbirove i jasno označen neto saldo
+  iz perspektive pošiljaoca. Neraspoređene uplate su odvojene. Na dnu su izbor
+  saglasnosti/nesaglasnosti, iznos druge evidencije, obrazloženje i potpis.
+- Koristi istu evidenciju zatvaranja i prenesenu razradu kao kartica. Nema
+  duplog početnog stanja, zatvoreni računi se ne štampaju; opcija bez otvorenih
+  stavki daje nulti obrazac. Nejasne legacy veze blokiraju izradu uz poruku.
+- Backend provjerava nalozi/izvjestaji view, izvjestaji export za štampu,
+  dodjelu firme i godinu. Print traži izabrane dozvoljene partnere, snima
+  konzistentan RepeatableRead presjek i audit generisanja bez promjene salda.
+- Nema migracije/.env promjene. Prošli TSC/ESLint i rollback SSR provjere
+  pojedinačne/grupne štampe, tačnih centi, nultih/ino filtera, tenant izolacije,
+  prava izvoza i neispravnog/praznog izbora. Interaktivni browser/print QA ostaje.
+
+## Zatvaranje stavki — izbor jednog partnera
+
+- Ekran prvo nudi padajući izbor kupca/dobavljača sa knjiženjima firme na
+  izabranom kontu/godini (uključujući prenesenu razradu), konta i datuma. Bez izabranog
+  partnera nema učitavanja ni prikaza kartica svih partnera. Promjena izbora
+  automatski osvježava samo njegovu tabelu, bez dugmeta Prikaži cijelu karticu.
+- Uklonjen zajednički spisak partnera sa ovog ekrana. Stare veze/početno stanje
+  su sklopljeni ispod kartice. Naziv izabranog partnera ostaje vidljiv i kad
+  nema stavki. Backend ponavlja scope i prava prije učitavanja.
+- TSC/fokusirani ESLint i rollback lifecycle/SSR prolaze; SSR posebno potvrđuje
+  da se bez izbora ne poziva loader svih partnera. Nema migracije.
+
+## Zatvaranje otvorenih stavki — 2026-11-02
+
+- Nalozi → Zatvaranje stavki i dugme sa kartice partnera otvaraju cijelu
+  karticu po kontu/partneru i datumu presjeka. Prikazuju se otvorene, djelimične
+  i zatvorene stavke. Podržani su ručni iznos, označavanje više računa/uplata,
+  grupno jedinstveno uparivanje po iznosu i pregled/potvrda predloga po starosti.
+- `zatvaranja_stavki` čuva veze između D/P stavki u centima, efektivni datum,
+  način, snapshot i soft-delete poništavanje. Pojedinačno ili grupno poništavanje
+  traži isti partner/konto; grupna potvrda provjerava prikazani skup. Scope,
+  aktivna dodjela i nalozi view/update provjeravaju se serverski. Zaključana
+  godina/PDV ne blokiraju veze jer nema izmjene knjiženja. Audit je atomski.
+- `prenosi_otvorenih_stavki` veže zbirni nalog početnog stanja za izvorne stavke
+  (uključujući protivstavke i zatvorenu istoriju). Nema dvostrukog zaduženja;
+  zbir razrade se kontroliše prema GL početnom stanju. Novi automatski prenos
+  čuva razradu, a raniji automatski nalog ima eksplicitno Preuzmi razradu.
+  Ručni saldo bez izvora prikazuje se kao nerazrađeno početno stanje; detalji
+  se ne izmišljaju. Izvor prenesene razrade štiti se od naknadnog prepisivanja.
+- Izvodi prikazuju predlog broja računa/iznosa/razloga/datuma zatvaranja.
+  Jedinstvena referenca ima prednost, zatim jedinstven tačan iznos; ponovljeni
+  iznosi i nejasne stare veze se ne nagađaju. POSTED izvod kreira vezu atomski;
+  bez para uplata ostaje neraspoređena. Ručni konačni nalog poštuje izabrane
+  dokumente i može zatvoriti više računa. Naknadno rasknjižavanje poništava
+  veze i osvježava KIF/KUF plaćanja. Dodatna uplata na već plaćen račun ostaje
+  neraspoređena. Dobavljači se povezuju kada račun već postoji.
+- Stare eksplicitne bankovne alokacije projektuju se bez dupliranja; Uskladi
+  veze izvoda ih jednom prenosi u novu evidenciju. Nejednoznačna mapiranja
+  zahtijevaju provjeru izvoda. KIF/KUF statusi koriste jedinstven izvor plaćanja.
+  Bank automatika čeka završetak uključene SEP dnevne queue prije svog rada.
+- Migracije `20261102120000_zatvaranje_stavki` i
+  `20261102123000_zatvaranja_datum_ponistavanja` lokalno su primijenjene,
+  Prisma obnovljena i dev restartovan. Na serveru migrate deploy/generate/restart;
+  nema nove .env postavke. Purge briše prenose i istoriju prije naloga/stavki.
+- Prošli unit testovi, TSC/lint, npm test i izolovane DB regresije zatvaranja,
+  konkurentnosti, bankovnog ručnog naloga/rasknjižavanja i računovodstvenog jezgra.
+  Testovi obuhvataju stvarnu server action/SSR, zaključanu godinu, istorijski
+  presjek, audit rollback, stare veze, status plaćanja i stvarni company purge.
+  Privremene testne baze su uklonjene; korisnički dokumenti nijesu zatvarani.
+  Interaktivni browser QA ostaje; IOS meni i obrazac su naknadno implementirani.
+
+## Štampa partnera iz Izvještaja — 2026-11-02
+
+- Kartice partnera imaju Štampa kartice uz izabrani konto, preko postojećeg
+  obrasca /stampa/kartica-konta sa partnerom i periodom.
+- Kupci i Dobavljači imaju Štampaj pregled. Posebna print ruta koristi isti
+  serverski renderer i upit kao ekran, uz iste domaći/ino/svi, partner i datum
+  filtere. Dijeli postojeći A4 landscape stil pregleda iz Naloga.
+- Print provjerava izvjestaji view/export i nalozi view, agenciju, dodjelu firme
+  i poslovnu godinu. Klijentski portal nije proširivan. Nema migracije.
+
+## Višestruki izbor otvorenih stavki — 2026-11-02
+
+- Dupli klik na Broj dok. u editoru naloga (uključujući ručni nalog izvoda)
+  nudi checkbox izbor više računa, Označi sve i zbir izabranih iznosa u centima.
+  Prenesi izabrane račune popunjava aktivni red prvim računom, a ostale dodaje
+  na kraj kao posebne stavke sa istim kontom, partnerom i opisom; svaki čuva
+  vlastiti broj, datume i otvoreni iznos na odgovarajućoj D/P strani.
+- Prenos označava nalog izmijenjenim i osvježava zbirove. Iznosi su izmjenjivi
+  prije standardnog čuvanja/knjiženja. Nema migracije ni promjene backend toka.
+- TypeScript i fokusirani ESLint prolaze. Interaktivni browser QA nije mogao
+  biti izvršen jer browser host nije dostupan.
 
 ## Globalna radna mjesta sa postojećeg sajta — 2026-11-01
 

@@ -2648,6 +2648,87 @@ DB regresija provjerava poredak, smjer salda, avanse i ukupne iznose.
 
 - BAR TRADE 31636/2026: totalPrice -15,12, totalPriceToPay 0. Import i zajednički čitač daju prednost ukupnoj vrijednosti. Stari negativni snapshot-i nastavljaju bez MAPR poziva iz poreske razrade. Dodata DB rollback regresija povrata i starog cache-a.
 
+## 2026-11-02 — Višestruki izbor otvorenih stavki
+
+- Zajednički JournalLinesEditor dobio checkbox izbor više računa, izbor svih,
+  broj/zbir i zajednički prenos. Prvi ide u aktivni red, ostali u nove redove
+  na kraju sa kontom/partnerom/opisom izvora i pojedinačnim dokumentima/iznosima.
+- Postojeći redovi ostaju očuvani; partner novih redova inicijalizuje se kroz
+  React stanje, zbir se osvježava i roditeljska forma dobija oznaku izmjene.
+- TSC i fokusirani ESLint prošli; browser host nije dostupan za interaktivni QA.
+  Nema migracije ni ručnog mijenjanja korisničkih podataka.
+
+## 2026-11-02 — Štampa partnera iz Izvještaja
+
+- Omogućena postojeća Štampa kartice i u partner varijanti analitičke kartice.
+- Kupci/Dobavljači dobili Štampaj pregled i /stampa/partneri-izvjestaj;
+  isti renderer/upit sprečava razliku filtera i zbirova između ekrana i štampe.
+  Domaći/ino/svi, pretraga i period prenose se; postojeći print stil se koristi.
+- Backend print guard traži izvjestaji export uz postojeća view/scope prava.
+  Nema migracije niti promjene poslovnih podataka. Browser host nije dostupan.
+- Završne provjere: `npx tsc --noEmit`, fokusirani ESLint i `git diff --check` prolaze; planer regenerisan.
+
+## 2026-11-02 — Zatvaranje, poništavanje, razrada i izvodi
+
+- Uvedene posebne auditirane D/P veze; cijela kartica sa preostalim iznosima,
+  ručni iznos i grupni izbor, mutual-unique exact i potvrđen oldest predlog,
+  pojedinačno/grupno poništavanje sa provjerom prikazanog skupa. Prava i scope
+  su backend; zaključane finansijske godine ostaju dostupne za ove veze.
+- Zbirni opening nalog zadržava originalne iznose, prateća razrada čuva
+  identitet izvora kroz više godina i kontroliše zbir; postojeći automatski
+  opening ima eksplicitno preuzimanje razrade. Ne razrađujemo izmišljene račune.
+- Bankovni predlog: eksplicitna referenca pa jedinstven iznos; povezuje se u
+  transakciji knjiženja, manual dokumenti imaju prednost, rasknjižavanje poništava
+  veze i plaćanja. Kasniji datum KIF knjige daje kasniji efektivni datum veze;
+  istorijski presjek ostaje tačan. SEP queue završava prije dnevnih izvoda.
+- Stare bankovne veze imaju read-only projekciju i eksplicitni idempotentni
+  prenos; isti iznos se ne sabira kroz oba izvora. Ambigvitet je blokiran.
+  Višak uplate ostaje neraspoređen, pa je prilagođena odgovarajuća core regresija.
+- Dvije ručne migracije lokalno primijenjene, generate i dev restartovani.
+  Purge stvarno testiran: prenosi i zatvaranja prije stavki/naloga, nema djece
+  bez firma_id u novim tabelama. FK/trigger štiti aktivne veze i prenesene izvore;
+  poništene veze čuvaju snapshot i pri fizičkom brisanju nacrta izvoda.
+- Unit/npm test, TSC/lint, izolovana _test DB: lifecycle, server action i SSR,
+  stvarna konkurentnost, kasniji datum knjige, stari izvodi, manual nalog, KIF/KUF
+  statusi, audit failure rollback, prava, zaključana godina i company purge.
+  Privremene baze uklonjene. Nema zatvaranja stvarnih korisničkih dokumenata.
+- IOS je po dogovoru ostavljen za naredni korak. Browser interaktivni QA ostaje
+  jer host za browser kontrolu nije dostupan. Nema commita/pusha.
+
+## 2026-11-02 — Pregled zatvaranja po jednom partneru
+
+- Po korisničkoj korekciji uklonjen masovni spisak partnera. Gornji async izbor
+  sada automatski navigira i osvježava tabelu po partneru/kontu/datumu.
+  Bez izbora ne učitava se ledger svih partnera i ne prikazuju se akcije/tabele.
+- Dodati SettlementFilters i opcioni callback/placeholder u PartnerFilterSelect;
+  pretraga ostaje async, bez masovnog učitavanja. Promjena i back navigacija
+  usklađuju odabir i polja; pomoćne pripreme su sklopljene ispod kartice.
+- Prošli TSC, fokusirani ESLint i rollback settlement lifecycle/SSR sa posebnom
+  provjerom praznog izbora bez ledger upita. Nema migracije ni korisničkih mutacija.
+
+## 2026-11-02 — Vidljiv padajući izbor kupaca/dobavljača
+
+- Zamijenjeno nejasno polje pretrage običnim padajućim izborom partnera koji
+  imaju POSTED promet firme na kontu do presjeka ili prenesene izvorne stavke.
+  Ne učitava se globalni katalog partnera. Tabela se mijenja po izboru jednog.
+- TSC/ESLint i rollback/SSR provjera padajućeg izbora i prazne tabele prije
+  izbora prolaze. Nema migracije ni izmjene korisničkih knjiženja.
+
+## 2026-11-02 — IOS obrazac i grupna štampa
+
+- Implementirani Izvještaji → IOS, /stampa/ios, izbor više/svih prikazanih i
+  pojedinačna štampa sa kartice partnera. Print koristi čisti HTML/CSS A4
+  portrait, ponovljeno zaglavlje tabele i novu stranicu za svakog partnera.
+- Zajednički settlement loader određuje izvorne/preostale/zatvorene iznose i
+  prenesenu razradu. D/P perspektiva, neraspoređene uplate i neto saldo su
+  eksplicitni; potvrda saglasnosti/razlike sa iznosom, obrazloženjem i potpisom.
+- RepeatableRead presjek, backend view/export/scope guard i audit generisanja.
+  Nejasna legacy mapiranja blokiraju dokument; nema upisa poslovnih dokumenata.
+  Nema migracije ni novih env varijabli.
+- TSC/fokusirani ESLint i proširena rollback SSR regresija: batch 2 obrasca,
+  tačni centi, nulti i ino filteri, izolacija partnera i prava izvoza, prazni i
+  neispravni ID-jevi, potvrda i potpisi. Browser interaktivni/print QA ostaje.
+
 ## 2026-11-03 — Primatech uvoz početnog stanja
 
 - Dodat jasno vođen uvoz naloga sa početnog stanja; zbirni partneri samo za PIB, zaključni list samo za kontrolu. Povezivanje konta i async partnera, sve stavke i upozorenja prije potvrde.
@@ -2664,3 +2745,9 @@ DB regresija provjerava poredak, smjer salda, avanse i ukupne iznose.
 
 - Korisnik potvrdio da vidi padajući izbor Primatech/Epsilon. Dodatno dugme Bruto bilans uklonjeno sa stranice Početno stanje. Puni browser upload/Save prolaz ostaje otvoren.
 - Dokumentacija i planer usklađeni za selektivni commit uvoza; ranije lokalne izmjene zatvaranja stavki/IOS ostaju odvojene. Notion projektni pregled se usklađuje sa ovim obimom. Nema deploya ni uvoza korisničkih podataka.
+
+## 2026-11-03 — Objedinjena isporuka svih preostalih izmjena
+
+- Korisnik je izričito zatražio commit i push svih preostalih izmjena, uključujući zatvaranja stavki, prenesenu razradu početnog stanja, IOS i štampu pregleda partnera, višestruki izbor računa i dopune bankovnih izvoda/automatike.
+- Ponovo prošli TSC, npm test i lint (0 grešaka; 5 ranijih upozorenja). Prošao PostgreSQL rollback lifecycle/SSR za zatvaranja, bankovne predloge, storno/status plaćanja, IOS prava/štampu i stvarni purge testne firme. Pokrivenost purge-a: 86 tabela sa firma_id; podređene veze obuhvaćene lifecycle testom.
+- Migracije 20261102120000_zatvaranje_stavki i 20261102123000_zatvaranja_datum_ponistavanja uključene su u isporuku; na serveru i dalje treba migrate deploy, generate i restart. Deploy nije rađen. Nema novih env vrijednosti ni promjene korisničkih knjiženja.

@@ -20,6 +20,23 @@
   ostaje; browser host nije dostupan. Nema migracije ili nove env postavke.
   Pantheon, Primatech formiranje naloga samo iz zaključnog lista i uvoz
   istorijske razrade računa/prometa ostaju zasebni koraci uz njihove uzorke.
+- Zatvaranje stavki je implementirano u Nalozima, uz pristup sa kartice partnera.
+  Ekran sada prvo bira jednog partnera i automatski mijenja njegovu tabelu.
+  Prvi korisnički prolaz: izabrati partnera/konto/datum, po potrebi Uskladi veze
+  izvoda ili Preuzmi razradu ranijeg automatskog početnog stanja, zatim ručno/
+  tačan iznos/predlog po starosti. Provjeriti poništavanje i predlog na izvodu.
+  Na serveru primijeniti 20261102120000_zatvaranje_stavki i
+  20261102123000_zatvaranja_datum_ponistavanja, generate i restart. Lokalno gotovo.
+- IOS meni i pojedinačna/grupna štampa su implementirani. Korisnički prolaz:
+  Izvještaji → IOS → datum/filteri → označiti partnere → Štampaj izabrane IOS-e.
+  Kartica partnera ima Štampaj IOS. Provjeriti stvarni browser print preview,
+  posebno višestranični partner i odvajanje partnera na nove stranice.
+- Ručno uneseno zbirno početno stanje bez izvora za sada ostaje nerazrađeno;
+  poseban unos njegove istorijske razrade nije dio ovog toka.
+- Višestruki izbor otvorenih stavki u editoru naloga je implementiran:
+  označiti račune pa Prenesi izabrane račune. Prvi račun ide u aktivni red,
+  ostali na kraj naloga; provjeriti iznose prije F8/F9. TSC/ESLint prolaze;
+  interaktivni QA ostaje jer browser host nije dostupan.
 - Za globalna radna mjesta na serveru primijeniti
   `20261101140000_globalne_pozicije_summa` preko `npx prisma migrate deploy`,
   zatim generate/restart. Lokalno je uvezeno svih 27 sa sajta bez dupliranja
@@ -55,7 +72,7 @@
   Draft alokacije ne zatvaraju fakture; mail automatika ne preuzima rasknjižen
   izvod. Nakon deploya provjeriti prvi namjerni korisnički UI prolaz na otvorenoj
   godini/periodu. Izbor konta i povezivanja je postojeća forma; split alokacije
-  jedne stavke na više faktura ostaju odvojena dorada.
+  jedne stavke na više faktura dostupne su kroz ručni nalog i Zatvaranje stavki.
 - Uvoz pazara VG/Summa implementiran na postojećoj KIF formi. Pri deployu,
   uz zaustavljenu aplikaciju, primijeniti 20261030090000_fiskalni_portali_pazar,
   generisati Prisma i pokrenuti `npm run fiscal-portals:key` prije builda/restarta.

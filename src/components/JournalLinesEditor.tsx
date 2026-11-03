@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { JournalPartnerCell } from "@/components/JournalPartnerCell";
 import { parseScaledInteger } from "@/lib/inventory-calculation";
 
@@ -33,6 +34,7 @@ type JournalLinesEditorProps = {
 };
 
 type OpenItem = {
+  id: string;
   documentDate: string | null;
   documentNumber: string;
   dueDate: string | null;
@@ -79,6 +81,8 @@ export function JournalLinesEditor({
   const [removedRows, setRemovedRows] = useState<Set<number>>(() => new Set());
   const [openItemsModal, setOpenItemsModal] =
     useState<OpenItemsModalState | null>(null);
+  const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(() => new Set());
+  const [addedLines, setAddedLines] = useState<Record<number, JournalLineInitialValue>>({});
   const rows = createEmptyRows(rowCount);
 
   function defaultLineDescription(index: number) {
@@ -142,6 +146,7 @@ export function JournalLinesEditor({
   }
 
   async function openItemsForRow(index: number) {
+    setSelectedDocuments(new Set());
     const row = getRow(index);
     const accountCode =
       row?.querySelector<HTMLInputElement>('input[name="konto_sifra"]')?.value.trim() ??
@@ -239,6 +244,36 @@ export function JournalLinesEditor({
     }
   }
 
+  function applySelectedItems() {
+    if (!openItemsModal?.closeSide) return;
+    const items = openItemsModal.items.filter(item => selectedDocuments.has(item.id));
+    if (!items.length) return;
+    const source = getRow(openItemsModal.rowIndex);
+    if (!source) return;
+    const read = (name: string) => source.querySelector<HTMLInputElement>(`input[name="${name}"]`)?.value ?? "";
+    const partnerLabel = source.querySelector<HTMLInputElement>('input[data-partner-input="true"]')?.value ?? "";
+    const extra: Record<number, JournalLineInitialValue> = {};
+    items.slice(1).forEach((item, index) => {
+      extra[rowCount + index] = {
+        accountCode: read("konto_sifra"),
+        partnerId: read("komitent_id"),
+        partnerNaziv: partnerLabel,
+        description: read("stavka_opis"),
+        documentNumber: item.documentNumber,
+        documentDate: item.documentDate ?? "",
+        documentDueDate: item.dueDate ?? item.documentDate ?? "",
+        debit: openItemsModal.closeSide === "D" ? (item.openAmountCents / 100).toFixed(2) : "",
+        credit: openItemsModal.closeSide === "P" ? (item.openAmountCents / 100).toFixed(2) : ""
+      };
+    });
+    // Mount additional rows with their own partner state before reading totals.
+    flushSync(() => {
+      setAddedLines(current => ({ ...current, ...extra }));
+      setRowCount(current => current + items.length - 1 + 5);
+    });
+    applyOpenItem(items[0]);
+  }
+
   function applyOpenItem(item: OpenItem) {
     if (!openItemsModal?.closeSide) {
       return;
@@ -274,6 +309,7 @@ export function JournalLinesEditor({
       );
     }
 
+    onActivity?.();
     recalculateTotals();
     setOpenItemsModal(null);
   }
@@ -310,7 +346,7 @@ export function JournalLinesEditor({
           </thead>
           <tbody>
             {rows.map((_, index) => index).filter(index => !removedRows.has(index)).map((index, visibleIndex) => {
-              const initialLine = initialLines[index] ?? null;
+              const initialLine = addedLines[index] ?? initialLines[index] ?? null;
 
               return (
                 <tr data-journal-row={index} key={index}>
@@ -469,29 +505,52 @@ export function JournalLinesEditor({
                       <th>Datum dok.</th>
                       <th>Valuta</th>
                       <th>Otvoreno</th>
-                      <th>Akcija</th>
+                      <th>
+                        <input
+                          type="checkbox"
+                          aria-label="Označi sve račune"
+                          checked={openItemsModal.items.length > 0 && selectedDocuments.size === openItemsModal.items.length}
+                          onChange={event => setSelectedDocuments(new Set(event.target.checked ? openItemsModal.items.map(item => item.id) : []))}
+                        />
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {openItemsModal.items.map((item) => (
-                      <tr key={`${item.documentNumber}-${item.documentDate ?? ""}`}>
+                      <tr key={item.id}>
                         <td>{item.documentNumber}</td>
                         <td>{formatDateValue(item.documentDate)}</td>
                         <td>{formatDateValue(item.dueDate)}</td>
                         <td>{formatCents(item.openAmountCents)}</td>
                         <td>
-                          <button
-                            className="table-button"
-                            onClick={() => applyOpenItem(item)}
-                            type="button"
-                          >
-                            Izaberi
-                          </button>
+                          <input
+                            type="checkbox"
+                            aria-label={`Izaberi račun ${item.documentNumber}`}
+                            checked={selectedDocuments.has(item.id)}
+                            onChange={event => {
+                              const checked = event.target.checked;
+                              setSelectedDocuments(current => {
+                                const next = new Set(current);
+                                if (checked) next.add(item.id);
+                                else next.delete(item.id);
+                                return next;
+                              });
+                            }}
+                          />
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                <div className="panel-header">
+                  <span>
+                    Izabrano: {selectedDocuments.size} · Ukupno: {formatCents(openItemsModal.items.filter(item => selectedDocuments.has(item.id)).reduce((sum, item) => sum + item.openAmountCents, 0))}
+                  </span>
+                  <button type="button" className="primary-button" disabled={selectedDocuments.size === 0} onClick={applySelectedItems}>
+                    Prenesi izabrane račune
+                  </button>
+                </div>
+                <p className="muted-text">Prvi račun popunjava aktivni red, a ostali se dodaju kao posebne stavke na kraj naloga. Iznose možete korigovati prije čuvanja.</p>
               </div>
             )}
           </section>

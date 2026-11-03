@@ -1,5 +1,7 @@
 "use server";
 
+import { carrySettlementDetails } from "@/lib/settlements";
+
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -85,6 +87,7 @@ export async function generateOpeningBalance(formData: FormData) {
 
   try {
     result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM firme WHERE id=${firmaId}::uuid FOR UPDATE`;
       const targetYear = await tx.poslovnaGodina.findFirst({
         where: {
           id: poslovnaGodinaId,
@@ -280,6 +283,7 @@ export async function generateOpeningBalance(formData: FormData) {
         }
       });
 
+      await carrySettlementDetails(tx, {agencyId: targetYear.firma.agencija_id, companyId: firmaId, yearId: targetYear.id, userId: user.id}, sourceYear.id, journal.id);
       return {
         journal,
         sourceYear: sourceYear.godina,

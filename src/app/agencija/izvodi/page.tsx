@@ -1,3 +1,5 @@
+import { invoiceSettlementPaid, settlementCents } from "@/lib/settlements";
+import { bankSettlementProposals } from "@/lib/bank-settlements";
 import { effectiveBankSetting } from "@/lib/posting-template";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import Link from "next/link";
@@ -622,12 +624,13 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
     kufCandidatesByPartner.set(entry.dobavljac_id, entries);
   }
 
-  const allocatedCents = (allocations: { amount: unknown }[]) =>
-    allocations.reduce((sum, allocation) => sum + Math.round(Number(allocation.amount) * 100), 0);
-  const entryRemainingCents = (entry: {
-    total_gross: unknown;
-    bankStatementAllocations: { amount: unknown }[];
-  }) => Math.round(Number(entry.total_gross) * 100) - allocatedCents(entry.bankStatementAllocations);
+  const settlementProposals = selectedStatement && activeCompany && activeYear && user.agencija_id && selectedStatement.status !== "POSTED"
+    ? await bankSettlementProposals(prisma,{agencyId:user.agencija_id,companyId:activeCompany.id,yearId:activeYear.id,userId:user.id},selectedStatement.id) : [];
+  const paidByEntry = new Map(await Promise.all([
+    ...kifPaymentCandidates.map(async e=>[e.id,await invoiceSettlementPaid(prisma,"KIF",e.id)] as const),
+    ...kufPaymentCandidates.map(async e=>[e.id,await invoiceSettlementPaid(prisma,"KUF",e.id)] as const)
+  ]));
+  const entryRemainingCents = (entry: {id:string;total_gross:unknown}) => Math.max(0,settlementCents(entry.total_gross)-(paidByEntry.get(entry.id)??0));
 
   return (
     <div className="admin-stack">
@@ -1051,6 +1054,7 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
                               <td className="statement-col-number">{line.line_number}</td>
                               <td className="statement-col-description">
                                 <strong>{line.description}</strong>
+                                {settlementProposals.filter(p=>p.lineId===line.id).map(p=><small key={p.lineId}>Predlog: račun {p.document} · {money(p.cents/100)} · {p.reason} · datum zatvaranja {p.effectiveDate}. Povezuje se pri knjiženju.</small>)}
                                 <small>
                                   {line.direction === "INFLOW" ? "Priliv" : "Odliv"} ·{" "}
                                   {line.counterparty_account_number ?? "bez računa"}

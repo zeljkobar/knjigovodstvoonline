@@ -88,6 +88,10 @@ export async function purgeCompanyData(
   await izvrsi("mapr_import_podaci", Prisma.sql`DELETE FROM mapr_import_podaci WHERE firma_id = ${firmaId}::uuid`);
 
   // Kontrolna lista je dio reda zadatka; nema dodatnih zavisnih tabela.
+  // Razrada i istorija zatvaranja referenciraju stavke iz više poslovnih godina.
+  await izvrsi("prenosi_otvorenih_stavki", Prisma.sql`DELETE FROM prenosi_otvorenih_stavki WHERE firma_id = ${firmaId}::uuid`);
+  await izvrsi("zatvaranja_stavki", Prisma.sql`DELETE FROM zatvaranja_stavki WHERE firma_id = ${firmaId}::uuid`);
+
   // Putni nalozi imaju FK nalog_id: uklanjaju se prije nalozi/stavke_naloga.
   // Relacije su zajedničke agenciji; stavke putnog naloga su u njegovom JSON-u.
   // Country-qualified routes remain agency-wide; no new company child/FK tables.

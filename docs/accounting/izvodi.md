@@ -592,3 +592,36 @@ Lokalni i serverski prenos izvršavaju se nezavisno, svaki nad svojim podacima.
 Regresija: `scripts/check-mail-accounts.cjs` uz izolovani TEST_DATABASE_URL,
 postojeći check-mail-import i npm test. Purge firme briše njene postavke i obrade;
 agencijski mail nalog se zadržava za druge firme.
+
+## Zatvaranje otvorenih stavki i bankovni predlozi — 2026-11-02
+
+Nalozi → Zatvaranje stavki vodi odvojene veze proknjiženih D/P stavki.
+Ručno i automatsko povezivanje ne mijenjaju saldo ni glavnu knjigu. Datum
+zatvaranja ne može prethoditi datumima oba naloga. Poništavanje ima efektivni
+datum i audit, pa kasnija korekcija ne prepravlja raniji presjek.
+
+Na izvodu predlog prepoznaje partnera/konto i jedinstvenu referencu, zatim
+jedinstven tačan otvoreni iznos. Nejasni iznosi ostaju za izbor. Pri knjiženju
+se stanje ponovo provjerava pod zaključavanjem firme i izvora. Prijedlog nije
+obavezna veza: bez sigurnog para uplata se knjiži neraspoređena. Na ručnom
+konačnom nalogu poštuju se korisnički dokumenti, uključujući podjelu na više
+računa. Proknjižen KIF račun sa ranijim datumom dokumenta i kasnijim datumom
+knjige može biti predložen; efektivno zatvaranje koristi kasniji datum naloga.
+
+Stare eksplicitne alokacije ne dupliraju novu evidenciju. Uskladi veze izvoda
+prenosi jednoznačne veze jednom; nejasna identifikacija traži pregled izvoda.
+Poništena veza se ne aktivira samo pri čitanju. Rasknjižavanje izvoda poništava
+aktivne veze i osvježava plaćanja, a novo knjiženje radi nov predlog. Uplata na
+već potpuno plaćen račun ostaje neraspoređena. Korisnik bez nalozi view prava
+nastavlja postojeće bankovno knjiženje bez novih predloga otvorenih stavki.
+
+Zbirno početno stanje ima prateće veze na izvorne stavke, ne dodatna GL knjiženja.
+Čuvaju se i protivstavke radi kasnijeg poništavanja. Detaljni zbir mora odgovarati
+zbirnom saldu po kontu/partneru; neispravno početno stanje blokira pregled i
+zatvaranje. Automatski prenos čuva razradu, raniji automatski prenos može je
+preuzeti iz prethodne godine. Ručni zbir bez izvora ostaje nerazrađen.
+
+Za deploy primijeniti `20261102120000_zatvaranje_stavki` i
+`20261102123000_zatvaranja_datum_ponistavanja`, generisati Prisma i restartovati
+aplikaciju. Nema novih env varijabli. `scripts/check-settlements.cjs` radi
+rollback lifecycle; concurrency test traži zaseban TEST_DATABASE_URL sa _test.

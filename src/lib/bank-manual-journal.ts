@@ -1,3 +1,4 @@
+import { postBankSettlements } from "./bank-settlements";
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
@@ -208,6 +209,7 @@ export async function postManualBankJournalInTransaction(tx: Prisma.TransactionC
   const now = new Date(Math.max(Date.now(), statement.updated_at.getTime() + 1, journal.updated_at.getTime() + 1));
   await tx.nalog.update({ where: { id: journal.id }, data: { status: "POSTED", datum_knjizenja: now, proknjizen_at: now, proknjizen_by: actor.userId, updated_by: actor.userId, updated_at: now } });
   await tx.bankStatement.update({ where: { id: statementId }, data: { status: "POSTED", posted_at: now, posted_by: actor.userId, updated_by: actor.userId, updated_at: now } });
+  await postBankSettlements(tx, actor, statementId);
   await refreshBankPaymentStatuses(tx, statementId, actor.userId);
   await auditLogInTransaction(tx, { korisnikId: actor.userId, agencijaId: actor.agencyId, firmaId: actor.companyId, modul: "agencija.izvodi", akcija: "manual_journal_post", tipEntiteta: "BankStatement", entitetId: statementId,
     staraVrijednost: { statement, journal }, novaVrijednost: { journalId: journal.id, rows, status: "POSTED" } });

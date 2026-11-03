@@ -34,6 +34,8 @@ enum KomitentScope {
 }
 
 model Agencija {
+  zatvaranjaStavki ZatvaranjeStavki[]
+  prenosiStavki PrenosOtvorenihStavki[]
   fiskalniPortali FirmaFiskalniPortal[]
   mailNalozi AgencijaMailNalog[]
   povratiDobavljacu PovratDobavljacu[]
@@ -207,6 +209,8 @@ model AgencijaBankovniRacun {
 }
 
 model Firma {
+  zatvaranjaStavki ZatvaranjeStavki[]
+  prenosiStavki PrenosOtvorenihStavki[]
   fiskalniPortal FirmaFiskalniPortal?
   povratiDobavljacu PovratDobavljacu[]
   knjizenjeTemplate AgencijaKnjizenjeTemplate[]
@@ -594,6 +598,8 @@ model AktivnostDogadjaj {
 }
 
 model PoslovnaGodina {
+  zatvaranjaStavki ZatvaranjeStavki[]
+  prenosiStavki PrenosOtvorenihStavki[]
   povratiDobavljacu PovratDobavljacu[]
   mapr_import_podaci MaprImportPodatak[]
   putni_nalozi PutniNalog[]
@@ -2427,6 +2433,7 @@ model VrstaNaloga {
 }
 
 model Nalog {
+  razradaPocetnogStanja PrenosOtvorenihStavki[]
   povratDobavljacu PovratDobavljacu?
   putniNalog PutniNalog?
   osObracun OsObracun?
@@ -3629,6 +3636,9 @@ model PlateObracunStavka {
 
 /// DB triggers reject short account codes on new/changed lines and when posting existing drafts.
 model StavkaNaloga {
+  zatvaranjaDuguje ZatvaranjeStavki[] @relation("ZatvaranjeDuguje")
+  zatvaranjaPotrazuje ZatvaranjeStavki[] @relation("ZatvaranjePotrazuje")
+  prenosiOtvorenihStavki PrenosOtvorenihStavki[]
   kuf_entry_id         String?           @db.Uuid
   kuf_entry            KufEntry?         @relation(fields: [kuf_entry_id], references: [id], onDelete: Restrict)
   id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -4100,4 +4110,52 @@ model FirmaFiskalniPortal {
   @@unique([agencija_id, firma_id])
   @@index([agencija_id, firma_id])
   @@map("fiskalni_portali_firmi")
+}
+
+model ZatvaranjeStavki {
+  izvor_ref String? @unique
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  agencija Agencija @relation(fields: [agencija_id], references: [id])
+  firma_id String @db.Uuid
+  firma Firma @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id String @db.Uuid
+  poslovna_godina PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  snimak Json?
+  duguje_stavka_id String? @db.Uuid
+  duguje_stavka StavkaNaloga? @relation("ZatvaranjeDuguje", fields: [duguje_stavka_id], references: [id], onDelete: SetNull)
+  potrazuje_stavka_id String? @db.Uuid
+  potrazuje_stavka StavkaNaloga? @relation("ZatvaranjePotrazuje", fields: [potrazuje_stavka_id], references: [id], onDelete: SetNull)
+  iznos Decimal @db.Decimal(14, 2)
+  datum DateTime @db.Date
+  nacin String
+  created_at DateTime @default(now())
+  created_by String @db.Uuid
+  is_deleted Boolean @default(false)
+  ponisteno_datum DateTime? @db.Date
+  deleted_at DateTime?
+  deleted_by String? @db.Uuid
+  @@index([agencija_id, firma_id, poslovna_godina_id])
+  @@index([duguje_stavka_id, is_deleted])
+  @@index([potrazuje_stavka_id, is_deleted])
+  @@map("zatvaranja_stavki")
+}
+
+model PrenosOtvorenihStavki {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  agencija Agencija @relation(fields: [agencija_id], references: [id])
+  firma_id String @db.Uuid
+  firma Firma @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id String @db.Uuid
+  poslovna_godina PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  nalog_id String @db.Uuid
+  nalog Nalog @relation(fields: [nalog_id], references: [id], onDelete: Cascade)
+  izvorna_stavka_id String @db.Uuid
+  izvorna_stavka StavkaNaloga @relation(fields: [izvorna_stavka_id], references: [id], onDelete: Restrict)
+  created_at DateTime @default(now())
+  @@unique([nalog_id, izvorna_stavka_id])
+  @@index([agencija_id, firma_id, poslovna_godina_id])
+  @@index([izvorna_stavka_id])
+  @@map("prenosi_otvorenih_stavki")
 }

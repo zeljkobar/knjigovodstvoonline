@@ -1,4 +1,5 @@
 import "server-only";
+import { invoiceSettlementPaid, refreshSettlementInvoices } from "./settlements";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { decimalToScaled } from "./inventory-calculation";
@@ -112,6 +113,12 @@ async function setLockedBankStatementDraft(
 ) {
   if (!journal) throw new BankStatementError("izvod_greska");
   const lines = await tx.bankStatementLine.findMany({ where: { bank_statement_id: statement.id }, include: { allocations: true } });
+  const settlementChangedSince = new Date();
+  const settlementEdges = await tx.zatvaranjeStavki.findMany({where:{firma_id:statement.firma_id,agencija_id:actor.agencyId,is_deleted:false,OR:[{duguje_stavka:{nalog_id:journal.id}},{potrazuje_stavka:{nalog_id:journal.id}}]}});
+  for (const edge of settlementEdges) {
+    await tx.zatvaranjeStavki.update({where:{id:edge.id},data:{is_deleted:true,deleted_at:new Date(),deleted_by:actor.userId,ponisteno_datum:edge.datum,izvor_ref:null}});
+    await auditLogInTransaction(tx,{korisnikId:actor.userId,agencijaId:actor.agencyId,firmaId:statement.firma_id,modul:"nalozi",akcija:"ponisti_zatvaranje_rasknjizavanje",tipEntiteta:"ZatvaranjeStavki",entitetId:edge.id,staraVrijednost:edge,novaVrijednost:{is_deleted:true}});
+  }
   await tx.nalog.update({ where: { id: journal.id }, data: {
     status: "DRAFT", datum_knjizenja: null, proknjizen_at: null, proknjizen_by: null,
     vracen_u_nacrt_at: legacyDraft ? journal.vracen_u_nacrt_at ?? new Date() : new Date(),
@@ -122,6 +129,7 @@ async function setLockedBankStatementDraft(
     status: "NEEDS_REVIEW", posted_at: null, posted_by: null, updated_by: actor.userId
   } });
   await refreshBankPaymentStatuses(tx, statement.id, actor.userId);
+  if(settlementEdges.length) await refreshSettlementInvoices(tx,{agencyId:actor.agencyId,companyId:statement.firma_id,yearId:statement.poslovna_godina_id,userId:actor.userId},settlementChangedSince);
   await auditLogInTransaction(tx, {
     korisnikId: actor.userId, agencijaId: actor.agencyId, firmaId: statement.firma_id,
     modul: "agencija.izvodi", akcija: legacyDraft ? "sync_draft_statement" : "reopen_statement",
@@ -155,11 +163,8 @@ export async function refreshBankPaymentStatuses(tx: Prisma.TransactionClient, s
 export async function refreshBankInvoicePayment(tx: Prisma.TransactionClient, type: "KIF" | "KUF", id: string, userId: string) {
   const entry = type === "KIF" ? await tx.kifEntry.findUnique({ where: { id } }) : await tx.kufEntry.findUnique({ where: { id } });
   if (!entry) return;
-  const sum = await tx.bankStatementLineAllocation.aggregate({ where: {
-    ...postedBankAllocationWhere, ...(type === "KIF" ? { kif_entry_id: id } : { kuf_entry_id: id })
-  }, _sum: { amount: true } });
-  const paid = Number(decimalToScaled(sum._sum.amount ?? "0", 2));
-  const total = Number(decimalToScaled(entry.total_gross, 2));
+  const paid = await invoiceSettlementPaid(tx, type, id);
+  const total = Math.abs(Number(decimalToScaled(entry.total_gross, 2)));
   const payment_status = paid <= 0 ? "UNPAID" : paid < total ? "PARTIALLY_PAID" : paid === total ? "PAID" : "OVERPAID";
   const data = { payment_status, updated_by: userId };
   if (type === "KIF") await tx.kifEntry.update({ where: { id }, data });

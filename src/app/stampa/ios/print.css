@@ -1,0 +1,24 @@
+@page ios { size: A4 portrait; margin: 14mm; }
+.ios-document { page: ios; box-sizing:border-box; width:182mm; max-width:100%; margin:0 auto 24px; padding:8mm; background:#fff; color:#111; font:10pt/1.4 Arial,sans-serif; }
+.ios-parties { display:flex; justify-content:space-between; gap:12mm; border-bottom:2px solid #222; padding-bottom:5mm; margin-bottom:6mm; break-inside:avoid; }
+.ios-parties > div { width:48%; overflow-wrap:anywhere; }
+.ios-document p { margin:2mm 0; }
+.ios-document h1 { text-align:center; font-size:16pt; margin:0 0 2mm; }
+.ios-subtitle { text-align:center; margin-bottom:6mm!important; }
+.ios-document table { width:100%; table-layout:fixed; border-collapse:collapse; margin:5mm 0; font-size:8.5pt; }
+.ios-document th,.ios-document td { border:1px solid #aaa; padding:2mm 1.5mm; vertical-align:top; overflow-wrap:anywhere; text-align:left; }
+.ios-document th { background:#eee; }
+.ios-document th:first-child { width:23%; }
+.ios-document td small { display:block; font-size:7.5pt; margin-top:1mm; }
+.ios-document th:nth-child(2),.ios-document th:nth-child(3) { width:12%; }
+.ios-document td:nth-child(n+4),.ios-document tfoot td:not(:first-child) { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.ios-document thead { display:table-header-group; }
+.ios-document tfoot { display:table-row-group; font-weight:bold; }
+.ios-document tr { break-inside:avoid; }
+.ios-note { font-size:8pt; }
+.ios-confirmation { margin-top:7mm; border-top:1px solid #777; padding-top:4mm; break-inside:avoid; }
+.ios-confirmation h2 { font-size:12pt; margin:0 0 3mm; }
+.ios-signatures { display:flex; justify-content:space-between; gap:8mm; margin-top:7mm; }
+@media print { .ios-print-page { margin:0; padding:0; background:#fff; }.ios-document { max-width:none; width:100%; margin:0; padding:0; break-after:page; }.ios-document:last-child { break-after:auto; } }
+
+.ios-document th:nth-child(n+4) { text-align:right; }

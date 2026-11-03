@@ -192,6 +192,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/nalozi/partneri", label: "Partneri" },
     { href: "/agencija/nalozi/bruto-bilans", label: "Bruto bilans" },
     { href: "/agencija/nalozi/analiticke-kartice", label: "Kartice konta" },
+    { href: "/agencija/nalozi/zatvaranje-stavki", label: "Zatvaranje stavki" },
     { href: "/agencija/nalozi/kupci-dobavljaci", label: "Kupci / dobavljači" }
   ],
   robno: [
@@ -334,6 +335,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/izvjestaji", label: "Bruto bilans" },
     { href: "/agencija/izvjestaji/kartice-konta", label: "Kartice konta" },
     { href: "/agencija/izvjestaji/kartice-partnera", label: "Kartice partnera" },
+    { href: "/agencija/izvjestaji/ios", label: "IOS", permissions: [{ modul: "izvjestaji", akcija: "view" }, { modul: "nalozi", akcija: "view" }] },
     { href: "/agencija/izvjestaji/rezultat-po-jedinicama", label: "Rezultat po jedinicama" },
     { href: "/agencija/izvjestaji/kupci", label: "Kupci" },
     { href: "/agencija/izvjestaji/dobavljaci", label: "Dobavljači" },

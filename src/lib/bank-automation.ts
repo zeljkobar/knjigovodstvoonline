@@ -1,3 +1,4 @@
+import { sepAutomationScheduledAt } from "./sep-automation-policy";
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { getCompanyMailConfigs } from "@/lib/company-mail-settings";
@@ -17,6 +18,16 @@ export async function runDailyBankAutomation(now = new Date()) {
     if (!user) continue;
     const configs = await getCompanyMailConfigs(agencyId, true);
     for (const config of configs) {
+      // SEP runs at 04:00 and bank import at 10:00. A slow/recovering invoice
+      // queue must finish first; do not mark the deferred bank day completed.
+      if (process.env.SEP_AUTOMATION_ENABLED !== "false") {
+        const sep = await prisma.sepAutomatikaPodesavanje.findFirst({where:{firma_id:config.firmaId,agencija_id:agencyId,aktivna:true}});
+        if (sep && sep.updated_at <= sepAutomationScheduledAt(day)) {
+          const today = await prisma.sepAutomatikaObrada.findFirst({where:{firma_id:config.firmaId,agencija_id:agencyId,dan:new Date(`${day}T00:00:00Z`)}});
+          const pending = await prisma.sepAutomatikaObrada.count({where:{firma_id:config.firmaId,agencija_id:agencyId,dan:{lte:new Date(`${day}T00:00:00Z`)},status:{in:["PENDING","RUNNING"]}}});
+          if (!today || pending) continue;
+        }
+      }
       if (!config.folder && !(config.includeInbox && config.rules.length)) continue;
       // A transaction-scoped advisory lock coordinates multiple Node/PM2 processes.
       // Business operations commit independently, so a crash retries only unfinished work.
