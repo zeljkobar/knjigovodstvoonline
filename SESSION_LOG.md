@@ -2751,3 +2751,95 @@ DB regresija provjerava poredak, smjer salda, avanse i ukupne iznose.
 - Korisnik je izričito zatražio commit i push svih preostalih izmjena, uključujući zatvaranja stavki, prenesenu razradu početnog stanja, IOS i štampu pregleda partnera, višestruki izbor računa i dopune bankovnih izvoda/automatike.
 - Ponovo prošli TSC, npm test i lint (0 grešaka; 5 ranijih upozorenja). Prošao PostgreSQL rollback lifecycle/SSR za zatvaranja, bankovne predloge, storno/status plaćanja, IOS prava/štampu i stvarni purge testne firme. Pokrivenost purge-a: 86 tabela sa firma_id; podređene veze obuhvaćene lifecycle testom.
 - Migracije 20261102120000_zatvaranje_stavki i 20261102123000_zatvaranja_datum_ponistavanja uključene su u isporuku; na serveru i dalje treba migrate deploy, generate i restart. Deploy nije rađen. Nema novih env vrijednosti ni promjene korisničkih knjiženja.
+
+## 2026-11-08 — Porez na dobit u Završnom računu
+
+- Implementiran ručni PD sa PG1/PG2 prema starom korisničkom modulu koji je
+  pregledan read-only. Formule u centima ispravljaju granu nulte dobiti/gubitka,
+  ograničavaju PG pokriće i razdvajaju računovodstvene i poreske kapitalne iznose.
+  Unosi/vrsta prijave/revizija čuvaju se u poslovnoj godini; XML koristi samo
+  sačuvane iznose i stvarni period. Nema naloga ili automatske poreske predaje.
+- Prava, dodjela firme/agencija, zaključana godina, promjena konteksta/revizije
+  i atomski audit provjereni PostgreSQL rollback testom. Test je stvarno obrisao
+  fixture firmu kroz company-purge pa poništio cijelu transakciju. Testirani i
+  obračunski pragovi/centi/XML, izmijenjeni ulazi, API i SSR.
+- Migracija 20261108120000_porez_dobit_prijava primijenjena lokalno, Prisma
+  regenerisana, svjež dev pokrenut sa bank/SEP automatizacijama isključenim
+  za provjere. Produkcija traži migrate deploy/generate/restart. Browser radi,
+  ali lokalna sesija je istekla; interaktivni Save/download QA ostaje.
+- Provjeren zvanični pravilnik kroz 20/2025 i struktura starog PD/PG aneksa:
+  https://wapi.gov.me/download-preview/96c3699a-765d-4d19-b15b-e539e9e17691?version=1.0
+  i https://wapi.gov.me/download/69fb7c10-ee3f-4e44-a6ee-10c0e86609d7?version=1.0.
+  Noviji raspored sa 59 redova preuzet iz korisničkog modula; portal XSD/probni
+  uvoz nijesu potvrđeni. Za 2027 potrebno usklađivanje pravila; ta godina blokirana.
+- Prošli TSC, npm test i lint (pet ranijih upozorenja, bez novih); purge coverage
+  pokriva svih 86 direktno vezanih tabela. Dokumentacija i CSV planer dopunjeni;
+  Excel regenerisan. Nema .env izmjena. Commit/push nijesu rađeni u ovom koraku.
+
+## 2026-11-08 — Preuzimanje rezultata u porez na dobit
+
+- Nova prijava automatski popunjava dobit/gubitak iz tekućeg AOP A244 bilansa
+  uspjeha za istu firmu/godinu, uključujući sačuvane korekcije. A260 neto/ukupni
+  rezultat se ne koristi. Negativan rezultat puni samo red 2, pozitivan samo
+  red 1; nula nulira oba. Postojeća prijava se ne prepisuje: posebno dugme
+  preuzima redove 1/2, zadržava ostale korekcije i zahtijeva novo čuvanje.
+- Read-only potvrđeno za 3L COMPANY/2026: A244 i A260 su -1053,33 EUR;
+  završni račun prikazuje zaokruženo -1.053, dok prijava zadržava cente.
+- Unit testovi pokrivaju izbor A244 umjesto A260, znak/nulu/cente/nedostajući
+  red; PostgreSQL rollback provjerava stvarne korekcije bilansa, oba znaka i
+  očuvanje sačuvanih ulaza, uz postojeće scope/lock/audit/API/SSR/purge provjere.
+  Nema migracije. Enter navigacija prelazi samo kroz polja za unos, bez čuvanja.
+
+## 2026-11-08 — Automatska amortizacija u prijavi poreza na dobit
+
+- PD polje 5 preuzima tekući AOP A210a iz bilansa uspjeha sa korekcijama.
+  Polje 6 preuzima potvrđeni OA iste firme/godine: redovna tekuća amortizacija
+  + poseban otpis salda grupa, kao Ukupno (a+b+c) OA, bez prethodnih godina
+  i prihoda od viška prodaje. Provjeren snapshot period/schema/errors/centi.
+- Za OA se traži i OS view pravo; nacrt/nedostajući/neispravan OA ne preuzima
+  iznos. Poruka traži potvrdu obračuna ili ručni unos. Nove prijave automatski
+  popunjavaju dostupne iznose; postojeće eksplicitnim dugmetom mijenjaju samo
+  dostupna polja 5/6 i traže ponovno čuvanje. Nema migracije ili knjiženja.
+- Prošli TSC, ciljani ESLint i sedam unit testova. Stvarni PostgreSQL rollback
+  provjerava korekciju A210a, nacrt/potvrdu OA, poseban otpis, neispravan period,
+  OS prava i očuvanje sačuvanih unosa uz postojeći scope/audit/API/SSR/purge.
+  Testna transakcija je poništena; stvarni poslovni iznosi nijesu mijenjani.
+
+## 2026-11-08 — Kontrole para amortizacija i osnovnih sredstava
+
+- U Završni račun → Kontrole dodata grupa Osnovna sredstva: jedna završena
+  amortizacija zahtijeva drugu; sredstva sa godišnjim iznosom zahtijevaju
+  proknjiženo pokriće cijelog potrebnog perioda i potvrđen poreski OA.
+  Iznosi se ne porede. Nacrti su upozorenje, ne dokaz završetka. Kontrole
+  učestvuju u sažetku grešaka/upozorenja; nema dodatnih action blokada.
+- Ponovo se koristi OS godišnji kalkulator, umjesto nove aproksimacije otpisa.
+  Zemljište i vanperiodska sredstva se preskaču; potpuno otpisano sredstvo
+  bez godišnjeg troška ne pravi lažnu obavezu. Neispravni parametri daju grešku.
+  OS view pravo i scope agencija/firma/godina štite sve nove izvore.
+- Prošli TSC/ciljani ESLint/npm test i pet novih regresija: oba smjera para,
+  nulti OA, nacrti, nedostajući parametri, puno/djelimično/gap pokriće, prava
+  i scope/statusi. PostgreSQL rollback test koristi stvarne OA i OS podatke,
+  provjerava zemljište/potpuni otpis/potreban otpis i renderuje stranicu Kontrole
+  sa novom grupom/porukama. Testni podaci su poništeni i purge potvrđen.
+- Dokumentacija/CSV planer ažurirani i Excel regenerisan. Nema migracije,
+  automatskog knjiženja ili izmjene stvarnih poslovnih iznosa. Nije commitovano.
+
+## 2026-11-08 — Podešavanje konta za prijavu poreza na dobit
+
+- Implementirana agencijska šema za 16 pozicija: 3/4/7/8/9/11/12/13/15a/15b/
+  19/20/25/31/49a/49b, sa prefiksima/izuzecima i neto smjerom. Prazna konta
+  ostavljaju ručni unos. Nema nagađanja korisničkih konta. Za 19 i 20 samo višak
+  preko 1% odnosno 0,1% ukupnih neto prihoda klase 6; limiti u centima half-up.
+- POSTED promet sa stornima/neto iznosima, bez početnog/završnog/obrisanog/DRAFT.
+  Nova prijava dobija podešene iznose; postojeća eksplicitnim dugmetom, uz
+  pregled osnovice/troška/limita/viška i novo čuvanje. XML koristi sačuvanu prijavu.
+- Admin/agencija scope, revizija i row lock, atomski audit. Migracija
+  20261108140000_porez_dobit_konta primijenjena lokalno, Prisma generate i dev
+  restart sa isključenim bank/SEP automatizacijama. Nema .env izmjene.
+- Četiri nova unit testa i proširen PostgreSQL rollback potvrđuju limite,
+  prefikse/izuzetke, status i scope, legacy null agencija_id, audit rollback,
+  stale verziju, admin prava, očuvanje sačuvane prijave i šeme nakon company purge.
+  SSR podešavanja i pravi browser prikaz su provjereni; nijesu unesena stvarna
+  konta ili mijenjani korisnički iznosi. TSC i ciljani ESLint čisti.
+- Dokumentacija/CSV planer ažurirani, Excel regenerisan. Produkcija traži
+  migrate deploy/generate/restart. Commit/push nije rađen u ovom koraku.

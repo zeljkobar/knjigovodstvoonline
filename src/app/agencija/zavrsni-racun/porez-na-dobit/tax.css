@@ -1,0 +1,10 @@
+.corporate-tax .tax-table { width: 100%; table-layout: fixed; }
+.corporate-tax .tax-table th:last-child, .corporate-tax .tax-table td:last-child { width: 210px; text-align: right; }
+.corporate-tax .tax-table input { width: 100%; text-align: right; box-sizing: border-box; }
+.corporate-tax .tax-table label { display: block; overflow-wrap: anywhere; }
+.corporate-tax .tax-table small { display: block; color: var(--muted); margin-top: 4px; }
+.corporate-tax .tax-computed { background: var(--primary-soft, #eef5fb); }
+.corporate-tax .tax-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; position: sticky; top: 12px; z-index: 5; }
+.corporate-tax .tax-actions > div { flex: 1 1 300px; }
+.corporate-tax .tax-actions > p { flex-basis: 100%; margin: 0; }
+@media (max-width: 640px) { .corporate-tax .tax-table th:last-child, .corporate-tax .tax-table td:last-child { width: 125px; } }

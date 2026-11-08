@@ -34,6 +34,8 @@ enum KomitentScope {
 }
 
 model Agencija {
+  porez_dobit_konta Json?
+  porez_dobit_konta_verzija Int @default(0)
   zatvaranjaStavki ZatvaranjeStavki[]
   prenosiStavki PrenosOtvorenihStavki[]
   fiskalniPortali FirmaFiskalniPortal[]
@@ -598,6 +600,8 @@ model AktivnostDogadjaj {
 }
 
 model PoslovnaGodina {
+  porez_dobit_podaci Json?
+  porez_dobit_verzija Int @default(0)
   zatvaranjaStavki ZatvaranjeStavki[]
   prenosiStavki PrenosOtvorenihStavki[]
   povratiDobavljacu PovratDobavljacu[]

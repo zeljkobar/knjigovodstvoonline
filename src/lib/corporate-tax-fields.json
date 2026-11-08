@@ -1,0 +1,377 @@
+[
+  {
+    "key": "x01",
+    "label": "1) Dobit poslovne godine",
+    "computed": false
+  },
+  {
+    "key": "x02",
+    "label": "2) Gubitak poslovne godine",
+    "computed": false
+  },
+  {
+    "key": "x03",
+    "label": "3) Kapitalni dobici",
+    "computed": false
+  },
+  {
+    "key": "x04",
+    "label": "4) Kapitalni gubici",
+    "computed": false
+  },
+  {
+    "key": "x05",
+    "label": "5) Troskovi amortizacije iskazani u bilansu uspjeha",
+    "computed": false
+  },
+  {
+    "key": "x06",
+    "label": "6) Troskovi amortizacije koji se priznaju u poreske svrhe",
+    "computed": false
+  },
+  {
+    "key": "x07",
+    "label": "7) Troskovi koji nijesu nastali u svrhu obavljanja poslovnih aktivnosti",
+    "computed": false
+  },
+  {
+    "key": "x08",
+    "label": "8) Troskovi koji se ne mogu dokumentovati",
+    "computed": false
+  },
+  {
+    "key": "x09",
+    "label": "9) Kamata za neblagovremeno placene poreze i doprinose",
+    "computed": false
+  },
+  {
+    "key": "x10",
+    "label": "10) Kamata placena nerezidentima po stopi vecoj od uobicajene komercijalne stope",
+    "computed": false
+  },
+  {
+    "key": "x11",
+    "label": "11) Administrativni troškovi placeni od strane stalne poslovne jedinice nerezidentnoj centrali",
+    "computed": false
+  },
+  {
+    "key": "x12",
+    "label": "12) Primanja zaposlenih ili drugih lica po osnovu raspodjele dobiti",
+    "computed": false
+  },
+  {
+    "key": "x13",
+    "label": "13) Novcane kazne i penali",
+    "computed": false
+  },
+  {
+    "key": "x14",
+    "label": "14) Ispravka vrijednosti pojedinačnih potraživanja od lica kojima se istovremeno duguje, do iznosa obaveze prema tom licu",
+    "computed": false
+  },
+  {
+    "key": "x15",
+    "label": "15) Ukupno (a + b)",
+    "computed": true
+  },
+  {
+    "key": "x15a",
+    "label": "15. a) Prilozi dati političkim organizacijama",
+    "computed": false
+  },
+  {
+    "key": "x15b",
+    "label": "15. b) Pokloni i drugi prenosi bez naknade",
+    "computed": false
+  },
+  {
+    "key": "x16",
+    "label": "16) Troškovi zarada, troškovi otpremnina prilikom odlaska u penziju, troškovi usljed tehnološkog viška i ostalih isplata naknada prilikom prestanka radnog odnosa, koji nijesu isplaceni u poreskom periodu (clan 11a Zakona)",
+    "computed": false
+  },
+  {
+    "key": "x17",
+    "label": "17) Troškovi materijala i nabavna vrijednost prodate trgovačke robe iznad iznosa obračunatog primjenom metode prosječne ponderisane cijene ili \" prvi ulaz-prvi izlaz\"metode.",
+    "computed": false
+  },
+  {
+    "key": "x18",
+    "label": "18) Ukupno (a + b + c)",
+    "computed": true
+  },
+  {
+    "key": "x18a",
+    "label": "18. a) Iznos izdataka isplacenih pravnim licima za zdravstvene, socijalne, obrazovne, naucne, vjerske, kulturne, sportske i humanitarne svrhe, smanjenje siromaštva, zaštitu životne sredine, zaštitu lica sa invaliditetom, društvenu brigu o djeci i mladima, pomoc starijim licima, zaštitu i promovisanje ljudskih i manjinskih prava, vladavinu prava, razvoj civilnog društva i volonterizma, evroatlanske i evropske integracije Crne Gore, umjetnost, tehnicku kulturu, unapredjenje poljoprivrede i ruralnog razvoja, održivi razvoj, zaštitu potrošaca, rodnu ravnopravnost, borbu protiv korupcije i organizovanog kriminala i borbu protiv bolesti zavisnosti iznad 3,5% ukupnog prihoda, uvecan za ukupan iznos ovih izdataka isplacenih fizickim licima",
+    "computed": false
+  },
+  {
+    "key": "x18b",
+    "label": "18. b) Iznos izdataka po osnovu donacija u naucnoistraživacke projekte ili inovacionu infrastrukturu po osnovu kojih je poreski obveznik stekao status korisnika podsticajnih mjera",
+    "computed": false
+  },
+  {
+    "key": "x18c",
+    "label": "18. c) Iznos izdataka za nacionalne sportske saveze iznad 5% ukupnog prihoda",
+    "computed": false
+  },
+  {
+    "key": "x19",
+    "label": "19) Troškovi reprezentacije iznad 1% ukupnog prihoda",
+    "computed": false
+  },
+  {
+    "key": "x20",
+    "label": "20) Clanarine komorama, savezima i udruženjima iznad 0,1% ukupnog prihoda",
+    "computed": false
+  },
+  {
+    "key": "x21",
+    "label": "21) Ukupno (a + b)",
+    "computed": true
+  },
+  {
+    "key": "x21a",
+    "label": "21. a) Otpisana vrijednost sumnjivih potraživanja koja se ne priznaju u poreske svrhe",
+    "computed": false
+  },
+  {
+    "key": "x21b",
+    "label": "21. b) Ispravka vrijednosti sumnjivih potraživanja koja se ne priznaju u poreske svrhe",
+    "computed": false
+  },
+  {
+    "key": "x22",
+    "label": "22) Rezervisanja koja se ne priznaju u poreske svrhe",
+    "computed": false
+  },
+  {
+    "key": "x23",
+    "label": "23) Obračunate kamate i pripadajući troškovi prema povezanim licima koje prelaze troškove kamata koje su u skladu sa principom \"van dohvata ruke\", zatezne kamate između povezanih lica",
+    "computed": false
+  },
+  {
+    "key": "x24",
+    "label": "24) Rashodi po osnovu obezvredjivanja imovine koji se ne priznaju u poreske svrhe (član 18a Zakona)",
+    "computed": false
+  },
+  {
+    "key": "x25",
+    "label": "25) Rashodi po osnovu efekata promjene računovodstvene politike nastali usled prve primjene MRS, odnosno MSFI",
+    "computed": false
+  },
+  {
+    "key": "x26",
+    "label": "26) Obračunati troškovi primjenom transfernih cijena",
+    "computed": false
+  },
+  {
+    "key": "x27",
+    "label": "27) Obračunati troškovi primjenom cijena koje su u skladu sa principom \"van dohvata ruke\"",
+    "computed": false
+  },
+  {
+    "key": "x28",
+    "label": "28) Razlika obračunatih troškova (red.br.26 - 27)>0",
+    "computed": true
+  },
+  {
+    "key": "x29",
+    "label": "29) Iznos poreza po odbitku na dividende i udjele u dobiti koji je platila nerezidentna filijala rezidentnog poreskog obveznika",
+    "computed": false
+  },
+  {
+    "key": "x30",
+    "label": "30) Obračunate kamate i pripadajući troškovi prema povezanim licima koje su manje od prihoda po osnovu kamata koje su u skladu sa principom \"van dohvata ruke\"",
+    "computed": false
+  },
+  {
+    "key": "x31",
+    "label": "31) Prihodi po osnovu efekata promjene računovodstvene politike nastali usled prve primjene MRS, odnosno MSFI",
+    "computed": false
+  },
+  {
+    "key": "x32",
+    "label": "32) Obračunati prihodi primjenom transfernih cijena",
+    "computed": false
+  },
+  {
+    "key": "x33",
+    "label": "33) Obračunati prihodi primjenom cijena koje su u skladu sa principom \"van dohvata ruke\"",
+    "computed": false
+  },
+  {
+    "key": "x34",
+    "label": "34) Razlika obračunatih prihoda (red.br.33 - 32)>0",
+    "computed": true
+  },
+  {
+    "key": "x35",
+    "label": "35) Prihod od naplaćenih sumnjivih potraživanja ostvaren u poreskom periodu, a koji u ranijem poreskom periodu nijesu priznata kao rashod u poreske svrhe",
+    "computed": false
+  },
+  {
+    "key": "x36",
+    "label": "36) Rashodi koji po osnovu obezvredjivanja imovine u ranijem poreskom periodu nijesu priznati u poreske svrhe za imovinu koja je otudjena u poreskom periodu, odnosno oštećena usljed više sile (član 18a Zakona)",
+    "computed": false
+  },
+  {
+    "key": "x37",
+    "label": "37) Troškovi zarada, autorski naknada, naknada po osnovu ugovora o djelu i ostalih prihoda isplaćenih fizičkim licima po osnovu povremene samostalne djelatnosti, troškovi otpremnina prilikom odlaska u penziju, troškovi usljed tehnološkog viška i ostalih isplata naknada prilikom prestanka radnog odnosa, koji nijesu bili priznati u poreske svrhe u prethodnim poreskim periodima",
+    "computed": false
+  },
+  {
+    "key": "x38",
+    "label": "38) Oporeziva dobit (1-2-3+4+5-6+7 do 24-25+28+29+30+31+34-35-36-37) >0",
+    "computed": true
+  },
+  {
+    "key": "x39",
+    "label": "39) Gubitak (2-1+3-4-5+6-7 do 24+25-28-29-30-31-34+35+36+37)>0",
+    "computed": true
+  },
+  {
+    "key": "x40",
+    "label": "40) Iznos gubitka u poreskoj prijavi iz prethodnih godina, do visine oporezive dobiti",
+    "computed": true
+  },
+  {
+    "key": "x41",
+    "label": "41) Ostatak oporezive dobiti (red. br.38-40) >0",
+    "computed": true
+  },
+  {
+    "key": "x42",
+    "label": "42) Ukupni kapitalni dobici tekuće godine",
+    "computed": false
+  },
+  {
+    "key": "x43",
+    "label": "43) Ukupni kapitalni gubici tekuće godine",
+    "computed": false
+  },
+  {
+    "key": "x44",
+    "label": "44) Kapitalni dobici (red. br.42-43) >0",
+    "computed": true
+  },
+  {
+    "key": "x45",
+    "label": "45) Kapitalni gubici (red. br.43-42) >0",
+    "computed": true
+  },
+  {
+    "key": "x46",
+    "label": "46) Prenijeti kapitalni gubici iz ranijih godina do visine iznosa pod rednim brojem 44",
+    "computed": true
+  },
+  {
+    "key": "x47",
+    "label": "47) Ostatak kapitalnog dobitka (red. br.44-46) ≥0",
+    "computed": true
+  },
+  {
+    "key": "x48",
+    "label": "48) Poreska osnovica (red. br.41+100% od red.br 47) >0",
+    "computed": true
+  },
+  {
+    "key": "x49",
+    "label": "49) Ukupno (a + b)",
+    "computed": true
+  },
+  {
+    "key": "x49a",
+    "label": "49. a) Prihodi po osnovu dividendi i udjela u dobiti rezidentnih pravnih lica",
+    "computed": false
+  },
+  {
+    "key": "x49b",
+    "label": "49. b) Prihodi po osnovu likvidacionog ostatka",
+    "computed": false
+  },
+  {
+    "key": "x50",
+    "label": "50) Poreska osnovica-oporeziva dobit (red. br. 48-49) > 0",
+    "computed": true
+  },
+  {
+    "key": "x51a",
+    "label": "51. a) 9% za oporezivu dobit do 100.000,00 €",
+    "computed": true
+  },
+  {
+    "key": "x51b",
+    "label": "51. b) 12% za dio oporezive dobiti od 100.000,00 € do 1.500.000,00 €",
+    "computed": true
+  },
+  {
+    "key": "x51c",
+    "label": "51. c) 15% za oporezivu dobit koja prelazi 1.500.000,00 €",
+    "computed": true
+  },
+  {
+    "key": "x52",
+    "label": "52) Ukupan iznos poreza (51a + 51b + 51c)",
+    "computed": true
+  },
+  {
+    "key": "x53",
+    "label": "53) Iznos poreza na dobit ostvarenog u nedovoljno razvijenim opštinama",
+    "computed": false
+  },
+  {
+    "key": "x54",
+    "label": "54) Iznos poreza na dobit koju pravno lice reinvestira u svoje naučnoistraživačke ili inovativne projekte, inovativne programe subjekata inovacione infrastrukture, odnosno program rada Fonda za inovacije Crne Gore",
+    "computed": false
+  },
+  {
+    "key": "x55",
+    "label": "55) Ukupno (a + b + c)",
+    "computed": true
+  },
+  {
+    "key": "x55a",
+    "label": "55. a) Udjele ili akcije startapova i spinofova",
+    "computed": false
+  },
+  {
+    "key": "x55b",
+    "label": "55. b) Donacije naučnoistraživačkim ustanovama i subjektima inovacione infrastrukture u projekte i naučnoistraživačku infrastrukturu",
+    "computed": false
+  },
+  {
+    "key": "x55c",
+    "label": "55. c) Fond za inovacije Crne Gore i/ili druge investicione fondove u Crnoj Gori koji ulažu sredstva u subjekte koji obavljaju inovacionu djelatnost",
+    "computed": false
+  },
+  {
+    "key": "x56",
+    "label": "56) Ukupno (a + b)",
+    "computed": true
+  },
+  {
+    "key": "x56a",
+    "label": "56. a) Iznos sredstava koje je pravno lice reinvestiralo u poljoprivredne projekte",
+    "computed": false
+  },
+  {
+    "key": "x56b",
+    "label": "56. b) Iznos sredstava koje je pravno lice uložilo u druge subjekte poljoprivredne djelatnosti",
+    "computed": false
+  },
+  {
+    "key": "x57",
+    "label": "57) Utvrđena poreska obaveza (red. br.52-53-54-55-56)",
+    "computed": true
+  },
+  {
+    "key": "x58",
+    "label": "58) Iznos poreza plaćenog u drugoj državi",
+    "computed": false
+  },
+  {
+    "key": "x59",
+    "label": "59) Ukupna poreska obaveza (red. br.57 - 58) >0",
+    "computed": true
+  }
+]

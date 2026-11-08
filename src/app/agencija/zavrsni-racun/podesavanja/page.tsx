@@ -54,6 +54,9 @@ export default async function ZavrsniRacunPodesavanjaPage({ searchParams }: Page
         <Link className="tab-link" href="/agencija/zavrsni-racun/podesavanja/statisticki-aneks">
           Statistički aneks
         </Link>
+        <Link className="tab-link" href="/agencija/zavrsni-racun/podesavanja/poreska-prijava">
+          Poreska prijava
+        </Link>
       </div>
 
       {params?.poruka && messages[params.poruka] ? (

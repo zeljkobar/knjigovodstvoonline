@@ -1,12 +1,82 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-11-03. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-11-08. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Konta prijave poreza na dobit — 2026-11-08
+
+- Podešavanja → Poreska prijava ima agencijsku šemu konta/prefiksa, izuzetaka
+  i neto D/P smjera za 3/4/7/8/9/11/12/13/15a/15b/19/20/25/31/49a/49b.
+  Prazna pozicija ostaje ručna. Administrator čuva šemu uz reviziju, provjeru
+  aktivne agencije/korisnika, row lock i atomski audit; nema podrazumijevanih konta.
+- Obračun koristi POSTED promet iste firme/godine, bez početnih/završnih i
+  obrisanih naloga. Prihodi su neto P−D klase 6. Za 19 se računa samo višak
+  reprezentacije iznad 1% prihoda, za 20 višak članarina iznad 0,1% prihoda;
+  limiti u centima half-up, bez negativnih iznosa i bez dupliranja prefiksa.
+- Nova prijava preuzima podešene pozicije, a sačuvana zadržava ulaze do izbora
+  Preuzmi iz podešenih konta. Pregled prikazuje prihode, trošak, limit i višak.
+  Čuvanje prijave/XML ostaje zaseban korak; promjena šeme ne prepisuje istoriju.
+- Migracija 20261108140000_porez_dobit_konta čuva JSON/reviziju na agenciji.
+  Lokalno deploy/generate/restart završeni. Company purge čuva agencijsku šemu.
+  Prošli unit i stvarni DB rollback (prava, audit rollback, stale verzija,
+  promet/statusi, limiti, SSR, purge); TSC/ESLint čisti. Pravi browser prikaz
+  podešavanja provjeren, stvarna konta nijesu unesena umjesto korisnika.
+
+## Kontrole osnovnih sredstava — 2026-11-08
+
+- Završni račun → Kontrole ima grupu Osnovna sredstva. Računovodstvena
+  amortizacija zahtijeva potvrđenu poresku i obrnuto, bez poređenja iznosa.
+  Računovodstveni izvor je POSTED OS obračun sa važećim nalogom (ili ZERO_AMOUNT)
+  ili neto knjiženje 540 bez početnih/završnih naloga; poreski je ispravan
+  CONFIRMED OA za isti period. Nacrti se izdvajaju kao upozorenje.
+- Godišnji OS kalkulator određuje koja sredstva imaju amortizaciju, pa se
+  traži potpuno proknjiženo pokriće potrebnog perioda i potvrđeni OA.
+  Zemljište/neaktivirana/vanperiodska sredstva ne traže računovodstveni obračun;
+  potpuno otpisana sredstva bez godišnjeg iznosa ne traže novi trošak.
+  Neispravni parametri daju jasnu grešku umjesto statusa U redu.
+- Kontrole ulaze u zbir grešaka/upozorenja; nema novih zabrana u server actions
+  za zaključivanje/arhiviranje. Potrebno OS view pravo; bez njega kontrola je
+  označena neprovjerenom i ne otkriva podatke. Scope firma/agencija/godina.
+- Prošli TSC, ciljani ESLint, npm test, pet novih regresija i stvarni PostgreSQL
+  rollback/SSR za grupu i poruke, zemljište, potpuno otpisano sredstvo i
+  nedostajuću amortizaciju. Nema migracije niti izmjene poslovnih iznosa.
+
+## Porez na dobit — 2026-11-08
+
+- Završni račun → Porez na dobit otvara ručni obrazac PD sa dodacima PG1/PG2.
+  Prenesen je raspored dostavljenog starog modula, bez izmjene starog projekta.
+  Unosi se čuvaju po firmi i poslovnoj godini; obračunska polja se izvode u
+  centima na klijentu i ponovo na serveru. Nema automatskog knjiženja/podnošenja.
+- Nova prijava automatski preuzima dobit/gubitak iz tekućeg AOP A244 bilansa
+  uspjeha, sa sačuvanim korekcijama i centima. Sačuvana prijava zadržava ulaze;
+  dugme Preuzmi dobit/gubitak iz bilansa mijenja samo redove 1/2. Enter prelazi
+  na sljedeći unos i preskače obračunska polja.
+- Polje 5 nove prijave preuzima tekući A210a bilansa uspjeha sa korekcijama;
+  polje 6 potvrđeni OA rezultat iste firme/godine (tekuća amortizacija +
+  poseban otpis salda grupa, bez istorijske amortizacije/prihoda). Nacrt se
+  ne preuzima; nedostajući/neispravan obračun ili nedostatak OS view prava
+  prikazuje poruku i ostavlja ručni unos. Posebno dugme na postojećoj prijavi
+  mijenja samo dostupne 5/6, bez prepisivanja drugih korekcija.
+- Kapitalni poreski iznosi 42/43 unose se nezavisno od računovodstvenih 3/4.
+  Gubici prethodnih pet godina ograničeni su raspoloživom dobiti; progresivne
+  stope 9/12/15% i olakšice koriste isti obračun za ekran i XML.
+- XML se preuzima iz sačuvane verzije, sa stvarnim periodom godine i PD/PG1/PG2
+  iznosima. Vrsta prijave i identitet obveznika potvrđuju se na portalu.
+  Kompatibilnost je prenesena iz starog modula; probni uvoz na portal ostaje.
+  Podržani opseg je 2025–2026; propisi/obrazac za 2027 zahtijevaju novu provjeru.
+- Migracija `20261108120000_porez_dobit_prijava` dodaje JSON/reviziju postojećoj
+  poslovnoj godini. Scope, view/create/update/export prava, zaključavanje,
+  verzija i atomski audit štite čuvanje/izvoz; purge uklanja podatke sa godinom.
+  Lokalno primijenjeni migrate deploy/generate i pokrenut svjež dev server.
+- Prošli testovi obračuna/XML-a i PostgreSQL rollback servis/API/SSR, audit
+  rollback, prava, zaključana godina, zastarjela verzija i stvarni company purge.
+  TSC, npm test i lint prolaze (pet ranijih lint upozorenja, bez novih).
+  Interaktivni QA čeka lokalnu prijavu: postojeća browser sesija je istekla.
 
 ## Završna provjera preostalih izmjena — 2026-11-03
 

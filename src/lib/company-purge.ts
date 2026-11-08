@@ -68,6 +68,10 @@ export async function purgeCompanyData(
 
   // Scoped bypass only for the explicitly authorised permanent company purge.
   await tx.$queryRaw(Prisma.sql`SELECT set_config('app.purge_company', ${firmaId}, true)`);
+  // porez_dobit_podaci/porez_dobit_verzija belong to poslovne_godine and
+  // disappear with the year below; no child tables/files.
+  // Agencija.porez_dobit_konta is agency-wide configuration without company FKs;
+  // it survives company purge and remains available to the agency's other firms.
   const obrisano: Record<string, number> = {};
   const izvrsi = async (tabela: string, query: Prisma.Sql) => {
     obrisano[tabela] = await tx.$executeRaw(query);

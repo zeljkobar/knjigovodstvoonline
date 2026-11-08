@@ -327,6 +327,7 @@ export const subNavigation: Record<string, SubNavigationItem[]> = {
     { href: "/agencija/zavrsni-racun/bruto-bilans", label: "Bruto bilans" },
     { href: "/agencija/zavrsni-racun/zakljucna-knjizenja", label: "Zaključna knjiženja" },
     { href: "/agencija/zavrsni-racun/obrasci", label: "Obrasci" },
+    { href: "/agencija/zavrsni-racun/porez-na-dobit", label: "Porez na dobit" },
     { href: "/agencija/zavrsni-racun/podesavanja", label: "Podešavanja", roles: adminOnly },
     { href: "/agencija/zavrsni-racun/xml", label: "XML / izvoz" },
     { href: "/agencija/zavrsni-racun/arhiva", label: "Arhiva završnih računa" }

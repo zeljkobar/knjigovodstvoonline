@@ -4,6 +4,28 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Podesiti stvarna konta u Završni račun → Podešavanja → Poreska prijava.
+  Nova prijava preuzima šemu; postojeća koristi Preuzmi iz podešenih konta pa
+  Sačuvaj prijavu. Reprezentacija 19 računa višak iznad 1% prihoda klase 6,
+  članarine 20 iznad 0,1%; provjeriti pregled troška/limita/viška prije čuvanja.
+  Server: migrate deploy za 20261108140000_porez_dobit_konta, generate/restart;
+  lokalno završeno. Browser prikaz potvrđen; stvarna šema ostaje korisniku.
+- Kontrole završnog računa imaju novu grupu Osnovna sredstva: par amortizacija,
+  obavezna amortizacija/puno pokriće perioda i upozorenje za nacrte. Otvoriti
+  Kontrole za stvarnu firmu/godinu i pratiti link ka nedostajućem obračunu.
+  Bez OS view prava prikazuje se neprovjerena kontrola. Nema migracije.
+- Porez na dobit je implementiran u Završnom računu: ručni PD + PG1/PG2,
+  automatski obračun, čuvanje po godini i XML sačuvane verzije. Nakon lokalne
+  prijave proći unos/Save/reload/download u browseru; postojeća sesija je istekla.
+  Prije predaje provjeriti probni XML uvoz na poreskom portalu, uključujući
+  poreski period, vrstu prijave i identitet obveznika. Nije potvrđen portal XSD.
+  Nova prijava preuzima rezultat prije poreza iz A244 bilansa uspjeha; za
+  postojeću koristiti Preuzmi dobit/gubitak iz bilansa. Polja 5/6 se preuzimaju
+  iz A210a i potvrđenog OA; na postojećoj prijavi kliknuti Preuzmi amortizaciju
+  u polja 5 i 6. Bez potvrđenog OA iznos 6 provjeriti/unijeti ručno. Provjeriti Enter kroz
+  unose i PG dodatke. Za 2027 prvo uskladiti propise/obrazac; automatsko
+  knjiženje poreza nije dio ovog koraka. Server: migrate deploy za
+  `20261108120000_porez_dobit_prijava`, generate i restart; lokalno završeno.
 - Epsilon je dodat u Uvoz iz drugog programa. Izabrati početne C/D kolone
   iste godine ili završni SALDO I/J prethodne; potvrditi izvorni datum/firmu.
   Zaključni list i zbirni dobavljači su provjereni na stvarnim uzorcima.

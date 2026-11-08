@@ -7,6 +7,7 @@ import {
 } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { financialReportTypes } from "@/lib/financial-reports";
+import { fixedAssetFinalControls } from "@/lib/fixed-assets-final-controls";
 import { formatJournalCode, journalStatuses, standardJournalTypes } from "@/lib/journals";
 import { hasPermission } from "@/lib/permissions";
 import { payrollStatuses } from "@/lib/payroll";
@@ -17,7 +18,7 @@ type ControlLevel = "error" | "warning" | "success" | "info";
 
 type ControlItem = {
   id: string;
-  group: "Glavna knjiga" | "Pomoćne evidencije" | "Završni račun" | "Matični podaci";
+  group: "Glavna knjiga" | "Pomoćne evidencije" | "Osnovna sredstva" | "Završni račun" | "Matični podaci";
   level: ControlLevel;
   title: string;
   description: string;
@@ -36,6 +37,7 @@ const reportTypeLabels: Record<string, string> = {
 const groupOrder: ControlItem["group"][] = [
   "Glavna knjiga",
   "Pomoćne evidencije",
+  "Osnovna sredstva",
   "Završni račun",
   "Matični podaci"
 ];
@@ -642,6 +644,8 @@ export default async function ZavrsniRacunKontrolePage() {
 
   const controls: ControlItem[] = [];
   const addControl = (control: ControlItem) => controls.push(control);
+  controls.push(...await fixedAssetFinalControls(prisma, activeRecordScope, godina.datum_od, godina.datum_do,
+    await hasPermission(user, { firmaId, modul: "osnovna_sredstva", akcija: "view" })));
 
   if (postedJournals.length === 0) {
     addControl({

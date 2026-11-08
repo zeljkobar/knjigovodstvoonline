@@ -635,3 +635,80 @@ POSTED izvoda. Ručni nalog ima prednost nad parserom. Legacy alokacije imaju
 projekciju i jedinstveni izvor_ref pri prenosu; KIF/KUF plaćanje ne sabira oba
 izvora. Reopen poništava veze uz audit i refresh statusa. Company purge prvo
 uklanja prenose i zatvaranja, zatim izvore. IOS renderer ostaje naredni korak.
+
+### Prijava poreza na dobit (2026-11-08)
+
+`/agencija/zavrsni-racun/porez-na-dobit` je ručni PD/PG1/PG2 obrazac.
+`corporate-tax.ts` je zajednički čisti obračun u centima; server prihvata samo
+ulazna polja i ponovo računa rezultat. Računovodstveni kapitalni 3/4 i poreski
+42/43 su nezavisni. PG prenos ograničen je dobiti; poreske stope računaju se
+po pragovima uz cjelobrojno zaokruživanje. Prevelike olakšice se odbijaju.
+
+`corporate-tax-service.ts` provjerava agenciju/dodjelu firme i prava modula
+zavrsni_racun za view/create/update/export. JSON snapshot pravila/ulaza/vrste
+prijave i revizija žive na poslovne_godine, uz migraciju
+20261108120000_porez_dobit_prijava. Save zaključava firmu/godinu i kontroliše
+reviziju i zaključanu godinu, sa auditom u istoj transakciji. XML izvoz koristi
+sačuvanu verziju i stvarni period godine; izvoz je dozvoljen i nakon zaključavanja.
+Purge uklanja snapshot postojećim brisanjem godine. Nema novih poslovnih tabela.
+
+XML struktura prenosi format starog korisničkog modula (PD + Iznos1–59 i PG1/PG2),
+uz popunjen period i ponovljen obračun. Vrsta prijave i obveznik potvrđuju se
+na portalu; stvarni portal uvoz/XSD nijesu verifikovani. Podržano 2025–2026;
+2027 je blokirana do usklađivanja verzije pravila. Nema automatskog knjiženja,
+podnošenja prijave. Nova prijava dobija redove 1/2 iz tekućeg AOP A244
+bilansa uspjeha (rezultat prije poreza), uključujući ručne korekcije i cente.
+A260 se ne koristi jer sadrži porez i ostali rezultat. Sačuvani ulazi imaju
+prednost; eksplicitno preuzimanje mijenja samo 1/2 i traži novo čuvanje. Testovi: corporate-tax.test.cjs i
+rollback check-corporate-tax.cjs, uključujući API/SSR i stvarni purge.
+
+PD red 5 koristi tekući A210a bilansa uspjeha, uključujući sačuvane korekcije.
+Red 6 koristi snapshot jedine potvrđene OA revizije sa istim agencija/firma/godina
+scope-om i periodom. Preuzima result.total + result.extraWriteOff u centima,
+kao ukupan iznos OA; ne preuzima istorijsku amortizaciju niti taxableIncome.
+Za OA se dodatno provjerava osnovna_sredstva/view. Nacrt, nedostajući, nepotpun
+ili neispravan snapshot nijesu automatska nula: izvor je označen nedostupnim
+i moguć je ručni unos. Nova prijava inicijalizuje dostupne 5/6, a sačuvana
+zadržava sve unose dok korisnik ne izabere posebno preuzimanje amortizacije.
+
+### OS kontrole završnog računa (2026-11-08)
+
+`fixed-assets-final-controls.ts` daje read-only grupu Osnovna sredstva za
+Kontrole. Stranica prvo provjerava agenciju/dodjelu firme/godinu i pravo
+zavrsni_racun/view; novi izvori se čitaju samo uz osnovna_sredstva/view.
+Bez tog prava rezultat je upozorenje, bez poslovnih detalja. Upiti su scope-ovani.
+
+Par čine POSTED OS obračun sa aktivnim POSTED nalogom ili legitimnim ZERO_AMOUNT
+(ili neto konto 540 iz POSTED GL bez početnih/završnih naloga) i potvrđeni OA
+sa validnim snapshot periodom/rezultatom. Iznosi se ne porede, potvrđen nulti
+OA je važeći obračun; nacrti nijesu završeni obračuni. Godišnji buildAssetBatch
+određuje stvarno obračunljiva sredstva sa istim pravilima kao OS modul.
+Za njihove intervale traži se potpuno aktivno POSTED pokriće, bez rupa;
+računovodstvena i poreska amortizacija moraju postojati. Zemljište/neaktivirana
+sredstva/vanperiodska sredstva se preskaču; nulti godišnji obračun ne traži novi
+trošak. Neispravni parametri dobijaju grešku. Ove kontrole utiču na prikazani
+ukupni status, bez izmjene server actions za zaključivanje/arhiviranje.
+
+### Šema konta PD prijave (2026-11-08)
+
+Agencija.porez_dobit_konta + porez_dobit_konta_verzija čuvaju JSON agencijske
+šeme za 3/4/7/8/9/11/12/13/15a/15b/19/20/25/31/49a/49b. Pozicija ima prefikse,
+izuzetke i DEBIT/CREDIT neto smjer; prazna nema automatski iznos. Stroga validacija
+odbija druge/duple pozicije i formule. Save samo aktivni admin_agencije unutar
+iste aktivne agencije, row lock/revizija/audit u transakciji. Podešavanja nijesu
+vezana za godinu i ne mijenjaju postojeće prijave, uključujući zaključane godine.
+
+corporate-tax-accounts.ts računa cente i neto prihode klase 6 (P−D, minimum nula).
+Preklopljeni prefiksi se računaju jednom, izuzeci imaju prednost. Za 19 je limit
+1%, za 20 0,1% prihoda; limit se zaokružuje half-up na cent, a ulaz je max(trošak
+− limit, 0). Ostale pozicije uzimaju nenegativan neto iznos podešenih konta.
+Reader u corporate-tax-accounts-service.ts grupiše POSTED promet po kontu,
+bez obrisanih, početnih i završnih naloga; agency scope ide i preko firme kako
+bi se obuhvatili stari nalozi sa null agencija_id. Caller prvo provjerava
+work-context/dodjelu/pravo pregleda završnog računa. Nema učitavanja partnera.
+
+Nova prijava inicijalizuje podešene ulaze; sačuvana ostaje nepromijenjena dok
+korisnik ne izabere Preuzmi iz podešenih konta i novo čuvanje. UI prikazuje
+verziju šeme, prihode, trošak, limit i višak. Migracija 20261108140000 dodaje
+samo agencijske kolone; company purge čuva šemu bez firmi/FK. Testovi uključuju
+pragove/cente/prefikse/status/scope/prava/audit rollback/reviziju/SSR i purge.
