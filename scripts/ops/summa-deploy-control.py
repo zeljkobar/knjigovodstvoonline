@@ -3,6 +3,8 @@
 from datetime import datetime, timezone
 import fcntl
 import hashlib
+import importlib.machinery
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -17,7 +19,7 @@ SCRIPT = APP / 'deploy_knjigovodstvo.sh'
 NODE_BIN = Path('/home/deploy/.nvm/versions/node/v22.18.0/bin')
 LOCK = Path('/run/lock/summa-deploy-control.lock')
 RUN_LOCK = Path('/run/lock/summa-deploy-run.lock')
-BACKUP_STATE = Path('/var/lib/summa-backup/last-run.json')
+BACKUP_HELPER = Path('/usr/local/sbin/summa-deploy-backup')
 UNIT = 'summa-deploy.service'
 SITE = 'knjigovodstvoonline'
 # Only reviewed targets. Browser input never supplies paths, arguments, URLs or shell.
@@ -178,7 +180,7 @@ def public_status(site=SITE, service=None, current=None):
             'requestId': state.get('requestId') if UUID.fullmatch(str(state.get('requestId', ''))) else None,
             'phase': state.get('phase') if state.get('phase') in PHASES else 'queued',
             'startedAt': date(state.get('startedAt')), 'finishedAt': date(state.get('finishedAt')),
-            'currentCommit': revision(site),
+            'currentCommit': revision(site), 'backup': backup_status(state),
             'lastSuccess': {'at': date(last.get('at')), 'commit': last_commit} if date(last.get('at')) and isinstance(last_commit, str) and COMMIT.fullmatch(last_commit) else None,
             'error': 'interrupted' if interrupted else state.get('error') if state.get('error') in {'backup_failed', 'script_failed', 'preflight_failed', 'start_failed', 'interrupted'} else None}
 
@@ -238,16 +240,36 @@ def start(request):
         return {'status': 'accepted'}
 
 
-def verified_backup():
-    began = now()
-    service = properties('summa-backup.service')
-    if service.get('ActiveState') == 'failed' or service.get('SubState') == 'auto-restart':
-        systemctl('reset-failed', 'summa-backup.service')
-    systemctl('restart' if service.get('SubState') == 'auto-restart' else 'start', 'summa-backup.service', timeout=7300)
-    state = json.loads(BACKUP_STATE.read_text())
-    finished = date(state.get('finished_utc'))
-    if state.get('ok') is not True or not finished or finished < began or state.get('databases', {}).get(SITE, {}).get('ok') is not True:
-        raise RuntimeError('No fresh verified backup')
+def backup_module():
+    info = BACKUP_HELPER.stat()
+    if BACKUP_HELPER.is_symlink() or info.st_uid != 0 or info.st_mode & 0o022:
+        raise RuntimeError('Backup helper is not root-owned')
+    loader = importlib.machinery.SourceFileLoader('summa_deploy_backup_runtime', str(BACKUP_HELPER))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def backup_status(state):
+    if not state.get('backup'):
+        return None  # Legacy deployments did not have a per-request local backup.
+    try:
+        return backup_module().status(state['site'], state['requestId'])
+    except Exception:
+        return {**state['backup'], 'cloud': 'warning' if state['backup'].get('local') == 'verified' else 'not_required'}
+
+
+def verified_backup(state):
+    state['backup'] = backup_module().prepare(state['site'], state['requestId'])
+    write_state(state)
+    # A durable queue and independent timer survive app/deploy failures and reboots.
+    # OneDrive availability cannot veto a verified local backup.
+    if state['backup']['cloud'] != 'not_required':
+        try:
+            systemctl('start', '--no-block', 'summa-deploy-upload.service')
+        except Exception:
+            pass  # The timer retries; the UI continues to show the pending copy.
 
 
 def run_script(state):
@@ -313,7 +335,7 @@ def run():
                 raise RuntimeError('Deployment prerequisites missing')
             state['phase'] = 'backup'
             write_state(state)
-            verified_backup()
+            verified_backup(state)
             state['phase'] = 'script'
             write_state(state)
             if run_script(state) != 0:

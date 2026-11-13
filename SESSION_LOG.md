@@ -1,5 +1,30 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-13 — Deploy bez blokiranja zbog OneDrive-a
+
+- Korisnik je odobrio novu lokalnu kopiju samo baze izabranog sajta prije
+  deploya; neuspjeh lokalne kopije blokira, cloud greška samo upozorava.
+- Prethodni pokušaj 11:26 UTC zaustavio se nakon rclone grešaka sve četiri
+  baze; migracije nijesu počele. Kasnija provjera veze/kopiranja je uspješna;
+  istorijski precizan uzrok rclone greške nije utvrđen iz sačuvanog loga.
+- Zaseban root-owned helper/queue/uploader i timer 5 min; noćni helper,
+  raspored i status četiri baze ostaju netaknuti. Scope po sajtu/UUID;
+  originalne deploy skripte i poslovni podaci nijesu mijenjani.
+- Pregled konfiguracija potvrdio četiri PG baze, dvije lokalne MySQL baze
+  (Rahmetli/Dokumenta) i Royal bez baze. MySQL dump koristi transakcijski
+  snapshot, rutine/trigere/evente i čuva .env unutar šifrovane arhive.
+- Lokalna provjera: dump, age dešifrovanje, sadržaj/SHA256; PG dodatno
+  pg_restore list. Ovo nije novi puni restore test. Cloud potvrda zahtijeva
+  ponovno preuzimanje šifrovanih bajtova i isti SHA256/veličinu. Retention
+  dira samo potvrđene deploy zapise, čuva neposlate i najnoviju kopiju.
+- Instalirano na serveru uz kopiju prethodnog helpera, provjeru SHA256 i
+  systemd jedinica. Šest stvarnih lokalnih kopija i šest OneDrive kopija
+  uspješno provjereni; nije pokrenut deploy niti migracija. Upload timer aktivan;
+  noćni termin ostaje 14.11.2026. u 03:00 CET.
+- UI prikazuje odvojene rezultate lokalne i cloud kopije. Prošlo 27 Python
+  deploy/shell + 13 backup, 16 JS, TSC i ciljani ESLint. Dokumentacija i
+  CSV/Excel planer ažurirani. Bez nove migracije, commit/push ili web deploya.
+
 ## 2026-11-13 — Izbor svih sedam sajtova za deploy
 
 - Dopunjen raniji preuski obuhvat: selector za knjigovodstvo, rahmetli,

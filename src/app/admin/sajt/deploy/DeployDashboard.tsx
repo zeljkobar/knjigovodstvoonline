@@ -70,7 +70,16 @@ export function DeployDashboard({ initial, requestId }: { initial: DeploySnapsho
       <h3>{site.name} — {title}</h3>
       {!snapshot.available ? <p>{snapshot.message}</p> : !status?.ready ? <p>{status?.blockReason ? deployBlockReasons[status.blockReason] : "Provjerite serverska podešavanja za ovaj sajt."}</p> : null}
       {status && (status.running || failed) ? <p><strong>Korak:</strong> {currentPhase}</p> : null}
-      {failed ? <p className={styles.error}>{status?.error === "backup_failed" ? "Backup prije deploya nije potvrđen. Deploy i migracije nijesu pokrenuti." : "Postupak je zaustavljen. Provjerite uzrok prije novog pokretanja; već primijenjene migracije nijesu automatski vraćene."}</p> : null}
+      {failed ? <p className={styles.error}>{status?.error === "backup_failed" ? "Lokalna kopija baze nije potvrđena. Deploy i migracije nijesu pokrenuti." : "Postupak je zaustavljen. Provjerite uzrok prije novog pokretanja; već primijenjene migracije nijesu automatski vraćene."}</p> : null}
+      {status?.backup ? <div>
+        <p><strong>Lokalni backup:</strong> {status.backup.local === "not_required" ? "Ovaj sajt nema bazu podataka." :
+          status.backup.retained ? `Provjeren — ${status.backup.database}, ${backupDate(status.backup.createdAt)}.` : "Kopija je uklonjena po isteku perioda čuvanja."}</p>
+        {status.backup.cloud !== "not_required" ? <p role={status.backup.cloud === "warning" ? "alert" : "status"}>
+          <strong>OneDrive:</strong> {status.backup.cloud === "verified" ? `Slanje i provjera završeni ${backupDate(status.backup.uploadedAt)}.` :
+            status.backup.cloud === "warning" ? "Slanje ili provjera nijesu uspjeli. Lokalna kopija je sačuvana; slanje će se automatski ponoviti. Ovo ne zaustavlja deploy." :
+              status.backup.cloud === "uploading" ? "Slanje i provjera su u toku, nezavisno od deploya." : "Kopija čeka slanje. Deploy može da nastavi."}
+        </p> : null}
+      </div> : null}
       <dl className={styles.details}>
         <div><dt>Posljednji uspješan deploy iz panela</dt><dd>{backupDate(status?.lastSuccess?.at || null)}</dd></div>
         <div><dt>Verzija posljednjeg uspješnog deploya</dt><dd>{status?.lastSuccess?.commit.slice(0, 8) || "—"}</dd></div>
@@ -81,10 +90,12 @@ export function DeployDashboard({ initial, requestId }: { initial: DeploySnapsho
     <section className="admin-panel">
       <h3>Deploy za {site.name}</h3>
       <ol className={styles.steps}>
-        <li>Provjerava postojeći backup četiri serverske baze i njihove OneDrive kopije.</li>
+        <li>{selectedSite === "royalservices" ? "Sajt nema bazu podataka, pa backup baze nije potreban." : "Pravi i provjerava novu lokalnu kopiju samo baze izabranog sajta. Ako kopija ne uspije, deploy se zaustavlja."}</li>
+        {selectedSite !== "royalservices" ? <li>Šalje šifrovanu kopiju na OneDrive odvojeno. Neuspjeh slanja prikazuje upozorenje i automatski ponavlja pokušaj, bez zaustavljanja deploya.</li> : null}
         <li>Pokreće deploy postupak izabranog sajta. Migracije se izvršavaju tamo gdje su dio tog postupka.</li>
         <li>Provjerava završetak postupka i dostupnost izabranog sajta.</li>
       </ol>
+      <p>Noćni backup četiri PostgreSQL baze u 03:00 ostaje zaseban postupak.</p>
       <p>Tokom deploya aplikacija može biti privremeno nedostupna. Serverski posao nastavlja rad i kada zatvorite ovu stranicu.</p>
       <small>Posljednja provjera: {backupDate(status?.checkedAt || null)}. Vrijeme Crne Gore.</small>
     </section>

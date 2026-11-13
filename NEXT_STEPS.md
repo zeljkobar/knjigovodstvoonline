@@ -4,6 +4,12 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Objaviti dopunu deploy ekrana: status lokalne kopije i odvojenog slanja na
+  OneDrive. Serverska promjena već radi bez čekanja cloud-a; probne kopije
+  svih šest baza su provjerene, bez pokretanja deploya/migracija. Novi kod
+  čeka odobreni commit/push i objavu web verzije. Noćni backup i dalje obuhvata
+  četiri PostgreSQL baze; eventualni noćni obuhvat dvije MySQL baze je
+  zaseban dogovor (sada imaju kopiju prije svog deploya).
 - Objaviti novu verziju **Admin sajta → Deploy sajta** sa izborom sedam
   sajtova. Server je na `28178c0` (prethodni ekran za knjigovodstvo); novi
   helper/katalog i dozvole su instalirani, web izmjene čekaju objavu sa main grane.

@@ -8,6 +8,31 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Deploy — lokalni backup i nezavisan OneDrive — 2026-11-13
+
+- Na zahtjev vlasnika uklonjena zavisnost deploya od punog backup-a četiri
+  baze i OneDrive-a. Panel sada prije promjena pravi novu lokalnu kopiju
+  samo baze izabranog sajta; greška kopije/provjere blokira deploy i migracije.
+- Četiri postojeće PostgreSQL baze koriste pg_dump/pg_restore provjeru.
+  Pregledom stvarnih konfiguracija potvrđene i MySQL baze rahmetli_me i
+  dokumenta_portal: single-transaction dump uz provjeru InnoDB tabela.
+  Royal Services nema bazu (backend šalje email), pa ovaj korak preskače.
+- Sve kopije su age šifrovane; provjerava se dešifrovanje i SHA256 sadržaja.
+  Privatni privremeni fajlovi se uklanjaju. Lokalno: /var/backups/summa-deploy;
+  OneDrive: Summa backup/deploy/<baza>. Materijal za obnovu je unutar arhive.
+- Trajni red po UUID zahtjeva i nezavisni summa-deploy-upload servis/timer:
+  slanje/preuzimanje/SHA256 provjera u pozadini, ponavljanje na 5 minuta.
+  Greška slanja je upozorenje, ne greška deploya. Neposlate kopije se ne brišu;
+  poslate se čuvaju 30 dana uz zaštitu najnovije provjerene kopije iste baze.
+- Serverski helperi i upload timer instalirani; stvarne kopije svih šest baza
+  lokalno i na OneDrive-u provjerene. Deploy/migracije nijesu pokrenuti.
+  Noćni summa-backup.timer za četiri PostgreSQL baze ostaje nepromijenjen,
+  03:00 Europe/Podgorica. MySQL kopije u ovom koraku nastaju prije deploya.
+- Novi web prikaz razdvaja lokalnu kopiju i OneDrive queued/uploading/verified/
+  warning; stari server ekran ostaje kompatibilan do objave nove verzije.
+  Prošlo 27 Python deploy/shell + 13 backup i 16 JS testova; TSC/ESLint čisti.
+  UI i dokumentacija nijesu još commitovani/pushovani/deployovani.
+
 ## Admin sajta — izbor sajta za deploy — 2026-11-13
 
 - Admin sajta sadrži Backup baze i Deploy sajta. Stari `/admin/backup`
@@ -18,7 +43,7 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - Backend i root helper prihvataju samo sedam poznatih identifikatora;
   putanje/argumenti/komande nijesu korisnički unos. Status/audit su odvojeni
   po sajtu, uz jedan aktivni posao ukupno, deduplikaciju i 120 s razmaka.
-- Postojeći backup četiri baze provjerava se prije izvršavanja. Knjigovodstvo,
+- Prije izvršavanja provjerava se lokalna kopija baze izabranog sajta (gore). Knjigovodstvo,
   Špedicija i Turizam uključuju migracije u svom toku; Fiscal API ima migraciju
   pri pokretanju API-ja. Ostali sajtovi koriste svoje postojeće postupke.
 - Royal snapshot izostavlja nepotrebni sudo/chown/chmod (projekat već pripada

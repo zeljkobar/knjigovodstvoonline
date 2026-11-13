@@ -18,7 +18,7 @@ class DeployControlTests(unittest.TestCase):
         self.addCleanup(work.cleanup)
         self.root = Path(work.name)
         for name, value in [('ROOT', self.root), ('LOCK', self.root / 'lock'), ('RUN_LOCK', self.root / 'run-lock'),
-                            ('NODE_BIN', self.root), ('BACKUP_STATE', self.root / 'backup.json')]:
+                            ('NODE_BIN', self.root)]:
             p = patch.object(control, name, value)
             p.start()
             self.addCleanup(p.stop)
@@ -106,13 +106,30 @@ class DeployControlTests(unittest.TestCase):
                 self.assertEqual(control.run(), 0 if revision else 1)
             self.assertEqual(control.read_state()['outcome'], 'succeeded' if revision else 'failed')
 
-    def test_old_or_failed_backup_cannot_authorize_migrations(self):
-        with patch.object(control, 'properties', return_value={}), patch.object(control, 'systemctl'):
-            for state in [{'ok': True, 'finished_utc': '2020-01-01T00:00:00Z', 'databases': {control.SITE: {'ok': True}}},
-                          {'ok': False, 'finished_utc': '2099-01-01T00:00:00Z', 'databases': {control.SITE: {'ok': False}}}]:
-                control.BACKUP_STATE.write_text(json.dumps(state))
-                with self.assertRaises(RuntimeError):
-                    control.verified_backup()
+    def test_local_backup_uses_selected_site_and_cloud_failure_does_not_block(self):
+        for site in control.TARGETS:
+            self.request['site'] = site
+            self.queue()
+            backup = {'local': 'verified', 'cloud': 'queued'}
+            module = MagicMock()
+            module.prepare.return_value = backup
+            with patch.object(control, 'readiness', return_value=None), patch.object(control, 'backup_module', return_value=module), patch.object(control, 'systemctl', side_effect=RuntimeError('OneDrive unavailable')) as service, patch.object(control, 'run_script', return_value=0) as script, patch.object(control, 'verify_site'), patch.object(control, 'revision', return_value='a'*40):
+                self.assertEqual(control.run(), 0)
+                module.prepare.assert_called_once_with(site, self.request['requestId'])
+                service.assert_called_once_with('start', '--no-block', 'summa-deploy-upload.service')
+                script.assert_called_once()
+                self.assertEqual(control.read_state()['backup'], backup)
+
+    def test_upload_state_is_read_from_same_request_without_changing_deploy(self):
+        self.queue()
+        state = {**control.read_state(), 'backup': {'local': 'verified', 'cloud': 'queued'}}
+        control.write_state(state)
+        module = MagicMock()
+        module.status.return_value = {'local': 'verified', 'cloud': 'warning'}
+        with patch.object(control, 'backup_module', return_value=module):
+            self.assertEqual(control.backup_status(state)['cloud'], 'warning')
+            module.status.assert_called_once_with(state['site'], state['requestId'])
+        self.assertEqual(control.read_state(), state)
 
     def test_separate_site_history_and_global_busy_guard(self):
         control.write_state({**self.request, 'outcome': 'succeeded', 'phase': 'done', 'lastSuccess': {'at': control.now(), 'commit': 'a'*40}})

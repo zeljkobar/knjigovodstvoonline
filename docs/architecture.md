@@ -343,8 +343,9 @@ restart PM2 aplikacije/zatvaranje taba; nema automatskog ponavljanja deploya.
 Prekinuti posao ne prikazuje se kao uspješan. Privatni log po zahtjevu je
 ograničen na 5 MB; UI prikazuje samo poznate faze i greške.
 
-Prije promjena radi i provjerava postojeći backup sve četiri baze. Neuspjeh
-backup-a prekida deploy. Zatim izvršava snimak skripte izabranog sajta kao korisnik
+Prije promjena `summa-deploy-backup` pravi novu, provjerenu lokalnu kopiju
+samo baze izabranog sajta. Neuspjeh lokalne kopije prekida deploy, a slanje na
+OneDrive je odvojeni posao i ne uslovljava deploy. Zatim izvršava snimak skripte izabranog sajta kao korisnik
 deploy, sa fiksnim Node 22.18.0 PATH-om i PM2_HOME. Root ne izvršava kod
 repozitorijuma sa svojim pravima. `deploy_knjigovodstvo.sh` zahtijeva Linux,
 tačan produkcijski direktorijum, korisnika deploy i čistu main granu. Flock
@@ -354,6 +355,46 @@ Next build (bank/SEP automatizacija ugašena samo za build), PM2 restart/save
 i HTTP provjera na 3004. Ovo ostaje postojeći deploy u istom direktorijumu;
 moguć je prekid dostupnosti tokom pripreme. Već primijenjene migracije se
 ne vraćaju automatski ako kasniji korak padne.
+
+Pre-deploy backup helper `scripts/ops/summa-deploy-backup.py` instalira se
+kao root:root 0755 `/usr/local/sbin/summa-deploy-backup`. Učitava samo postojeći
+root-owned `/usr/local/sbin/summa-backup`, ponovo koristi provjeren pg_dump,
+age, recovery materijal i rclone konfiguraciju. Nema izvršavanja koda projekta
+kao root. Dodatna MySQL mapiranja su fiksna: rahmetli→rahmetli_me i
+dokumenta→dokumenta_portal, preko lokalne root socket autentikacije. Provjera
+InnoDB tabela je uslov za single-transaction snapshot; SQL mora imati završni
+marker. Royal Services nema bazu, što je potvrđeno u backend kodu/konfiguraciji.
+Knjigovodstvo/Fiscal/Špedicija/Turizam mapirani su na svoje postojeće PG baze.
+
+Lokalne kopije su odvojene u `/var/backups/summa-deploy/<baza>` (root:deploy,
+0750/0640). `CREATE_LOCK` štiti kreiranje/čišćenje samo sopstvenih privremenih
+direktorijuma; noćni helper ih nikad ne čisti. Provjera dešifruje arhivu u
+root-only privremeni direktorijum, provjerava veličinu i SHA256 izvornog dump-a,
+za PG i pg_restore --list, a zatim uklanja plaintext. Ovo provjerava integritet;
+puni test vraćanja ostaje zaseban operativni postupak.
+
+Tek poslije fsync kopije i zapisa u `/var/lib/summa-deploy-backup/<UUID>.json`
+smatra se da je lokalni korak uspio. UUID ne smije ponovo koristiti staru kopiju.
+Uploader ne mijenja deploy istoriju; status helper povezuje kopiju samo sa
+istim sajtom i zahtjevom. Stari deploy zapisi nemaju ovu novu potvrdu.
+`summa-deploy-upload.service` pokreće fiksni helper `upload`, nezavisno od
+`summa-deploy.service`. `summa-deploy-upload.timer` ponavlja red na 5 minuta
+(OnBootSec=1min/OnUnitInactiveSec=5min); oba izvora u scripts/ops instalirati
+root:root 0644 u /etc/systemd/system, daemon-reload i enable --now timer.
+Nema nove sudo dozvole za web korisnika. Prekinuto uploading stanje ponavlja
+se iz trajnog reda; queued/warning nikad ne znači da je OneDrive potvrđen.
+
+Cilj je `summa_onedrive:Summa backup/deploy/<baza>`. Tek poslije ponovnog
+preuzimanja i SHA256/veličine stanje postaje verified; greška je warning uz
+sačuvanu lokalnu kopiju i automatski retry. Retention koristi samo tačna imena
+iz potvrđenih zapisa, 30 dana, čuva najnoviju potvrđenu kopiju i sve neposlate.
+Ne dira noćne kopije, druge OneDrive fajlove niti kompletne foldere. UI prikazuje
+lokalnu kopiju i cloud rezultat nezavisno od uspjeha deploya.
+
+Noćni raspored i postojeći admin backup status za četiri PostgreSQL baze
+ostaju isti. Dvije MySQL baze sada imaju pre-deploy kopije; nisu automatski
+dodate u noćni raspored. Stvarnih šest kopija provjereno lokalno i na OneDrive-u
+13.11.2026, bez izvršavanja deploya/migracija i bez novog punog restore testa.
 
 Prva objava zahtijeva odobreni commit/push, ručni git pull na serveru i
 pokretanje nove deploy skripte. Za knjigovodstvo helper odbija staru skriptu bez

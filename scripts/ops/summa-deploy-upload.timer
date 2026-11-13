@@ -1,0 +1,10 @@
+[Unit]
+Description=Retry queued pre-deploy backup uploads
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=5min
+Unit=summa-deploy-upload.service
+
+[Install]
+WantedBy=timers.target

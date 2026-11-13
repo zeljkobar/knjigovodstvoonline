@@ -20,18 +20,28 @@ export const deployBlockReasons = {
   service_unavailable: "Serverski servis za deploy nije dostupan."
 } as const;
 export const deployPhases = {
-  queued: "Zahtjev je prihvaćen", preflight: "Provjera uslova", backup: "Pravljenje i provjera backup-a",
+  queued: "Zahtjev je prihvaćen", preflight: "Provjera uslova", backup: "Pravljenje i provjera lokalne kopije baze",
   pull: "Preuzimanje nove verzije", dependencies: "Priprema aplikacije", migrations: "Primjena migracija baze",
   generate: "Priprema pristupa bazi", build: "Priprema nove verzije sajta", restart: "Restart aplikacije",
   health: "Provjera dostupnosti sajta", script: "Izvršavanje deploy postupka", done: "Deploy završen"
 } as const;
 export type DeployPhase = keyof typeof deployPhases;
 export type DeployStartStatus = "accepted" | "already_running" | "already_requested" | "cooldown" | "setup_required";
+export type DeployBackup = {
+  database: string | null; local: "verified" | "not_required"; createdAt: string;
+  cloud: "queued" | "uploading" | "verified" | "warning" | "not_required";
+  uploadedAt: string | null; retained: boolean;
+};
+const siteDatabases: Record<DeploySite, string | null> = {
+  knjigovodstvoonline: "knjigovodstvoonline", rahmetli: "rahmetli_me", dokumenta: "dokumenta_portal",
+  royalservices: null, spedicija: "spedicija", "fiscal-api": "summa_fiscal", turizam: "turizam_prod"
+};
 export type DeployStatus = {
   version: 1; site: DeploySite; blockReason: keyof typeof deployBlockReasons | null; ready: boolean; checkedAt: string; running: boolean;
   outcome: "idle" | "running" | "succeeded" | "failed"; requestId: string | null; phase: DeployPhase;
   startedAt: string | null; finishedAt: string | null; currentCommit: string | null;
   lastSuccess: { at: string; commit: string } | null;
+  backup: DeployBackup | null;
   error: "backup_failed" | "script_failed" | "preflight_failed" | "start_failed" | "interrupted" | null;
 };
 export type DeployCatalog = { version: 2; checkedAt: string; running: boolean; activeSite: DeploySite | null; sites: DeployStatus[] };
@@ -64,9 +74,20 @@ export function parseDeployStatus(value: unknown): DeployStatus {
     if (!at || !revision) throw new Error("Invalid successful deploy");
     lastSuccess = { at, commit: revision };
   }
+  let backup: DeployBackup | null = null;
+  if (raw.backup !== undefined && raw.backup !== null) {
+    const item = record(raw.backup), createdAt = date(item.createdAt), uploadedAt = date(item.uploadedAt);
+    if (!createdAt || item.database !== siteDatabases[raw.site] || !["verified", "not_required"].includes(String(item.local)) ||
+        !["queued", "uploading", "verified", "warning", "not_required"].includes(String(item.cloud))) throw new Error("Invalid deploy backup");
+    if ((item.database === null) !== (item.local === "not_required") ||
+        (item.database === null) !== (item.cloud === "not_required") ||
+        (item.cloud === "verified" && !uploadedAt)) throw new Error("Invalid deploy backup result");
+    backup = { database: item.database as string | null, local: item.local as DeployBackup["local"], createdAt,
+      cloud: item.cloud as DeployBackup["cloud"], uploadedAt, retained: flag(item.retained) };
+  }
   return { version: 1, site: raw.site, blockReason: raw.blockReason as DeployStatus["blockReason"], ready: flag(raw.ready), checkedAt, running: flag(raw.running),
     outcome: raw.outcome as DeployStatus["outcome"], requestId: raw.requestId as string | null, phase: raw.phase as DeployPhase,
-    startedAt: date(raw.startedAt), finishedAt: date(raw.finishedAt), currentCommit: commit(raw.currentCommit), lastSuccess,
+    startedAt: date(raw.startedAt), finishedAt: date(raw.finishedAt), currentCommit: commit(raw.currentCommit), lastSuccess, backup,
     error: raw.error as DeployStatus["error"] };
 }
 

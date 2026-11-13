@@ -97,3 +97,20 @@ test('catalog requires every site exactly once and never mixes active state', ()
   value.sites[0].running = true;
   assert.throws(() => parseDeployCatalog(value));
 });
+
+test('local and cloud backup outcomes are separate and scoped to selected site', () => {
+  const value = fixture();
+  assert.equal(parseDeployStatus(value).backup, null); // Earlier helpers remain readable.
+  value.backup = { database: 'knjigovodstvoonline', local: 'verified', createdAt: '2026-11-13T03:00:00Z',
+    cloud: 'warning', uploadedAt: null, retained: true, privateLog: 'SECRET' };
+  const parsed = parseDeployStatus(value);
+  assert.equal(parsed.outcome, 'succeeded');
+  assert.equal(parsed.backup.cloud, 'warning');
+  assert.ok(!JSON.stringify(parsed).includes('SECRET'));
+  for (const change of [{ database: 'summa_fiscal' }, { cloud: 'verified' }, { local: 'not_required' }, { cloud: 'other' }]) {
+    assert.throws(() => parseDeployStatus({ ...value, backup: { ...value.backup, ...change } }));
+  }
+  value.site = 'royalservices';
+  value.backup = { ...value.backup, database: null, local: 'not_required', cloud: 'not_required', retained: false };
+  assert.equal(parseDeployStatus(value).backup.local, 'not_required');
+});
