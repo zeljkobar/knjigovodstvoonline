@@ -8,6 +8,30 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Glavni sajt summasummarum.me u deploy panelu — 2026-11-13
+
+- Dodat osmi cilj `summasummarum`: naziv Summasummarum.me — glavni sajt,
+  skripta `/home/deploy/deploy.sh`, projekat `/var/www/app`, grana main,
+  PM2 `moj-sajt`, HTTP provjera na 127.0.0.1:3000. Skripta je hash-pinned,
+  a njen prilagođeni snapshot radi kao deploy korisnik. Original je netaknut.
+- Pre-deploy backup uključuje njegovu MySQL bazu `summasum_` i .env unutar
+  šifrovane arhive. Potvrđeno 27 InnoDB tabela; lokalna i OneDrive kopija
+  provjerene (cloud poslije ponovljenog pokušaja). Noćni obuhvat nije mijenjan.
+- IZRIČIT ZAHTJEV VLASNIKA: `public/summasummarum/downloads/bank-statement-downloader.zip`
+  se ne mijenja, briše, sklanja u stash ili vraća iz Git-a. Samo njegova
+  lokalna izmjena je izuzeta iz provjere spremnosti; sve druge izmjene blokiraju.
+  Fetch/fast-forward provjera odbija novu verziju koja bi mijenjala/brisala ZIP.
+  Nema checkout/reset/restore niti promjene git skip-worktree/assume-unchanged.
+- Helper/backup/sudo pravilo instalirani; glavni sajt ready=true, ZIP isti po
+  SHA256, inode-u i vremenu izmjene. Originalna skripta nije pokrenuta.
+- Novi `catalog-v3` daje osam sajtova; stari `catalog` v2 zadržava sedam i
+  globalnu blokadu tokom bilo kog deploya. Postojeći produkcijski ekran radi
+  do objave novog. Novi izbor čeka commit/push i deploy knjigovodstva.
+- Prošlo 30 Python deploy/shell testova, 16 JS deploy/backup, TSC/ESLint.
+  Izolovani pravi Git test potvrđuje očuvanje ZIP bajtova/inode-a/mtime-a,
+  uspješan update drugih fajlova, blokadu drugih lokalnih izmjena i zaštitu
+  od brisanja ZIP-a iz nove verzije. Nema deploya glavnog sajta niti migracija.
+
 ## Deploy — lokalni backup i nezavisan OneDrive — 2026-11-13
 
 - Na zahtjev vlasnika uklonjena zavisnost deploya od punog backup-a četiri
@@ -31,16 +55,17 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 - Novi web prikaz razdvaja lokalnu kopiju i OneDrive queued/uploading/verified/
   warning; stari server ekran ostaje kompatibilan do objave nove verzije.
   Prošlo 27 Python deploy/shell + 13 backup i 16 JS testova; TSC/ESLint čisti.
-  UI i dokumentacija nijesu još commitovani/pushovani/deployovani.
+  Commit `2b1b47d` je pushovan i uspješno deployovan iz panela 13.11.2026.
+  u 13:00 CET; novi glavni sajt iz gornje dopune još čeka objavu.
 
 ## Admin sajta — izbor sajta za deploy — 2026-11-13
 
 - Admin sajta sadrži Backup baze i Deploy sajta. Stari `/admin/backup`
   preusmjerava na `/admin/sajt/backup`; backend prava i audit ostaju.
-- Deploy sada ima izbor svih sedam sajtova: Knjigovodstvo online, Rahmetli,
+- Objavljena verzija ima izbor sedam sajtova: Knjigovodstvo online, Rahmetli,
   Dokumenta, Royal Services, Špedicija, Fiscal API i Turizam. Dugme, opis,
   spremnost, posljednji pokušaj i uspjeh pripadaju izabranom sajtu.
-- Backend i root helper prihvataju samo sedam poznatih identifikatora;
+- Backend i root helper prihvataju samo poznate identifikatore sajta;
   putanje/argumenti/komande nijesu korisnički unos. Status/audit su odvojeni
   po sajtu, uz jedan aktivni posao ukupno, deduplikaciju i 120 s razmaka.
 - Prije izvršavanja provjerava se lokalna kopija baze izabranog sajta (gore). Knjigovodstvo,
@@ -55,8 +80,8 @@ koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
   zadržan kompatibilni status za postojeći ekran. Šest sajtova je spremno.
   Špedicija je blokirana zbog postojećih izmjena backend/package-lock.json i
   frontend/package-lock.json; izmjene nijesu odbačene. Nema izvršenog deploya
-  ili migracija u ovoj sesiji. Server aplikacija je trenutno na `28178c0`;
-  novi izbor sajta čeka objavu nove verzije web aplikacije sa main grane.
+  ili migracija pri prvobitnoj provjeri. Server aplikacija je sada na
+  `2b1b47d`, sa uspješnim deployom iz panela; proširenje na osam čeka objavu.
 - Lokalno dugme ostaje onemogućeno, bez SSH pristupa serveru. Provjereni:
   8 JS deploy + 7 backup regresija, 17 Python/shell regresija, TSC/ESLint,
   sedam stvarnih skripti kroz bash -n, serverski katalog/HTTP i browser izbor.

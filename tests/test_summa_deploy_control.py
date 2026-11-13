@@ -2,6 +2,7 @@ import importlib.util
 import json
 import io
 import hashlib
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -146,6 +147,82 @@ class DeployControlTests(unittest.TestCase):
             self.assertIsNone(rahmetli['lastSuccess'])
             self.assertEqual(control.start({**self.request, 'site': 'turizam'})['status'], 'already_running')
             command.assert_not_called()
+
+    def test_eighth_site_preserves_legacy_catalog_and_global_busy_guard(self):
+        self.request['site'] = 'summasummarum'
+        self.queue()
+        with patch.object(control, 'properties', return_value={'LoadState': 'loaded', 'ActiveState': 'active'}), patch.object(control, 'readiness', return_value=None), patch.object(control, 'revision', return_value='a'*40):
+            current = control.public_catalog(3)
+            self.assertEqual(current['version'], 3)
+            self.assertEqual(len(current['sites']), 8)
+            self.assertEqual(current['activeSite'], 'summasummarum')
+            legacy = control.public_catalog()
+            self.assertEqual(legacy['version'], 2)
+            self.assertEqual(len(legacy['sites']), 7)
+            self.assertTrue(legacy['running'])
+            self.assertIsNone(legacy['activeSite'])
+            self.assertNotIn('summasummarum', [site['site'] for site in legacy['sites']])
+
+    def test_main_site_script_is_fixed_and_pinned(self):
+        target = control.TARGETS['summasummarum']
+        self.assertEqual(str(target['app']), '/var/www/app')
+        self.assertEqual(str(target['script']), '/home/deploy/deploy.sh')
+        self.assertEqual(target['health'], 'http://127.0.0.1:3000/')
+        script = self.root / 'main-deploy.sh'
+        script.write_text('git pull origin "$BRANCH"\n')
+        with patch.dict(control.TARGETS, {'summasummarum': {**target, 'script': script}}):
+            with self.assertRaises(ValueError): control.prepare_script('summasummarum')
+        with patch.dict(control.TARGETS, {'summasummarum': {**target, 'script': script, 'sha256': hashlib.sha256(script.read_bytes()).hexdigest()}}):
+            self.assertIn('git fetch --no-tags origin "$BRANCH"', control.prepare_script('summasummarum'))
+            self.assertIn('merge --ff-only --no-autostash', control.prepare_script('summasummarum'))
+
+    def test_main_site_updates_other_files_without_touching_local_zip(self):
+        upstream, checkout = self.root / 'upstream', self.root / 'checkout'
+        upstream.mkdir()
+        def git(repo, *args):
+            return subprocess.run(['git', '-C', str(repo), *args], capture_output=True, text=True, check=True)
+        git(upstream, 'init', '-b', 'main')
+        git(upstream, 'config', 'user.name', 'Deploy regression')
+        git(upstream, 'config', 'user.email', 'deploy-test@example.invalid')
+        protected = upstream / control.MAIN_SITE_PRESERVED_FILE
+        protected.parent.mkdir(parents=True)
+        protected.write_bytes(b'original tracked zip')
+        (upstream / 'app.js').write_text('old version')
+        git(upstream, 'add', '.')
+        git(upstream, 'commit', '-m', 'initial')
+        git(self.root, 'clone', str(upstream), str(checkout))
+        local_zip = checkout / control.MAIN_SITE_PRESERVED_FILE
+        local_zip.write_bytes(b'owners server download, keep exactly these bytes')
+        before = local_zip.stat()
+        content = local_zip.read_bytes()
+        script = self.root / 'main-deploy.sh'
+        script.write_text('set -e\nBRANCH=main\ngit pull origin "$BRANCH"\n')
+        target = {**control.TARGETS['summasummarum'], 'app': checkout, 'script': script,
+                  'sha256': hashlib.sha256(script.read_bytes()).hexdigest()}
+        def local_git(site, *args):
+            return subprocess.run(['git', '-C', str(checkout), *args], capture_output=True, text=True)
+        with patch.dict(control.TARGETS, {'summasummarum': target}), patch.object(control, 'git', side_effect=local_git):
+            self.assertIsNone(control.readiness('summasummarum'))
+            (checkout / 'app.js').write_text('local user change')
+            self.assertEqual(control.readiness('summasummarum'), 'uncommitted_changes')
+            (checkout / 'app.js').write_text('old version')
+            (upstream / 'app.js').write_text('new version')
+            git(upstream, 'commit', '-am', 'update application')
+            body = control.prepare_script('summasummarum')
+            result = subprocess.run(['/bin/bash', '-c', body], cwd=checkout, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((checkout / 'app.js').read_text(), 'new version')
+            self.assertEqual(local_zip.read_bytes(), content)
+            self.assertEqual((local_zip.stat().st_ino, local_zip.stat().st_mtime_ns), (before.st_ino, before.st_mtime_ns))
+            # Even when GitHub changes/removes the protected ZIP, never stash/reset/overwrite it.
+            head = git(checkout, 'rev-parse', 'HEAD').stdout
+            protected.unlink()
+            git(upstream, 'commit', '-am', 'remove tracked zip upstream')
+            result = subprocess.run(['/bin/bash', '-c', body], cwd=checkout, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(git(checkout, 'rev-parse', 'HEAD').stdout, head)
+            self.assertEqual(local_zip.read_bytes(), content)
+            self.assertEqual((local_zip.stat().st_ino, local_zip.stat().st_mtime_ns), (before.st_ino, before.st_mtime_ns))
 
     def test_every_target_executes_as_deploy_with_exact_script_cwd_and_arguments(self):
         for site, target in control.TARGETS.items():

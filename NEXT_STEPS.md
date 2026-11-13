@@ -4,26 +4,23 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
-- Objaviti dopunu deploy ekrana: status lokalne kopije i odvojenog slanja na
-  OneDrive. Serverska promjena već radi bez čekanja cloud-a; probne kopije
-  svih šest baza su provjerene, bez pokretanja deploya/migracija. Novi kod
-  čeka odobreni commit/push i objavu web verzije. Noćni backup i dalje obuhvata
-  četiri PostgreSQL baze; eventualni noćni obuhvat dvije MySQL baze je
-  zaseban dogovor (sada imaju kopiju prije svog deploya).
-- Objaviti novu verziju **Admin sajta → Deploy sajta** sa izborom sedam
-  sajtova. Server je na `28178c0` (prethodni ekran za knjigovodstvo); novi
-  helper/katalog i dozvole su instalirani, web izmjene čekaju objavu sa main grane.
-  Lokalna aplikacija ne pokreće deploy; prvi puni deploy po sajtu ostaje
-  operativna provjera nakon objave, bez automatskog vraćanja migracija.
+- Objaviti dopunu **Admin sajta → Deploy sajta** sa osmim ciljem:
+  Summasummarum.me — glavni sajt. Serverski helper/backup/sudo već instalirani,
+  glavni sajt ready=true; novi web izbor čeka odobreni commit/push i deploy
+  knjigovodstva. Postojeća verzija `2b1b47d` je uspješno objavljena iz panela.
+  Za glavni sajt koristi se /home/deploy/deploy.sh nad /var/www/app.
+- Za glavni sajt trajno poštovati izuzetak vlasnika: ne dirati
+  public/summasummarum/downloads/bank-statement-downloader.zip. Lokalna izmjena
+  samo tog fajla ne blokira deploy; upstream promjena/brisanje ZIP-a blokira
+  automatsko ažuriranje radi zaštite fajla. Ne koristiti stash/reset/restore.
+- Noćni obuhvat i dalje su četiri PostgreSQL baze. Rahmetli, Dokumenta i
+  glavni sajt imaju MySQL kopije prije deploya; njihov noćni obuhvat je
+  zaseban dogovor. Prvi stvarni deploy glavnog sajta ostaje operativna provjera.
 - Špedicija: pregledati i sačuvati/uskladiti postojeće izmjene u
   backend/package-lock.json i frontend/package-lock.json na serveru.
   Dugme je do tada namjerno blokirano. Ne odbacivati korisnikove izmjene.
   Royal/Špedicija adaptacije za neinteraktivni tok su završene; ako se
   izvorna skripta promijeni, provjeriti je prije ažuriranja njenog hash-a.
-- Deployovati web ekran Admin → Backup redovnim postupkom. Serverski helper
-  i uska sudo dozvola za deploy korisnika su već pripremljeni/provjereni.
-  Lokalni program nema pristup produkcijskom backup-u; nema SSH podešavanja
-  niti nove migracije. Na serveru ekran prati sve četiri baze i ručni prolaz.
 - Noćni backup sve četiri produkcijske baze je AKTIVAN u 03:00
   Europe/Podgorica: lokalne i OneDrive šifrovane kopije; 30 dana; brisanje
   tek nakon uspješnog slanja/preuzimanja/provjere iste baze. Prvi prolaz i

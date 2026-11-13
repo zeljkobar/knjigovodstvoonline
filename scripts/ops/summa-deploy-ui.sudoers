@@ -1,2 +1,2 @@
 # Fixed operations only; run is available to the root-owned systemd service, not sudo callers.
-deploy ALL=(root) NOPASSWD: /usr/local/sbin/summa-deploy-control status, /usr/local/sbin/summa-deploy-control catalog, /usr/local/sbin/summa-deploy-control start
+deploy ALL=(root) NOPASSWD: /usr/local/sbin/summa-deploy-control status, /usr/local/sbin/summa-deploy-control catalog, /usr/local/sbin/summa-deploy-control catalog-v3, /usr/local/sbin/summa-deploy-control start

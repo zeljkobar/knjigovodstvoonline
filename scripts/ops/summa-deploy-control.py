@@ -22,6 +22,7 @@ RUN_LOCK = Path('/run/lock/summa-deploy-run.lock')
 BACKUP_HELPER = Path('/usr/local/sbin/summa-deploy-backup')
 UNIT = 'summa-deploy.service'
 SITE = 'knjigovodstvoonline'
+MAIN_SITE_PRESERVED_FILE = 'public/summasummarum/downloads/bank-statement-downloader.zip'
 # Only reviewed targets. Browser input never supplies paths, arguments, URLs or shell.
 TARGETS = {
     SITE: {'app': APP, 'script': SCRIPT, 'branch': 'main', 'health': 'http://127.0.0.1:3004/'},
@@ -33,6 +34,8 @@ TARGETS = {
                  'sha256': 'c07458e1b9367403307dfdbb9a43840992ddc01447a988976a9423cf42faeb00'},
     'fiscal-api': {'app': Path('/home/deploy/apps/summa-fiscal'), 'script': Path('/home/deploy/apps/summa-fiscal/deploy/deploy-production.sh'), 'branch': 'main', 'health': 'http://127.0.0.1:8585/health'},
     'turizam': {'app': Path('/var/www/turizam'), 'script': Path('/var/www/turizam/scripts/deploy/update.sh'), 'branch': 'main', 'args': ['/etc/turizam/deploy.conf']},
+    'summasummarum': {'app': Path('/var/www/app'), 'script': Path('/home/deploy/deploy.sh'), 'branch': 'main', 'health': 'http://127.0.0.1:3000/',
+                     'sha256': '5ffcddb51698f34076562ff316acfc0e03204406824ca6e8d11e176ebcbe0e52'},
 }
 UUID = re.compile(r'^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$')
 COMMIT = re.compile(r'^[a-f0-9]{40}$')
@@ -118,6 +121,17 @@ def prepare_script(site):
     if site == 'spedicija':
         body = body.replace('sudo nginx -t', ': # Fixed nginx check is performed by coordinator')
         body = body.replace('sudo systemctl reload nginx', ': # Fixed nginx reload is performed by coordinator')
+    if site == 'summasummarum':
+        # The owner's server ZIP must never be stashed, reset or checked out.
+        # Allow its local changes, but stop if upstream would modify/remove it.
+        body = body.replace('git pull origin "$BRANCH"', '''git fetch --no-tags origin "$BRANCH"
+incoming_revision="$(git rev-parse --verify 'FETCH_HEAD^{commit}')"
+git merge-base --is-ancestor HEAD "$incoming_revision"
+if ! git diff --quiet --no-ext-diff HEAD "$incoming_revision" -- ':(top,literal)''' + MAIN_SITE_PRESERVED_FILE + ''''; then
+    echo "Nova verzija mijenja zasticeni ZIP. Deploy zaustavljen; ZIP nije mijenjan." >&2
+    exit 1
+fi
+git -c merge.autoStash=false merge --ff-only --no-autostash "$incoming_revision"''')
     body = body.replace('git pull origin ', 'git pull --ff-only origin ')
     # bash -c snapshots keep $0 equal to the real script path, including nested launchers.
     body = body.replace('${BASH_SOURCE[0]}', '$0')
@@ -140,7 +154,8 @@ def readiness(site):
             return 'access_failed'
         if branch.stdout.strip() != TARGETS[site]['branch']:
             return 'wrong_branch'
-        changes = git(site, 'status', '--porcelain', '--untracked-files=no')
+        scope = ['--', '.', ':(top,exclude,literal)' + MAIN_SITE_PRESERVED_FILE] if site == 'summasummarum' else []
+        changes = git(site, 'status', '--porcelain', '--untracked-files=no', *scope)
         if changes.returncode != 0:
             return 'access_failed'
         if changes.stdout.strip():
@@ -185,14 +200,18 @@ def public_status(site=SITE, service=None, current=None):
             'error': 'interrupted' if interrupted else state.get('error') if state.get('error') in {'backup_failed', 'script_failed', 'preflight_failed', 'start_failed', 'interrupted'} else None}
 
 
-def public_catalog():
+def public_catalog(version=2):
     service = properties()
     current = read_state()
     current_site = current.get('site')
     running = service_running(service)
-    return {'version': 2, 'checkedAt': now(), 'running': running,
-            'activeSite': current_site if running and current_site in TARGETS else None,
-            'sites': [public_status(site, service, current) for site in TARGETS]}
+    if version not in {2, 3}:
+        raise ValueError('Unsupported catalog version')
+    # Keep the already deployed seven-site client working until its next deploy.
+    sites = [site for site in TARGETS if version == 3 or site != 'summasummarum']
+    return {'version': version, 'checkedAt': now(), 'running': running,
+            'activeSite': current_site if running and current_site in sites else None,
+            'sites': [public_status(site, service, current) for site in sites]}
 
 
 def validate_request(request):
@@ -359,12 +378,17 @@ def run():
 
 def main():
     os.umask(0o077)
-    if os.geteuid() != 0 or len(sys.argv) != 2 or sys.argv[1] not in {'status', 'catalog', 'start', 'run'}:
+    if os.geteuid() != 0 or len(sys.argv) != 2 or sys.argv[1] not in {'status', 'catalog', 'catalog-v3', 'start', 'run'}:
         raise SystemExit('Unsupported operation')
     try:
         if sys.argv[1] == 'run':
             return run()
-        result = public_status() if sys.argv[1] == 'status' else public_catalog() if sys.argv[1] == 'catalog' else start(json.loads(sys.stdin.read(4097)))
+        if sys.argv[1] == 'status':
+            result = public_status()
+        elif sys.argv[1] in {'catalog', 'catalog-v3'}:
+            result = public_catalog(3 if sys.argv[1] == 'catalog-v3' else 2)
+        else:
+            result = start(json.loads(sys.stdin.read(4097)))
         if sys.argv[1] == 'status' and result.get('phase') == 'script':
             result['phase'] = 'preflight'  # Compatibility with the already deployed single-site UI.
         print(json.dumps(result))

@@ -71,7 +71,7 @@ test('local development cannot execute processes or connect to production', asyn
   assert.equal(called, false);
 });
 
-test('all seven allowed sites route exactly the selected ID and audit that site', async () => {
+test('all eight allowed sites route exactly the selected ID and audit that site', async () => {
   for (const { id } of deploySites) {
     const { api, calls } = actions();
     const result = await api.startDeploy({}, form(id));
@@ -87,9 +87,9 @@ test('all seven allowed sites route exactly the selected ID and audit that site'
   }
 });
 test('catalog requires every site exactly once and never mixes active state', () => {
-  const value = { version: 2, checkedAt: '2026-11-13T04:00:00Z', running: false, activeSite: null,
+  const value = { version: 3, checkedAt: '2026-11-13T04:00:00Z', running: false, activeSite: null,
     sites: deploySites.map(({ id }) => ({ ...fixture(), site: id })) };
-  assert.equal(parseDeployCatalog(value).sites.length, 7);
+  assert.equal(parseDeployCatalog(value).sites.length, 8);
   const invalid = structuredClone(value); invalid.sites[0] = invalid.sites[1];
   assert.throws(() => parseDeployCatalog(invalid));
   value.running = true; value.activeSite = 'rahmetli'; value.sites[1].running = true;

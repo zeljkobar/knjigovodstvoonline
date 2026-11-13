@@ -6,7 +6,8 @@ export const deploySites = [
   { id: "royalservices", name: "Royal Services", description: "Preuzimanje izmjena i restart sajta royalservices.me." },
   { id: "spedicija", name: "Špedicija", description: "Deploy sa migracijama baze. Zasebno pokretanje migracija nije potrebno." },
   { id: "fiscal-api", name: "Fiscal API", description: "Postojeći deploy postupak za API i prateće servise, sa provjerom dostupnosti." },
-  { id: "turizam", name: "Turizam", description: "Objava nove verzije sa backup-om, migracijama i provjerom dostupnosti." }
+  { id: "turizam", name: "Turizam", description: "Objava nove verzije sa backup-om, migracijama i provjerom dostupnosti." },
+  { id: "summasummarum", name: "Summasummarum.me — glavni sajt", description: "Preuzimanje izmjena, priprema i restart glavnog sajta summasummarum.me." }
 ] as const;
 export type DeploySite = typeof deploySites[number]["id"];
 export function isDeploySite(value: unknown): value is DeploySite {
@@ -34,7 +35,7 @@ export type DeployBackup = {
 };
 const siteDatabases: Record<DeploySite, string | null> = {
   knjigovodstvoonline: "knjigovodstvoonline", rahmetli: "rahmetli_me", dokumenta: "dokumenta_portal",
-  royalservices: null, spedicija: "spedicija", "fiscal-api": "summa_fiscal", turizam: "turizam_prod"
+  royalservices: null, spedicija: "spedicija", "fiscal-api": "summa_fiscal", turizam: "turizam_prod", summasummarum: "summasum_"
 };
 export type DeployStatus = {
   version: 1; site: DeploySite; blockReason: keyof typeof deployBlockReasons | null; ready: boolean; checkedAt: string; running: boolean;
@@ -44,7 +45,7 @@ export type DeployStatus = {
   backup: DeployBackup | null;
   error: "backup_failed" | "script_failed" | "preflight_failed" | "start_failed" | "interrupted" | null;
 };
-export type DeployCatalog = { version: 2; checkedAt: string; running: boolean; activeSite: DeploySite | null; sites: DeployStatus[] };
+export type DeployCatalog = { version: 3; checkedAt: string; running: boolean; activeSite: DeploySite | null; sites: DeployStatus[] };
 export type DeploySnapshot = { available: true; catalog: DeployCatalog } | { available: false; message: string };
 export function parseDeployStatus(value: unknown): DeployStatus {
   function record(v: unknown): Record<string, unknown> {
@@ -94,11 +95,11 @@ export function parseDeployStatus(value: unknown): DeployStatus {
 export function parseDeployCatalog(value: unknown): DeployCatalog {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid deploy catalog");
   const raw = value as Record<string, unknown>;
-  if (raw.version !== 2 || typeof raw.running !== "boolean" || (raw.activeSite !== null && !isDeploySite(raw.activeSite)) ||
+  if (raw.version !== 3 || typeof raw.running !== "boolean" || (raw.activeSite !== null && !isDeploySite(raw.activeSite)) ||
       !Array.isArray(raw.sites) || raw.sites.length !== deploySites.length) throw new Error("Invalid deploy catalog");
   const sites = raw.sites.map(parseDeployStatus);
   if (new Set(sites.map(site => site.site)).size !== deploySites.length || typeof raw.checkedAt !== "string" ||
       !Number.isFinite(Date.parse(raw.checkedAt))) throw new Error("Invalid deploy catalog");
   if ((!raw.running && raw.activeSite !== null) || sites.some(site => site.running && (!raw.running || site.site !== raw.activeSite))) throw new Error("Invalid active deploy");
-  return { version: 2, checkedAt: new Date(raw.checkedAt).toISOString(), running: raw.running, activeSite: raw.activeSite as DeploySite | null, sites };
+  return { version: 3, checkedAt: new Date(raw.checkedAt).toISOString(), running: raw.running, activeSite: raw.activeSite as DeploySite | null, sites };
 }

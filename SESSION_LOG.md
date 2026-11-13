@@ -1,5 +1,29 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-13 — Glavni sajt i zaštita serverskog ZIP-a
+
+- Pronađena korisnikova skripta /home/deploy/deploy.sh: /var/www/app, main,
+  npm install i PM2 restart moj-sajt. Nginx domen summasummarum.me vodi na
+  port 3000; HTTP 200. MySQL summasum_ ima 27 InnoDB tabela.
+- Dodat osmi cilj u panelu/backendu/root helperu i pre-deploy backup mapiranju.
+  Novi catalog-v3/sudo čuva kompatibilnost ranijeg catalog v2 sa sedam sajtova.
+  Lokalna age kopija summasum_ (19.215.128 bajtova) i OneDrive SHA256 provjereni;
+  prvo slanje je dalo warning, ponovljeni pokušaj je uspješan. Nije rađen puni restore.
+- Vlasnik je izričito zabranio diranje bank-statement-downloader.zip.
+  Izuzeta samo tačna putanja iz status provjere glavnog sajta. Snapshot
+  umjesto pull radi fetch, provjeru fast-forward odnosa i diff za ZIP; nova
+  verzija koja ga mijenja/uklanja se odbija prije merge. Nema stash/reset/
+  restore, izmjene originalne skripte ili trajnih promjena Git index flagova.
+- Helperi/sudo instalirani uz SHA256/visudo provjeru i prethodnu kopiju u
+  /var/lib/summa-deploy/install-main-site. Stvarni ZIP nepromijenjen po SHA256,
+  inode-u i mtime-u; main ready=true. Novi izbor u webu čeka commit/push/deploy.
+- Prošlo 30 Python deploy/shell, 16 JS deploy/backup, TSC i ESLint; test sa
+  stvarnim izolovanim Git repozitorijumima potvrđuje očuvanje ZIP-a tokom
+  update-a drugih fajlova i odbijanje njegovog upstream brisanja.
+- Produkcijsko knjigovodstvo je korisnik uspješno deployovao na 2b1b47d u
+  12:00:56 UTC. Ova sesija nije pokrenula deploy/migracije bilo kog sajta.
+  Dokumentacija/CSV planer ažurirani; noćni backup raspored nije mijenjan.
+
 ## 2026-11-13 — Deploy bez blokiranja zbog OneDrive-a
 
 - Korisnik je odobrio novu lokalnu kopiju samo baze izabranog sajta prije

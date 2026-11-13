@@ -278,7 +278,7 @@ Regresije retention opsega i zabrane brisanja poslije greške pokreću se sa
 
 Admin meni **Admin sajta** (`/admin/sajt`) ima podmeni Backup baze i Deploy
 sajta. Ulaz otvara `/admin/sajt/backup`; stari `/admin/backup` preusmjerava na
-novu putanju. `/admin/sajt/deploy` nudi izbor jednog od sedam sajtova i
+novu putanju. `/admin/sajt/deploy` nudi izbor jednog od osam sajtova i
 pokretanje njegovog deploy postupka, uz admin provjeru i audit prije pokretanja.
 
 Admin ruta `/admin/sajt/backup` koristi isključivo lokalni serverski helper:
@@ -314,12 +314,13 @@ Regresije web dozvola/audita/projekcije su `tests/admin-backup.test.cjs` i dio
 ### Deploy iz admin panela
 
 `src/lib/deploy-control.ts` dopušta poziv samo u Linux produkciji, preko
-`sudo -n /usr/local/sbin/summa-deploy-control catalog|start`. Nema SSH veze
+`sudo -n /usr/local/sbin/summa-deploy-control catalog-v3|start`. Nema SSH veze
 iz lokalne aplikacije. Browser šalje samo izabrani identifikator sajta;
 backend i helper prihvataju isključivo knjigovodstvoonline/rahmetli/dokumenta/
-royalservices/spedicija/fiscal-api/turizam, UUID zahtjeva i UUID admina.
+royalservices/spedicija/fiscal-api/turizam/summasummarum, UUID zahtjeva i UUID admina.
 Putanje, argumenti, HTTP adrese i komande su fiksne u root-owned helperu.
-`catalog` v2 vraća svih sedam statusa i aktivni sajt; legacy `status` zadržava
+`catalog-v3` vraća osam statusa. Stari `catalog` v2 i dalje vraća sedam,
+uz globalni busy i activeSite=null ako je osmi cilj aktivan. Legacy `status` zadržava
 raniji ugovor za knjigovodstvo dok novi web ekran ne bude objavljen. Auth/audit greška blokira slanje. Status je
 projekcija poznatih polja; sirovi logovi i konfiguracija ne idu u browser.
 
@@ -328,7 +329,7 @@ Izvori u `scripts/ops/`: `summa-deploy-control.py` → root:root 0755
 0644 `/etc/systemd/system/summa-deploy.service`, `summa-deploy-ui.sudoers`
 → root:root 0440 `/etc/sudoers.d/summa-deploy-ui`. Provjeriti `visudo -cf`
 prije instalacije, `systemd-analyze verify`, zatim `systemctl daemon-reload`.
-Sudo dopušta samo tačne status/catalog/start operacije; `run` pokreće root servis.
+Sudo dopušta samo tačne status/catalog/catalog-v3/start operacije; `run` pokreće root servis.
 Na serveru su instalirani 13.11.2026, bez pokretanja deploya/migracija.
 
 Zahtjevi se serijalizuju i deduplikuju, uz 120 s razmaka i trajni zapis u
@@ -361,7 +362,8 @@ kao root:root 0755 `/usr/local/sbin/summa-deploy-backup`. Učitava samo postoje�
 root-owned `/usr/local/sbin/summa-backup`, ponovo koristi provjeren pg_dump,
 age, recovery materijal i rclone konfiguraciju. Nema izvršavanja koda projekta
 kao root. Dodatna MySQL mapiranja su fiksna: rahmetli→rahmetli_me i
-dokumenta→dokumenta_portal, preko lokalne root socket autentikacije. Provjera
+dokumenta→dokumenta_portal i summasummarum→summasum_, preko lokalne root
+socket autentikacije. Provjera
 InnoDB tabela je uslov za single-transaction snapshot; SQL mora imati završni
 marker. Royal Services nema bazu, što je potvrđeno u backend kodu/konfiguraciji.
 Knjigovodstvo/Fiscal/Špedicija/Turizam mapirani su na svoje postojeće PG baze.
@@ -392,7 +394,7 @@ Ne dira noćne kopije, druge OneDrive fajlove niti kompletne foldere. UI prikazu
 lokalnu kopiju i cloud rezultat nezavisno od uspjeha deploya.
 
 Noćni raspored i postojeći admin backup status za četiri PostgreSQL baze
-ostaju isti. Dvije MySQL baze sada imaju pre-deploy kopije; nisu automatski
+ostaju isti. Tri MySQL baze sada imaju pre-deploy kopije; nisu automatski
 dodate u noćni raspored. Stvarnih šest kopija provjereno lokalno i na OneDrive-u
 13.11.2026, bez izvršavanja deploya/migracija i bez novog punog restore testa.
 
@@ -403,7 +405,8 @@ Poslije prve objave sljedeći deploy može preko panela. Root helper se ne
 ažurira iz web procesa; promjene njegovog protokola traže zasebnu root
 instalaciju. Stvarni produkcijski deploy nije pokrenut u ovoj sesiji.
 Prošireni helper je instaliran uz kompatibilni legacy status; produkcijska
-aplikacija trenutno ima prethodni commit `28178c0`, a novi selector čeka objavu.
+aplikacija je uspješno objavljena na `2b1b47d`; dodavanje glavnog sajta kao
+osmog cilja čeka narednu objavu weba, uz već instaliran serverski dio.
 Spremnost svakog sajta provjerava postojeću skriptu, očekivanu granu i čistoću
 praćenih fajlova. Lokalna master grana Dokumenta je eksplicitno podržana;
 postojeći pull sa origin/main je ograničen na fast-forward. Špedicija ima dvije
@@ -421,12 +424,26 @@ Skripte ostalih sajtova provjerene 13.11.2026, bez njihovog izvršavanja:
 
 | Sajt | Stvarna putanja | Povezani tok |
 | --- | --- | --- |
+| Summasummarum.me | `/home/deploy/deploy.sh` | Projekat /var/www/app, main, PM2 moj-sajt, HTTP 3000. Pin izvornog hash-a; pre-deploy MySQL summasum_; zaštita ZIP-a opisana ispod. |
 | Rahmetli | `/var/www/rahmetli.me/deploy.sh` | `deploy-rahmetli` je shell alias; direktna skripta, fast-forward pull/install/build/PM2/HTTP. |
 | Dokumenta | `/var/www/dokumenta/deploy_dokumenta.sh` | Lokalni master, origin/main fast-forward; backend install/PM2 i /api/health. |
 | Royal Services | `/home/deploy/deploy-royal.sh` | `deploy-royal` je alias; snapshot provjerene skripte bez sudo/chown/chmod. Postojeće deploy vlasništvo i dozvole ostaju; završni /health. |
 | Špedicija | `/var/www/spedicija/deploy_spedicija.sh` | Već migrira; u provjerenom snapshotu izostavljen sudo, root helper poslije uspjeha radi samo fiksni nginx test/reload. /api/health; nema duplog migrate_server.sh. Trenutno blokirana zbog lokalnih izmjena. |
 | Fiscal API | `/home/deploy/apps/summa-fiscal/deploy/deploy-production.sh` | `/home/deploy/bin/deploy-summa-fiscal` je symlink; compose backup/build/up/health. API Program.cs sadrži MigrateAsync pri startup-u; migracije se ne pokreću dodatno iz panela. |
 | Turizam | `/var/www/turizam/scripts/deploy/update.sh` | Bash sa `/etc/turizam/deploy.conf`; poziva update.mjs, backup/migracije/release/PM2/health već uključeni. |
+
+Vlasnik je za glavni sajt izričito izuzeo
+`public/summasummarum/downloads/bank-statement-downloader.zip`. Samo ova
+putanja se preskače u status provjeri; lokalne izmjene ostalih praćenih
+fajlova i dalje blokiraju. Originalni deploy.sh ostaje netaknut, a snapshot
+umjesto git pull koristi fetch, provjeru da je nova verzija potomak HEAD-a,
+i git diff za tačan ZIP prije fast-forward merge-a bez autostash-a.
+Ako bi nova verzija promijenila/obrisala ZIP, posao staje prije merge-a.
+Fajl se nikad ne sklanja, prepisuje, vraća ili briše, niti se mijenjaju
+skip-worktree/assume-unchanged flagovi. Ovo pravilo važi za tok iz panela;
+ručno pokretanje originalnog deploy.sh zadržava njegovo prethodno ponašanje.
+Regresija koristi pravi izolovani Git update i provjerava bajtove, inode i
+mtime zaštićenog fajla, kao i odbijanje upstream brisanja.
 
 Svi sajtovi su povezani; njihove originalne skripte nijesu mijenjane.
 Royal i Špedicija adaptiraju se samo u memoriji nakon tačnog SHA256 poređenja

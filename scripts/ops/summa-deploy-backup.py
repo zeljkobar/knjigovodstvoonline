@@ -25,9 +25,11 @@ IDENTITY = Path('/etc/summa-backup/recovery.agekey')
 # Reviewed actual storage, not inferred from site names. Royal only sends email.
 DATABASES = {'knjigovodstvoonline': 'knjigovodstvoonline', 'rahmetli': 'rahmetli_me',
              'dokumenta': 'dokumenta_portal', 'royalservices': None,
-             'spedicija': 'spedicija', 'fiscal-api': 'summa_fiscal', 'turizam': 'turizam_prod'}
+             'spedicija': 'spedicija', 'fiscal-api': 'summa_fiscal', 'turizam': 'turizam_prod',
+             'summasummarum': 'summasum_'}
 MYSQL_ENV = {'rahmetli_me': Path('/var/www/rahmetli.me/.env'),
-             'dokumenta_portal': Path('/var/www/dokumenta/.env')}
+             'dokumenta_portal': Path('/var/www/dokumenta/.env'),
+             'summasum_': Path('/var/www/app/.env')}
 UUID = re.compile(r'^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$')
 
 
