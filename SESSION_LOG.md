@@ -1,5 +1,77 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-13 — Admin ekran Backup i ručno pokretanje na serveru
+
+- Dodati admin-only ekran/status/server action, četiri kartice baza, faze
+  procesa, raspored, OneDrive provjera/veličina i datum restore testa.
+- Root helper iz `scripts/ops/summa-backup-control.py` izlaže samo javnu
+  projekciju statusa i pokretanje fiksnog servisa; instaliran sa uskim sudoers
+  pravilom. Audit prije akcije, jedinstven zahtjev, zaključavanje i 2 min
+  razmaka; nema novih tabela/migracija ili pristupa tajnama iz browsera.
+- Browser proba potvrdila je audit i napredak. Slanje prvog probnog prolaza
+  nije uspjelo; stare uspješne kopije i retention zaštita su ostali netaknuti.
+  Ponovljeni serverski servis završio je sve četiri provjerene OneDrive kopije.
+  Ispravljeno je ručno pokretanje dok systemd čeka automatski retry.
+- Vlasnik je precizirao da lokalni program ne smije upravljati produkcijom.
+  Uklonjeni SSH transport i .env podešavanja, opozvan samo novonapravljeni
+  ključ na serveru i obrisan njegov par sa Maca. Production/Linux guard;
+  lokalni ekran je informativan i ima onemogućeno pokretanje.
+- Provjere: 7 JS + 13 Python regresija, kompletni npm test bez pada, TSC i
+  ciljani ESLint; sudoers sintaksa i stvarni server proces. Web aplikacija
+  nije deployovana niti je napravljen commit/push; čeka redovni deploy.
+- Tačan kompajlirani Node bridge provjeren pod serverskim deploy korisnikom
+  sa NODE_ENV=production: status četiri baze i prihvaćeno ručno pokretanje.
+  Četiri prazna OneDrive fajla nastala tokom neuspjelog probnog slanja
+  uklonjena su tek poslije provjerenog uspješnog prolaza; postojeće ispravne
+  kopije nijesu brisane. Privremeni instalacioni/test fajlovi su uklonjeni.
+- Provjera ponovljenog ručnog zahtjeva otkrila je systemd StartLimit iz ranijih
+  pokušaja. Evidentiran ručni zahtjev sada resetuje taj brojač prije pokretanja;
+  automatsko ponavljanje ostaje ograničeno i noćni raspored je nepromijenjen.
+- Završna proba iz deploy korisnika završena 13.11.2026. u 04:12 CET:
+  sve četiri baze ponovo poslate/preuzete i provjerene; servis bez greške,
+  timer aktivan, naredni termin 14.11.2026. u 03:00 CET. SHA256 instaliranih
+  serverskih skripti odgovara verzionisanim izvorima.
+
+## 2026-11-13 — Aktiviran noćni backup četiri produkcijske baze
+
+- Na izričit zahtjev vlasnika aktiviran systemd timer u 03:00 Europe/Podgorica
+  za knjigovodstvoonline, summa_fiscal, spedicija i turizam_prod. Nadoknada
+  propuštenog termina; retry poslije 15 minuta, do tri pokretanja u tri sata.
+- Dodati verzionisani izvori u `scripts/ops/`: backup, konfiguracija, service,
+  timer i ručna provjera vraćanja. Na serveru instaliran age iz Ubuntu paketa;
+  postojeći rclone i Fiscal API Docker backup su zadržani. Aplikacije/baze
+  nijesu mijenjane, osim izolovanih privremenih restore baza koje su uklonjene.
+- Komprimovani pg_dump, SHA256 metapodaci i potreban materijal za obnovu
+  (knjigovodstveni .env; fiskalni sertifikati/razmjene/vault ključ) šifruju se
+  prije lokalnog čuvanja i slanja. Tajne nijesu ispisane niti upisane u git.
+  Zasebna kopija age ključa sačuvana na Macu uz 0600; upoređena sa serverom.
+- Svaka kopija provjerena ponovnim preuzimanjem. Retention 30 dana obrađuje
+  samo tačne nazive backup-a iste baze poslije njenog uspjeha; nepoznati
+  fajlovi/putanje i aktuelna kopija su izuzeti. Neuspjeh jedne baze ne
+  zaustavlja ostale. Status/journal postoje; email/chat slanje nije podešeno.
+- Sedam regresija prošlo: opseg/stari fajlovi/granični datum/aktuelna kopija,
+  izostanak brisanja nakon neuspjelog dump-a/upload-a/provjere i nastavak
+  ostalih baza nakon greške. TSC čist; systemd jedinice provjerene.
+- Završni puni backup: 6.392.096 šifrovanih bajtova na OneDrive-u; puni
+  restore sa OneDrive-a potvrđen za 133/20/11/31 tabela u četiri baze.
+  Privremene baze uklonjene (preostalih 0). Timer enabled/active; sljedeće
+  izvršavanje 14.11.2026. 03:00 CET. Dokumentacija i CSV/Excel planer usklađeni.
+
+## 2026-11-13 — Povezivanje produkcijskog servera sa OneDrive-om
+
+- Na zahtjev korisnika instaliran rclone v1.76.0 iz zvaničnog izdanja uz
+  provjeru SHA256; bez izmjena aplikacije, baze ili postojećeg backup servisa.
+- Korisnik je sam završio Microsoft prijavu i odobrenje. Konfigurisan remote
+  `summa_onedrive`, lični OneDrive, scope `Files.ReadWrite offline_access`.
+  Token se čuva samo na serveru uz 0600/0700 prava; nije kopiran u dokumentaciju.
+- Kreirani `Summa backup/knjigovodstvoonline` i `Summa backup/fiskal-api`.
+  Probni fajl od 105 bajtova poslat i preuzet, uz identičan sadržaj/SHA256.
+- Korisnik je zatim potvrdio da obuhvat uključuje i `spedicija` i
+  `turizam_prod`; dodati su njihovi OneDrive podfolderi. Automatski backup
+  treba da obuhvati sve četiri produkcijske baze.
+- Veza je završena; automatski backup, slanje stvarnih baza, šifrovanje,
+  zadržavanje i restore test nijesu dio ovog koraka. CSV planer ažuriran.
+
 ## 2026-11-13 — Zajednička konta i obračun PD pozicija 16/37
 
 - Dodato jedno podešavanje konta obaveza za obje pozicije, bez konta rashoda.

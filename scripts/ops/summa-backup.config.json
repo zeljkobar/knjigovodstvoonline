@@ -1,0 +1,26 @@
+{
+  "databases": {
+    "knjigovodstvoonline": "knjigovodstvoonline",
+    "summa_fiscal": "fiskal-api",
+    "spedicija": "spedicija",
+    "turizam_prod": "turizam_prod"
+  },
+  "remote_root": "summa_onedrive:Summa backup",
+  "rclone_config": "/home/deploy/.config/rclone/rclone.conf",
+  "local_root": "/var/backups/summa-offsite",
+  "state_root": "/var/lib/summa-backup",
+  "recipients_file": "/etc/summa-backup/recipients.txt",
+  "retention_days": 30,
+  "recovery_files": {
+    "knjigovodstvoonline": {
+      "application.env": "/var/www/knjigovodstvoonline/.env"
+    },
+    "summa_fiscal": {
+      "certificate-vault-key.txt": "/home/deploy/apps/summa-fiscal/deploy/local-secrets/certificate_vault_key.txt"
+    }
+  },
+  "fiscal_attachments": {
+    "certificates": "/home/deploy/apps/summa-fiscal/deploy/data/certificates",
+    "exchanges": "/home/deploy/apps/summa-fiscal/deploy/data/exchanges"
+  }
+}

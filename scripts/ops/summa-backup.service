@@ -1,0 +1,23 @@
+[Unit]
+Description=Encrypted backups of four production databases to OneDrive
+Wants=network-online.target
+After=network-online.target postgresql.service
+StartLimitIntervalSec=3h
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/local/sbin/summa-backup --config /etc/summa-backup/config.json
+TimeoutStartSec=2h
+Restart=on-failure
+RestartSec=15min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/deploy/.config/rclone

@@ -1,0 +1,2 @@
+# Only these two exact argument lists. No shell/systemctl wildcard or arbitrary paths.
+deploy ALL=(root) NOPASSWD: /usr/local/sbin/summa-backup-control status, /usr/local/sbin/summa-backup-control start

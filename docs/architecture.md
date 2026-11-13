@@ -212,6 +212,100 @@ Tema nema FK veze na firmu: company purge zadržava nalog i njegove preference.
   (npr. `ssh -L 5433:127.0.0.1:5432 ...`, pa `DATABASE_URL` na port `5433`).
 - Produkcija: aplikacija na serveru koristi lokalni port `5432`.
 
+### Noćni backup produkcijskih baza
+
+Serverski `summa-backup.timer` pokreće `summa-backup.service` svakog dana u
+03:00 `Europe/Podgorica`, uz nadoknadu propuštenog termina poslije pokretanja
+servera. Ovo je Linux systemd posao, nezavisan od Next.js aplikacije i Codex-a.
+Izvor skripte, konfiguracije i jedinica je u `scripts/ops/`; instalacija je
+`/usr/local/sbin/summa-backup`, `/etc/summa-backup/config.json` i
+`/etc/systemd/system/summa-backup.{service,timer}`.
+
+Obuhvat je eksplicitan: `knjigovodstvoonline`, `summa_fiscal`, `spedicija`,
+`turizam_prod`. Baza `postgres`, templates i odvojena staging instanca nijesu
+u obuhvatu. `pg_dump` 16 pravi komprimovane custom kopije preko lokalne peer
+prijave kao postgres. Arhiva sadrži dump i JSON metapodatke sa SHA256;
+knjigovodstvena kopija uključuje i serverski `.env` potreban za obnovu
+šifrovanih podataka, a fiskalna sertifikate, razmjene i ključ certificate vault-a.
+Ovi sadržaji se ne loguju niti upisuju u repozitorijum.
+
+Prije čuvanja/slanja tar arhiva se šifruje pomoću `age`. Lokalni završeni
+fajlovi su u `/var/backups/summa-offsite/<baza>/` (root:deploy 0750/0640);
+privremeni nešifrovani fajlovi su root-only i brišu se po završetku. OneDrive
+remote `summa_onedrive` koristi `/home/deploy/.config/rclone/rclone.conf`
+(deploy 0600, direktorijum 0700); cilj je `Summa backup` i zasebni podfolderi
+`knjigovodstvoonline`, `fiskal-api`, `spedicija`, `turizam_prod`. Rclone radi kao
+deploy, dok systemd posao kao root čita materijal za obnovu i delegira dump
+korisniku postgres. Postojeći lokalni Fiscal API Docker backup ostaje zaseban.
+
+Slanje koristi `copyto --immutable`; svaka poslata šifrovana kopija se ponovo
+preuzima i provjerava po veličini i SHA256. Tek poslije uspješne provjere iste
+baze slijedi zadržavanje 30 dana, na serveru i OneDrive-u. Brišu se pojedinačni
+fajlovi sa tačnim formatom `summa-<baza>-<UTC datum>-<id>.tar.age`, po datumu
+iz naziva. Aktuelna kopija, nepoznati fajlovi, poddirektorijumi i ostali
+OneDrive podaci su izuzeti. Nema `sync`/`purge` niti brisanja na neuspjeh.
+OneDrive brisanje koristi podrazumijevanu korpu, bez trajnog hard-delete-a.
+
+Status po bazi i posljednjem prolazu je u `/var/lib/summa-backup/`; greške
+ostaju u systemd journal-u i statusu servisa. Neuspjeh jedne baze ne preskače
+ostale; servis pokušava ponovo poslije 15 minuta, najviše tri pokretanja u
+tri sata. Nema automatskog slanja email/chat obavještenja.
+
+Privatni ključ je root-only `/etc/summa-backup/recovery.agekey`, uz odvojenu
+kopiju kod vlasnika na Macu u `Desktop/Summa backup - kljuc/`. Javni primalac
+za šifrovanje je u `recipients.txt`. Ključ se nikad ne stavlja u git ili
+OneDrive folder sa kopijama. Za ručno otvaranje kopije koristi se
+`age --decrypt --identity /putanja/do/kljuca --output backup.tar kopija.tar.age`;
+iz arhive se uzima `database.dump` i vraća pomoću PostgreSQL 16 `pg_restore` u
+novu bazu. Aplikacijske ključeve treba vratiti zajedno sa bazom; automatski
+backup nije kopija svih serverskih konfiguracija ili kompletnog servera.
+
+Operativne provjere:
+
+```bash
+systemctl list-timers summa-backup.timer
+sudo journalctl -u summa-backup.service --since today
+sudo cat /var/lib/summa-backup/last-run.json
+sudo systemctl start summa-backup.service
+sudo /usr/local/sbin/summa-backup-restore-check
+```
+
+Posljednja komanda preuzima kopije sa OneDrive-a, provjerava SHA256/dešifrovanje
+i radi puni restore u nove `summa_restore_check_*` baze, pa ih uklanja. Ne
+prepisuje produkcijske baze. Izvor je `scripts/ops/check-summa-backup-restore.py`.
+Regresije retention opsega i zabrane brisanja poslije greške pokreću se sa
+`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_summa_backup*.py'`.
+
+Admin ruta `/admin/backup` koristi isključivo lokalni serverski helper:
+`/usr/bin/sudo -n /usr/local/sbin/summa-backup-control status|start`.
+`src/lib/backup-control.ts` dozvoljava izvršavanje samo u produkciji na Linuxu;
+nema SSH transporta, konekcije na udaljenu bazu niti OneDrive tokena u web
+aplikaciji. Razvojni ekran prikazuje da će funkcija biti dostupna nakon deploya.
+Server actions svaki put provjeravaju glavnog administratora; pokretanje
+upisuje audit namjeru prije slanja zahtjeva i audit ishoda poslije prihvatanja.
+
+Helper `scripts/ops/summa-backup-control.py` instalira se kao root-owned 0755
+`/usr/local/sbin/summa-backup-control`; `scripts/ops/summa-backup-ui.sudoers`
+kao root-owned 0440 `/etc/sudoers.d/summa-backup-ui`, uz `visudo -cf` provjeru
+prije instalacije. Pravilo dozvoljava deploy korisniku isključivo ove dvije
+tačne komande, bez proizvoljnog izvršavanja. Na postojećem serveru je već
+instalirano. Za ovaj ekran nijesu potrebne Prisma migracije.
+
+`status` vraća provjerenu projekciju četiri baza i systemd rasporeda, bez
+konfiguracije, sirovih logova, tokena ili ključeva. `current-run.json` prati
+faze dump/šifrovanje/slanje/provjera/retention. Posljednji uspješan backup i
+posljednji pokušaj su odvojeni; kopija starija od 26 sati je upozorenje.
+`start` prihvata samo UUID zahtjeva i UUID administratora, uz root fcntl lock,
+trajni zapis zahtjeva, deduplikaciju i 120 s razmaka. Koristi fiksni systemd
+servis; ako je već u radu ne pokreće novi. Tokom odloženog ponavljanja koristi
+restart neaktivnog posla kako bi ručni zahtjev počeo odmah. Noćni timer se ne
+mijenja. Eksplicitan evidentiran ručni zahtjev resetuje systemd brojač ranijih
+neuspjelih pokušaja, da ga prethodni StartLimit ne blokira; automatski retry
+i dalje ima ograničenje jedinice. UI osvježava status svakih 5 s tokom rada /
+30 s inače u vidljivom tabu.
+Regresije web dozvola/audita/projekcije su `tests/admin-backup.test.cjs` i dio
+`npm test`; Python regresije pokrivaju opseg, retention i serverski helper.
+
 ## Nivoi pristupa
 - **admin** — vlasnik platforme; vidi sve agencije, firme, korisnike.
 - **agencija** — vidi samo svoje firme; kreira firme i klijentske naloge.

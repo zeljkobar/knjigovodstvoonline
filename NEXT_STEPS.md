@@ -4,6 +4,17 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- Deployovati web ekran Admin → Backup redovnim postupkom. Serverski helper
+  i uska sudo dozvola za deploy korisnika su već pripremljeni/provjereni.
+  Lokalni program nema pristup produkcijskom backup-u; nema SSH podešavanja
+  niti nove migracije. Na serveru ekran prati sve četiri baze i ručni prolaz.
+- Noćni backup sve četiri produkcijske baze je AKTIVAN u 03:00
+  Europe/Podgorica: lokalne i OneDrive šifrovane kopije; 30 dana; brisanje
+  tek nakon uspješnog slanja/preuzimanja/provjere iste baze. Prvi prolaz i
+  puno vraćanje sve četiri baze su provjereni. Pratiti prvi zakazani prolaz
+  14.11.2026. preko `summa-backup.timer` i `/var/lib/summa-backup/last-run.json`.
+  Vlasnik treba trajno da čuva odvojeni ključ sa Maca. Email/chat obavještenja
+  o greškama ostaju opcioni dogovor; servis već bilježi greške i ponavlja pokušaj.
 - U Podešavanja → Poreska prijava unijeti zajednička konta obaveza 16 i 37.
   Provjeriti početni ranije nepriznati dug i pregled isplata po kontima.
   Nova prijava automatski preuzima dostupne 16/37; na sačuvanoj izabrati

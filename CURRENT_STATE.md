@@ -8,6 +8,66 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Admin → Backup — 2026-11-13
+
+- Dodati `/admin/backup` i link u admin meniju: status sve četiri produkcijske
+  baze, posljednja provjerena OneDrive kopija, veličina, folder/naziv, naredni
+  termin, zadržavanje 30 dana i datum posljednjeg uspješnog restore testa.
+- Ručno pokretanje sve četiri baze ima admin provjeru i audit prije akcije.
+  Prikaz prati faze posla, greške i zastarjele kopije; osvježavanje 5 s tokom
+  rada / 30 s inače. Dupli zahtjevi i paralelna pokretanja su zaštićeni;
+  razmak između ručnih zahtjeva je najmanje dva minuta.
+- Radi isključivo u produkciji na Linux serveru preko lokalnog, root-owned
+  `summa-backup-control` helpera. Sudo dozvoljava deploy korisniku samo tačne
+  `status`/`start` operacije. Helper i sudoers pravilo su instalirani; web
+  ekran još nije deployovan. Nema nove migracije.
+- Na zahtjev vlasnika lokalni program NEMA SSH vezu sa produkcijom. Privremena
+  razvojna veza je uklonjena iz koda i `.env`; njen javni ključ je opozvan na
+  serveru, a privatni/javni ključ obrisani sa Maca. Običan razvojni režim ne
+  pokreće nijedan backup proces i prikazuje poruku o dostupnosti nakon deploya.
+- Probno pokretanje otkrilo je neuspješno slanje na OneDrive; stare provjerene
+  kopije su sačuvane. Ponovljeni puni serverski posao uspješno je poslao i
+  SHA256 provjerio sve četiri baze. Ručni zahtjev tokom čekanja automatskog
+  ponavljanja sada pokreće posao odmah, umjesto da čeka preostalih 15 minuta.
+- Provjereni admin zaštita/audit, status projekcija i lokalna zabrana pristupa:
+  7 JS + 13 Python regresija; kompletni `npm test` bez pada; TSC i ciljani
+  ESLint. Raspored 03:00 Europe/Podgorica ostaje aktivan.
+
+## Noćni backup četiri baze na OneDrive — 2026-11-13
+
+- Na produkcijskom serveru instaliran zvanični rclone v1.76.0 uz SHA256
+  provjeru. Korisnik je završio Microsoft OAuth prijavu preko privremenog SSH
+  tunela. Remote `summa_onedrive` koristi lični OneDrive i scope
+  `Files.ReadWrite offline_access`; token ostaje samo u serverskoj konfiguraciji
+  `/home/deploy/.config/rclone/rclone.conf` (0600; direktorijum 0700).
+- Kreiran `Summa backup` sa podfolderima `knjigovodstvoonline`, `fiskal-api`,
+  `spedicija` i `turizam_prod`. Korisnik je potvrdio obuhvat sve četiri
+  produkcijske baze; `fiskal-api` odgovara bazi `summa_fiscal`.
+- Aktiviran `summa-backup.timer`: svakog dana u 03:00 Europe/Podgorica,
+  nezavisno od aplikacije i korisnikovog računara. Naredni zakazani prolaz
+  nakon aktiviranja je 14.11.2026. u 03:00 CET (02:00 UTC). Propušteni termin
+  se nadoknađuje poslije pokretanja servera; neuspjeh se ponavlja poslije
+  15 minuta, do tri pokretanja u tri sata.
+- `pg_dump` custom → tar → age šifrovanje; završene kopije ostaju lokalno u
+  `/var/backups/summa-offsite/<baza>/` i šalju se u odgovarajuće OneDrive
+  podfoldere. Knjigovodstvena arhiva sadrži i serverski `.env` za obnovu
+  šifrovanih podataka; fiskalna sertifikate, razmjene i certificate vault ključ.
+  Nešifrovani privremeni sadržaj je root-only i uklanja se po završetku.
+- Poslata kopija se ponovo preuzima i provjerava po SHA256/veličini. Tek
+  poslije uspjeha iste baze brišu se njene kopije starije od 30 dana,
+  lokalno i na OneDrive-u, uz tačan format imena i zaštitu aktuelne kopije.
+  Ostali fajlovi su izuzeti; neuspjeh ne briše stare kopije. OneDrive koristi
+  korpu, bez trajnog hard-delete-a. Postojeći Fiscal API Docker backup radi dalje.
+- Prvi puni prolaz je uspješan: četiri poslate/provjerene šifrovane arhive,
+  ukupno 6.392.096 bajtova. Puni restore sa OneDrive-a je potvrđen za sve
+  četiri baze (133/20/11/31 tabela); privremene baze su uklonjene.
+- Privatni age ključ je root-only na serveru i zasebno sačuvan na vlasnikovom
+  Macu u `Desktop/Summa backup - kljuc/Summa-backup-kljuc.agekey` (0600).
+  Kopije ključa su upoređene; ključ nije u git-u ili OneDrive backup folderu.
+  Statusi su u `/var/lib/summa-backup/`, greške u systemd journal-u; email/chat
+  obavještenja nijesu podešena. Izvor, opseg i obnova su u `scripts/ops/` i
+  `docs/architecture.md`. Sedam sigurnosnih regresija i TSC prolaze.
+
 ## Zajednička konta obaveza za PD 16/37 — 2026-11-13
 
 - Podešavanja → Poreska prijava ima jedan red 16 i 37 za konta/prefikse

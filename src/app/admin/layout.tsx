@@ -33,6 +33,7 @@ export default async function AdminLayout({
           <Link href="/admin/fiskalizacija/aplikacije"><span>◇</span>API aplikacije</Link>
           <Link href="/admin/radna-mjesta"><span>▤</span>Radna mjesta</Link>
           <Link href="/admin/globalni-partneri"><span>◇</span>Globalni partneri</Link>
+          <Link href="/admin/backup"><span>▣</span>Backup</Link>
         </nav>
 
         <form action={logout}>
