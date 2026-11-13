@@ -41,7 +41,7 @@ function actions({ denied = false, auditFails = false, transportFails = false, r
       startBackupControl: async value => { calls.push(['start', value]); if (transportFails) throw new Error('secret raw output'); return response; } },
     'next/cache': { revalidatePath: path => calls.push(['revalidate', path]) }
   });
-  return { api: load('src/app/admin/backup/actions.ts'), calls };
+  return { api: load('src/app/admin/sajt/backup/actions.ts'), calls };
 }
 function form() { const data = new FormData(); data.set('request_id', requestId); data.set('actorId', 'attacker'); return data; }
 test('every read and start requires admin before accessing server or audit', async () => {

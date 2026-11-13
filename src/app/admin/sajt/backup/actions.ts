@@ -38,7 +38,7 @@ export async function startBackup(_previous: StartBackupState, formData: FormDat
     // Intent was committed before starting; the bridge also retains its durable outcome.
     console.error("Backup outcome audit unavailable", { requestId });
   }
-  revalidatePath("/admin/backup");
+  revalidatePath("/admin/sajt/backup");
   const messages: Record<BackupStartStatus, string> = {
     accepted: "Backup sve četiri baze je pokrenut. Napredak se automatski osvježava.",
     already_running: "Backup je već u toku. Novi posao nije pokrenut.",

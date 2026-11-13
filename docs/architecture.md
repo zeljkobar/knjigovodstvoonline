@@ -276,7 +276,12 @@ prepisuje produkcijske baze. Izvor je `scripts/ops/check-summa-backup-restore.py
 Regresije retention opsega i zabrane brisanja poslije greške pokreću se sa
 `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_summa_backup*.py'`.
 
-Admin ruta `/admin/backup` koristi isključivo lokalni serverski helper:
+Admin meni **Admin sajta** (`/admin/sajt`) ima podmeni Backup baze i Deploy
+sajta. Ulaz otvara `/admin/sajt/backup`; stari `/admin/backup` preusmjerava na
+novu putanju. `/admin/sajt/deploy` pokreće deploy knjigovodstva sa migracijama
+jednim dugmetom, uz admin provjeru i audit prije pokretanja.
+
+Admin ruta `/admin/sajt/backup` koristi isključivo lokalni serverski helper:
 `/usr/bin/sudo -n /usr/local/sbin/summa-backup-control status|start`.
 `src/lib/backup-control.ts` dozvoljava izvršavanje samo u produkciji na Linuxu;
 nema SSH transporta, konekcije na udaljenu bazu niti OneDrive tokena u web
@@ -305,6 +310,70 @@ i dalje ima ograničenje jedinice. UI osvježava status svakih 5 s tokom rada /
 30 s inače u vidljivom tabu.
 Regresije web dozvola/audita/projekcije su `tests/admin-backup.test.cjs` i dio
 `npm test`; Python regresije pokrivaju opseg, retention i serverski helper.
+
+### Deploy iz admin panela
+
+`src/lib/deploy-control.ts` dopušta poziv samo u Linux produkciji, preko
+`sudo -n /usr/local/sbin/summa-deploy-control status|start`. Nema SSH veze
+iz lokalne aplikacije. Browser ne bira komandu, putanju ili sajt: backend
+fiksira `knjigovodstvoonline`, a helper prihvata isključivo taj identifikator,
+UUID zahtjeva i UUID admina. Auth/audit greška blokira slanje. Status je
+projekcija poznatih polja; sirovi logovi i konfiguracija ne idu u browser.
+
+Izvori u `scripts/ops/`: `summa-deploy-control.py` → root:root 0755
+`/usr/local/sbin/summa-deploy-control`, `summa-deploy.service` → root:root
+0644 `/etc/systemd/system/summa-deploy.service`, `summa-deploy-ui.sudoers`
+→ root:root 0440 `/etc/sudoers.d/summa-deploy-ui`. Provjeriti `visudo -cf`
+prije instalacije, `systemd-analyze verify`, zatim `systemctl daemon-reload`.
+Sudo dopušta samo tačne status/start operacije; `run` pokreće root servis.
+Na serveru su instalirani 13.11.2026, bez pokretanja deploya/migracija.
+
+Zahtjevi se serijalizuju i deduplikuju, uz 120 s razmaka i trajni zapis u
+root-only `/var/lib/summa-deploy/requests.jsonl`. `state.json` čuva fazu,
+posljednji pokušaj i odvojeni posljednji uspjeh. Oneshot servis preživljava
+restart PM2 aplikacije/zatvaranje taba; nema automatskog ponavljanja deploya.
+Prekinuti posao ne prikazuje se kao uspješan. Privatni log po zahtjevu je
+ograničen na 5 MB; UI prikazuje samo poznate faze i greške.
+
+Prije promjena radi i provjerava postojeći backup sve četiri baze. Neuspjeh
+backup-a prekida deploy. Zatim izvršava snimak fiksne skripte kao korisnik
+deploy, sa fiksnim Node 22.18.0 PATH-om i PM2_HOME. Root ne izvršava kod
+repozitorijuma sa svojim pravima. `deploy_knjigovodstvo.sh` zahtijeva Linux,
+tačan produkcijski direktorijum, korisnika deploy i čistu main granu. Flock
+sprječava istovremene CLI/UI deploy skripte; git koristi fast-forward pull.
+Redoslijed: npm ci (sa dev alatima), Prisma migrate deploy, Prisma generate,
+Next build (bank/SEP automatizacija ugašena samo za build), PM2 restart/save
+i HTTP provjera na 3004. Ovo ostaje postojeći deploy u istom direktorijumu;
+moguć je prekid dostupnosti tokom pripreme. Već primijenjene migracije se
+ne vraćaju automatski ako kasniji korak padne.
+
+Prva objava zahtijeva odobreni commit/push, ručni git pull na serveru i
+pokretanje nove deploy skripte. Helper odbija staru skriptu bez
+`SUMMA_DEPLOY_PROTOCOL=1` oznake; status do tada vraća `ready=false`.
+Poslije prve objave sljedeći deploy može preko panela. Root helper se ne
+ažurira iz web procesa; promjene njegovog protokola traže zasebnu root
+instalaciju. Stvarni produkcijski deploy nije pokrenut u ovoj sesiji.
+
+Regresije: `tests/admin-deploy.test.cjs` (dio npm test) i
+`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_summa_deploy*.py'`.
+Shell tok se izvršava sa izolovanim zamjenama spoljašnjih komandi: provjerava
+redoslijed migracija i prekid nakon greške pull/install/migrate/build/health,
+bez pristupa bazi. TSC, ciljani ESLint, lokalni ekran i stvarni serverski
+status su provjereni; puni produkcijski deploy ostaje prva operativna proba.
+
+Skripte ostalih sajtova provjerene 13.11.2026, bez njihovog izvršavanja:
+
+| Sajt | Stvarna putanja | Nalaz za buduće dugme |
+| --- | --- | --- |
+| Rahmetli | `/var/www/rahmetli.me/deploy.sh` | `deploy-rahmetli` je shell alias; pull/install/build/PM2, bez eksplicitne migracije u ovoj skripti. |
+| Dokumenta | `/var/www/dokumenta/deploy_dokumenta.sh` | Pull, backend install i PM2; bez eksplicitne migracije u ovoj skripti. |
+| Royal Services | `/home/deploy/deploy-royal.sh` | `deploy-royal` je alias; sudo git/chown i rekurzivni chmod 755 zahtijevaju prilagođavanje, ne odobravati široki sudo. |
+| Špedicija | `/var/www/spedicija/deploy_spedicija.sh` | Već uključuje migrate deploy/generate; na kraju sudo nginx provjera/reload. Zasebni `migrate_server.sh` postoji, ne duplirati migracije. |
+| Fiscal API | `/home/deploy/apps/summa-fiscal/deploy/deploy-production.sh` | `/home/deploy/bin/deploy-summa-fiscal` je symlink; compose backup/build/up/health. Mjesto migracija unutar kontejnera nije provjereno. |
+| Turizam | `/var/www/turizam/scripts/deploy/update.sh` | Bash sa `/etc/turizam/deploy.conf`; poziva update.mjs, backup/migracije/release/PM2/health već uključeni. |
+
+Ostali sajtovi nijesu povezani sa dugmadima niti su njihove skripte mijenjane.
+Konfiguracije sa tajnama nijesu kopirane u dokumentaciju ili repozitorijum.
 
 ## Nivoi pristupa
 - **admin** — vlasnik platforme; vidi sve agencije, firme, korisnike.

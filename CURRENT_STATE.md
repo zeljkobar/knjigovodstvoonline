@@ -8,9 +8,36 @@ Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
 
+## Admin sajta — meni i podstranice — 2026-11-13
+
+- Glavni admin meni ima stavku **Admin sajta**, sa podmenijem **Backup baze**
+  i **Deploy sajta**. Ulaz `/admin/sajt` otvara backup; aktivni tab je označen.
+- Backup je premješten na `/admin/sajt/backup`, a stari `/admin/backup`
+  preusmjerava na novu putanju. Backend admin/audit i produkcijski guard ostaju.
+- `/admin/sajt/deploy` ima jedno dugme za deploy knjigovodstva sa migracijama,
+  fazu rada, posljednji uspjeh/verziju i admin audit. Radi samo na Linux
+  produkciji; lokalno je pokretanje onemogućeno, bez SSH veze.
+- Nezavisni `summa-deploy.service` preuzima posao, pravi/provjerava backup
+  preko postojećeg servisa, zatim kao deploy korisnik izvršava fiksnu skriptu:
+  čista main grana → fast-forward pull → npm ci → migrate deploy → generate
+  → build → PM2 restart → lokalna HTTP provjera. Dupli/paralelni zahtjevi i
+  ponavljanje prije 120 s su zaštićeni. Neuspjeh zaustavlja naredne korake;
+  automatski povrat migracija nije predviđen.
+- Root helper, systemd servis i usko sudo pravilo instalirani/provjereni na
+  serveru. Servis nije pokretan; produkcijski kod je i dalje `fbba327`.
+  Web ekran i nova skripta čekaju prvu ručnu objavu sa main grane. Helper
+  do tada vraća `ready=false` i odbija pokretanje nepripremljene stare skripte.
+- Provjereno 6 JS + 11 Python/shell deploy regresija, postojeće backup JS
+  regresije, TSC/ESLint, lokalni ekran i serverski status. Stvarni deploy i
+  migracije nijesu pokrenuti radi testiranja.
+- Sve dostavljene skripte za ostalih šest sajtova postoje; putanje i nalazi
+  su u `docs/architecture.md`. Špedicija i Turizam već uključuju migracije.
+  Ostala dugmad još nijesu povezana; Royal zahtijeva prilagođavanje sudo/
+  dozvola, Špedicija sudo koraka za nginx prije neinteraktivnog pokretanja.
+
 ## Admin → Backup — 2026-11-13
 
-- Dodati `/admin/backup` i link u admin meniju: status sve četiri produkcijske
+- Ruta `/admin/sajt/backup` u Admin sajta: status sve četiri produkcijske
   baze, posljednja provjerena OneDrive kopija, veličina, folder/naziv, naredni
   termin, zadržavanje 30 dana i datum posljednjeg uspješnog restore testa.
 - Ručno pokretanje sve četiri baze ima admin provjeru i audit prije akcije.

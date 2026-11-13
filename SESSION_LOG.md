@@ -1,5 +1,36 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-13 — Deploy sa migracijama iz Admin sajta
+
+- Povezan deploy knjigovodstva: admin audit → root helper → nezavisni
+  systemd posao → provjeren backup → fiksna skripta kao deploy korisnik.
+  Skripta sada uključuje migrate deploy prije generate/build/PM2/HTTP provjere.
+  Zaštite: lokalni guard bez SSH, fiksni sajt/komanda, deduplikacija, 120 s,
+  zaključavanje CLI/UI, ograničeni privatni logovi i javna projekcija statusa.
+- Helper/service/uski sudoers instalirani uz SHA256, visudo i systemd
+  provjeru. Status pod korisnikom deploy radi; ready=false jer server još ima
+  staru skriptu/commit fbba327. Servis nije startovan i produkcijske migracije
+  nijesu izvršavane. Prvo objaviti ovu verziju redovnim ručnim postupkom.
+- Sve skripte koje je vlasnik naveo pronađene. Rahmetli/Royal su aliasi,
+  Fiscal komanda symlink; Špedicija i Turizam već migriraju. Royal i
+  Špedicija traže prilagođavanje neinteraktivnih sudo koraka prije dugmadi.
+  Druge projekte nijesmo mijenjali niti pokretali njihove deploy skripte.
+- Prošlo 6 JS deploy + 7 postojećih backup JS regresija, 11 Python/shell
+  deploy regresija, TSC i ciljani ESLint. Browser prikazuje novi ekran i
+  onemogućeno lokalno dugme. Nema nove migracije; nema commit/push-a.
+- CURRENT_STATE, NEXT_STEPS, arhitektura i CSV/Excel planer usklađeni.
+
+## 2026-11-13 — Podmeni Admin sajta
+
+- Na zahtjev vlasnika prvo izdvojena stavka Admin sajta sa dva taba:
+  Backup baze i Deploy sajta. Backup komponenta/actions premješteni pod
+  `/admin/sajt/backup`; stari URL preusmjerava, revalidacija koristi novu putanju.
+- Deploy stranica je placeholder. Potvrđeno jedno buduće dugme za deploy i
+  migracije zajedno; serversko izvršavanje za sada odloženo. Postojeća deploy
+  skripta je samo pročitana, bez izmjena i bez deploya/migracija.
+- Provjeren prelazak između tabova, admin zaštita i postojeće backup regresije.
+  Dokumentacija i CSV/Excel planer usklađeni; nema nove migracije.
+
 ## 2026-11-13 — Admin ekran Backup i ručno pokretanje na serveru
 
 - Dodati admin-only ekran/status/server action, četiri kartice baza, faze

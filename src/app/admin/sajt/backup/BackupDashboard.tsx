@@ -43,7 +43,7 @@ export function BackupDashboard({ initial, requestId }: { initial: BackupSnapsho
 
   return <div className={`admin-stack ${styles.dashboard}`}>
     <header className="admin-header">
-      <div><p className="eyebrow">Administracija sistema</p><h2>Backup</h2><p>Sigurnosne kopije sve četiri produkcijske baze.</p></div>
+      <div><p className="eyebrow">Admin sajta</p><h2>Backup baze</h2><p>Sigurnosne kopije sve četiri produkcijske baze.</p></div>
       <div className={styles.actions}>
         <button className={`secondary-button ${styles.secondary}`} type="button" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? "Osvježavam…" : "Osvježi status"}</button>
         <form action={submit}><input type="hidden" name="request_id" value={formId} /><button className="primary-button" type="submit" disabled={pending || !status || status.running}>{pending ? "Pokrećem…" : status?.running ? "Backup u toku…" : "Pokreni backup sada"}</button></form>

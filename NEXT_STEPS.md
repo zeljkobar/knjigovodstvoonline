@@ -4,6 +4,16 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- **Admin sajta → Deploy sajta** je povezan za knjigovodstvo. Potrebna je
+  prva ručna objava: preuzeti novu main
+  verziju pa pokrenuti novu `deploy_knjigovodstvo.sh` (sada uključuje migracije).
+  Helper/service/sudoers su već instalirani; zatim provjeriti prvi stvarni
+  deploy iz panela. Lokalno pokretanje je zabranjeno. Trenutno server još
+  ima staru skriptu i helper namjerno vraća `ready=false`.
+- Za ostale sajtove skripte su pronađene i pregledane (putanje u arhitekturi).
+  Prije novih dugmadi prilagoditi Royal sudo/chmod tok i Špedicija nginx sudo
+  korake; provjeriti gdje Fiscal API izvršava migracije. Špedicija/Turizam
+  već migriraju u deploy toku, pa ih ne pokretati drugi put zasebno.
 - Deployovati web ekran Admin → Backup redovnim postupkom. Serverski helper
   i uska sudo dozvola za deploy korisnika su već pripremljeni/provjereni.
   Lokalni program nema pristup produkcijskom backup-u; nema SSH podešavanja
