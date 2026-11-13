@@ -1,12 +1,37 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-11-08. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-11-13. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Zajednička konta obaveza za PD 16/37 — 2026-11-13
+
+- Podešavanja → Poreska prijava ima jedan red 16 i 37 za konta/prefikse
+  obaveza klase 4 i izuzetke. Različite šeme za ove dvije pozicije nijesu
+  dozvoljene. Ranije sačuvana šema čita se sa praznim novim redom; upis
+  zahtijeva novu kompletnu šemu uz postojeća admin/scope/revizija/audit pravila.
+- Za svako konto posebno: isplate prvo zatvaraju početni, ranije poreski
+  nepriznati dug (37), zatim tekuće obaveze; samo neisplaćeni tekući dio ide
+  u 16. Preostali stari dug ne ulazi ponovo u 16. Koriste se isključivo konta
+  obaveza, bez podešavanja rashoda; iznosi su u centima.
+- Čitaju se POSTED nalozi iste firme/agencije/godine u njenom periodu,
+  uključujući početno stanje, bez zaključnih i obrisanih naloga. Isplate su
+  bankovni/blagajnički nalozi sa pokrićem na grupi 24 ili jasne ručne isplate
+  sa svim protivstavkama na grupi 24. Podržani su povraćaji/crvena storna;
+  nejasni dugovni obračuni/preknjiženja, avansi i neispravni saldi daju poruku
+  za provjeru i ostavljaju oba iznosa ručna. Druga podešena polja rade dalje.
+- Prijava prikazuje razradu i zbirove po kontima. Nova automatski preuzima
+  16/37; sačuvana tek kroz Preuzmi iz podešenih konta. XML koristi sačuvane
+  iznose. Nema migracije ni izmjene stvarnih konta/prijava korisnika.
+- Unit i PostgreSQL rollback provjeravaju djelimične/pune isplate, odvajanje
+  konta, legacy šemu, statuse/scope/period, ručni nalog, korekcije, SSR,
+  očuvanje sačuvane prijave, preuzimanje, XML i company purge. Browser sesija
+  je istekla; interaktivni pregled sa korisničkom prijavom ostaje. Prošli
+  TSC, ciljani ESLint i npm test; planer/Excel su ažurirani.
 
 ## Konta prijave poreza na dobit — 2026-11-08
 

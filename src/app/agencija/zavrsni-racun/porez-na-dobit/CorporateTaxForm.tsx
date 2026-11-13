@@ -3,7 +3,6 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { calculateCorporateTax, corporateTaxFields, editableTaxKeys, lossKeys, parseCorporateTaxInput, taxDecimal } from "@/lib/corporate-tax";
 import type { CorporateTaxData } from "@/lib/corporate-tax-service";
-import { taxAccountFields } from "@/lib/corporate-tax-accounts";
 
 const endpoint = "/agencija/zavrsni-racun/porez-na-dobit/podaci";
 const sections = [
@@ -59,7 +58,7 @@ export function CorporateTaxForm({ data }: { data: CorporateTaxData }) {
       {data.accountPrefill.details.length ? <div>
         <p>Preuzimanje sa podešenih konta · verzija podešavanja {data.accountPrefill.revision}. Prihodi klase 6: <strong>{money(data.accountPrefill.revenueCents)} €</strong>.</p>
         <details><summary>Pregled iznosa sa konta</summary><ul>{data.accountPrefill.details.map(row => <li key={row.key}>
-          {taxAccountFields.find(field => field.key === row.key)!.label}: <strong>{money(row.amount)} €</strong>
+          {corporateTaxFields.find(field => field.key === row.key)!.label}: <strong>{money(row.amount)} €</strong>
           {row.limit !== null ? ` (trošak ${money(row.expense)} € − limit ${money(row.limit)} €; najmanje nula)` : null}
         </li>)}</ul></details>
         <button type="button" className="secondary-button" disabled={!canSave || busy} onClick={() => {
@@ -67,6 +66,24 @@ export function CorporateTaxForm({ data }: { data: CorporateTaxData }) {
           setDirty(true); setMessage(""); setError("");
         }}>Preuzmi iz podešenih konta</button>
         <p>Preuzimanje mijenja samo podešene pozicije. Nakon preuzimanja sačuvajte prijavu.</p>
+      </div> : null}
+      {data.accountPrefill.liabilities ? <div>
+        <h3>Obaveze za pozicije 16 i 37</h3>
+        <p>Ista konta za obje pozicije. Isplate na svakom kontu prvo zatvaraju početni, ranije poreski nepriznati dug, pa obaveze tekuće godine.</p>
+        {data.accountPrefill.liabilities.issues.length ? <div role="alert">
+          <p>Pozicije 16 i 37 nijesu automatski preuzete. Provjerite navedena knjiženja; do tada iznose možete unijeti ručno.</p>
+          <ul>{data.accountPrefill.liabilities.issues.map(issue => <li key={issue}>{issue}</li>)}</ul>
+        </div> : <>
+          <p>Pozicija 16: <strong>{money(data.accountPrefill.liabilities.remainingCurrent)} €</strong> · Pozicija 37: <strong>{money(data.accountPrefill.liabilities.paidOld)} €</strong>.</p>
+          <details><summary>Pregled obaveza i isplata po kontima</summary>
+            <div className="table-wrap"><table className="admin-table"><thead><tr>
+              <th>Konto</th><th>Početni dug</th><th>Tekuće obaveze</th><th>Isplaćeno</th><th>Isplaćen stari dug (37)</th><th>Isplaćeno za tekuću godinu</th><th>Preostali stari dug</th><th>Neisplaćeno tekuće (16)</th>
+            </tr></thead><tbody>{data.accountPrefill.liabilities.rows.map(row => <tr key={row.code}>
+              <td>{row.code}</td>{([row.opening, row.accrued, row.paid, row.paidOld, row.paidCurrent, row.remainingOld, row.remainingCurrent]).map((value, index) => <td key={index}>{money(value)}</td>)}
+            </tr>)}</tbody><tfoot><tr><th>Ukupno</th>{([data.accountPrefill.liabilities.opening, data.accountPrefill.liabilities.accrued, data.accountPrefill.liabilities.paid,
+              data.accountPrefill.liabilities.paidOld, data.accountPrefill.liabilities.paidCurrent, data.accountPrefill.liabilities.remainingOld, data.accountPrefill.liabilities.remainingCurrent]).map((value, index) => <td key={index}>{money(value)}</td>)}</tr></tfoot></table></div>
+          </details>
+        </>}
       </div> : null}
       <p>Poreski period: <strong>{data.dateFrom} — {data.dateTo}</strong>. Iznosi su u eurima; unosite najviše dvije decimale bez razdvajanja hiljada.</p>
       <p>Dobit ili gubitak nove prijave preuzima se iz bilansa uspjeha za izabranu firmu i godinu, iz reda 244 — rezultat prije oporezivanja, sa sačuvanim korekcijama bilansa. Ostale poreske korekcije unesite ručno. Kapitalni iznosi 42/43 su poreski iznosi i mogu se razlikovati od računovodstvenih 3/4.</p>

@@ -115,8 +115,62 @@ const db=new PrismaClient(),rollback=Error('ROLLBACK_CORPORATE_TAX'),date=s=>new
  currentYear=freshYear.id;const fresh=await s.loadCorporateTax();assert.equal(fresh.inputs.x19,0);assert.equal(fresh.inputs.x20,0);currentYear=year.id;
  const settingsPage=sourceLoader({...mocks,'@/lib/auth':{...mocks['@/lib/auth'],requireRole:async()=>admin}})('src/app/agencija/zavrsni-racun/podesavanja/poreska-prijava/page.tsx').default;
  const settingsHtml=renderToStaticMarkup(await settingsPage({}));assert.match(settingsHtml,/Konta \/ grupe/);assert.match(settingsHtml,/accounts:x19/);assert.match(settingsHtml,/551/);
+ // Shared 16/37 configuration, backwards-compatible reads and real posted GL allocation.
+ assert.equal((settingsHtml.match(/name="accounts:x16_37"/g)||[]).length,1);
+ assert(!settingsHtml.includes('name="accounts:x16"'));assert(!settingsHtml.includes('name="accounts:x37"'));
+ await tx.agencija.update({where:{id:agency.id},data:{porez_dobit_konta:accountRules.filter(r=>r.key!=='x16_37')}});
+ const legacyRules=(await accountSettings.loadTaxAccountSettings()).rules;
+ assert.equal(legacyRules.find(r=>r.key==='x16_37').accounts,'');assert.equal(legacyRules.find(r=>r.key==='x19').accounts,'551');
+ const jointRules=legacyRules.map(r=>r.key==='x16_37'?{...r,accounts:'450, 4500',exclude:'4509'}:r);
+ await accountSettings.saveTaxAccountSettings({agencyId:agency.id,revision:1,rules:jointRules});
+ await assert.rejects(()=>accountSettings.saveTaxAccountSettings({agencyId:agency.id,revision:2,rules:legacyRules.filter(r=>r.key!=='x16_37')}),/sve pozicije/);
+ for(const code of ['4500','4501','4509','2410','5200','4600'])accounts[code]=await tx.firmaKonto.create({data:{firma_id:company.id,sifra:code,naziv:code,tip_konta:'analiticko'}});
+ const jt={};for(const code of ['OPENING_BALANCE','PAYROLL','BANK_STATEMENT','FINAL_ACCOUNT','CORRECTION'])jt[code]=await tx.vrstaNaloga.findUniqueOrThrow({where:{sifra:code}});
+ const liabilityJournal=(kind,lines,extra={})=>tx.nalog.create({data:{...scope,vrsta_naloga_id:jt[kind]?.id??type.id,broj:++number,datum:year.datum_do,status:'POSTED',...extra,
+  stavke:{create:lines.map(([code,debit,credit],index)=>({konto_id:accounts[code].id,duguje:debit,potrazuje:credit,redni_broj:index+1}))}}});
+ await liabilityJournal('OPENING_BALANCE',[['4500','0','10000'],['1000','10000','0']],{datum:year.datum_od});
+ await liabilityJournal('PAYROLL',[['4500','0','60000'],['5200','60000','0']]);
+ const firstPayment=await liabilityJournal('BANK_STATEMENT',[['4500','6000','0'],['2410','0','6000']]);
+ let liabilityPrefill=(await s.loadCorporateTax()).accountPrefill;
+ assert.equal(liabilityPrefill.inputs.x16,6000000);assert.equal(liabilityPrefill.inputs.x37,600000);
+ assert.equal(liabilityPrefill.liabilities.remainingOld,400000);
+ await liabilityJournal('MANUAL',[['4500','58000','0'],['2410','0','58000']]);
+ // Another account has old debt but no payments: payment of 4500 cannot close it.
+ await liabilityJournal('OPENING_BALANCE',[['4501','0','1000'],['1000','1000','0']],{datum:year.datum_od});
+ await liabilityJournal('PAYROLL',[['4501','0','2000'],['5200','2000','0']]);
+ for(const extra of [{status:'DRAFT'},{is_deleted:true},{poslovna_godina_id:freshYear.id},{datum:date('2027-01-01')}]) {
+  await liabilityJournal('PAYROLL',[['4500','0','900000'],['5200','900000','0']],extra);
+ }
+ await liabilityJournal('FINAL_ACCOUNT',[['4500','900000','0'],['1000','0','900000']]);
+ await liabilityJournal('PAYROLL',[['4509','0','900000'],['5200','900000','0']]);
+ const foreignCompany=await tx.firma.create({data:{agencija_id:other.id,naziv:'PD foreign liability fixture'}});
+ const foreignYear=await tx.poslovnaGodina.create({data:{firma_id:foreignCompany.id,godina:2026,datum_od:year.datum_od,datum_do:year.datum_do}});
+ const foreignAccounts=[];for(const code of ['4500','5200'])foreignAccounts.push(await tx.firmaKonto.create({data:{firma_id:foreignCompany.id,sifra:code,naziv:code,tip_konta:'analiticko'}}));
+ await tx.nalog.create({data:{agencija_id:other.id,firma_id:foreignCompany.id,poslovna_godina_id:foreignYear.id,vrsta_naloga_id:type.id,broj:1,datum:year.datum_do,status:'POSTED',
+  stavke:{create:[{konto_id:foreignAccounts[0].id,potrazuje:'900000',redni_broj:1},{konto_id:foreignAccounts[1].id,duguje:'900000',redni_broj:2}]}}});
+ const savedWithPrefill=await s.loadCorporateTax();liabilityPrefill=savedWithPrefill.accountPrefill;
+ assert.equal(liabilityPrefill.inputs.x16,800000);assert.equal(liabilityPrefill.inputs.x37,1000000);
+ assert.equal(liabilityPrefill.liabilities.opening,1100000);assert.equal(liabilityPrefill.liabilities.remainingOld,100000);
+ assert.deepEqual(liabilityPrefill.liabilities.issues,[]);
+ assert.equal(savedWithPrefill.inputs.x16,0);assert.equal(savedWithPrefill.inputs.x37,0); // Saved return preserved.
+ const liabilityHtml=renderToStaticMarkup(await page());assert.match(liabilityHtml,/Pregled obaveza i isplata po kontima/);assert.match(liabilityHtml,/Preostali stari dug/);
+ const correctionJournal=await liabilityJournal('CORRECTION',[['4500','100','0'],['5200','0','100']]);
+ const ambiguous=await s.loadCorporateTax();assert(ambiguous.accountPrefill.liabilities.issues.length);
+ assert(!Object.hasOwn(ambiguous.accountPrefill.inputs,'x16'));assert(!Object.hasOwn(ambiguous.accountPrefill.inputs,'x37'));
+ assert.equal(ambiguous.accountPrefill.inputs.x19,50000); // Other prefilled fields remain available.
+ assert.match(renderToStaticMarkup(await page()),/nijesu automatski preuzete/);
+ await tx.nalog.update({where:{id:correctionJournal.id},data:{status:'DRAFT'}});
+ await tx.nalog.update({where:{id:firstPayment.id},data:{status:'DRAFT'}});
+ assert.equal((await s.loadCorporateTax()).accountPrefill.inputs.x16,1400000); // Reopening an actual payment changes only live proposal.
+ await tx.nalog.update({where:{id:firstPayment.id},data:{status:'POSTED'}});
+ await tx.poslovnaGodina.update({where:{id:year.id},data:{porez_dobit_podaci:require('@prisma/client').Prisma.DbNull}});
+ const newReturn=await s.loadCorporateTax();assert.equal(newReturn.inputs.x16,800000);assert.equal(newReturn.inputs.x37,1000000);
+ const taxDecimal=load('src/lib/corporate-tax.ts').taxDecimal;
+ await s.saveCorporateTax({...expected,revision:2,amended:false,fields:Object.fromEntries(Object.entries(newReturn.inputs).map(([key,value])=>[key,taxDecimal(value)]))});
+ const liabilityXml=(await s.exportCorporateTax({...expected,revision:3})).xml;
+ assert.match(liabilityXml,/<Iznos16>8000.00/);assert.match(liabilityXml,/<Iznos37>10000.00/);
  const purge=load('src/lib/company-purge.ts');await purge.purgeCompanyData(tx,{agencijaId:agency.id,firmaId:company.id,potvrdaNaziva:company.naziv,korisnikId:admin.id});
- assert.equal((await tx.agencija.findUnique({where:{id:agency.id}})).porez_dobit_konta_verzija,1);
+ assert.equal((await tx.agencija.findUnique({where:{id:agency.id}})).porez_dobit_konta_verzija,2);
  assert.equal(await tx.poslovnaGodina.count({where:{id:year.id}}),0);
  console.log('Corporate tax: scoped save/export, formulas/cents, revisions, locks, rights, CSRF, forged outputs, audit rollback, SSR and actual company purge passed.');
  throw rollback;

@@ -4,6 +4,12 @@
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
 ## Prioritet 0 — neposredni nastavak
+- U Podešavanja → Poreska prijava unijeti zajednička konta obaveza 16 i 37.
+  Provjeriti početni ranije nepriznati dug i pregled isplata po kontima.
+  Nova prijava automatski preuzima dostupne 16/37; na sačuvanoj izabrati
+  Preuzmi iz podešenih konta pa Sačuvaj prijavu. Nejasna preknjiženja/storna
+  traže provjeru ili ručni unos. Implementirano bez migracije; unit/DB/SSR/XML
+  provjereni, interaktivni browser pregled čeka važeću korisničku sesiju.
 - Podesiti stvarna konta u Završni račun → Podešavanja → Poreska prijava.
   Nova prijava preuzima šemu; postojeća koristi Preuzmi iz podešenih konta pa
   Sačuvaj prijavu. Reprezentacija 19 računa višak iznad 1% prihoda klase 6,

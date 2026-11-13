@@ -15,7 +15,7 @@ if(!dbOnly) {
   run(['node_modules/typescript/bin/tsc','-p','tests/tsconfig.all.json']);
   const files=fs.readdirSync('tests').filter(f=>f.endsWith('.test.ts')).sort().map(f=>path.join('.test-build/tests',f.replace(/\.ts$/,'.js')));
   run(['--conditions=react-server','--test',...files]);
-  run(['--test','tests/cbcg-helper.test.cjs','tests/settlement-plan.test.cjs','tests/primatech-opening.test.cjs','tests/epsilon-opening.test.cjs','tests/corporate-tax.test.cjs','tests/corporate-tax-accounts.test.cjs']);
+  run(['--test','tests/cbcg-helper.test.cjs','tests/settlement-plan.test.cjs','tests/primatech-opening.test.cjs','tests/epsilon-opening.test.cjs','tests/corporate-tax.test.cjs','tests/corporate-tax-accounts.test.cjs','tests/corporate-tax-liabilities.test.cjs']);
   run(['--test','tests/bank-manual-journal.test.cjs','tests/fixed-assets-final-controls.test.cjs']);
   run(['--test','tests/payroll-calculation.test.cjs','tests/invoice-posting-rates.test.cjs','tests/calculation-posting-rates.test.cjs','tests/pdv-controls.test.cjs','tests/sep.test.cjs','tests/sep-automation.test.cjs','tests/mapr-request.test.cjs','tests/pazar-import.test.cjs','tests/automatic-documents.test.cjs','tests/theme.test.cjs','tests/invoice-posting-status.test.cjs','tests/account-search-select.test.cjs','tests/partner-summary.test.cjs','tests/posting-journal.test.cjs','tests/advance-invoice.test.cjs','tests/payroll-copy.test.cjs','tests/payroll-journal.test.cjs','tests/bank-statement-reopen.test.cjs','tests/journal-account-replacement.test.cjs','tests/foreign-partner-posting.test.cjs','tests/mail-secrets.test.cjs']);
   run(['scripts/check-outgoing-invoice-delete.cjs']);

@@ -50,7 +50,7 @@ export async function loadCorporateTax() {
   const data = await prisma.$transaction(async tx => {
     const { year, canSave, canExport, canUpdate, role } = await context(tx, a, "view");
     const saved = year.porez_dobit_podaci ? snapshot(year.porez_dobit_podaci) : null;
-    const accountPrefill = await taxAccountPrefill(tx, a.agencyId, a.companyId, a.yearId);
+    const accountPrefill = await taxAccountPrefill(tx, a.agencyId, a.companyId, a.yearId, { from: year.datum_od, to: year.datum_do });
     const canReadTaxDepreciation = await permission(tx, a, role, "view", "osnovna_sredstva");
     const taxBatch = canReadTaxDepreciation ? await tx.osPoreskiObracun.findFirst({
       where: { agencija_id: a.agencyId, firma_id: a.companyId, poslovna_godina_id: a.yearId, status: "CONFIRMED" },

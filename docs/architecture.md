@@ -712,3 +712,28 @@ korisnik ne izabere Preuzmi iz podešenih konta i novo čuvanje. UI prikazuje
 verziju šeme, prihode, trošak, limit i višak. Migracija 20261108140000 dodaje
 samo agencijske kolone; company purge čuva šemu bez firmi/FK. Testovi uključuju
 pragove/cente/prefikse/status/scope/prava/audit rollback/reviziju/SSR i purge.
+
+Dopuna 2026-11-13: JSON šema ima jedan zajednički ključ `x16_37` za konta
+obaveza klase 4; odvojeni `x16`/`x37` ključevi podešavanja se odbijaju.
+Legacy čitanje dopunjava prazan zajednički red, upis traži novu kompletnu šemu.
+Nema nove kolone/migracije niti promjene company purge toka.
+
+`calculateTaxLiabilities` iz POSTED glavne knjige sabira početni P−D saldo,
+tekuće obaveze i stvarne isplate odvojeno po kontu. Isplate prvo pokrivaju
+početni dug: `x37 = min(početni dug, isplate)`, a
+`x16 = max(tekuće obaveze − max(isplate − početni dug, 0), 0)` po kontu.
+Početni dug na izabranim kontima predstavlja ranije poreski nepriznate iznose,
+što je navedeno uz podešavanje. Ne prati se šema rashoda niti se stari dug
+ponovo dodaje u 16. Obračun koristi cente i ne prelama salda između konta.
+
+Reader obuhvata samo aktivne POSTED naloge iste firme/agencije/godine i
+datume unutar njenog perioda, uključuje OPENING_BALANCE, izostavlja FINAL_ACCOUNT.
+Za isplate prepoznaje BANK_STATEMENT/CASH_REGISTER uz pokriće protivstavkama
+grupe 24, kao i ručne naloge čije su sve ostale protivstavke grupa 24.
+Povraćaji/crvena storna umanjuju isplate; negativni potražni obračuni koriguju
+tekuće obaveze. Dugovna knjiženja bez jasne isplate, preknjiženja obaveza,
+avansi i negativni/neusaglašeni saldi ostavljaju 16/37 bez automatskog predloga
+i prikazuju nalog/konto za provjeru. Ostale pozicije nastavljaju preuzimanje.
+Nova prijava dobija dostupne 16/37, postojeća ih preuzima samo eksplicitno;
+pregled prikazuje početni/tekući dug, isplate i oba preostala dijela po kontima.
+Sačuvani snapshot, XML, prava, zaključavanje i audit ostaju postojeći tok.

@@ -1,5 +1,22 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-13 — Zajednička konta i obračun PD pozicija 16/37
+
+- Dodato jedno podešavanje konta obaveza za obje pozicije, bez konta rashoda.
+  Legacy šeme ostaju čitljive; različite šeme za 16 i 37 backend ne prihvata.
+- Isplate po kontu prvo zatvaraju ranije nepriznati početni dug (37), pa
+  tekuće obaveze; njihov neisplaćeni dio ide u 16. Preostali stari dug se
+  ne uključuje ponovo. Samo POSTED, scope i period; bez zaključnih naloga.
+- Banka/blagajna i jasne ručne isplate uz grupu 24; povraćaji/crvena storna
+  se računaju neto. Nejasne korekcije/preknjiženja i avansi daju provjeru
+  umjesto automatskih 16/37. Pregled prikazuje razradu i zbirove po kontima.
+- Unit i stvarni PostgreSQL rollback provjerili djelimično/puno zatvaranje,
+  odvajanje konta, legacy šemu, scope/statuse/period, korekcije, SSR, čuvanje,
+  sačuvane prijave, XML i purge. Korisnička konta i prijave nijesu mijenjani.
+  Nema migracije. Browser sesija istekla; interaktivni pregled ostaje.
+  TSC, ciljani ESLint i npm test prošli. Dokumentacija i CSV planer dopunjeni;
+  Excel regenerisan iz CSV izvora.
+
 ## 2026-11-01 — Uvoz 27 globalnih radnih mjesta
 
 - Po izričitom zahtjevu vlasnika preuzet autorizovani read-only snimak svih
