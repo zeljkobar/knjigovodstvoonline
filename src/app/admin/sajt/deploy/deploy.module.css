@@ -7,3 +7,7 @@
 .error { color: var(--danger-text, #a52222); }
 .steps { padding-left: 24px; line-height: 1.7; }
 @media (max-width: 700px) { .details { grid-template-columns: 1fr; } }
+
+.selection label { display: block; font-weight: 700; margin-bottom: 10px; }
+.selection select { display: block; width: min(100%, 520px); padding: 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--text); background: var(--surface); font: inherit; }
+.selection p { margin-bottom: 0; }

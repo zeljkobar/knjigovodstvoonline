@@ -2,11 +2,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { sourceLoader } = require('./helpers/source-loader.cjs');
-const { parseDeployStatus, deploySite } = sourceLoader()('src/lib/deploy-status.ts');
+const { parseDeployStatus, parseDeployCatalog, deploySites, deploySite } = sourceLoader()('src/lib/deploy-status.ts');
 const requestId = '11111111-1111-4111-8111-111111111111';
 const actorId = '22222222-2222-4222-8222-222222222222';
 function fixture() {
-  return { version: 1, site: deploySite, ready: true, checkedAt: '2026-11-13T04:00:00Z', running: false,
+  return { version: 1, site: deploySite, blockReason: null, ready: true, checkedAt: '2026-11-13T04:00:00Z', running: false,
     outcome: 'succeeded', requestId, phase: 'done', startedAt: null, finishedAt: null,
     currentCommit: 'a'.repeat(40), lastSuccess: { at: '2026-11-13T03:00:00Z', commit: 'a'.repeat(40) }, error: null };
 }
@@ -28,9 +28,9 @@ function actions({ denied = false, auditFails = false, transportFails = false, r
   });
   return { api: load('src/app/admin/sajt/deploy/actions.ts'), calls };
 }
-function form() {
+function form(site = deploySite) {
   const data = new FormData(); data.set('request_id', requestId); data.set('actorId', 'attacker');
-  data.set('site', 'royal'); data.set('command', 'arbitrary command'); return data;
+  data.set('site', site); data.set('command', 'arbitrary command'); return data;
 }
 test('both actions require admin before reading state or recording a request', async () => {
   const { api, calls } = actions({ denied: true });
@@ -38,7 +38,7 @@ test('both actions require admin before reading state or recording a request', a
   await assert.rejects(api.startDeploy({}, form()), /redirect/);
   assert.deepEqual(calls, [['auth', 'admin'], ['auth', 'admin']]);
 });
-test('audit failure prevents execution and browser cannot choose actor, command or site', async () => {
+test('audit failure prevents execution and browser cannot choose actor or command', async () => {
   const blocked = actions({ auditFails: true });
   assert.equal((await blocked.api.startDeploy({}, form())).error, true);
   assert.ok(!blocked.calls.some(([kind]) => kind === 'start'));
@@ -69,4 +69,31 @@ test('local development cannot execute processes or connect to production', asyn
   await assert.rejects(bridge.readDeployControl(), /DEPLOY_SERVER_ONLY/);
   await assert.rejects(bridge.startDeployControl({ site: deploySite, requestId, actorId }), /DEPLOY_SERVER_ONLY/);
   assert.equal(called, false);
+});
+
+test('all seven allowed sites route exactly the selected ID and audit that site', async () => {
+  for (const { id } of deploySites) {
+    const { api, calls } = actions();
+    const result = await api.startDeploy({}, form(id));
+    assert.equal(result.site, id);
+    assert.equal(result.status, 'accepted');
+    assert.deepEqual(calls.find(([kind]) => kind === 'start')[1], { site: id, requestId, actorId });
+    assert.equal(calls.find(([kind]) => kind === 'audit')[1].novaVrijednost.site, id);
+  }
+  for (const site of ['unknown', '../royalservices', '__proto__', 'royal;id']) {
+    const { api, calls } = actions();
+    assert.equal((await api.startDeploy({}, form(site))).error, true);
+    assert.ok(!calls.some(([kind]) => kind === 'start' || kind === 'audit'));
+  }
+});
+test('catalog requires every site exactly once and never mixes active state', () => {
+  const value = { version: 2, checkedAt: '2026-11-13T04:00:00Z', running: false, activeSite: null,
+    sites: deploySites.map(({ id }) => ({ ...fixture(), site: id })) };
+  assert.equal(parseDeployCatalog(value).sites.length, 7);
+  const invalid = structuredClone(value); invalid.sites[0] = invalid.sites[1];
+  assert.throws(() => parseDeployCatalog(invalid));
+  value.running = true; value.activeSite = 'rahmetli'; value.sites[1].running = true;
+  assert.equal(parseDeployCatalog(value).activeSite, 'rahmetli');
+  value.sites[0].running = true;
+  assert.throws(() => parseDeployCatalog(value));
 });

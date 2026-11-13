@@ -1,5 +1,28 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-13 — Izbor svih sedam sajtova za deploy
+
+- Dopunjen raniji preuski obuhvat: selector za knjigovodstvo, rahmetli,
+  dokumenta, royalservices, spedicija, fiscal-api i turizam. Naziv dugmeta,
+  opis i istorija se mijenjaju zajedno sa izborom; zahtjev auditira tačan sajt.
+- Fiksni serverski katalog v2, odvojeni state fajlovi i zajednički lock/busy
+  guard. Legacy status ostaje kompatibilan sa produkcijskim ekranom 28178c0.
+- Provjerene sve stvarne skripte i HTTP dostupnost. Royal snapshot bez
+  nepotrebnog sudo/chown/chmod; Špedicija samo fiksni nginx test/reload kroz
+  helper. Hash pin blokira promijenjenu skriptu dok se ne pregleda. Originalni
+  projekti nijesu mijenjani. PrivateTmp isključen da Fiscal CLI/UI dijele lock.
+- Helper/service/sudoers instalirani uz SHA256/visudo/systemd provjere i
+  prethodnu kopiju u root-only install-v1. Svi sajtovi spremni osim Špedicije:
+  dva postojeća package-lock fajla izmijenjena; ostavljena netaknuta.
+- Prošlo 8 JS deploy + 7 backup, 17 Python/shell testova, TSC/ESLint;
+  browser potvrđuje sedam opcija i promjenu cilja. Produkcijski deploy i
+  migracije nijesu pokrenuti, nema nove migracije niti commit/push-a.
+- Otkriven i ispravljen raniji start_failed: reset-failed nad nikad aktivnim
+  oneshot servisom vraća Unit not loaded. Reset se sada radi samo za failed
+  servis; stvarna start funkcija uspješno je provjerena izolovanom true
+  jedinicom bez deploya. Probna jedinica i podaci uklonjeni poslije provjere.
+- Dokumentacija i CSV/Excel planer usklađeni. Web izbor čeka objavu.
+
 ## 2026-11-13 — Deploy sa migracijama iz Admin sajta
 
 - Povezan deploy knjigovodstva: admin audit → root helper → nezavisni

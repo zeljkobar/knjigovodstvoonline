@@ -1,5 +1,5 @@
 [Unit]
-Description=Administrator requested knjigovodstvoonline deployment with migrations
+Description=Administrator requested deployment of an approved site
 Wants=network-online.target
 After=network-online.target postgresql.service
 
@@ -12,6 +12,6 @@ WorkingDirectory=/var/www/knjigovodstvoonline
 TimeoutStartSec=3h
 Restart=no
 KillMode=control-group
-PrivateTmp=true
+PrivateTmp=false
 NoNewPrivileges=true
 ProtectSystem=full
