@@ -1,3 +1,4 @@
+import { linkKufDocument, lockDocumentKufTarget } from "@/lib/dokumentacija";
 import { effectiveInvoiceType } from "@/lib/posting-template";
 import "server-only";
 import type { InvoiceExecution } from "./invoice-execution";
@@ -342,13 +343,16 @@ async function saveKufInvoice(
   poslovnaGodina: number,
   kufBookId: string,
   invoice: MaprInvoice,
-  accountCodeOverride?: string
+  accountCodeOverride?: string,
+  documentId?: string
 ): Promise<ImportResult> {
   const fiscalDateTime = parseFiscalDate(invoice.identifiers.dateTimeCreated);
   const invoiceDate = dateOnly(fiscalDateTime);
   const sellerTin = normalizePib(invoice.seller.tin || invoice.identifiers.tin);
 
   return prisma.$transaction(async (tx) => {
+    const scope = { agencija_id: agencijaId, firma_id: firmaId, poslovna_godina_id: poslovnaGodinaId };
+    if (documentId) await lockDocumentKufTarget(tx, scope, kufBookId, [invoiceDate]);
     const duplicate = await tx.kufEntry.findFirst({
       where: {
         firma_id: firmaId,
@@ -358,6 +362,7 @@ async function saveKufInvoice(
         is_deleted: false
       },
       select: {
+        id: true,
         internal_kuf_number: true
       }
     });
@@ -369,6 +374,7 @@ async function saveKufInvoice(
       return {
         link: invoice.identifiers.qrUrl,
         status: "duplicate",
+        entryId: duplicate.id,
         message: `Račun je već unesen kao ${duplicate.internal_kuf_number}.`,
         invoiceNumber: invoice.invoiceNumber,
         partner: invoice.seller.name,
@@ -603,9 +609,12 @@ async function saveKufInvoice(
         }
       },
       select: {
+        id: true,
         internal_kuf_number: true
       }
     });
+
+    if (documentId) await linkKufDocument(tx, scope, documentId, entry.id, userId);
 
     await removeImportedMaprData(tx, userId, agencijaId, firmaId, [
       fiscalIdentityKey({ iic: invoice.identifiers.iic, tin: sellerTin, dateTimeCreated: fiscalDateTime })
@@ -614,6 +623,7 @@ async function saveKufInvoice(
     return {
       link: invoice.identifiers.qrUrl,
       status: "success",
+      entryId: entry.id,
       message: `Uvezeno kao ${entry.internal_kuf_number}.`,
       invoiceNumber: invoice.invoiceNumber,
       partner: partner.naziv,
@@ -1023,7 +1033,7 @@ export type InvoiceImportInput = {
     metadata?: ImportMetadata[];
     supplierAccountCodes?: Record<string, string>;
 };
-export async function importInvoiceLinks(body: InvoiceImportInput, execution: InvoiceExecution, beforeWrite?: () => Promise<void>) {
+export async function importInvoiceLinks(body: InvoiceImportInput, execution: InvoiceExecution, beforeWrite?: () => Promise<void>, documentId?: string) {
   const user = await invoiceExecutionUser(execution);
 
   if (!user || !["admin_agencije", "korisnik_agencije"].includes(user.rola)) {
@@ -1198,6 +1208,7 @@ export async function importInvoiceLinks(body: InvoiceImportInput, execution: In
           }))
         },
         select: {
+          id: true,
           internal_kuf_number: true,
           supplier_invoice_number: true,
           fiscal_iic: true,
@@ -1246,6 +1257,7 @@ export async function importInvoiceLinks(body: InvoiceImportInput, execution: In
         resultByLink.set(link, {
           link,
           status: "duplicate",
+          entryId: existing.id,
           message: `Račun je već unesen kao ${existing.internal_kuf_number}. MAPR provjera je preskočena.`,
           invoiceNumber: existing.supplier_invoice_number,
           partner: existing.dobavljac.naziv,
@@ -1410,7 +1422,8 @@ export async function importInvoiceLinks(body: InvoiceImportInput, execution: In
           item.invoice,
           supplierAccountCodes.get(
             normalizePib(item.invoice.seller.tin || item.invoice.identifiers.tin)
-          )
+          ),
+          documentId
         )
       );
       continue;

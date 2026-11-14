@@ -1,5 +1,35 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-14 — KUF uvoz tokom navigacije
+
+- Red uvoza, rezultati i konta za dopunu ostaju u radnom prostoru agencije. Prelazak između firmi osvježava kontekst unutar aplikacije. Zahtjevi za uvoz provjeravaju izvornu firmu i godinu.
+
+## 2026-11-14 — Zbirno premještanje proknjiženih računa
+
+- Dodata zbirna akcija u Dokumentaciji uz provjeru konteksta i prikaz rezultata. Jedan stvarni račun 3L COMPANY uspješno je premješten pri dijagnozi. Regresija provjerava izbor isključivo proknjiženih dokumenata za aktivnu firmu i godinu.
+
+## 2026-11-14 — Zbirni KUF uvoz iz Dokumentacije
+
+- Dodato dugme Uvezi sve račune uz zajedničku knjigu, uz pojedinačne izbore, napredak i postojeći unos konta kod računa koji ga traže.
+
+## 2026-11-14 — Klijentska dokumentacija i arhiva KUF-a na OneDrive-u
+
+- Dodat prijem klijentskih fajlova i skenova iz OneDrive-a, mobilni PDF i QR, zahtjev za dopunu, postojeći MAPR i ručni KUF unos, otvaranje originala iz KUF-a i naloga.
+- Dodata migracija za šifrovanu OneDrive vezu, folder firme i evidenciju dokumenata. Pozadinska provjera premješta original prema stvarno proknjiženoj KUF knjizi i vraća ga pri poništavanju. Purge uklanja zapise testne firme iz baze, a udaljeni originali ostaju u OneDrive-u.
+- Izolovani PostgreSQL, simulirani OneDrive, KUF brisanje i MAPR regresija prolaze. Stvarno povezivanje, slanje i kamera ostaju za probu na testnoj firmi.
+
+## 2026-11-14 — Zadržavanje zajedničke baze i plan selektivne obnove
+
+- Vlasnik je odlučio da sve agencije ostanu u jednoj bazi; posebne baze po
+  agencijama se ne uvode.
+- Dodat obavezni budući zadatak F-OPS-AGENCY-RESTORE za obnovu samo jedne
+  agencije: privremena baza, potpun obuhvat veza, potvrda perioda, sigurnosna
+  kopija prije obnove, blokada upisa te agencije, zaštita drugih/globalnih
+  podataka, audit i izolovani testovi uspjeha/neuspjeha.
+- Ažurirani CURRENT_STATE, NEXT_STEPS, arhitektura i CSV planer (funkcionalnost
+  i odluka O-032); Excel regenerisan. Status je planirano za kasnije, bez
+  implementacije, promjene baze ili pristupa serveru.
+
 ## 2026-11-13 — Glavni sajt i zaštita serverskog ZIP-a
 
 - Pronađena korisnikova skripta /home/deploy/deploy.sh: /var/www/app, main,

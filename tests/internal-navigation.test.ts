@@ -61,7 +61,8 @@ test("KIF/KUF je vidljiv sa pregledom bilo koje od dvije knjige", () => {
 test("admin agencije zadržava kompletan meni bez eksplicitne matrice", () => {
   const navigation = getAgencyNavigation("admin_agencije");
 
-  assert.equal(navigation.length, 15);
+  assert.equal(navigation.length, 16);
+  assert.equal(navigation.some((item) => item.section === "dokumentacija"), true);
   assert.equal(navigation.some((item) => item.section === "osnovna-sredstva"), true);
   assert.equal(navigation.some((item) => item.section === "zavrsni-racun"), true);
   assert.equal(navigation.some((item) => item.section === "korisnici"), true);

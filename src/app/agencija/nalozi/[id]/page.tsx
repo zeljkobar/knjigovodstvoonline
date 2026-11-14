@@ -1,3 +1,4 @@
+import { DokumentaOriginal } from "@/components/DokumentaOriginal";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
@@ -177,6 +178,9 @@ export default async function NalogDetailPage({
           potrazuje: true,
           opis: true,
           broj_dokumenta: true,
+          kuf_entry: { select: { id: true, is_deleted: true, primljeniDokumenti: {
+            select: { id: true, item_id: true, qr_link: true, naziv: true }
+          } } },
           datum_dokumenta: true,
           datum_valute: true,
           firma_konto: {
@@ -414,7 +418,10 @@ export default async function NalogDetailPage({
                     <small>{stavka.komitent?.pib ?? ""}</small>
                   </td>
                   <td>{stavka.opis ?? "-"}</td>
-                  <td>{stavka.broj_dokumenta ?? "-"}</td>
+                  <td>{stavka.broj_dokumenta ?? "-"}
+                    {stavka.kuf_entry && !stavka.kuf_entry.is_deleted && <DokumentaOriginal
+                      entryId={stavka.kuf_entry.id} documents={stavka.kuf_entry.primljeniDokumenti} />}
+                  </td>
                   <td>{formatDate(stavka.datum_dokumenta)}</td>
                   <td>{formatDate(stavka.datum_valute)}</td>
                   <td>{money(Number(stavka.duguje))}</td>

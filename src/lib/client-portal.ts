@@ -7,6 +7,7 @@ import { readWorkContext } from "./work-context";
 import { hasAllPermissions } from "./permissions";
 
 export const clientSections = [
+  { href: "/klijent/dokumentacija", label: "Dokumentacija", modules: ["dokumentacija"] },
   { href: "/klijent/izvjestaji/kupci", label: "Kupci", modules: ["izvjestaji", "nalozi"] },
   { href: "/klijent/izvjestaji/ino-kupci", label: "Ino kupci", modules: ["izvjestaji", "nalozi"] },
   { href: "/klijent/izvjestaji/dobavljaci", label: "Dobavljači", modules: ["izvjestaji", "nalozi"] },

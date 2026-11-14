@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { requireAgencyWorkspaceUser } from "@/lib/auth";
 import { internalRedirect } from "@/lib/internal-redirect";
 import { prisma } from "@/lib/prisma";
@@ -19,7 +20,9 @@ export async function GET(request: Request) {
   const user = await requireAgencyWorkspaceUser();
   const url = new URL(request.url);
   const returnTo = safeReturnTo(url.searchParams.get("returnTo"));
-  const response = internalRedirect(returnTo);
+  const response = request.headers.get("X-Workspace-Refresh") === "1"
+    ? new NextResponse(null, { status: 204 })
+    : internalRedirect(returnTo);
 
   if (!user?.agencija_id) {
     return response;

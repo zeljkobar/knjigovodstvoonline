@@ -34,6 +34,7 @@ enum KomitentScope {
 }
 
 model Agencija {
+  dokumentaOneDrive DokumentaOneDrive?
   porez_dobit_konta Json?
   porez_dobit_konta_verzija Int @default(0)
   zatvaranjaStavki ZatvaranjeStavki[]
@@ -211,6 +212,8 @@ model AgencijaBankovniRacun {
 }
 
 model Firma {
+  dokumentaFolder DokumentaFolder?
+  primljeniDokumenti PrimljeniDokument[]
   zatvaranjaStavki ZatvaranjeStavki[]
   prenosiStavki PrenosOtvorenihStavki[]
   fiskalniPortal FirmaFiskalniPortal?
@@ -600,6 +603,7 @@ model AktivnostDogadjaj {
 }
 
 model PoslovnaGodina {
+  primljeniDokumenti PrimljeniDokument[]
   porez_dobit_podaci Json?
   porez_dobit_verzija Int @default(0)
   zatvaranjaStavki ZatvaranjeStavki[]
@@ -1779,6 +1783,7 @@ model StavkaNivelacijeCijena {
 }
 
 model KufEntry {
+  primljeniDokumenti PrimljeniDokument[]
   izvorniPovrati PovratDobavljacu[] @relation("ReturnOriginalKuf")
   kreiraniPovrat PovratDobavljacu? @relation("ReturnCreatedKuf")
   id                         String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -4162,4 +4167,60 @@ model PrenosOtvorenihStavki {
   @@index([agencija_id, firma_id, poslovna_godina_id])
   @@index([izvorna_stavka_id])
   @@map("prenosi_otvorenih_stavki")
+}
+
+model DokumentaOneDrive {
+  agencija_id String @id @db.Uuid
+  agencija Agencija @relation(fields: [agencija_id], references: [id], onDelete: Cascade)
+  drive_id String
+  refresh_token String
+  updated_at DateTime @updatedAt
+
+  @@map("dokumenta_onedrive")
+}
+
+model DokumentaFolder {
+  firma_id String @id @db.Uuid
+  firma Firma @relation(fields: [firma_id], references: [id], onDelete: Cascade)
+  agencija_id String @db.Uuid
+  drive_id String
+  folder_id String
+
+  @@unique([drive_id, folder_id])
+  @@map("dokumenta_folderi")
+}
+
+model PrimljeniDokument {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  firma_id String @db.Uuid
+  firma Firma @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id String @db.Uuid
+  poslovna_godina PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  poslao_id String? @db.Uuid
+  kuf_entry_id String? @db.Uuid
+  kuf_entry KufEntry? @relation(fields: [kuf_entry_id], references: [id], onDelete: SetNull)
+  dopuna_za_id String? @db.Uuid
+  drive_id String
+  item_id String?
+  parent_id String?
+  naziv String
+  naziv_u_oblaku String?
+  velicina Int?
+  kategorija String
+  napomena String?
+  qr_link String?
+  qr_status String?
+  izvor String
+  status String
+  zahtjev_dopune String?
+  greska_arhive String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([drive_id, item_id])
+  @@unique([drive_id, naziv_u_oblaku])
+  @@index([agencija_id, firma_id, poslovna_godina_id, status])
+  @@index([kuf_entry_id])
+  @@map("primljeni_dokumenti")
 }

@@ -3,6 +3,25 @@
 > Lista otvorenih zadataka. Kad se nešto završi, prebaci u
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 
+## Klijentska dokumentacija — aktivacija i proba
+
+- Podesiti zasebnu Microsoft OAuth aplikaciju i vrijednosti iz `.env.example`, primijeniti migraciju na ciljnoj bazi i restartovati aplikaciju. Povezati OneDrive agencije i jednu testnu firmu. Dodijeliti klijentu pravo Dokumentacija.
+- Provjeriti slanje sa računara i fizičkog telefona, posebno snimanje QR-a, direktno dodavanje skena na OneDrive, otvaranje originala iz KUF-a i naloga te arhiviranje u sve tri KUF destinacije. KIF i izvodi imaju prijem, a automatsko arhiviranje kroz njihovu obradu ostaje naredna faza.
+
+## Specifikacija — klijentska dokumentacija, KUF i OneDrive
+
+Osnovni KUF tok je implementiran lokalno. Provjere na stvarnom OneDrive-u su iznad.
+
+1. **Povezivanje OneDrive-a.** Agencija povezuje svoj OneDrive, a za svaku firmu bira postojeći folder. Čuvati identifikatore diska i foldera. Backend provjerava agenciju, firmu, dodjelu i pravo slanja prije nego što otvori kratkotrajnu sesiju za jedan fajl u `firma/godina/primljeno`. Preglednik šalje bajtove na OneDrive. Prvo potvrditi direktan upload na stvarnom tipu OneDrive naloga sa desktopa i telefona. Ako direktan transfer ne radi, provjeriti prosljeđivanje toka podataka kroz server bez upisa na disk.
+2. **Evidencija prijema.** U PostgreSQL-u čuvati agenciju, firmu, poslovnu godinu, pošiljaoca, kategoriju, napomenu, naziv, OneDrive ID fajla, QR/MAPR link, status i vezu s obradom. Prikazati prijem tek poslije serverske potvrde fajla na očekivanoj lokaciji. Ponovljena potvrda ne smije napraviti drugi zapis, a isti naziv ne smije prepisati drugi dokument. Pregled i preuzimanje prolaze provjeru prava. Auditirati prijem, dopunu, povezivanje i premještanje. Uskladiti migraciju, Prisma šemu i company-purge. Trajno brisanje firme uklanja pripadajuće zapise iz baze, uz zasebnu eksplicitnu odluku o originalima na OneDrive-u.
+3. **Klijentski portal.** Dodati Dokumentaciju uz postojeću prijavu i dodijeljenu firmu. Na računaru prikazati Odaberi fajlove, na telefonu i Slikaj dokument. Preuzeti višestranično fotografisanje, pregled, rotaciju i kadriranje iz starog portala. Više strana istog računa čini jedan PDF, a više zasebnih fajlova šalje se sa potvrdom po fajlu. Klijent potvrđuje godinu i kategoriju te po želji upisuje napomenu. Izvorne bankovne fajlove sačuvati u izvornom formatu. U Poslato prikazati prijem, zahtjev za dopunu sa komentarom i obradu.
+4. **Posebno snimanje QR-a.** Za fotografisani fiskalni račun otvoriti korak Slikaj QR kod i prikazati potvrdu čitanja. Ponuditi lijepljenje fiskalnog linka i evidentirati „QR nedostaje” ili „QR nečitljiv” kada klijent ne može dostaviti čitljiv kod. Primiti dokument u svakom slučaju. Provjeravati da je link podržani MAPR link prije upotrebe. „Pošalji samo QR” je zapis bez originalnog fajla, vidljiv u aplikaciji i bez fizičkog fajla u OneDrive folderu. Za obavezni korak dovoljno je sačuvati rezultat čitanja uz račun. Posebnu QR fotografiju čuvati kao prilog samo ako se potvrdi da je potrebna.
+5. **Obrada kod agencije.** U Primljenoj dokumentaciji prikazati original, QR status, kategoriju i mogućnost dopune. Za Uvezi u KUF prvo koristiti potvrđeni MAPR link, a zatim postojeći `decodeInvoiceQrFile` nad fajlom ako nema linka. Kod nečitljivog QR-a ili neuspjelog MAPR uvoza omogućiti ručni unos iz istog dokumenta. Oba toka povezuju izvor sa konkretnim KUF računom uz postojeću provjeru duplikata, prava i otvorenih perioda. Ako je račun već u KUF-u, ponuditi potvrdu veze sa postojećim računom. Uvoz i povezivanje ostavljaju original u Primljeno do uspješnog knjiženja.
+6. **Arhiviranje nakon knjiženja.** U transakciji koja proknjiži povezani KUF račun evidentirati zahtjev za premještanje, uključujući naknadnu dopunu već proknjiženog naloga. Poslije potvrde transakcije pozadinski posao premješta isti OneDrive fajl. Godina i mjesec dolaze iz stvarne KUF knjige, a podfolder iz njene vrste. Virmani idu u `firma/godina/ulazni/MM`, Kartica u `firma/godina/ulazni/MM/kartica`, Gotovina u `firma/godina/ulazni/MM/gotovina`. Mapirati po identifikatoru vrste KUF-a i potvrditi mapiranje dodatnih vrsta prije premještanja. Po grešci prikazati „Proknjiženo · čeka premještanje” i ponoviti samo premještanje. Posao mora prepoznati da je fajl već na cilju ako je pao poslije uspješnog OneDrive poziva. Predloženo ponašanje pri vraćanju u nacrt ili brisanju povezanog računa je povratak fajla u Primljeno uz audit. Provjeriti oba toka i otkazati zastarjeli zahtjev prije premještanja.
+7. **Otvaranje originala iz KUF-a i naloga.** Na KUF računu prikazati Otvori original. Na konkretnoj stavci naloga prikazati istu akciju kroz postojeću vezu `kuf_entry_id` i provjeriti pristup firmi i izvornom dokumentu. Pristupiti fajlu preko identifikatora OneDrive diska i fajla prije i poslije premještanja unutar istog diska. Za zapis samo sa QR-om prikazati Otvori fiskalni link.
+8. **Skenovi dodati direktno na OneDrive.** Periodično pregledati samo povezane foldere `firma/godina/primljeno` i dodati ručno ubačene podržane fajlove u Primljenu dokumentaciju. Dodati i dugme Osvježi iz OneDrive-a za provjeru na zahtjev. Upis i osvježavanje koristiti zajedničku jedinstvenu vezu diska i fajla u okviru povezane agencije, tako da portalski upload, sinhronizacija i ponovni pregled istog fajla ne stvaraju duplikate. Evidentirati izvor OneDrive i vrijeme otkrivanja, uz kategoriju koju knjigovođa može odabrati pri obradi. Original ostaje na OneDrive-u. Koristiti isti QR uvoz, ručni unos i arhiviranje tek poslije knjiženja.
+9. **Prihvat.** Na jednoj testnoj firmi provjeriti desktop i telefon, višestranični PDF, zaseban QR, ručni unos bez QR-a, dopunu, odbijen pristup drugoj firmi, neuspjeli upload, duplikat, zaključan period, sve tri KUF destinacije, naknadno knjiženje i oporavak poslije OneDrive greške. Provjeriti sken ručno ubačen u Primljeno, višestruko osvježavanje bez duplikata i otvaranje istog originala iz KUF-a i stavke naloga poslije premještanja. Potvrditi da fajlovi ne zauzimaju disk servera i da se uvijek mogu otvoriti iz aplikacije. Pokrenuti TypeScript provjeru, relevantne KUF testove, company-purge provjeru i probu trajnog brisanja testne firme. Prva potpuna obrada je KUF. Klijentski prijem može obuhvatiti izlazne račune, izvode i ostalo, a njihovo automatsko arhiviranje treba vezati za odgovarajuće tokove obrade naknadno.
+
 ## Prioritet 0 — neposredni nastavak
 - Objaviti dopunu **Admin sajta → Deploy sajta** sa osmim ciljem:
   Summasummarum.me — glavni sajt. Serverski helper/backup/sudo već instalirani,
@@ -448,6 +467,28 @@
   QR, PDV razradu, stabilne idempotency/correlation podatke i vezu sa KIF tokom.
   Sljedeće su kontrolisani produkcijski QA, reprint audit agencijskog POS-a,
   produkcijski početni depozit i djelimični povrat kada ga Fiscal API podrži.
+
+## Planirano za kasnije — obnova podataka jedne agencije
+
+- **F-OPS-AGENCY-RESTORE — obavezni budući zadatak, nije implementiran.**
+  Odluka vlasnika od 14.11.2026: sve agencije ostaju u jednoj zajedničkoj
+  bazi; napraviti selektivno vraćanje jedne agencije iz izabranog backup-a.
+- Kopiju prvo obnoviti u izolovanu privremenu bazu. Utvrditi kompletan obuhvat
+  agencije: firme, poslovne godine, dokumenti, knjiženja, podešavanja i svi
+  povezani zapisi, uključujući tabele bez direktnog agencija_id. Provjeriti
+  kompatibilnost verzije šeme, priloge i ključeve potrebne za obnovu.
+- Prikazati pregled obuhvata i datum kopije; administrator izričito potvrđuje
+  agenciju i poništavanje njenih kasnijih izmjena. Prije upisa napraviti
+  sigurnosnu kopiju trenutnog stanja i privremeno blokirati upise/automatske
+  poslove samo za tu agenciju.
+- Sačuvati podatke drugih agencija i zajedničke globalne partnere, kontni
+  plan i ostale šifarnike; provjeriti veze i moguće prenose firmi između
+  agencija. Predvidjeti kontrolisan povratak na stanje prije obnove pri grešci,
+  provjeru admin prava, trajan audit i provjere računovodstvenih invarijanti.
+- Kriterijum završetka: izolovani test obnove sa najmanje dvije agencije
+  dokazuje da je samo izabrana vraćena na potvrđeno stanje, a podaci druge
+  agencije i zajednički zapisi ostaju nepromijenjeni. Provjeriti i prekid/
+  neuspjeh obnove, zaštitu od paralelnih upisa i oporavak prethodnog stanja.
 
 ## Nije implementirano
 - Dokumenta za obradu: postoji samo placeholder stranica. Prijem slika/PDF-ova,

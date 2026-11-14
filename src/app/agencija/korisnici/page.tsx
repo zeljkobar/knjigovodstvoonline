@@ -37,6 +37,7 @@ const poruke: Record<string, string> = {
 };
 
 const moduli = [
+  "dokumentacija",
   "putni_nalozi",
   "pos",
   "nalozi",
@@ -400,7 +401,7 @@ export default async function AgencijskiKorisniciPage({
           <div className="panel-header">
             <div>
               <h3>Prava za {selectedAssignment.firma.naziv}</h3>
-              <p className="muted-text">{selectedUser.rola === "klijent" ? "Prava klijenta — izaberite preglede koje može da vidi. Unos i izmjene nijesu omogućeni." : "Prava radnika — podesite dozvoljene radnje po modulima."}</p>
+              <p className="muted-text">{selectedUser.rola === "klijent" ? "Izaberite preglede i pristup slanju dokumentacije." : "Prava radnika — podesite dozvoljene radnje po modulima."}</p>
               <span>{selectedUser.korisnicko_ime}</span>
             </div>
             <span>{selectedUser.rola === "klijent" ? "Klijentski portal" : "Radnik agencije"}</span>

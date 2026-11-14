@@ -1,3 +1,4 @@
+import { DokumentaOriginal } from "@/components/DokumentaOriginal";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import { loadInvoiceJournalStatuses, invoiceBookPostingLabel, invoiceEntryPostingLabel } from "@/lib/invoice-posting-status";
 import Link from "next/link";
@@ -157,6 +158,7 @@ export default async function PregledKufDetailPage({ params, searchParams }: Pre
           id: true,
           dobavljac_id: true,
           internal_kuf_number: true,
+          primljeniDokumenti: { select: { id: true, item_id: true, qr_link: true, naziv: true } },
           supplier_invoice_number: true,
           invoice_date: true,
           receipt_date: true,
@@ -334,6 +336,7 @@ export default async function PregledKufDetailPage({ params, searchParams }: Pre
                   <tr key={entry.id}>
                     <td>
                       <strong>{entry.internal_kuf_number}</strong>
+                      <DokumentaOriginal entryId={entry.id} documents={entry.primljeniDokumenti} />
                       {entry.note ? <small>{entry.note}</small> : null}
                     </td>
                     <td>

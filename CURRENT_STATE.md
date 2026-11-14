@@ -1,12 +1,35 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-11-13. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-11-14. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## Klijentska dokumentacija, KUF i OneDrive — 2026-11-14
+
+- Konto izabran za dobavljača primjenjuje se na njegove račune koji čekaju unos konta, po PIB-u. Zbirni uvoz dobavljača provjeren je u Chrome-u na pet probnih računa.
+- Zbirni KUF uvoz nastavlja tokom navigacije i promjene firme u istoj kartici agencije. Posao i rezultati su odvojeni po korisniku, firmi i godini, a svaki zahtjev provjerava prava u izvornom kontekstu. Osvježavanje cijele kartice prekida preostali rad.
+- Dokumentacija ima akciju Premjesti proknjižene račune za aktivnu firmu i godinu. Koristi iste provjere i postupak kao pozadinska arhiva. Periodični posao se registruje pri pokretanju Node procesa i provjerava OAuth konfiguraciju pri svakom prolazu.
+- Uvezi sve račune obrađuje primljene ulazne račune i nerazvrstane skenove redom, uz zajedničku ili pojedinačnu KUF knjigu. Prikazuje napredak, a greške, duplikati i nedostajuća konta ostaju uz odgovarajući račun. Knjiženje se pokreće zasebno.
+- U Primljeno se može izabrati zajednička KUF knjiga za sesiju kartice, po korisniku, firmi i godini. Pojedinačni račun može koristiti drugu knjigu.
+- Implementirani su klijentsko slanje, mobilno fotografisanje više strana u PDF, rotacija i ručni izrez, odvojeno snimanje QR-a, lijepljenje MAPR linka, pregled pošiljki i dopune. Dokumentacija je posebno pravo za dodijeljenu firmu.
+- Agencija povezuje OneDrive i postojeći folder firme. Upload ide direktno iz preglednika u `firma/godina/primljeno`, PostgreSQL bilježi potvrđeni OneDrive ID i audit. Agencijski pregled periodično otkriva skenove dodate direktno na OneDrive i ima ručno osvježavanje.
+- Postojeći MAPR uvoz i ručni KUF unos povezuju original s računom u istoj transakciji. KUF račun i njegova stavka naloga otvaraju isti original preko identifikatora fajla. Pozadinska provjera koristi potvrđeni status KUF računa i naloga za premještanje u `ulazni/MM[/kartica|gotovina]`, ponavljanje i povrat u Primljeno.
+- Migracija primijenjena na izolovani PostgreSQL. DB regresije koriste testne fajlove i simulirani OneDrive. Lokalno su potvrđeni Microsoft prijava i OneDrive arhiviranje za 3L COMPANY. Kamera na fizičkom telefonu i produkcijska konfiguracija još čekaju probu.
+
+## Odluka: zajednička baza i kasnija obnova jedne agencije — 2026-11-14
+
+- Odlukom vlasnika ostaje jedna zajednička baza za sve agencije. Ne planira
+  se prelazak na posebnu bazu po agenciji.
+- Obavezni budući zadatak `F-OPS-AGENCY-RESTORE`: vraćanje podataka samo
+  izabrane agencije iz postojeće kopije zajedničke baze, bez vraćanja podataka
+  drugih agencija ili prepisivanja zajedničkih šifarnika.
+- Status: planirano za kasnije, nije implementirano. Obuhvat i kriterijumi
+  prihvatanja zapisani su u NEXT_STEPS.md i CSV/Excel planeru. Postojeći
+  backup cijele baze ostaje; u ovoj sesiji nema promjena aplikacije ili servera.
 
 ## Glavni sajt summasummarum.me u deploy panelu — 2026-11-13
 

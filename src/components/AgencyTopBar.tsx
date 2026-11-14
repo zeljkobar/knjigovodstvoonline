@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { ThemePicker } from "./ThemePicker";
-import { useEffect, useRef, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   getSectionFromPath,
   getSubNavigation,
@@ -45,6 +45,7 @@ export function AgencyTopBar({
   years
 }: AgencyTopBarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [pendingChange, setPendingChange] = useState<{
     type: "firm" | "year";
@@ -52,6 +53,25 @@ export function AgencyTopBar({
     label: string;
   } | null>(null);
   const [isSwitching, setIsSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState("");
+  async function switchContext(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = new URLSearchParams();
+    new FormData(event.currentTarget).forEach((value, key) => query.set(key, String(value)));
+    setIsSwitching(true);
+    setSwitchError("");
+    try {
+      const response = await fetch(`/agencija/kontekst?${query}`, { headers: { "X-Workspace-Refresh": "1" } });
+      if (response.status !== 204) throw new Error();
+      setPendingChange(null);
+      if (searchParams.size) router.replace(pathname);
+      router.refresh();
+    } catch {
+      setSwitchError("Promjena konteksta nije uspjela. Pokušajte ponovo.");
+    } finally {
+      setIsSwitching(false);
+    }
+  }
   const dialogRef = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
@@ -164,10 +184,11 @@ export function AgencyTopBar({
               ? pendingChange.id ? <>Da li želite da pređete na firmu <strong>{pendingChange.label}</strong>?</> : "Da li želite da poništite izbor firme?"
               : <>Da li želite da pređete na <strong>{pendingChange.label}.</strong> godinu?</>}
           </p>
-          <form action="/agencija/kontekst" method="get" onSubmit={() => setIsSwitching(true)}>
+          <form action="/agencija/kontekst" method="get" onSubmit={switchContext}>
             <input name="returnTo" type="hidden" value={pathname}/>
             <input name="firma_id" type="hidden" value={pendingChange.type === "firm" ? pendingChange.id : activeFirmId}/>
             {pendingChange.type === "year" ? <input name="poslovna_godina_id" type="hidden" value={pendingChange.id}/> : null}
+            {switchError && <p role="alert">{switchError}</p>}
             <div className="context-switch-actions">
               <button ref={cancelRef} type="button" className="secondary-button" disabled={isSwitching} onClick={() => setPendingChange(null)}>Odustani</button>
               <button type="submit" className="primary-button" disabled={isSwitching}>{isSwitching ? "Prelazak…" : pendingChange.type === "firm" ? "Da, promijeni firmu" : "Da, promijeni godinu"}</button>

@@ -65,6 +65,8 @@ const keys = () => rights.map((r) => `${r.modul}:${r.akcija}`).sort();
   assert.deepEqual(keys(), ['izvjestaji:view', 'pdv:view', 'pos:create']);
   await save(['robno', 'unknown']);
   assert.deepEqual(keys(), ['pos:create', 'robno:view']);
+  await save(['dokumentacija'], 'klijent', ['dokumentacija:update']);
+  assert.deepEqual(keys(), ['dokumentacija:create', 'dokumentacija:view', 'pos:create']);
   await save([]);
   assert.deepEqual(keys(), ['pos:create']);
   const form = new FormData();
@@ -88,7 +90,7 @@ const keys = () => rights.map((r) => `${r.modul}:${r.akcija}`).sort();
   role = 'klijent';
   html = await render();
   assert.match(html, /Kupci i dobavljači/); assert.match(html, /PDV pregled/);
-  assert.equal((html.match(/name="pregledi"/g) || []).length, 3);
+  assert.equal((html.match(/name="pregledi"/g) || []).length, 4);
   assert.doesNotMatch(html, /name="prava"|Knjiženje|Storniranje/);
   // Real activity page: tenant scope on every lookup, bounded pagination and DST dates.
   let captured;

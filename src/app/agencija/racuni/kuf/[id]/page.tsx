@@ -1,3 +1,5 @@
+import { uuidPattern } from "@/lib/dokumentacija";
+import { DokumentaOriginal } from "@/components/DokumentaOriginal";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
 import { loadInvoiceJournalStatuses, invoiceBookPostingLabel, invoiceEntryPostingLabel } from "@/lib/invoice-posting-status";
 import { KufDeleteButton } from "../KufDeleteButton";
@@ -19,7 +21,7 @@ import { VatTransactionTypeSelect } from "@/components/VatTransactionTypeSelect"
 import { mergeCompanyAccountPlan } from "@/lib/account-plan";
 import { requireAnyRole } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
-import { requirePermissionForUser } from "@/lib/permissions";
+import { hasPermission, requirePermissionForUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { vatTransactionLabels } from "@/lib/vat-transaction";
 import { readWorkContext } from "@/lib/work-context";
@@ -30,6 +32,7 @@ type KufBookPageProps = {
   }>;
   searchParams?: Promise<{
     edit?: string;
+    dokument?: string;
     poruka?: string;
     detalj?: string;
   }>;
@@ -37,6 +40,7 @@ type KufBookPageProps = {
 
 const poruke: Record<string, string> = {
   kuf_knjiga_sacuvana: "KUF knjiga je otvorena.",
+  kuf_dokument_nedostupan: "Dokument je već povezan ili više nije dostupan.",
   kuf_sacuvan: "Račun je dodat u KUF.",
   kuf_izmijenjen: "Račun je izmijenjen.",
   kuf_obrisan: "Račun je obrisan iz KUF-a.",
@@ -233,6 +237,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
           select: {
             id: true,
             internal_kuf_number: true,
+            primljeniDokumenti: { select: { id: true, item_id: true, qr_link: true, naziv: true } },
             supplier_invoice_number: true,
             fiscal_iic: true,
             fiscal_fic: true,
@@ -452,6 +457,12 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
         (entry) => entry.id === query.edit && entry.posting_mode === "KUF_RULES"
       )
     : null;
+  const sourceDocument = !editingEntry && query?.dokument && uuidPattern.test(query.dokument) &&
+    await hasPermission(user, { firmaId: activeCompany.id, modul: "dokumentacija", akcija: "update" })
+    ? await prisma.primljeniDokument.findFirst({ where: {
+        id: query.dokument, firma_id: activeCompany.id, agencija_id: user.agencija_id!,
+        poslovna_godina_id: activeYear.id, status: "PRIMLJENO", kuf_entry_id: null
+      }, select: { id: true, naziv: true } }) : null;
   const formAction = editingEntry ? updateKufEntry : createKufEntry;
   const journalId =
     kufBook.entries.find(
@@ -649,6 +660,10 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
         >
           <KufEntryFormShortcuts formId="kuf-entry-form" focusAfterSave={!editingEntry && !isLocked && query?.poruka === "kuf_sacuvan"} />
           <input name="kuf_book_id" type="hidden" value={kufBook.id} />
+          {sourceDocument && <>
+            <input name="primljeni_dokument_id" type="hidden" value={sourceDocument.id} />
+            <a href={`/api/dokumentacija/original?id=${sourceDocument.id}`} target="_blank" rel="noreferrer">{sourceDocument.naziv}</a>
+          </>}
           {editingEntry ? <input name="kuf_entry_id" type="hidden" value={editingEntry.id} /> : null}
           <input name="fiscal_iic" type="hidden" defaultValue={editingEntry?.fiscal_iic ?? ""} />
           <input name="fiscal_fic" type="hidden" defaultValue={editingEntry?.fiscal_fic ?? ""} />
@@ -990,6 +1005,7 @@ export default async function KufBookPage({ params, searchParams }: KufBookPageP
 
                         </div>
                       ) : null}
+                      <DokumentaOriginal entryId={entry.id} documents={entry.primljeniDokumenti} />
                       <KufDeleteButton id={entry.id} bookId={kufBook.id}
                         label={`${entry.internal_kuf_number} · ${entry.dobavljac.naziv} · ${entry.supplier_invoice_number}`}
                         posted={entry.posting_status === "POSTED" || !!entry.journal_id}

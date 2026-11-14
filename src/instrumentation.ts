@@ -7,4 +7,8 @@ export async function register() {
     const { startBankAutomation } = await import("./lib/bank-automation");
     startBankAutomation();
   }
+  if (process.env.NEXT_RUNTIME === "nodejs" && process.env.NEXT_PHASE !== "phase-production-build") {
+    const { startDocumentationMaintenance } = await import("./lib/dokumentacija-arhiva");
+    startDocumentationMaintenance();
+  }
 }

@@ -1,4 +1,5 @@
 "use server";
+import { DokumentaError, linkKufDocument, lockDocumentKufTarget, uuidPattern } from "@/lib/dokumentacija";
 import { deleteKufEntryInTransaction, KufDeletionError } from "@/lib/kuf-entry-deletion";
 import { lockAssetLifecycle } from "@/lib/fixed-assets-lifecycle";
 import { fixedAssetContextMatches } from "@/lib/fixed-assets";
@@ -1760,6 +1761,14 @@ export async function createKufEntry(formData: FormData) {
   }
 
   const kufBookId = value(formData, "kuf_book_id");
+  const documentId = value(formData, "primljeni_dokument_id");
+  if (documentId && (!uuidPattern.test(documentId) || !await hasPermission(user, { firmaId: workContext.firmaId, modul: "dokumentacija", akcija: "update" }))) {
+    redirectKuf("kuf_kontekst");
+  }
+  const redirectEntry: (bookId: string, message: string) => never = (bookId, message) => {
+    if (documentId) redirect(`/agencija/racuni/kuf/${bookId}?poruka=${encodeURIComponent(message)}&dokument=${documentId}#kuf-entry-form`);
+    redirectKufEntry(bookId, message);
+  };
   const supplierId = value(formData, "dobavljac_id");
   const supplierInvoiceNumber = normalizeFiscalInvoiceNumber(value(formData, "supplier_invoice_number"));
   const invoiceDate = parseDate(formData, "invoice_date");
@@ -1788,6 +1797,7 @@ export async function createKufEntry(formData: FormData) {
     !expenseAccountCode ||
     (!isImport && (invoiceTotalCents === null || invoiceTotalCents <= 0))
   ) {
+    if (documentId && uuidPattern.test(kufBookId)) redirectEntry(kufBookId, "kuf_obavezno");
     redirectKuf("kuf_obavezno");
   }
 
@@ -1854,7 +1864,7 @@ export async function createKufEntry(formData: FormData) {
 
   if (!firma || !poslovnaGodina || poslovnaGodina.zakljucena || !supplier) {
     if (kufBookId) {
-      redirectKufEntry(kufBookId, "kuf_greska");
+      redirectEntry(kufBookId, "kuf_greska");
     }
 
     redirectKuf("kuf_greska");
@@ -1864,7 +1874,7 @@ export async function createKufEntry(formData: FormData) {
     user.agencija_id,
     firma.id
   );
-  if (requestedBusinessUnitId && !businessUnitId) redirectKufEntry(kufBookId, "kuf_greska");
+  if (requestedBusinessUnitId && !businessUnitId) redirectEntry(kufBookId, "kuf_greska");
 
   const vatTransactionType = normalizeVatTransactionType(
     submittedVatTransactionType,
@@ -1877,7 +1887,7 @@ export async function createKufEntry(formData: FormData) {
     firma.id,
     invoicePostingDocumentTypes.kuf,
     "create",
-    (message) => redirectKufEntry(kufBookId, message)
+    (message) => redirectEntry(kufBookId, message)
   );
 
   const kufBook = await prisma.kufBook.findFirst({
@@ -1912,7 +1922,7 @@ export async function createKufEntry(formData: FormData) {
   });
 
   if (duplicateSupplierEntry) {
-    redirectKufEntry(kufBook.id, "kuf_dupli_broj");
+    redirectEntry(kufBook.id, "kuf_dupli_broj");
   }
 
   if (fiscalIic && fiscalSellerTin && fiscalDateTime) {
@@ -1930,7 +1940,7 @@ export async function createKufEntry(formData: FormData) {
     });
 
     if (duplicateFiscalEntry) {
-      redirectKufEntry(kufBook.id, "kuf_dupli_fiskalni");
+      redirectEntry(kufBook.id, "kuf_dupli_fiskalni");
     }
   }
 
@@ -1960,7 +1970,7 @@ export async function createKufEntry(formData: FormData) {
     customsVatRatePercent = parsePercentInput(value(formData, "customs_vat_rate_percent"));
 
     if (goodsValueCents <= 0) {
-      redirectKufEntry(kufBook.id, "kuf_obavezno");
+      redirectEntry(kufBook.id, "kuf_obavezno");
     }
 
     grossCents = goodsValueCents + customsDutyCents + customsVatCents;
@@ -1999,7 +2009,7 @@ export async function createKufEntry(formData: FormData) {
       const nonDeductibleCents = parseMoneyToCents(nonDeductibleValues[index] ?? "");
 
       if (!rate || baseCents === null || submittedVatCents === null || nonDeductibleCents === null) {
-        redirectKufEntry(kufBook.id, "kuf_iznosi");
+        redirectEntry(kufBook.id, "kuf_iznosi");
       }
 
       const calculatedVatCents = Math.round(baseCents * percentToNumber(rate.procenat) / 100);
@@ -2010,7 +2020,7 @@ export async function createKufEntry(formData: FormData) {
       }
 
       if (nonDeductibleCents > inputVatCents) {
-        redirectKufEntry(kufBook.id, "kuf_iznosi");
+        redirectEntry(kufBook.id, "kuf_iznosi");
       }
 
       const deductibleCents = inputVatCents - nonDeductibleCents;
@@ -2041,19 +2051,21 @@ export async function createKufEntry(formData: FormData) {
     }
 
     if (taxLines.length === 0 || totalBaseCents + totalInputVatCents <= 0) {
-      redirectKufEntry(kufBook.id, "kuf_iznosi");
+      redirectEntry(kufBook.id, "kuf_iznosi");
     }
 
     const calculatedGrossCents = totalBaseCents + totalInputVatCents;
 
     if (invoiceTotalCents === null || Math.abs(invoiceTotalCents - calculatedGrossCents) > 1) {
-      redirectKufEntry(kufBook.id, "kuf_ukupno");
+      redirectEntry(kufBook.id, "kuf_ukupno");
     }
 
     grossCents = invoiceTotalCents;
   }
 
   const kufEntry = await prisma.$transaction(async (tx) => {
+    const scope = { agencija_id: user.agencija_id!, firma_id: firma.id, poslovna_godina_id: poslovnaGodina.id };
+    if (documentId) await lockDocumentKufTarget(tx, scope, kufBook.id, [invoiceDate, receiptDate]);
     const expenseAccount = await resolveCompanyAccount(tx, firma.id, expenseAccountCode);
 
     if (!expenseAccount) {
@@ -2083,7 +2095,7 @@ export async function createKufEntry(formData: FormData) {
     const redniBroj = (lastEntry?.redni_broj ?? 0) + 1;
     const internalNumber = `KUF-${poslovnaGodina.godina}-${String(redniBroj).padStart(4, "0")}`;
 
-    return tx.kufEntry.create({
+    const entry = await tx.kufEntry.create({
       data: {
         agencija_id: user.agencija_id!,
         kuf_book_id: kufBook.id,
@@ -2136,10 +2148,15 @@ export async function createKufEntry(formData: FormData) {
         total_gross: true
       }
     });
+    if (documentId) await linkKufDocument(tx, scope, documentId, entry.id, user.id);
+    return entry;
+  }).catch(error => {
+    if (error instanceof DokumentaError) redirectEntry(kufBook.id, "kuf_dokument_nedostupan");
+    throw error;
   });
 
   if (!kufEntry) {
-    redirectKufEntry(kufBook.id, "kuf_konto");
+    redirectEntry(kufBook.id, "kuf_konto");
   }
 
   await auditLog({
@@ -2155,6 +2172,7 @@ export async function createKufEntry(formData: FormData) {
 
   revalidatePath("/agencija/racuni/kuf");
   revalidatePath(`/agencija/racuni/kuf/${kufBook.id}`);
+  if (documentId) redirect("/agencija/dokumentacija");
   redirectKufEntry(kufBook.id, "kuf_sacuvan");
 }
 

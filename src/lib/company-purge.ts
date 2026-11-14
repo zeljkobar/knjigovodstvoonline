@@ -327,6 +327,15 @@ export async function purgeCompanyData(
     `
   );
 
+  await izvrsi(
+    "primljeni_dokumenti",
+    Prisma.sql`DELETE FROM primljeni_dokumenti WHERE firma_id = ${firmaId}::uuid`
+  );
+  await izvrsi(
+    "dokumenta_folderi",
+    Prisma.sql`DELETE FROM dokumenta_folderi WHERE firma_id = ${firmaId}::uuid`
+  );
+
   // KIF/KUF poreske stavke se brišu kaskadno zajedno sa računima.
   await izvrsi(
     "kif_entries",

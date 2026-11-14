@@ -212,6 +212,21 @@ Tema nema FK veze na firmu: company purge zadržava nalog i njegove preference.
   (npr. `ssh -L 5433:127.0.0.1:5432 ...`, pa `DATABASE_URL` na port `5433`).
 - Produkcija: aplikacija na serveru koristi lokalni port `5432`.
 
+### Odluka o zajedničkoj bazi i selektivnoj obnovi
+
+Vlasnik je 14.11.2026. potvrdio zadržavanje jedne zajedničke baze za sve
+agencije. Posebna baza po agenciji nije planirani pravac. Izolacija agencija,
+firmi i poslovnih godina ostaje obavezna.
+
+Za kasnije je obavezno planirana selektivna obnova jedne agencije
+(`F-OPS-AGENCY-RESTORE`, NEXT_STEPS.md). Postojeći backup je kopija cijele
+baze; selektivna obnova još nije implementirana. Planirani tok prvo vraća
+kopiju u privremenu izolovanu bazu, a zatim nakon provjera i potvrde prenosi
+samo podatke izabrane agencije. Podaci drugih agencija i zajednički šifarnici
+ne smiju se prepisivati. Potrebni su potpuni obuhvat povezanih zapisa i priloga,
+provjera šeme, sigurnosna kopija trenutnog stanja, blokada upisa izabrane
+agencije, audit i testovi obnove/povratka pri grešci.
+
 ### Noćni backup produkcijskih baza
 
 Serverski `summa-backup.timer` pokreće `summa-backup.service` svakog dana u
@@ -680,6 +695,14 @@ zakazane obrade. Samo tanke server action funkcije su dostupne browseru; eksplic
 serverski kontekst nije njihov argument. `bank-automation.ts` pokreće produkcijska
 instrumentacija uz runtime flag, lokalni raspored, advisory lock i audit po firmi/danu.
 Nema dodatnih tabela; evidencija koristi postojeći audit i postojeći company purge.
+
+### Klijentska dokumentacija na OneDrive-u
+
+Microsoft OAuth aplikacija treba podržati tip naloga agencije i imati delegirana prava `Files.ReadWrite` i `offline_access`. Callback je `/api/dokumentacija/callback`. Vrijednosti su opisane u `.env.example`. Ključ za šifrovanje tokena je 32 nasumična bajta u base64 i čuva se odvojeno od baze. Nastavak pristupa nakon obnove baze zahtijeva isti ključ. Admin agencije povezuje disk i folder aktivne firme, a pristup klijentima dodjeljuje kroz matricu Dokumentacija.
+
+Original se šalje direktno na OneDrive u `firma/godina/primljeno`. Potvrda na serveru provjerava disk, roditeljski folder, jedinstveni naziv i veličinu. Otvaranje originala koristi provjeru prava i tok podataka sa OneDrive-a bez lokalne datoteke. Folder se periodično čita i preko akcije Osvježi iz OneDrive-a. Aplikacijska baza čuva samo veze i metapodatke.
+
+Node proces pokreće periodičnu provjeru kada je podešen OAuth client ID. Ona iz potvrđenih stanja KUF računa i naloga izvodi koji fajl treba premjestiti ili vratiti. Provjera po ID-u fajla i ciljnog foldera omogućava ponavljanje i oporavak nakon prekida između premještanja i upisa u bazu. Jedan pozadinski posao po dokumentu zaštićen je PostgreSQL zaključavanjem. Trajno brisanje firme briše evidenciju i mapiranje foldera u bazi. Originalima na OneDrive-u upravlja vlasnik diska.
 
 ### Standardni klijentski portal (2026-10-01)
 

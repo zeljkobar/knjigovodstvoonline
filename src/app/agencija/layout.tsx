@@ -1,3 +1,4 @@
+import { DokumentaKufWorkspace } from "@/components/DokumentaKufImport";
 import { logout } from "@/app/actions";
 import { AgencyTopBar } from "@/components/AgencyTopBar";
 import { AgencyWorkspaceShell } from "@/components/AgencyWorkspaceShell";
@@ -111,7 +112,7 @@ export default async function AgencijaLayout({
       navigation={navigation}
       userName={user.korisnicko_ime}
     >
-      <>
+      <DokumentaKufWorkspace key={user.id}>
         <AgencyTopBar
           key={`${activeFirm?.id ?? ""}:${activeYear?.id ?? ""}`}
           agencyName={agencija?.naziv ?? "Agencija"}
@@ -126,7 +127,7 @@ export default async function AgencijaLayout({
           userRole={user.rola}
         />
         {children}
-      </>
+      </DokumentaKufWorkspace>
     </AgencyWorkspaceShell>
   );
 }
