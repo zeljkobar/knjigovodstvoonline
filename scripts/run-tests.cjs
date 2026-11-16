@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Node CommonJS test runner. */
 // Sequential runner: fail fast; never talks to a real fiscal or mail service.
 const {spawnSync} = require('node:child_process');
+const {randomBytes} = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const dbOnly = process.argv.includes('--db');
@@ -29,6 +30,7 @@ if(dbOnly||all) {
   const url=new URL(process.env.TEST_DATABASE_URL);
   if(!/_test(?:_|$)/i.test(url.pathname)) throw new Error('Naziv testne baze mora sadržati _test.');
   process.env.DATABASE_URL=process.env.TEST_DATABASE_URL;
+  process.env.SESSION_SECRET=randomBytes(32).toString('hex');
   for(const name of ['corporate-tax','opening-import','settlements','settlements-concurrency','sep','mapr-import-cache','travel-orders','pdv-periods','pdv-concurrency','payroll-concurrency','payroll-lifecycle','payroll-copy','payroll-copy-concurrency','calculation-deletion','supplier-return','advance-invoices','invoice-book-creation','kuf-entry-deletion','dokumentacija','calculation-rates','agency-financial-templates','account-length','employment-contracts','job-position-import','deadlines','agency-statistics','bank-statement-warnings','bank-statement-reopen','bank-manual-journal','bank-statement-reopen-concurrency','journal-account-replacement','journal-account-replacement-concurrency','agency-profile','accounting-core','accounting-concurrency','invoice-lifecycle','office-storno','client-portal','fixed-assets','fixed-assets-tax','mail-import','sep-automation','theme','posting-template','foreign-partner-posting','mail-accounts','pazar-import','pazar-import-concurrency']) {
     run(['scripts/check-'+name+'.cjs']);
   }
