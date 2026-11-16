@@ -111,6 +111,18 @@ Purge uklanja portal credentials prije firme; KIF metapodaci nemaju potomke.
 `npm run fiscal-portals:key` inicijalizuje ključ bez ispisa/rotiranja postojeće
 vrijednosti. Serverske rute nikada ne vraćaju kredencijale ni kolačiće browseru.
 
+### OneDrive arhiva mail izvoda
+
+`izvodi_arhiva_folderi` veže odredište za firmu, godinu i bankovni račun.
+`mail_izvod_obrade` čuva referencu originalnog IMAP priloga i ishod arhive.
+`bank-statement-archive.ts` iz Node instrumentacije traži proknjižene izvode
+sa proknjiženim nalogom, ponovo preuzima isti prilog i provjerava SHA-256.
+Graph upload sesija odbija prepisivanje. Na koliziji se poredi sadržaj
+postojećeg fajla i bilježi provjera ako se razlikuje. Pozadinski posao
+ponavlja privremene greške nezavisno od transakcije knjiženja.
+Brisanje firme uklanja evidenciju i konfiguraciju iz baze, a originali
+ostaju na OneDrive-u.
+
 ### SEP automatika
 
 Konfiguracija je na `/agencija/podesavanja/sep-automatika`, dok Dashboard

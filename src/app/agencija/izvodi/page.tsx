@@ -653,7 +653,10 @@ export default async function IzvodiPage({ searchParams }: IzvodiPageProps) {
           {!selectedStatement ? (
             <>
               <section className="admin-panel">
-                <h3>Uvoz izvoda</h3>
+                <div className="panel-header">
+                  <h3>Uvoz izvoda</h3>
+                  <Link className="table-button" href="/agencija/izvodi/onedrive" prefetch={false}>Uvezi sa OneDrive-a</Link>
+                </div>
                 <BankStatementImportForm
                   accountOptions={accountOptions.map((account) => ({
                     id: account.id,

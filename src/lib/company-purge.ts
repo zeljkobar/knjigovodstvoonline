@@ -129,6 +129,7 @@ export async function purgeCompanyData(
     Prisma.sql`DELETE FROM pdv_podesavanja WHERE firma_id = ${firmaId}::uuid`
   );
 
+  await izvrsi("izvodi_arhiva_folderi", Prisma.sql`DELETE FROM izvodi_arhiva_folderi WHERE firma_id = ${firmaId}::uuid`);
   await izvrsi("mail_izvod_obrade", Prisma.sql`DELETE FROM mail_izvod_obrade WHERE firma_id = ${firmaId}::uuid`);
 
   // Agencijski mail nalozi ostaju; njihove veze i obrade firme su uklonjene iznad.

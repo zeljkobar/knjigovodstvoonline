@@ -34,6 +34,7 @@ enum KomitentScope {
 }
 
 model Agencija {
+  arhive_izvoda BankStatementArchiveFolder[]
   dokumentaOneDrive DokumentaOneDrive?
   porez_dobit_konta Json?
   porez_dobit_konta_verzija Int @default(0)
@@ -212,6 +213,7 @@ model AgencijaBankovniRacun {
 }
 
 model Firma {
+  arhive_izvoda BankStatementArchiveFolder[]
   dokumentaFolder DokumentaFolder?
   primljeniDokumenti PrimljeniDokument[]
   zatvaranjaStavki ZatvaranjeStavki[]
@@ -417,6 +419,7 @@ model FirmaOdgovornoLice {
 }
 
 model FirmaBankovniRacun {
+  arhive_izvoda BankStatementArchiveFolder[]
   id                    String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agencija_id           String                        @db.Uuid
   firma_id              String                        @db.Uuid
@@ -603,6 +606,7 @@ model AktivnostDogadjaj {
 }
 
 model PoslovnaGodina {
+  arhive_izvoda BankStatementArchiveFolder[]
   primljeniDokumenti PrimljeniDokument[]
   porez_dobit_podaci Json?
   porez_dobit_verzija Int @default(0)
@@ -2680,6 +2684,15 @@ model MailIzvodObrada {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   updated_by String @db.Uuid
+  imap_uid BigInt?
+  imap_uid_validity String?
+  imap_folder String?
+  indeks_priloga Int?
+  arhiva_status String?
+  arhiva_greska String?
+  arhiva_pokusaj_at DateTime?
+  arhiva_item_id String?
+  @@index([arhiva_status, arhiva_pokusaj_at], map: "mail_izvod_arhiva_status_idx")
   @@unique([firma_id, poslovna_godina_id, kljuc])
   @@index([agencija_id, firma_id, poslovna_godina_id, poruka_kljuc])
   @@map("mail_izvod_obrade")
@@ -2731,6 +2744,24 @@ model BankStatement {
   @@index([poslovna_jedinica_id, statement_date])
   @@unique([firma_id, sadrzaj_hash])
   @@map("bank_statements")
+}
+
+model BankStatementArchiveFolder {
+  agencija_id String @db.Uuid
+  agencija Agencija @relation(fields: [agencija_id], references: [id])
+  firma_id String @db.Uuid
+  firma Firma @relation(fields: [firma_id], references: [id])
+  poslovna_godina_id String @db.Uuid
+  poslovna_godina PoslovnaGodina @relation(fields: [poslovna_godina_id], references: [id])
+  bankovni_racun_id String @db.Uuid
+  bankovni_racun FirmaBankovniRacun @relation(fields: [bankovni_racun_id], references: [id])
+  drive_id String
+  folder_id String
+  naziv String
+
+  @@id([firma_id, poslovna_godina_id, bankovni_racun_id], map: "izvodi_arhiva_folderi_pkey")
+  @@unique([agencija_id, drive_id, folder_id], map: "izvodi_arhiva_folderi_odrediste_key")
+  @@map("izvodi_arhiva_folderi")
 }
 
 model BankStatementAccountSetting {

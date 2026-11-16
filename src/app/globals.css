@@ -7512,6 +7512,17 @@ td small {
   z-index: 1;
 }
 
+.permission-matrix-row-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.permission-matrix-row-label .matrix-checkbox {
+  flex-shrink: 0;
+}
+
 .matrix-checkbox {
   display: inline-flex;
   width: 28px;
@@ -10394,6 +10405,13 @@ td small {
   overflow-wrap: normal;
   text-align: right;
   white-space: nowrap;
+}
+
+.client-partner-print-table th:nth-child(n + 5),
+.client-partner-print-table tbody td:nth-child(n + 5),
+.client-partner-print-table tfoot td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .account-card-print-table tfoot td {

@@ -8,7 +8,7 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
-import { configurablePermissionActions } from "@/lib/permission-policy";
+import { WorkerPermissionMatrix } from "./WorkerPermissionMatrix";
 import { prisma } from "@/lib/prisma";
 import { clientPermissionGroups } from "@/lib/client-permission-policy";
 
@@ -54,8 +54,6 @@ const moduli = [
   "izvjestaji"
 ];
 
-const akcije = configurablePermissionActions;
-
 function roleLabel(rola: string) {
   if (rola === "korisnik_agencije") {
     return "Radnik";
@@ -66,21 +64,6 @@ function roleLabel(rola: string) {
   }
 
   return rola;
-}
-
-function actionLabel(akcija: string) {
-  const labels: Record<string, string> = {
-    view: "Pregled",
-    create: "Unos",
-    update: "Izmjena",
-    delete: "Brisanje",
-    post: "Knjiženje",
-    cancel: "Storniranje",
-    export: "Izvoz",
-    manage: "Administracija"
-  };
-
-  return labels[akcija] ?? akcija;
 }
 
 export default async function AgencijskiKorisniciPage({
@@ -433,42 +416,11 @@ export default async function AgencijskiKorisniciPage({
               </div>
             </> : <>
               <input name="matrica" type="hidden" value="radnik" />
-            <div className="permission-matrix-wrap">
-              <table className="permission-matrix">
-                <thead>
-                  <tr>
-                    <th>Pravo</th>
-                    {moduli.map((modul) => (
-                      <th key={modul}>{modul.replaceAll("_", " ")}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {akcije.map((akcija) => (
-                    <tr key={akcija}>
-                      <th>{actionLabel(akcija)}</th>
-                      {moduli.map((modul) => {
-                        const value = `${modul}:${akcija}`;
-
-                        return (
-                          <td key={value}>
-                            <label className="matrix-checkbox">
-                              <input
-                                defaultChecked={selectedPermissionActions.has(value)}
-                                name="prava"
-                                type="checkbox"
-                                value={value}
-                              />
-                              <span>{modul} {akcija}</span>
-                            </label>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+              <WorkerPermissionMatrix
+                key={JSON.stringify([...selectedPermissionActions].sort())}
+                modules={moduli}
+                initialPermissions={[...selectedPermissionActions]}
+              />
             </>}
             <button type="submit">Sačuvaj prava</button>
           </form>

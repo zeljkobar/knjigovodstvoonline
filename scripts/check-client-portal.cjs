@@ -28,7 +28,7 @@ const rollback = new Error('ROLLBACK_CLIENT_PORTAL');
   '@/app/actions': {logout:async()=>{}},
   react: {...React,cache:(fn)=>fn},
   'next/navigation': {redirect(url){throw new Error('REDIRECT:'+url)},notFound(){throw new Error('NOT_FOUND')}},
-  'next/link': {__esModule:true,default:({children,...props})=>React.createElement('a',props,children)},
+  'next/link': {__esModule:true,default:({children,prefetch,...props})=>React.createElement('a',props,children)},
   '@/components/AutoSubmitFilterForm': {AutoSubmitFilterForm:({children,...props})=>React.createElement('form',props,children)},
   '@/lib/prisma': {prisma:tx},
   '@/lib/auth': {requireRole:async(role)=>{assert.equal(role,'klijent');return user},getCurrentUser:async()=>user,isDirectFiscalTenantUser:()=>false},
@@ -90,6 +90,23 @@ const rollback = new Error('ROLLBACK_CLIENT_PORTAL');
   assert.match(html,new RegExp('/klijent/izvjestaji/'+tip+'/kartica'));
   assert.doesNotMatch(html,/Hidden partner|1\.000,00|2\.000,00/);
  }
+ const printCard = loadSource('app/stampa/klijent/izvjestaji/[tip]/kartica/page.tsx').default;
+ const print = (tip, query = {}) => printCard({
+  params: Promise.resolve({ tip }),
+  searchParams: Promise.resolve({ partner: partner.id, godina: year.id, datum_od: '2026-02-01', datum_do: '2026-02-28', ...query })
+ });
+ for (const tip of Object.keys(policy.clientPartnerTypes)) {
+  const html = renderToStaticMarkup(await print(tip));
+  assert.match(html,/Štampaj karticu/);
+  assert.match(html,/Allowed partner/);
+  assert.match(html,/10,01/);
+  assert.match(html,/20,02/);
+  assert.match(html,/30,03/);
+  assert.doesNotMatch(html,/1\.000,00|2\.000,00/);
+ }
+ await assert.rejects(()=>print('kupci',{godina:otherYear.id}),/NOT_FOUND/);
+ await assert.rejects(()=>print('kupci',{partner:hiddenPartner.id}),/NOT_FOUND/);
+ await assert.rejects(()=>print('kupci',{datum_do:'2026-01-01'}),/NOT_FOUND/);
  const dashboard = loadSource('lib/client-dashboard.ts');
  for (const [tip, names] of [['kupci',['Adriatic Logistics','Montenegro Trade','Primorje Market','Atlas Transport']],['dobavljaci',['Petrol Partner','Auto Centar','Euro Parts','Telekom Servisi']]]) {
   const settings=await tx.firmaPodrazumijevanoKonto.findFirstOrThrow({where:{firma_id:company.id,namjena:policy.clientPartnerTypes[tip].purpose}});
@@ -129,6 +146,8 @@ const rollback = new Error('ROLLBACK_CLIENT_PORTAL');
  const cardPage = loadSource('app/klijent/izvjestaji/[tip]/kartica/page.tsx').default;
  const html=renderToStaticMarkup(await cardPage({params:Promise.resolve({tip:'kupci'}),searchParams:Promise.resolve({partner:partner.id,datum_od:'2026-02-01'})}));
  assert.match(html,/10,01/);assert.match(html,/20,02/);assert.match(html,/30,03/);
+ assert.match(html,/\/stampa\/klijent\/izvjestaji\/kupci\/kartica\?/);
+ assert.match(html,/datum_od=2026-02-01/);
  await assert.rejects(()=>cards.loadClientPartnerCard('kupci',hiddenPartner.id),/NOT_FOUND/);
  await assert.rejects(()=>cards.loadClientPartnerCard('unknown',partner.id),/NOT_FOUND/);
  await tx.firmaPodrazumijevanoKonto.updateMany({where:{firma_id:company.id,namjena:policy.clientPartnerTypes.kupci.purpose},data:{sifra_konta:'9999'}});

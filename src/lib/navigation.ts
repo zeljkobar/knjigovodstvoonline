@@ -34,16 +34,16 @@ const adminOnly: Role[] = ["admin_agencije"];
 
 export const agencyNavigation: NavigationItem[] = [
   {
-    href: "/agencija/dokumentacija", icon: "▤", label: "Dokumentacija",
-    roles: agencyRoles, section: "dokumentacija",
-    permissions: [{ modul: "dokumentacija", akcija: "view" }]
-  },
-  {
     href: "/agencija",
     icon: "▦",
     label: "Dashboard",
     roles: agencyRoles,
     section: "dashboard"
+  },
+  {
+    href: "/agencija/dokumentacija", icon: "▤", label: "Dokumentacija",
+    roles: agencyRoles, section: "dokumentacija",
+    permissions: [{ modul: "dokumentacija", akcija: "view" }]
   },
   {
     href: "/agencija/firme",

@@ -1,12 +1,24 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-11-14. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-11-15. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
 Aplikacija je Next.js + Prisma knjigovodstveni sistem za agencije. Rad ide kroz
 globalni kontekst: agencija, firma i poslovna godina se biraju gore, moduli
 koriste taj izbor. Lokalno: `npm run dev`, `http://localhost:3000`.
+
+## OneDrive izvodi i brojači za obradu — 2026-11-15
+
+- Izvodi koriste povezani folder aktivnog žiro računa i godine za pregled statusa i pojedinačni ili zbirni uvoz. Broj izvoda, račun i datum se čitaju iz fajla, a provjera duplikata obuhvata i mail izvode. Spremni izvodi se knjiže kroz postojeće akcije.
+- Početni pregled pokazuje OneDrive izvode koji čekaju uvoz ili knjiženje, fajlove za provjeru i račune ili nerazvrstane skenove iz foldera Primljeno. Dokumenti povezani sa proknjiženim KUF računom i nalogom izuzeti su iz brojača.
+
+## Mail izvodi i OneDrive arhiva — 2026-11-14
+
+- U Izvodi → Podešavanja administrator agencije povezuje OneDrive folder za aktivnu firmu, poslovnu godinu i bankovni račun preko postojeće OneDrive veze agencije.
+- Pozadinski posao čuva originalni IMAP prilog kada i izvod i nalog dobiju status POSTED. Podržani su ručno i zakazano knjiženje. Fajl ide iz memorije na OneDrive kao npr. `045.pdf`, `045.html` ili `045.xml`.
+- Istovjetan sadržaj na odredištu prihvata se kao sačuvan. Različit sadržaj sa istim nazivom ostaje za provjeru. Privremena greška se ponavlja poslije 10 minuta. Status je vidljiv u Mailovima, a greške i u Podešavanjima izvoda.
+- Stari mail uvozi dobijaju IMAP referencu kada se ponovo pokrene uvoz iste poruke na istoj lokaciji. Knjigovodstveni duplikat ostaje blokiran.
 
 ## Klijentska dokumentacija, KUF i OneDrive — 2026-11-14
 

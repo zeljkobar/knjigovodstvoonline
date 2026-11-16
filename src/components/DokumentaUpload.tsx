@@ -43,8 +43,9 @@ export function DokumentaUpload({ yearId, categories, supplement }: {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const pagesRef = useRef(pages);
+  const documentInput = useRef<HTMLInputElement>(null);
   const qrInput = useRef<HTMLInputElement>(null);
-  const qrStep = useRef<HTMLLabelElement>(null);
+  const qrButton = useRef<HTMLButtonElement>(null);
   const [cropIndex, setCropIndex] = useState<number>();
   const [crop, setCrop] = useState({ left: 0, top: 0, right: 0, bottom: 0 });
 
@@ -112,7 +113,7 @@ export function DokumentaUpload({ yearId, categories, supplement }: {
     }
     if (pages.length && ["ULAZNI", "IZLAZNI"].includes(category) && !qr.trim() && !["NEMA", "NECITLJIV"].includes(qrStatus)) {
       setMessage("Slikajte QR kod ili označite da QR nedostaje ili je nečitljiv.");
-      qrInput.current?.focus();
+      qrButton.current?.focus();
       return;
     }
     setSending(true);
@@ -195,19 +196,22 @@ export function DokumentaUpload({ yearId, categories, supplement }: {
     <label>Odaberi fajlove<input type="file" multiple={!supplement} accept=".pdf,.tif,.tiff,.jpg,.jpeg,.png,.xml,.htm,.html"
       onChange={event => { setFiles(Array.from(event.target.files ?? [], file => ({ file, status: "" }))); }} /></label>
     {mobile && <>
-      <label>{pages.length ? "Dodaj stranu" : "Slikaj dokument"}<input type="file" accept="image/*" capture="environment"
+      <button className="secondary-button" type="button" onClick={() => documentInput.current?.click()}>
+        {pages.length ? "Slikaj još jednu stranu" : "Slikaj dokument"}
+      </button>
+      <input ref={documentInput} hidden type="file" accept="image/*" capture="environment"
         onChange={event => {
           const file = event.target.files?.[0];
+          event.target.value = "";
           if (file) {
             if (pages.length >= 20) { setMessage("Možete dodati do 20 strana u jedan dokument."); return; }
             updatePages([...pages, { file, url: URL.createObjectURL(file) }]);
             if (["ULAZNI", "IZLAZNI"].includes(category) && !qr && !qrStatus) {
-              qrStep.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-              qrInput.current?.focus({ preventScroll: true });
+              qrButton.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+              qrButton.current?.focus({ preventScroll: true });
             }
           }
-          event.target.value = "";
-        }} /></label>
+        }} />
       {pages.length > 0 && <div className="table-actions">{pages.map((page, index) => <div key={page.url}>
         {/* Object URLs are camera captures held in this browser. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -225,11 +229,14 @@ export function DokumentaUpload({ yearId, categories, supplement }: {
           <button type="button" onClick={() => setCropIndex(undefined)}>Odustani</button>
         </div>}
       </div>)}</div>}
-      <label ref={qrStep}>Slikaj QR kod<input ref={qrInput} type="file" accept="image/*" capture="environment" onChange={event => {
+      <button ref={qrButton} className="secondary-button" type="button" onClick={() => qrInput.current?.click()}>
+        Slikaj QR kod
+      </button>
+      <input ref={qrInput} hidden type="file" accept="image/*" capture="environment" onChange={event => {
         const file = event.target.files?.[0];
         if (file) void scanQr(file);
         event.target.value = "";
-      }} /></label>
+      }} />
       <label>Stanje QR koda<select value={qrStatus} onChange={event => setQrStatus(event.target.value)}>
         <option value="">Odaberite</option>
         {qrStatus === "PROCITAN" && <option value="PROCITAN">QR kod pročitan</option>}

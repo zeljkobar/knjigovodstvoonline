@@ -1,3 +1,4 @@
+import { statementIdentity } from "@/lib/bank-statement-identity";
 import { invoiceSettlementPaid } from "@/lib/settlements";
 import { postBankSettlements, bankSettlementProposals } from "@/lib/bank-settlements";
 import { BankStatementError, assertBankStatementAccess, assertBankJournalOwnership, lockBankStatement, refreshBankInvoicePayment, refreshBankPaymentStatuses, reopenBankStatement, syncLegacyBankStatementDraft } from "@/lib/bank-statement-lifecycle";
@@ -8,7 +9,7 @@ import { completedMailKeys } from "@/lib/mail-import-completion";
 import { attachmentHash, assertStatementAccount, normalizeStatementAccount, MailImportError, mailSourceKey, supportedStatementAttachment } from "@/lib/mail-import-policy";
 import { requireImapCompany } from "@/app/agencija/izvodi/imap/access";
 import { getCompanyMailConfigs } from "@/lib/company-mail-settings";
-import { getMailImportAttachments, MailError } from "@/lib/imap-mail";
+import { getMailImportAttachments, mailReference, MailError } from "@/lib/imap-mail";
 import { requirePermissionForUser } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -1912,6 +1913,26 @@ async function readUploadedFile(file: File): Promise<UploadedStatement> {
   };
 }
 
+export async function inspectBankStatementFile(file: File, bankName: string) {
+  const uploaded = await readUploadedFile(file);
+  const parsed = parseStatement(uploaded.text, bankName, uploaded.pdfRows);
+  const inflow = parsed.totalInflow ?? parsed.lines.reduce((sum, line) => sum + line.inflow, 0);
+  const outflow = parsed.totalOutflow ?? parsed.lines.reduce((sum, line) => sum + line.outflow, 0);
+  const { statementNumber, statementDate, openingBalance, closingBalance, companyAccountNumber } = parsed;
+  if (!statementNumber || !statementDate || openingBalance == null || closingBalance == null || !parsed.lines.length) {
+    return null;
+  }
+  return { number: statementNumber, date: statementDate.toISOString().slice(0, 10),
+    account: normalizeStatementAccount(companyAccountNumber), openingBalance, closingBalance, inflow, outflow,
+    hash: uploaded.contentHash };
+}
+
+export async function importBankStatementFromCloud(file: File, source: { firmaId: string; yearId: string; bankId: string }) {
+  const form = new FormData();
+  form.set("statement_file", file);
+  return runBankStatementImport(form, source);
+}
+
 async function readUploadedStatements(formData: FormData): Promise<UploadedStatement[]> {
   const pastedText = value(formData, "raw_text");
   const files = formData
@@ -2039,7 +2060,7 @@ export async function importBankStatement(formData: FormData) {
   await runBankStatementImport(formData);
 }
 
-async function runBankStatementImport(formData: FormData, mail?: { firmaId: string; yearId: string }, scheduled?: ScheduledBankContext) {
+async function runBankStatementImport(formData: FormData, mail?: { firmaId: string; yearId: string; bankId?: string }, scheduled?: ScheduledBankContext) {
   const fail: (code: string) => never = (code) => {
     if (mail) {
       const messages: Record<string, string> = {
@@ -2062,14 +2083,18 @@ async function runBankStatementImport(formData: FormData, mail?: { firmaId: stri
       throw new MailImportError("Aktivna firma ili godina je promijenjena. Osvježite stranicu.");
     }
     if (uploadedStatements.length !== 1) throw new MailImportError("Izaberite jedan prilog.");
-    const parsed = parseStatement(uploadedStatements[0].text, null, uploadedStatements[0].pdfRows);
-    if (!normalizeStatementAccount(parsed.companyAccountNumber)) throw new MailImportError("Račun firme nije prepoznat u prilogu. Potrebna je ručna provjera.");
-    const accounts = await prisma.firmaBankovniRacun.findMany({ where: {
-      agencija_id: user.agencija_id, firma_id: firma.id, aktivan: true, is_deleted: false
-    }});
-    const matching = accounts.filter((account) => normalizeStatementAccount(account.broj_racuna) === normalizeStatementAccount(parsed.companyAccountNumber));
-    if (matching.length !== 1) throw new MailImportError("Račun iz priloga ne pripada aktivnoj firmi ili nije jednoznačan.");
-    companyBankAccountId = matching[0].id;
+    if (mail.bankId) {
+      companyBankAccountId = mail.bankId;
+    } else {
+      const parsed = parseStatement(uploadedStatements[0].text, null, uploadedStatements[0].pdfRows);
+      if (!normalizeStatementAccount(parsed.companyAccountNumber)) throw new MailImportError("Račun firme nije prepoznat u prilogu. Potrebna je ručna provjera.");
+      const accounts = await prisma.firmaBankovniRacun.findMany({ where: {
+        agencija_id: user.agencija_id, firma_id: firma.id, aktivan: true, is_deleted: false
+      }});
+      const matching = accounts.filter((account) => normalizeStatementAccount(account.broj_racuna) === normalizeStatementAccount(parsed.companyAccountNumber));
+      if (matching.length !== 1) throw new MailImportError("Račun iz priloga ne pripada aktivnoj firmi ili nije jednoznačan.");
+      companyBankAccountId = matching[0].id;
+    }
   }
 
 
@@ -2323,15 +2348,22 @@ async function runBankStatementImport(formData: FormData, mail?: { firmaId: stri
           ...(uploaded.contentHash ? [{ sadrzaj_hash: uploaded.contentHash }] : [])
         ]
       }});
-      if (existing) {
-        if (mail && (existing.is_deleted || existing.company_bank_account_id !== companyBankAccount.id ||
-          existing.statement_date.getTime() !== validStatementDate.getTime() ||
-          decimalToCents(existing.opening_balance) !== validOpeningBalance || decimalToCents(existing.closing_balance) !== validClosingBalance ||
-          decimalToCents(existing.total_inflow) !== totalInflow || decimalToCents(existing.total_outflow) !== totalOutflow)) {
+      const normalizedNumber = statementIdentity(statementNumber, currentYear.godina);
+      const equivalent = !existing && mail ? (await tx.bankStatement.findMany({ where: {
+        agencija_id: user.agencija_id!, firma_id: firma.id, poslovna_godina_id: poslovnaGodina.id,
+        company_bank_account_id: companyBankAccount.id
+      }})).filter(row => statementIdentity(row.statement_number, currentYear.godina) === normalizedNumber) : [];
+      if (equivalent.length > 1) throw new MailImportError("Više izvoda ima isti broj. Potrebna je provjera.");
+      const duplicate = existing ?? equivalent[0];
+      if (duplicate) {
+        if (mail && (duplicate.is_deleted || duplicate.poslovna_godina_id !== poslovnaGodina.id || duplicate.company_bank_account_id !== companyBankAccount.id ||
+          duplicate.statement_date.getTime() !== validStatementDate.getTime() ||
+          decimalToCents(duplicate.opening_balance) !== validOpeningBalance || decimalToCents(duplicate.closing_balance) !== validClosingBalance ||
+          decimalToCents(duplicate.total_inflow) !== totalInflow || decimalToCents(duplicate.total_outflow) !== totalOutflow)) {
           throw new MailImportError("Izvod sa istim identitetom već postoji, ali podaci se razlikuju ili je obrisan. Potrebna je provjera.");
         }
         isDuplicate = true;
-        return { id: existing.id };
+        return { id: duplicate.id };
       }
       const lockedPeriods = await tx.$queryRaw<{status: string}[]>`SELECT status FROM pdv_periodi WHERE firma_id=${firma.id}::uuid AND datum_od<=${validStatementDate} AND datum_do>=${validStatementDate} FOR UPDATE`;
     if (lockedPeriods.some(period => period.status === "LOCKED")) throw new MailImportError("PDV period je zaključan.");
@@ -2395,7 +2427,8 @@ async function runBankStatementImport(formData: FormData, mail?: { firmaId: stri
       modul: "agencija.izvodi",
       akcija: "import",
       tipEntiteta: "BankStatement",
-      entitetId: statement.id
+      entitetId: statement.id,
+      novaVrijednost: mail?.bankId ? { izvor: "ONEDRIVE" } : undefined
     }, scheduled);
   }
 
@@ -3937,10 +3970,22 @@ export async function importBankStatementMailMessage(input: { firmaId: string; y
   const config = (await getCompanyMailConfigs(user.agencija_id!)).find((item) => item.firmaId === firma.id);
   if (!config) throw new Error("Mail pregled firme nije uključen.");
   if (input.mailAccountId !== config.mailAccountId) throw new Error("Mail nalog firme je promijenjen. Osvježite spisak poruka.");
+  mailReference(input.uid, input.validity);
   const sourceKey = mailSourceKey(input.folder, input.validity, input.uid, config.mailAccountId);
   const scope = { agencija_id: user.agencija_id!, firma_id: firma.id, poslovna_godina_id: year.id };
   if ((await completedMailKeys(scope, sourceKey)).has(sourceKey)) {
     const saved = await prisma.mailIzvodObrada.findMany({ where: { ...scope, poruka_kljuc: sourceKey }, orderBy: { created_at: "asc" } });
+    // Older receipts contain the attachment index in the scoped message key.
+    for (const row of saved) {
+      const index = Number(row.kljuc.slice(sourceKey.length + 1));
+      if (row.imap_uid === null && row.sadrzaj_hash && row.izvod_id &&
+          Number.isInteger(index) && index >= 0 && row.kljuc === `${sourceKey}:${index}`) {
+        await prisma.mailIzvodObrada.updateMany({
+          where: { ...scope, id: row.id, imap_uid: null },
+          data: { imap_uid: BigInt(input.uid), imap_uid_validity: input.validity, imap_folder: input.folder, indeks_priloga: index }
+        });
+      }
+    }
     return saved.map(row => ({ filename: row.naziv_priloga, status: row.status, reason: row.razlog, statementId: row.izvod_id }));
   }
   const results: Array<{ filename: string; status: string; reason: string | null; statementId: string | null }> = [];
@@ -3951,13 +3996,18 @@ export async function importBankStatementMailMessage(input: { firmaId: string; y
       firma_id_poslovna_godina_id_kljuc: { firma_id: firma.id, poslovna_godina_id: year.id, kljuc: key }
     }});
     if (prior?.status === "IMPORTED" && prior.izvod_id && prior.izvod_id === statementId && status === "DUPLICATE") status = "IMPORTED";
+    const source = index >= 0 ? {
+      imap_uid: BigInt(input.uid), imap_uid_validity: input.validity, imap_folder: input.folder, indeks_priloga: index
+    } : {};
+    const resetArchive = prior && (prior.izvod_id !== statementId || prior.sadrzaj_hash !== hash)
+      ? { arhiva_status: null, arhiva_greska: null, arhiva_pokusaj_at: null, arhiva_item_id: null } : {};
     await prisma.mailIzvodObrada.upsert({ where: {
       firma_id_poslovna_godina_id_kljuc: { firma_id: firma.id, poslovna_godina_id: year.id, kljuc: key }
     }, create: {
       agencija_id: user.agencija_id!, firma_id: firma.id, poslovna_godina_id: year.id,
       mail_nalog_id: config.mailAccountId, kljuc: key, poruka_kljuc: sourceKey, naziv_priloga: filename.slice(0, 500), sadrzaj_hash: hash,
-      status, razlog: reason, izvod_id: statementId, updated_by: user.id
-    }, update: { naziv_priloga: filename.slice(0, 500), sadrzaj_hash: hash, status, razlog: reason, izvod_id: statementId, updated_by: user.id } });
+      ...source, status, razlog: reason, izvod_id: statementId, updated_by: user.id
+    }, update: { naziv_priloga: filename.slice(0, 500), sadrzaj_hash: hash, ...source, ...resetArchive, status, razlog: reason, izvod_id: statementId, updated_by: user.id } });
     results.push({ filename, status, reason, statementId });
   };
   try {

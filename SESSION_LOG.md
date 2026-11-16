@@ -1,5 +1,13 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-15 — OneDrive izvodi i dokumenti na početnom pregledu
+
+- Dodat pregled povezanog foldera, poređenje sa evidencijom izvoda, uvoz izabranih ili svih novih i link na postojeće knjiženje. Početni pregled dodaje dva OneDrive brojača uz prava aktivne firme i poslovne godine.
+
+## 2026-11-14 — OneDrive arhiviranje mail izvoda
+
+- Dodat izbor OneDrive foldera po bankovnom računu i godini. Zajednički pozadinski tok čuva original tek poslije potvrđenog knjiženja izvoda i naloga, ponavlja privremene greške i prikazuje kolizije naziva. Migracija dodaje referencu IMAP priloga i odredište, a purge uklanja pripadajuće zapise iz baze.
+
 ## 2026-11-14 — KUF uvoz tokom navigacije
 
 - Red uvoza, rezultati i konta za dopunu ostaju u radnom prostoru agencije. Prelazak između firmi osvježava kontekst unutar aplikacije. Zahtjevi za uvoz provjeravaju izvornu firmu i godinu.

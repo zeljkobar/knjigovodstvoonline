@@ -6,6 +6,7 @@ export type DriveItem = {
   id: string;
   name: string;
   size?: number;
+  eTag?: string;
   folder?: object;
   file?: { mimeType: string };
   parentReference?: { id: string; driveId: string };
@@ -92,7 +93,10 @@ export async function connectOneDrive(agencyId: string, code: string) {
   if (!token.refresh_token) throw new Error("OneDrive nije dozvolio pozadinski pristup.");
   const drive = await graph<{ id: string }>(token.access_token, "me/drive");
   const old = await prisma.dokumentaOneDrive.findUnique({ where: { agencija_id: agencyId } });
-  if (old && old.drive_id !== drive.id && await prisma.dokumentaFolder.count({ where: { agencija_id: agencyId } })) {
+  if (old && old.drive_id !== drive.id && (
+    await prisma.dokumentaFolder.count({ where: { agencija_id: agencyId } }) ||
+    await prisma.bankStatementArchiveFolder.count({ where: { agencija_id: agencyId } })
+  )) {
     throw new Error("Povežite isti OneDrive nalog koji je već dodijeljen firmama.");
   }
   await prisma.dokumentaOneDrive.upsert({

@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { driveChildren, driveItemPath, graph, oneDriveAccess, type DriveItem } from "@/lib/dokumentacija-onedrive";
+import { saveStatementArchiveFolder } from "./archive-actions";
 import { effectiveBankSetting } from "@/lib/posting-template";
 import { PostingTemplateNotice } from "@/components/PostingTemplateNotice";
 import { AccountSearchSelect } from "@/components/AccountSearchSelect";
@@ -15,10 +18,14 @@ import styles from "./settings.module.css";
 type PodesavanjaIzvodaPageProps = {
   searchParams?: Promise<{
     poruka?: string;
+    banka?: string;
+    folder?: string;
   }>;
 };
 
 const messages: Record<string, string> = {
+  arhiva_sacuvana: "OneDrive podešavanje izvoda je sačuvano.",
+  arhiva_greska: "Folder nije sačuvan. Provjerite OneDrive vezu i da li je folder već dodijeljen drugom računu ili godini.",
   mail_sacuvana: "Mail podešavanja su sačuvana. Otvorite Mailovi za pregled filtriranih poruka.",
   godina_zakljucena: "Poslovna godina je zaključena.",
   podesavanja_greska: "Podešavanja nije moguće sačuvati.",
@@ -168,6 +175,34 @@ export default async function PodesavanjaIzvodaPage({
     settings.map((setting) => [setting.company_bank_account_id, setting])
   );
 
+  const archiveScope = { agencija_id: user.agencija_id, firma_id: firma.id, poslovna_godina_id: godina.id };
+  const [connection, folders, archiveIssues] = await Promise.all([
+    prisma.dokumentaOneDrive.findUnique({ where: { agencija_id: user.agencija_id }, select: { drive_id: true } }),
+    prisma.bankStatementArchiveFolder.findMany({ where: archiveScope }),
+    prisma.mailIzvodObrada.findMany({
+      where: { ...archiveScope, arhiva_status: { in: ["REVIEW", "RETRY"] },
+        izvod: { ...archiveScope, is_deleted: false, status: "POSTED" } },
+      select: { id: true, naziv_priloga: true, arhiva_greska: true, arhiva_status: true,
+        izvod: { select: { statement_number: true } } },
+      orderBy: { arhiva_pokusaj_at: "desc" }, take: 30
+    })
+  ]);
+  const selectedBank = bankAccounts.find(bank => bank.id === params?.banka);
+  let currentFolder: DriveItem | undefined;
+  let children: DriveItem[] = [];
+  let folderError = false;
+  if (connection && selectedBank && params?.folder) {
+    try {
+      const { token, driveId } = await oneDriveAccess(user.agencija_id);
+      currentFolder = await graph<DriveItem>(token, params.folder === "root"
+        ? `drives/${encodeURIComponent(driveId)}/root` : driveItemPath(driveId, params.folder));
+      if (currentFolder.folder) children = (await driveChildren(token, driveId, currentFolder.id)).filter(child => child.folder);
+    } catch {
+      folderError = true;
+    }
+  }
+  const browseLink = (bank: string, folder: string) => `?banka=${encodeURIComponent(bank)}&folder=${encodeURIComponent(folder)}#onedrive-izvodi`;
+
   return (
     <div className={`admin-stack ${styles.page}`}>
       <PostingTemplateNotice companyId={firma.id}/>
@@ -244,6 +279,53 @@ export default async function PodesavanjaIzvodaPage({
             </button>
           </form>
         )}
+      </section>
+      <section id="onedrive-izvodi" className={`admin-panel ${styles.panel}`}>
+        <h3>OneDrive arhiva izvoda · {godina.godina}</h3>
+        <p>Originalni mail prilozi čuvaju se nakon knjiženja. Odaberite folder za svaki bankovni račun u ovoj godini.</p>
+        {!connection && <Link href="/agencija/dokumentacija">Poveži OneDrive u Dokumentaciji</Link>}
+        {connection && bankAccounts.length > 0 && <div className="table-wrap"><table className={styles.table}>
+          <thead><tr><th>Bankovni račun</th><th>OneDrive folder</th><th>Podešavanje</th></tr></thead>
+          <tbody>{bankAccounts.map(bank => {
+            const folder = folders.find(item => item.bankovni_racun_id === bank.id);
+            return <tr key={bank.id}>
+              <td data-label="Bankovni račun"><strong>{bank.naziv_banke}</strong><small>{bank.broj_racuna}</small></td>
+              <td data-label="OneDrive folder">{folder?.naziv ?? "Nije podešen"}</td>
+              <td data-label="Podešavanje"><Link className="table-button" href={browseLink(bank.id, "root")} prefetch={false}>Odaberi folder</Link>
+                {folder && <form action={saveStatementArchiveFolder}>
+                  <input type="hidden" name="bankId" value={bank.id} />
+                  <input type="hidden" name="firmaId" value={firma.id} />
+                  <input type="hidden" name="yearId" value={godina.id} />
+                  <button className="table-button" name="unlink" value="true" type="submit">Ukloni vezu</button>
+                </form>}
+              </td>
+            </tr>;
+          })}</tbody>
+        </table></div>}
+        {folderError && <p role="alert">OneDrive folder trenutno nije dostupan.</p>}
+        {selectedBank && currentFolder?.folder && !folderError && <div className="admin-stack">
+          <strong>{selectedBank.naziv_banke} · {selectedBank.broj_racuna} · {currentFolder.name}</strong>
+          {currentFolder.parentReference?.id && <>
+            <Link href={browseLink(selectedBank.id, currentFolder.parentReference.id)} prefetch={false}>Nazad</Link>
+            <form action={saveStatementArchiveFolder}>
+              <input type="hidden" name="bankId" value={selectedBank.id} />
+              <input type="hidden" name="firmaId" value={firma.id} />
+              <input type="hidden" name="yearId" value={godina.id} />
+              <input type="hidden" name="folderId" value={currentFolder.id} />
+              <button className="primary-button" type="submit">Poveži ovaj folder</button>
+            </form>
+          </>}
+          <ul>{children.map(child => <li key={child.id}>
+            <Link href={browseLink(selectedBank.id, child.id)} prefetch={false}>{child.name}</Link>
+          </li>)}</ul>
+        </div>}
+        {archiveIssues.length > 0 && <>
+          <h4>Izvodi koji čekaju arhiviranje</h4>
+          <ul>{archiveIssues.map(issue => <li key={issue.id}>
+            Izvod {issue.izvod?.statement_number} ({issue.naziv_priloga}) · {issue.arhiva_status === "RETRY" ? "Čeka ponovni pokušaj" : "Potrebna provjera"} · {issue.arhiva_greska}
+          </li>)}</ul>
+          {archiveIssues.some(issue => issue.arhiva_status === "REVIEW") && <p>Nakon što riješite problem, ponovo povežite folder da pokrenete novi pokušaj.</p>}
+        </>}
       </section>
       {mailEnabled && <MailSettingsForm key={`${firma.id}-${mailSettings?.updated_at.toISOString() || "new"}`} firmaId={firma.id} godinaId={godina.id} accounts={mailAccounts.map(a => ({ id: a.id, naziv: a.naziv, username: a.korisnicko_ime }))}
         initial={{ mailAccountId: mailSettings?.mail_nalog_id ?? "", folder: mailSettings?.folder || "", subfolders: mailSettings?.ukljuci_podfoldere || false,

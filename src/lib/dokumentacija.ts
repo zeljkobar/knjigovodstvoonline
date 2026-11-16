@@ -164,7 +164,7 @@ export async function completeDocument(context: Awaited<ReturnType<typeof dokume
   await registerUpload(doc, item);
 }
 
-export async function syncIncoming(scope: DokumentaScope, year: number, userId?: string) {
+export async function listIncomingFiles(scope: DokumentaScope, year: number) {
   const { token, driveId, folder } = await documentDrive(scope);
   let parent: string;
   try {
@@ -172,14 +172,20 @@ export async function syncIncoming(scope: DokumentaScope, year: number, userId?:
     if (!existing.folder) throw new DokumentaError("Primljeno nije OneDrive folder.");
     parent = existing.id;
   } catch (error) {
-    if (error instanceof GraphError && error.status === 404) return 0;
+    if (error instanceof GraphError && error.status === 404) return { driveId, parent: null, items: [] };
     throw error;
   }
-  const items = await driveChildren(token, driveId, parent);
+  const items = (await driveChildren(token, driveId, parent)).filter(item =>
+    item.file && item.parentReference?.id === parent && item.parentReference?.driveId === driveId &&
+    supportedFile.test(item.name) && item.size && item.size <= 2147483647);
+  return { driveId, parent, items };
+}
+
+export async function syncIncoming(scope: DokumentaScope, year: number, userId?: string) {
+  const { driveId, parent, items } = await listIncomingFiles(scope, year);
+  if (!parent) return 0;
   let added = 0;
   for (const item of items) {
-    if (!item.file || item.parentReference?.id !== parent || item.parentReference?.driveId !== driveId ||
-        !supportedFile.test(item.name) || !item.size || item.size > 2147483647) continue;
     const existing = await prisma.primljeniDokument.findFirst({ where: { drive_id: driveId,
       OR: [{ item_id: item.id }, { naziv_u_oblaku: item.name, status: "UPLOAD", parent_id: parent }] } });
     if (existing) {

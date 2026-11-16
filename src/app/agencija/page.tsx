@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { IncomingCloudCard, StatementCloudCard } from "./CloudDashboard";
 import Link from "next/link";
 import { agencyProfileSelect, missingAgencyFields } from "@/lib/agency-profile";
 import type { Prisma } from "@prisma/client";
@@ -125,7 +127,7 @@ export default async function AgencijaPage() {
         })
       : null;
 
-  const [canViewJournals, canViewCalculations, canViewKif] =
+  const [canViewJournals, canViewCalculations, canViewKif, canViewStatements, canViewDocuments] =
     activeCompany && activeYear
       ? await Promise.all([
           hasPermission(user, {
@@ -142,10 +144,15 @@ export default async function AgencijaPage() {
             firmaId: activeCompany.id,
             modul: "izlazni_racuni",
             akcija: "view"
-          })
+          }),
+          hasPermission(user, { firmaId: activeCompany.id, modul: "izvodi", akcija: "view" }),
+          hasPermission(user, { firmaId: activeCompany.id, modul: "dokumentacija", akcija: "view" })
         ])
-      : [false, false, false];
+      : [false, false, false, false, false];
 
+  const cloudScope = activeCompany && activeYear ? {
+    agencija_id: user.agencija_id, firma_id: activeCompany.id, poslovna_godina_id: activeYear.id
+  } : null;
   const journalWhere: Prisma.NalogWhereInput | null = activeCompany && activeYear
     ? {
         firma_id: activeCompany.id,
@@ -348,6 +355,17 @@ export default async function AgencijaPage() {
               tone="kif"
             />
           </section>
+
+          {cloudScope && (canViewStatements || canViewDocuments) && <section className="dashboard-operational-panels" aria-label="OneDrive dokumenti za obradu">
+            {canViewStatements && <Suspense key={`izvodi:${activeCompany.id}:${activeYear.id}`}
+              fallback={<article className="admin-panel"><p role="status">Provjera OneDrive izvoda…</p></article>}>
+              <StatementCloudCard scope={cloudScope} year={activeYear.godina} />
+            </Suspense>}
+            {canViewDocuments && <Suspense key={`primljeno:${activeCompany.id}:${activeYear.id}`}
+              fallback={<article className="admin-panel"><p role="status">Provjera foldera Primljeno…</p></article>}>
+              <IncomingCloudCard scope={cloudScope} year={activeYear.godina} />
+            </Suspense>}
+          </section>}
 
           <section className="dashboard-operational-panels">
             <article className="admin-panel">

@@ -6,7 +6,12 @@
 ## Klijentska dokumentacija — aktivacija i proba
 
 - Podesiti zasebnu Microsoft OAuth aplikaciju i vrijednosti iz `.env.example`, primijeniti migraciju na ciljnoj bazi i restartovati aplikaciju. Povezati OneDrive agencije i jednu testnu firmu. Dodijeliti klijentu pravo Dokumentacija.
-- Provjeriti slanje sa računara i fizičkog telefona, posebno snimanje QR-a, direktno dodavanje skena na OneDrive, otvaranje originala iz KUF-a i naloga te arhiviranje u sve tri KUF destinacije. KIF i izvodi imaju prijem, a automatsko arhiviranje kroz njihovu obradu ostaje naredna faza.
+- Provjeriti slanje sa računara i fizičkog telefona, posebno snimanje QR-a, direktno dodavanje skena na OneDrive, otvaranje originala iz KUF-a i naloga te arhiviranje u sve tri KUF destinacije. Klijentski prijem KIF-a i izvoda ostaje za povezivanje sa odgovarajućom obradom.
+
+## Mail izvodi i OneDrive
+
+- Primijeniti migraciju `20261114160000_izvodi_onedrive_arhiva` na produkciji, generisati Prisma klijent i restartovati aplikaciju. Povezati bankovni folder za testnu firmu i godinu i provjeriti original poslije prvog knjiženja iz stvarnog maila.
+- Provjeriti pregled i zbirni uvoz iz stvarnog OneDrive foldera banke i uporediti brojače na početnom pregledu sa folderima testne firme.
 
 ## Specifikacija — klijentska dokumentacija, KUF i OneDrive
 

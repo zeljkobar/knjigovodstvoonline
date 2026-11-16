@@ -36,9 +36,17 @@ let verified = false;
       let xml = '<stmtrs><acctid>530000000012345678</acctid><stmtnumber>186</stmtnumber><ledgerbal><balamt>10.00</balamt><dtasof>2026-09-25</dtasof></ledgerbal><availbal><balamt>15.00</balamt><dtasof>2026-09-25</dtasof></availbal><stmttrn><benefit>credit</benefit><trnamt>5.00</trnamt><dtposted>2026-09-25</dtposted><purpose>Test</purpose></stmttrn></stmtrs>';
       let fixture = () => [{ index: 0, filename: 'statement.xml', content: Buffer.from(xml), contentType: 'application/xml' }];
       const proxy = require('../tests/helpers/source-loader.cjs').transactionProxy(tx);
+      const archiveDrive = 'test-archive-drive';
+      const archiveFolder = 'test-archive-folder';
+      let uploaded;
+      let expectedNumber = '186';
+      let expectedUid = 1;
+      let uploads = 0;
+      let offline = false;
+      const originalFetch = globalThis.fetch;
       const mocks = {
         'server-only': {},
-        'next/cache': { revalidatePath() {} },
+        'next/cache': { revalidatePath() {}, unstable_cache: callback => callback },
         'next/navigation': { redirect(url) { throw new Error('REDIRECT:' + url); } },
         '@/lib/prisma': { prisma: proxy },
         'pdfjs-dist/legacy/build/pdf.worker.mjs': {},
@@ -52,7 +60,24 @@ let verified = false;
         '@/lib/work-context': { readWorkContext: async () => context },
         '@/app/agencija/izvodi/imap/access': { requireImapCompany: async (id) => { if (id !== firma.id) throw new Error('DENIED'); return { user, firma }; } },
         '@/lib/company-mail-settings': { getCompanyMailConfigs: async () => mailEnabled ? [{ firmaId: firma.id, agencyId:agency.id, mailAccountId:mailbox.id, folder:'INBOX', includeInbox:true, rules:[] }] : [] },
-        '@/lib/imap-mail': { listCompanyInbox: async () => { discovered++; return {references:[]}; }, getMailImportAttachments: async () => { downloads++; return fixture(); }, MailError: class extends Error {} }
+        '@/lib/dokumentacija-onedrive': {
+          driveItemPath: (drive, folder) => `drives/${drive}/items/${folder}`,
+          oneDriveAccess: async (id) => {
+            assert.equal(id, agency.id);
+            return { token: 'fixture', driveId: archiveDrive };
+          },
+          GraphError: class GraphError extends Error { constructor(status) { super(`HTTP ${status}`); this.status = status; } },
+          graph: async (_token, path, options) => {
+            assert.ok(path.startsWith(`drives/${archiveDrive}/items/${archiveFolder}:/${expectedNumber}.xml`));
+            if (!options) return { id: 'archive-item', file: {}, size: uploaded.length, '@microsoft.graph.downloadUrl': 'https://fixture.test/download' };
+            assert.equal(JSON.parse(options.body).item['@microsoft.graph.conflictBehavior'], 'fail');
+            return { uploadUrl: 'https://fixture.test/upload' };
+          }
+        },
+        '@/lib/imap-mail': { mailReference: () => {}, getMailAttachment: async (uid, validity, index, folder) => {
+          assert.deepEqual([uid, validity, index, folder], [expectedUid, '1', 0, 'INBOX']);
+          return { filename: 'statement.xml', content: Buffer.from(xml) };
+        }, listCompanyInbox: async () => { discovered++; return {references:[]}; }, getMailImportAttachments: async () => { downloads++; return fixture(); }, MailError: class extends Error {} }
       };
       const cache = new Map();
       function load(filename) {
@@ -62,7 +87,10 @@ let verified = false;
         mod.require = (id) => {
           if (id in mocks) return mocks[id];
           if (id.startsWith('@/')) return load(path.join(root, 'src', id.slice(2) + '.ts'));
-          if (id.startsWith('.') && fs.existsSync(path.resolve(path.dirname(filename), id + '.ts'))) return load(path.resolve(path.dirname(filename), id + '.ts'));
+          if (id.startsWith('.') && fs.existsSync(path.resolve(path.dirname(filename), id + '.ts'))) {
+            const resolved = path.resolve(path.dirname(filename), id + '.ts');
+            return mocks['@/' + path.relative(path.join(root, 'src'), resolved).replace(/\.ts$/, '')] ?? load(resolved);
+          }
           return native(id);
         };
         mod._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText + (filename.endsWith('/bank-statement-service.ts') ? '\nexports.testReadUploadedFile = readUploadedFile;' : ''), filename);
@@ -143,13 +171,21 @@ let verified = false;
       await tx.bankStatementLine.updateMany({where:{bank_statement_id:automaticId},data:{posting_status:'READY',credit_account_id:expense.id}});
       await tx.bankStatement.update({where:{id:automaticId},data:{status:'READY'}});
       const execution={userId:user.id,agencyId:user.agencija_id,companyId:firma.id,yearId:year.id};
+      const bank = await tx.bankStatement.findUniqueOrThrow({ where: { id: automaticId } });
+      await tx.bankStatementArchiveFolder.create({ data: { ...scope, bankovni_racun_id: bank.company_bank_account_id,
+        drive_id: archiveDrive, folder_id: archiveFolder, naziv: 'NLB' } });
+      const archive = load(path.join(root, 'src/lib/bank-statement-archive.ts'));
+      assert.equal(archive.statementArchiveName('45', 'NLB.HTM'), '045.html');
+      await archive.runBankStatementArchive();
+      assert.equal(uploads, 0);
+      assert.equal(await tx.mailIzvodObrada.count({ where: { ...scope, arhiva_pokusaj_at: { not: null } } }), 0);
       const postingForm=new FormData();postingForm.append('statement_id',automaticId);
       const period=await tx.pdvPeriod.create({data:{...scope,mjesec:9,datum_od:new Date('2026-09-01'),datum_do:new Date('2026-09-30'),status:'LOCKED'}});
-      await assert.rejects(actions.postSelectedBankStatements(postingForm,execution),/PDV period/);
+      await assert.rejects(actions.postSelectedBankStatements(postingForm,execution),/PDV period|pdv_period_zakljucan/);
       assert.equal((await tx.bankStatement.findUniqueOrThrow({where:{id:automaticId}})).journal_id,null);
       await tx.pdvPeriod.update({where:{id:period.id},data:{status:'OPEN'}});
       await tx.bankStatement.update({where:{id:automaticId},data:{total_inflow:'6.00',closing_balance:'16.00'}});
-      await assert.rejects(actions.postSelectedBankStatements(postingForm,execution),/Zbir stavki/);
+      await assert.rejects(actions.postSelectedBankStatements(postingForm,execution),/Zbir stavki|izvod_promet_greska/);
       await tx.bankStatement.update({where:{id:automaticId},data:{total_inflow:'5.00',closing_balance:'15.00'}});
       const previousFlag=process.env.BANK_AUTOMATION_ENABLED;
       process.env.BANK_AUTOMATION_ENABLED='true';
@@ -165,14 +201,105 @@ let verified = false;
         assert.equal(await tx.auditLog.count({where:{firma_id:firma.id,akcija:'AUTO_BANK_RUN'}}),1);
         assert.equal(await tx.auditLog.count({where:{firma_id:firma.id,akcija:'AUTO_POST'}}),1);
       } finally { if(previousFlag===undefined)delete process.env.BANK_AUTOMATION_ENABLED;else process.env.BANK_AUTOMATION_ENABLED=previousFlag; }
+      const receipt = await tx.mailIzvodObrada.findFirstOrThrow({ where: { ...scope, izvod_id: automaticId, status: 'IMPORTED' } });
+      assert.equal(receipt.imap_uid, 1n);
+      globalThis.fetch = async (url, options) => {
+        if (url === 'https://fixture.test/download') return new Response(new Uint8Array(uploaded));
+        assert.equal(url, 'https://fixture.test/upload');
+        uploads++;
+        if (offline) return new Response(null, { status: 503 });
+        if (uploaded) return new Response(null, { status: 409 });
+        uploaded = Buffer.from(options.body);
+        return Response.json({ id: 'archive-item' }, { status: 201 });
+      };
+      const receiptWhere = { id: receipt.id };
+      const receiptStatus = async () => (await tx.mailIzvodObrada.findUniqueOrThrow({ where: receiptWhere })).arhiva_status;
+      const expireAttempt = () => tx.mailIzvodObrada.update({ where: receiptWhere, data: { arhiva_status: null, arhiva_pokusaj_at: new Date(0) } });
+      try {
+        offline = true;
+        await archive.runBankStatementArchive();
+        assert.equal(await receiptStatus(), 'RETRY');
+        assert.equal((await tx.bankStatement.findUniqueOrThrow({ where: { id: automaticId } })).status, 'POSTED');
+        await archive.runBankStatementArchive();
+        assert.equal(uploads, 1);
+        await expireAttempt();
+        offline = false;
+        await archive.runBankStatementArchive();
+        assert.equal(await receiptStatus(), 'SAVED');
+        assert.deepEqual(uploaded, Buffer.from(xml));
+        await archive.runBankStatementArchive();
+        assert.equal(uploads, 2);
+        await expireAttempt();
+        await archive.runBankStatementArchive();
+        assert.equal(await receiptStatus(), 'SAVED');
+        uploaded[0] ^= 1;
+        await expireAttempt();
+        await archive.runBankStatementArchive();
+        assert.equal(await receiptStatus(), 'REVIEW');
+        assert.notDeepEqual(uploaded, Buffer.from(xml));
+        expectedUid = 40;
+        expectedNumber = '045';
+        uploaded = undefined;
+        xml = original.replace('<stmtnumber>186', '<stmtnumber>45');
+        const manual = (await actions.importBankStatementMailMessage({ ...ref, uid: expectedUid }))[0];
+        await tx.bankStatementLine.updateMany({ where: { bank_statement_id: manual.statementId },
+          data: { posting_status: 'READY', credit_account_id: expense.id } });
+        await tx.bankStatement.update({ where: { id: manual.statementId }, data: { status: 'READY' } });
+        const manualForm = new FormData();
+        manualForm.append('statement_id', manual.statementId);
+        await assert.rejects(actions.postSelectedBankStatements(manualForm), /REDIRECT:.*izvodi_proknjizeni/);
+        await archive.runBankStatementArchive();
+        assert.equal((await tx.mailIzvodObrada.findFirstOrThrow({ where: { ...scope, izvod_id: manual.statementId } })).arhiva_status, 'SAVED');
+        assert.deepEqual(uploaded, Buffer.from(xml));
+      } finally { globalThis.fetch = originalFetch; }
+      const cloudData = new Map([
+        ['renamed-posted', original.replace('<stmtnumber>186', '<stmtnumber>0186/2026')],
+        ['mail-archived', original.replace('<stmtnumber>186', '<stmtnumber>45')],
+        ['new', original.replace('<stmtnumber>186', '<stmtnumber>46')],
+        ['new-copy', original.replace('<stmtnumber>186', '<stmtnumber>46')],
+        ['wrong-account', original.replace('530000000012345678', '530-999999-00')],
+        ['review', original.replace('15.00', '16.00')]
+      ]);
+      const item = id => ({ id, name: `${id}.xml`, size: Buffer.byteLength(cloudData.get(id)), eTag: 'v1',
+        file: { mimeType: 'application/xml' }, parentReference: { id: archiveFolder, driveId: archiveDrive },
+        '@microsoft.graph.downloadUrl': `https://fixture.test/${id}` });
+      mocks['@/lib/dokumentacija-onedrive'].graph = async (_token, path) => {
+        const id = path.split('/').at(-1);
+        const metadata = item(id);
+        if (id === 'outside') metadata.parentReference.id = 'other-folder';
+        return metadata;
+      };
+      cloudData.set('outside', cloudData.get('new'));
+      mocks['@/lib/dokumentacija-onedrive'].driveChildren = async () =>
+        [...cloudData.keys()].filter(id => id !== 'outside').map(item);
+      globalThis.fetch = async url => new Response(cloudData.get(new URL(url).pathname.slice(1)));
+      try {
+        const cloud = load(path.join(root, 'src/lib/bank-statement-cloud.ts'));
+        const folders = await cloud.statementCloudFolders(scope);
+        const scan = async () => (await cloud.scanStatementCloud(scope, 2026, folders))[0].rows;
+        let rows = await scan();
+        assert.equal(rows.find(row => row.id === 'mail-archived').status, 'POSTED');
+        assert.equal(rows.find(row => row.id === 'wrong-account').status, 'REVIEW');
+        assert.equal(rows.find(row => row.id === 'review').status, 'REVIEW');
+        assert.equal(rows.find(row => row.id === 'renamed-posted').status, 'POSTED');
+        assert.equal(rows.filter(row => row.status === 'NEW').length, 1);
+        assert.equal((await cloud.importCloudStatement(scope, bank.company_bank_account_id, 'renamed-posted', 'v1')).status, 'DUPLICATE');
+        await assert.rejects(cloud.importCloudStatement(scope, bank.company_bank_account_id, 'outside', 'v1'), /povezanom folderu/);
+        await assert.rejects(cloud.importCloudStatement(scope, bank.company_bank_account_id, 'wrong-account', 'v1'), /računu firme/);
+        assert.equal((await cloud.importCloudStatement(scope, bank.company_bank_account_id, 'new', 'v1')).status, 'IMPORTED');
+        rows = await scan();
+        assert.equal(rows.filter(row => row.status === 'NEW').length, 0);
+        assert.equal(rows.find(row => row.id === 'new').status, 'IMPORTED');
+      } finally { globalThis.fetch = originalFetch; }
       assert.equal(await tx.bankStatementAccountSetting.count({where:{firma_id:firma.id}}),0,'mail/manual import must not copy template mapping');
       const { purgeCompanyData } = load(path.join(root, 'src/lib/company-purge.ts'));
       const purged = await purgeCompanyData(tx, { agencijaId: user.agencija_id, firmaId: firma.id, potvrdaNaziva: firma.naziv, korisnikId: user.id });
       assert.ok(purged.obrisano.mail_izvod_obrade > 0);
+      assert.equal(purged.obrisano.izvodi_arhiva_folderi, 1);
       assert.equal(await tx.mailIzvodObrada.count({ where: { firma_id: firma.id } }), 0);
       verified = true;
       throw rollback;
     }, { timeout: 60000 });
   } catch (error) { if (error !== rollback) throw error; }
-  console.log(JSON.stringify({ dailyAutomationAndPosting: verified, noRepeatDaily: verified, lockedPeriodAndBalance: verified, importAndLines: verified, repeatAndMoveDeduplication: verified, legacyManualDuplicate: verified, wrongAccountYearAndScopeRejected: verified, lockedYearAndPermissionsRejected: verified, deleteAndReimport: verified, purge: verified, rolledBack: true }));
-})().catch(error => { console.error(error instanceof assert.AssertionError ? error.message : 'Mail import database regression failed'); process.exitCode = 1; }).finally(() => { return db.$disconnect(); });
+  console.log(JSON.stringify({ oneDriveArchiveAndRetry: verified, oneDriveScanAndImport: verified, dailyAutomationAndPosting: verified, noRepeatDaily: verified, lockedPeriodAndBalance: verified, importAndLines: verified, repeatAndMoveDeduplication: verified, legacyManualDuplicate: verified, wrongAccountYearAndScopeRejected: verified, lockedYearAndPermissionsRejected: verified, deleteAndReimport: verified, purge: verified, rolledBack: true }));
+})().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => { return db.$disconnect(); });

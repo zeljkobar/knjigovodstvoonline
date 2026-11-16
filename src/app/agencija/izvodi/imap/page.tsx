@@ -62,6 +62,10 @@ export default async function ImapConnectionPage({ searchParams }: {
     const items = records.filter((item) => item.poruka_kljuc === key);
     return items.length ? <ul>{items.map((item) => <li key={item.id}>
       {item.naziv_priloga}: <strong>{item.status === "IMPORTED" && !item.izvod_id ? "Potrebna provjera — izvod je obrisan" : mailImportLabels[item.status]}</strong>
+      {item.arhiva_status === "SAVED" && " · Sačuvano na OneDrive-u"}
+      {item.arhiva_status === "RETRY" && " · OneDrive čeka ponovni pokušaj"}
+      {item.arhiva_status === "REVIEW" && " · OneDrive traži provjeru"}
+      {item.arhiva_greska && ` — ${item.arhiva_greska}`}
       {item.razlog && ` — ${item.razlog}`}
       {item.izvod_id && <> · <Link href={`/agencija/izvodi?izvod=${item.izvod_id}`}>Otvori izvod</Link></>}
     </li>)}</ul> : <small>Za uvoz — prilozi još nijesu provjereni.</small>;
