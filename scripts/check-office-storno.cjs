@@ -155,7 +155,7 @@ const rollback = new Error('ROLLBACK_OFFICE_STORNO');
     if (id === '@/lib/auth') return { requireAnyRole: async () => user };
     if (id === '@/lib/work-context') return { readWorkContext: async () => ({ firmaId: firm.id, poslovnaGodinaId: year.id }) };
     if (id === '@/lib/permissions') return { hasPermission: async () => true };
-    if (id === '@/lib/audit') return { auditLog: async () => {} };
+    if (id === '@/lib/audit') return load('src/lib/audit.ts');
     if (id === 'next/cache') return { revalidatePath() {} };
     if (id === 'next/navigation') return { redirect(url) { throw new Error('REDIRECT:'+url); } };
     if (id === '@/lib/account-plan') return load('src/lib/account-plan.ts');

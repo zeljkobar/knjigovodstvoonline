@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Rollback-only regression; Fiscal API is mocked. */
 require('@next/env').loadEnvConfig(process.cwd(),false,{info(){},error(){}});
 const assert=require('node:assert/strict');const {randomUUID}=require('node:crypto');const {PrismaClient}=require('@prisma/client');
+// Keep the fiscal settlement, final invoice and October KIF book in the same month.
+require('node:test').mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-15T10:00:00Z') });
 const {sourceLoader,transactionProxy}=require('../tests/helpers/source-loader.cjs');const db=new PrismaClient();const rollback=Error('ROLLBACK');
 (async()=>{try{await db.$transaction(async tx=>{
  const agency=await tx.agencija.create({data:{naziv:'QA advance rollback'}}),firm=await tx.firma.create({data:{agencija_id:agency.id,naziv:'QA advance rollback',pib:'12345678',pdv_obveznik:true}});
