@@ -279,7 +279,10 @@ export async function applyAccountReplacement(token: string) {
       return { changed, journals: snapshot.journals.length };
     }, { isolationLevel: "Serializable", timeout: 60000 });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") fail("Podaci su istovremeno promijenjeni. Ponovo prikažite stavke.");
+    if (error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === "P2034" || (error.code === "P2010" && error.meta?.code === "40001"))) {
+      fail("Podaci su istovremeno promijenjeni. Ponovo prikažite stavke.");
+    }
     throw error;
   }
 }
