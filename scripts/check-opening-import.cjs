@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Database regression entirely rolled back. */
 require('@next/env').loadEnvConfig(process.cwd(),false,{info(){},error(){}});
 const assert=require('node:assert/strict'),{randomUUID}=require('node:crypto'),{PrismaClient}=require('@prisma/client');
+process.env.SESSION_SECRET = randomUUID();
 const {sourceLoader,transactionProxy}=require('../tests/helpers/source-loader.cjs');
 const XLSX=require('xlsx'),React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
 const db=new PrismaClient(),rollback=Error('ROLLBACK_OPENING_IMPORT');

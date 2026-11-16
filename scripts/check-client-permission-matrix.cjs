@@ -41,6 +41,8 @@ function load(file) {
   mod.require = (id) => {
     if (id in mocks) return mocks[id];
     if (['@/lib/permission-policy', '@/lib/client-permission-policy'].includes(id)) return load('src/' + id.slice(2) + '.ts');
+    if (id === './WorkerPermissionMatrix') return load(path.join(path.dirname(filename), 'WorkerPermissionMatrix.tsx'));
+    if (id === 'react') return React;
     return {};
   };
   mod._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
