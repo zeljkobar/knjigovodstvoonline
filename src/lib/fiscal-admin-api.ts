@@ -59,7 +59,7 @@ export type FiscalBusinessUnit = { id: string; companyId: string; environment?: 
 export type FiscalDevice = { id: string; companyId: string; businessUnitId: string; tcrCode?: string | null; internalCode: string; registrationStatus?: string; registeredAt?: string | null; isActive: boolean };
 export type FiscalOperator = { id: string; companyId: string; environment?: string; operatorCode: string; firstName?: string | null; lastName?: string | null; isActive: boolean };
 export type FiscalCertificate = { id: string; companyId: string; fileName: string; thumbprint: string; serialNumber?: string; subject: string; issuer: string; validFrom: string; validTo: string; isActive: boolean; activatedAt?: string | null; deactivatedAt?: string | null };
-export type FiscalActivation = { status?: string; environment?: string; testConfirmedAt?: string | null; testValidUntil?: string | null; testInvoiceId?: string | null; testJikr?: string | null; productionActivatedAt?: string | null; [key: string]: unknown };
+export type FiscalActivation = { status?: string; environment?: string; isReady: boolean; issues: FiscalReadiness["issues"]; isTestValidForCurrentConfiguration?: boolean; testConfirmedAt?: string | null; testValidUntil?: string | null; testInvoiceId?: string | null; testJikr?: string | null; productionActivatedAt?: string | null; [key: string]: unknown };
 export type FiscalProductionProfile = {
   producerCode?: string | null;
   softwareName?: string | null;
@@ -235,6 +235,9 @@ export const fiscalAdminApi = {
   },
   listDevices(companyId: string, actor: FiscalActor) {
     return fiscalRequest<FiscalDevice[]>(`/api/v1/admin/companies/${companyId}/devices`, actor);
+  },
+  getDevice(companyId: string, id: string, actor: FiscalActor) {
+    return fiscalRequest<FiscalDevice>(`/api/v1/admin/companies/${companyId}/devices/${id}`, actor);
   },
   createDevice(companyId: string, payload: Record<string, unknown>, actor: FiscalActor) {
     return fiscalRequest<FiscalDevice>(`/api/v1/admin/companies/${companyId}/devices`, actor, { method: "POST", body: JSON.stringify(payload) });

@@ -8,6 +8,11 @@ import { auditLog } from "@/lib/audit";
 import { requireRole } from "@/lib/auth";
 import { sendInvitationEmail } from "@/lib/email";
 import { fiscalAdminApi, FiscalAdminApiError } from "@/lib/fiscal-admin-api";
+import { createFiscalTestProfile } from "@/lib/fiscal-company-onboarding";
+import { isFiscalSetupStep, selectFiscalTestResources } from "@/lib/fiscal-setup";
+import { fiscalOnboardingStatus } from "@/lib/fiscal-admin-status";
+import { describeControlTestFailure, FISCAL_CONTROL_TEST_FAILURE } from "@/lib/fiscal-control-test";
+import { FISCAL_DEVICE_ID_PATTERN, linkProductionEnu, ProductionEnuLinkError } from "@/lib/fiscal-production-enu";
 import { createInvitationToken, createInvitationUrl } from "@/lib/invitations";
 import { prisma } from "@/lib/prisma";
 import { approveCompanyAgencyTransfer } from "@/lib/company-agency-transfer";
@@ -48,10 +53,15 @@ export async function rejectFiscalCompanyAgencyTransfer(formData: FormData) {
   redirect("/admin/fiskalizacija/korisnici?poruka=TRANSFER_ODBIJEN");
 }
 
-function fail(firmaId: string, code: string, correlationId?: string): never {
+function fiscalDetailFeedback(formData: FormData, firmaId: string, code: string, correlationId?: string, retryDeviceId?: string, anchor = ""): never {
   const params = new URLSearchParams({ poruka: code });
+  const step = formData.get("korak");
+  const showAll = formData.get("prikaz") === "sve";
+  if (showAll) params.set("prikaz", "sve");
+  else if (isFiscalSetupStep(step)) params.set("korak", step);
   if (correlationId) params.set("correlation", correlationId);
-  redirect(`/admin/fiskalizacija/${firmaId}?${params}`);
+  if (retryDeviceId) params.set("enu_retry", retryDeviceId);
+  redirect(`/admin/fiskalizacija/${firmaId}?${params}${showAll ? anchor : ""}`);
 }
 
 export async function onboardFiscalCompany(formData: FormData) {
@@ -64,95 +74,70 @@ export async function onboardFiscalCompany(formData: FormData) {
     where: { id: firmaId, is_deleted: false },
     include: { fiscalCompanyLink: true }
   });
-  if (!firma || !firma.pib) fail(firmaId, "FIRMA_ILI_PIB_NEDOSTAJE");
-  if (!softwareCode || !maintainerCode) fail(firmaId, "KODOVI_NEDOSTAJU");
+  if (!firma || !firma.pib) fiscalDetailFeedback(formData, firmaId, "FIRMA_ILI_PIB_NEDOSTAJE");
+  if (firma.fiscalCompanyLink?.fiscal_api_company_id) fiscalDetailFeedback(formData, firmaId, "FIRMA_VEC_POSTOJI");
+  if (!softwareCode || !maintainerCode) fiscalDetailFeedback(formData, firmaId, "KODOVI_NEDOSTAJU");
+  const enteredIdentity = formData.has("legal_name");
+  const legalName = enteredIdentity ? text(formData, "legal_name") : firma.naziv;
+  if (!legalName) fiscalDetailFeedback(formData, firmaId, "FISKALNI_IDENTITET_OBAVEZNA_POLJA");
 
   try {
-    const result = await fiscalAdminApi.upsertCompany(
+    await createFiscalTestProfile(
+      { id: firma.id, agencyId: firma.agencija_id, pib: firma.pib },
       {
-        tin: firma.pib,
-        legalName: firma.naziv,
-        shortName: firma.skraceni_naziv,
-        address: firma.adresa,
-        town: firma.grad ?? firma.opstina,
-        country: "MNE",
-        isVatPayer: firma.pdv_obveznik,
-        environment: "Test",
-        endpoint: process.env.FISCAL_API_TEST_ENDPOINT,
+        legalName,
+        shortName: enteredIdentity ? text(formData, "short_name") || null : firma.skraceni_naziv,
+        address: enteredIdentity ? text(formData, "address") || null : firma.adresa,
+        town: enteredIdentity ? text(formData, "town") || null : firma.grad ?? firma.opstina,
+        isVatPayer: enteredIdentity ? text(formData, "is_vat_payer") === "true" : firma.pdv_obveznik,
         softwareCode,
         maintainerCode
       },
-      { id: admin.id, name: admin.korisnicko_ime }
+      { id: admin.id, name: admin.korisnicko_ime },
+      "manual",
     );
-
-    await prisma.fiscalCompanyLink.upsert({
-      where: { firma_id: firma.id },
-      create: {
-        agencija_id: firma.agencija_id,
-        firma_id: firma.id,
-        fiscal_api_company_id: result.data.id,
-        onboarding_status: "IN_PROGRESS",
-        fiscal_environment: result.data.environment,
-        last_correlation_id: result.correlationId,
-        created_by: admin.id,
-        updated_by: admin.id
-      },
-      update: {
-        fiscal_api_company_id: result.data.id,
-        onboarding_status: "IN_PROGRESS",
-        fiscal_environment: result.data.environment,
-        last_correlation_id: result.correlationId,
-        updated_by: admin.id
-      }
-    });
-
-    await auditLog({
-      korisnikId: admin.id,
-      agencijaId: firma.agencija_id,
-      firmaId: firma.id,
-      modul: "admin.fiskalizacija",
-      akcija: "fiscal_company_onboarded",
-      tipEntiteta: "fiscal_company_link",
-      entitetId: result.data.id,
-      novaVrijednost: { environment: result.data.environment, correlationId: result.correlationId }
-    });
   } catch (error) {
-    if (error instanceof FiscalAdminApiError) fail(firmaId, error.code, error.correlationId);
-    fail(firmaId, "FISCAL_API_GRESKA");
+    if (error instanceof FiscalAdminApiError) fiscalDetailFeedback(formData, firmaId, error.code, error.correlationId);
+    fiscalDetailFeedback(formData, firmaId, "FISCAL_API_GRESKA");
   }
 
   revalidatePath("/admin/fiskalizacija");
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=FIRMA_POVEZANA`);
+  fiscalDetailFeedback(formData, firmaId, "FIRMA_POVEZANA");
 }
 
 export async function refreshFiscalReadiness(formData: FormData) {
   const admin = await requireRole("admin");
   const firmaId = text(formData, "firma_id");
   const link = await prisma.fiscalCompanyLink.findUnique({ where: { firma_id: firmaId } });
-  if (!link?.fiscal_api_company_id) fail(firmaId, "FIRMA_NIJE_POVEZANA");
+  if (!link?.fiscal_api_company_id) fiscalDetailFeedback(formData, firmaId, "FIRMA_NIJE_POVEZANA");
 
   try {
-    const result = await fiscalAdminApi.getReadiness(
+    const result = await fiscalAdminApi.getActivation(
       link.fiscal_api_company_id,
       { id: admin.id, name: admin.korisnicko_ime }
     );
-    await prisma.fiscalCompanyLink.update({
-      where: { id: link.id },
+    const { environment, isReady, issues } = result.data;
+    const updated = await prisma.fiscalCompanyLink.updateMany({
+      where: { id: link.id, updated_at: link.updated_at },
       data: {
-        onboarding_status: result.data.isReady ? "READY_FOR_TEST" : "IN_PROGRESS",
+        fiscal_environment: environment === "Test" || environment === "Production" ? environment : link.fiscal_environment,
+        onboarding_status: fiscalOnboardingStatus(link, result.data),
         last_readiness_check_at: new Date(),
-        last_readiness_result: JSON.parse(JSON.stringify(result.data)),
+        last_readiness_result: { companyId: link.fiscal_api_company_id, isReady, issues },
         last_correlation_id: result.correlationId,
         updated_by: admin.id
       }
     });
+    if (!updated.count) throw new FiscalAdminApiError("FISCAL_STATE_CHANGED", "Podešavanja firme su promijenjena tokom provjere.", result.correlationId);
   } catch (error) {
-    if (error instanceof FiscalAdminApiError) fail(firmaId, error.code, error.correlationId);
-    fail(firmaId, "FISCAL_API_GRESKA");
+    if (error instanceof FiscalAdminApiError) fiscalDetailFeedback(formData, firmaId, error.code, error.correlationId);
+    fiscalDetailFeedback(formData, firmaId, "FISCAL_API_GRESKA");
   }
 
+  revalidatePath("/admin/fiskalizacija");
+  revalidatePath("/admin/fiskalizacija/korisnici");
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=READINESS_OSVJEZEN`);
+  fiscalDetailFeedback(formData, firmaId, "READINESS_OSVJEZEN");
 }
 
 export async function setFiscalSuspension(formData: FormData) {
@@ -161,8 +146,8 @@ export async function setFiscalSuspension(formData: FormData) {
   const suspend = text(formData, "suspend") === "true";
   const reason = text(formData, "reason");
   const link = await prisma.fiscalCompanyLink.findUnique({ where: { firma_id: firmaId } });
-  if (!link?.fiscal_api_company_id) fail(firmaId, "FIRMA_NIJE_POVEZANA");
-  if (suspend && !reason) fail(firmaId, "RAZLOG_OBAVEZAN");
+  if (!link?.fiscal_api_company_id) fiscalDetailFeedback(formData, firmaId, "FIRMA_NIJE_POVEZANA");
+  if (suspend && !reason) fiscalDetailFeedback(formData, firmaId, "RAZLOG_OBAVEZAN");
 
   try {
     const actor = { id: admin.id, name: admin.korisnicko_ime };
@@ -194,91 +179,126 @@ export async function setFiscalSuspension(formData: FormData) {
       novaVrijednost: { suspend, reason: suspend ? reason : null, correlationId: result.correlationId }
     });
   } catch (error) {
-    if (error instanceof FiscalAdminApiError) fail(firmaId, error.code, error.correlationId);
-    fail(firmaId, "FISCAL_API_GRESKA");
+    if (error instanceof FiscalAdminApiError) fiscalDetailFeedback(formData, firmaId, error.code, error.correlationId);
+    fiscalDetailFeedback(formData, firmaId, "FISCAL_API_GRESKA");
   }
 
   revalidatePath("/admin/fiskalizacija");
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=${suspend ? "FIRMA_SUSPENDOVANA" : "FIRMA_AKTIVIRANA"}`);
+  fiscalDetailFeedback(formData, firmaId, suspend ? "FIRMA_SUSPENDOVANA" : "FIRMA_AKTIVIRANA");
 }
 
-async function fiscalContext(firmaId: string) {
+async function fiscalContext(formData: FormData, firmaId: string) {
   const admin = await requireRole("admin");
   const link = await prisma.fiscalCompanyLink.findUnique({ where: { firma_id: firmaId } });
-  if (!link?.fiscal_api_company_id) fail(firmaId, "FIRMA_NIJE_POVEZANA");
+  if (!link?.fiscal_api_company_id) fiscalDetailFeedback(formData, firmaId, "FIRMA_NIJE_POVEZANA");
   return { admin, link, actor: { id: admin.id, name: admin.korisnicko_ime } };
 }
 
-function handleFiscalActionError(firmaId: string, error: unknown): never {
-  if (error instanceof FiscalAdminApiError) fail(firmaId, error.code, error.correlationId);
-  fail(firmaId, "FISCAL_API_GRESKA");
+function handleFiscalActionError(formData: FormData, firmaId: string, error: unknown): never {
+  if (error instanceof FiscalAdminApiError) fiscalDetailFeedback(formData, firmaId, error.code, error.correlationId);
+  fiscalDetailFeedback(formData, firmaId, "FISCAL_API_GRESKA");
+}
+
+export async function updateFiscalTestCodes(formData: FormData) {
+  const firmaId = text(formData, "firma_id");
+  const { admin, actor, link } = await fiscalContext(formData, firmaId);
+  const firma = await prisma.firma.findFirst({ where: { id: firmaId, is_deleted: false }, select: { pib: true } });
+  if (!firma?.pib) fiscalDetailFeedback(formData, firmaId, "FIRMA_ILI_PIB_NEDOSTAJE");
+  const softwareCode = text(formData, "software_code");
+  const maintainerCode = text(formData, "maintainer_code");
+  if (!softwareCode || !maintainerCode) fiscalDetailFeedback(formData, firmaId, "KODOVI_NEDOSTAJU");
+
+  try {
+    const companyId = link.fiscal_api_company_id!;
+    const { data: company } = await fiscalAdminApi.getCompany(companyId, actor);
+    if (company.id !== companyId || company.tin !== firma.pib || company.environment !== "Test" ||
+        !company.isActive || link.is_suspended) {
+      throw new FiscalAdminApiError("TEST_KODOVI_NEDOSTUPNI", "Testni kodovi se mijenjaju samo za aktivnu firmu u testnom okruženju.");
+    }
+    if (company.softwareCode !== softwareCode || company.maintainerCode !== maintainerCode) {
+      // The Fiscal API expects the full company payload. Keep identity and endpoint as stored there.
+      const result = await fiscalAdminApi.updateCompany(companyId, {
+        tin: company.tin, legalName: company.legalName, shortName: company.shortName,
+        address: company.address, town: company.town, country: company.country,
+        isVatPayer: company.isVatPayer, environment: "Test", endpoint: company.endpoint,
+        softwareCode, maintainerCode
+      }, actor);
+      await auditLog({
+        korisnikId: admin.id, agencijaId: link.agencija_id, firmaId,
+        modul: "admin.fiskalizacija", akcija: "fiscal_test_codes_updated", tipEntiteta: "fiscal_company_link",
+        entitetId: companyId, novaVrijednost: { environment: "Test", correlationId: result.correlationId }, upisiAktivnost: false
+      });
+    }
+  } catch (error) { handleFiscalActionError(formData, firmaId, error); }
+  revalidatePath(`/admin/fiskalizacija/${firmaId}`);
+  fiscalDetailFeedback(formData, firmaId, "TEST_KODOVI_SACUVANI");
 }
 
 export async function createFiscalBusinessUnit(formData: FormData) {
   const firmaId = text(formData, "firma_id");
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try {
     await fiscalAdminApi.createBusinessUnit(link.fiscal_api_company_id!, {
       code: text(formData, "code"), name: text(formData, "name"),
       address: text(formData, "address") || null, town: text(formData, "town") || null
     }, actor);
-  } catch (error) { handleFiscalActionError(firmaId, error); }
+  } catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=JEDINICA_DODATA`);
+  fiscalDetailFeedback(formData, firmaId, "JEDINICA_DODATA");
 }
 
 export async function createFiscalDevice(formData: FormData) {
   const firmaId = text(formData, "firma_id");
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try {
     await fiscalAdminApi.createDevice(link.fiscal_api_company_id!, {
       businessUnitId: text(formData, "business_unit_id"),
       tcrCode: text(formData, "tcr_code"), internalCode: text(formData, "internal_code")
     }, actor);
-  } catch (error) { handleFiscalActionError(firmaId, error); }
+  } catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=ENU_DODAT`);
+  fiscalDetailFeedback(formData, firmaId, "ENU_DODAT");
 }
 
 export async function createFiscalOperator(formData: FormData) {
   const firmaId = text(formData, "firma_id");
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try {
     await fiscalAdminApi.createOperator(link.fiscal_api_company_id!, {
       operatorCode: text(formData, "operator_code"), firstName: text(formData, "first_name"), lastName: text(formData, "last_name")
     }, actor);
-  } catch (error) { handleFiscalActionError(firmaId, error); }
+  } catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=OPERATER_DODAT`);
+  fiscalDetailFeedback(formData, firmaId, "OPERATER_DODAT");
 }
 
 export async function uploadFiscalCertificate(formData: FormData) {
   const firmaId = text(formData, "firma_id");
   const file = formData.get("file");
   const password = text(formData, "password");
-  if (!(file instanceof File) || file.size === 0 || file.size > 5 * 1024 * 1024) fail(firmaId, "CERT_UPLOAD_INVALID_FILE");
-  if (!/\.(pfx|p12)$/i.test(file.name) || !password) fail(firmaId, "CERT_UPLOAD_INVALID_FILE");
-  const { actor, link } = await fiscalContext(firmaId);
+  if (!(file instanceof File) || file.size === 0 || file.size > 5 * 1024 * 1024) fiscalDetailFeedback(formData, firmaId, "CERT_UPLOAD_INVALID_FILE");
+  if (!/\.(pfx|p12)$/i.test(file.name) || !password) fiscalDetailFeedback(formData, firmaId, "CERT_UPLOAD_INVALID_FILE");
+  const { actor, link } = await fiscalContext(formData, firmaId);
   const outbound = new FormData();
   outbound.set("file", file, file.name);
   outbound.set("password", password);
   try {
     await fiscalAdminApi.uploadCertificate(link.fiscal_api_company_id!, outbound, actor);
-  } catch (error) { handleFiscalActionError(firmaId, error); }
+  } catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=SERTIFIKAT_DODAT`);
+  fiscalDetailFeedback(formData, firmaId, "SERTIFIKAT_DODAT");
 }
 
 export async function activateFiscalCertificate(formData: FormData) {
   const firmaId = text(formData, "firma_id");
   const certificateId = text(formData, "certificate_id");
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try {
     await fiscalAdminApi.activateCertificate(link.fiscal_api_company_id!, certificateId, actor);
-  } catch (error) { handleFiscalActionError(firmaId, error); }
+  } catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=SERTIFIKAT_AKTIVIRAN`);
+  fiscalDetailFeedback(formData, firmaId, "SERTIFIKAT_AKTIVIRAN");
 }
 
 export async function confirmFiscalTest(formData: FormData) {
@@ -286,26 +306,26 @@ export async function confirmFiscalTest(formData: FormData) {
   const invoiceId = text(formData, "invoice_id");
   const confirmation = text(formData, "confirmation");
   const firma = await prisma.firma.findUnique({ where: { id: firmaId }, select: { pib: true } });
-  if (!firma?.pib || confirmation !== `CONFIRM_TEST:${firma.pib}` || !invoiceId) fail(firmaId, "POTVRDA_NIJE_ISPRAVNA");
-  const { admin, actor, link } = await fiscalContext(firmaId);
+  if (!firma?.pib || confirmation !== `CONFIRM_TEST:${firma.pib}` || !invoiceId) fiscalDetailFeedback(formData, firmaId, "POTVRDA_NIJE_ISPRAVNA");
+  const { admin, actor, link } = await fiscalContext(formData, firmaId);
   try {
     const result = await fiscalAdminApi.confirmTest(link.fiscal_api_company_id!, invoiceId, confirmation, actor);
     await prisma.fiscalCompanyLink.update({ where: { id: link.id }, data: { onboarding_status: "TEST_ACTIVE", fiscal_environment: "Test", last_correlation_id: result.correlationId, updated_by: admin.id } });
-  } catch (error) { handleFiscalActionError(firmaId, error); }
+  } catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=TEST_POTVRDJEN`);
+  fiscalDetailFeedback(formData, firmaId, "TEST_POTVRDJEN");
 }
 
 export async function fiscalizeAndConfirmControlTest(formData: FormData) {
   const firmaId = text(formData, "firma_id");
+  const { admin, actor, link } = await fiscalContext(formData, firmaId);
   const idempotencyKey = text(formData, "idempotency_key");
-  if (!idempotencyKey || idempotencyKey.length > 200) fail(firmaId, "CONTROL_TEST_INVALID");
+  if (!idempotencyKey || idempotencyKey.length > 200) fiscalDetailFeedback(formData, firmaId, "CONTROL_TEST_INVALID");
   const firma = await prisma.firma.findFirst({
     where: { id: firmaId, is_deleted: false },
     select: { pib: true, pdv_obveznik: true, agencija_id: true }
   });
-  if (!firma?.pib) fail(firmaId, "FIRMA_ILI_PIB_NEDOSTAJE");
-  const { admin, actor, link } = await fiscalContext(firmaId);
+  if (!firma?.pib) fiscalDetailFeedback(formData, firmaId, "FIRMA_ILI_PIB_NEDOSTAJE");
 
   try {
     const companyId = link.fiscal_api_company_id!;
@@ -318,9 +338,7 @@ export async function fiscalizeAndConfirmControlTest(formData: FormData) {
     ]);
     if (company.data.environment !== "Test") throw new FiscalAdminApiError("TEST_ENVIRONMENT_REQUIRED", "Kontrolni račun se šalje samo u testnom okruženju.");
     if (!readiness.data.isReady) throw new FiscalAdminApiError("COMPANY_NOT_READY", "Firma nije spremna za kontrolni test.");
-    const unit = units.data.find((item) => item.isActive);
-    const device = devices.data.find((item) => item.isActive && item.businessUnitId === unit?.id);
-    const operator = operators.data.find((item) => item.isActive);
+    const { unit, device, operator } = selectFiscalTestResources(units.data, devices.data, operators.data);
     if (!unit || !device || !operator) throw new FiscalAdminApiError("CONTROL_TEST_CONFIGURATION_MISSING", "Nedostaje aktivna testna jedinica, ENU ili operater.");
 
     const today = new Date().toISOString().slice(0, 10);
@@ -362,7 +380,23 @@ export async function fiscalizeAndConfirmControlTest(formData: FormData) {
       actor
     );
     if (!submitted.data.isSuccess || submitted.data.status !== "Fiscalized" || !submitted.data.jikr) {
-      throw new FiscalAdminApiError("CONTROL_TEST_NOT_FISCALIZED", "Kontrolni račun nije uspješno fiskalizovan.", submitted.correlationId);
+      const correlationId = submitted.correlationId ?? randomUUID();
+      const reason = describeControlTestFailure(submitted.data);
+      await auditLog({
+        korisnikId: admin.id,
+        agencijaId: firma.agencija_id,
+        firmaId,
+        modul: "admin.fiskalizacija",
+        akcija: FISCAL_CONTROL_TEST_FAILURE,
+        tipEntiteta: "FiscalInvoice",
+        entitetId: created.data.id,
+        novaVrijednost: { correlationId },
+        napomena: reason,
+        upisiAktivnost: false
+      }).catch(() => {
+        console.error("Neuspjelo čuvanje rezultata kontrolnog fiskalnog testa.", { firmaId, correlationId });
+      });
+      throw new FiscalAdminApiError("CONTROL_TEST_NOT_FISCALIZED", reason, correlationId);
     }
     const confirmed = await fiscalAdminApi.confirmTest(
       companyId,
@@ -391,10 +425,10 @@ export async function fiscalizeAndConfirmControlTest(formData: FormData) {
       upisiAktivnost: false
     });
   } catch (error) {
-    handleFiscalActionError(firmaId, error);
+    handleFiscalActionError(formData, firmaId, error);
   }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=CONTROL_TEST_AUTOMATSKI_POTVRDJEN`);
+  fiscalDetailFeedback(formData, firmaId, "CONTROL_TEST_AUTOMATSKI_POTVRDJEN");
 }
 
 export async function configureFiscalProductionProfile(formData: FormData) {
@@ -417,42 +451,72 @@ export async function configureFiscalProductionProfile(formData: FormData) {
   if (!payload.producerCode || !payload.softwareName || !payload.softwareVersion ||
       !payload.softwareCode || !payload.maintainerCode || !payload.businessUnitCode ||
       !payload.businessUnitName || !payload.operatorCode || !payload.isSoftwareCertified) {
-    fail(firmaId, "PRODUCTION_PROFILE_REQUIRED_FIELDS");
+    fiscalDetailFeedback(formData, firmaId, "PRODUCTION_PROFILE_REQUIRED_FIELDS");
   }
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try {
     await fiscalAdminApi.updateProductionProfile(link.fiscal_api_company_id!, payload, actor);
-  } catch (error) { handleFiscalActionError(firmaId, error); }
+  } catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=PRODUKCIONI_PROFIL_SACUVAN`);
+  fiscalDetailFeedback(formData, firmaId, "PRODUKCIONI_PROFIL_SACUVAN");
 }
 
 export async function activateFiscalProduction(formData: FormData) {
   const firmaId = text(formData, "firma_id");
   const confirmation = text(formData, "confirmation");
   const firma = await prisma.firma.findUnique({ where: { id: firmaId }, select: { pib: true } });
-  if (!firma?.pib || confirmation !== `ACTIVATE_PRODUCTION:${firma.pib}`) fail(firmaId, "POTVRDA_NIJE_ISPRAVNA");
-  const { admin, actor, link } = await fiscalContext(firmaId);
+  if (!firma?.pib || confirmation !== `ACTIVATE_PRODUCTION:${firma.pib}`) fiscalDetailFeedback(formData, firmaId, "POTVRDA_NIJE_ISPRAVNA");
+  const { admin, actor, link } = await fiscalContext(formData, firmaId);
   try {
     const result = await fiscalAdminApi.activateProduction(link.fiscal_api_company_id!, confirmation, actor);
     await prisma.fiscalCompanyLink.update({ where: { id: link.id }, data: { onboarding_status: "PRODUCTION_ACTIVE", fiscal_environment: "Production", last_correlation_id: result.correlationId, updated_by: admin.id } });
-  } catch (error) { handleFiscalActionError(firmaId, error); }
+  } catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=PRODUKCIJA_AKTIVIRANA`);
+  fiscalDetailFeedback(formData, firmaId, "PRODUKCIJA_AKTIVIRANA");
 }
 
 export async function returnFiscalCompanyToTest(formData: FormData) {
   const firmaId = text(formData, "firma_id");
   const confirmation = text(formData, "confirmation");
   const firma = await prisma.firma.findUnique({ where: { id: firmaId }, select: { pib: true } });
-  if (!firma?.pib || confirmation !== `RETURN_TO_TEST:${firma.pib}`) fail(firmaId, "POTVRDA_NIJE_ISPRAVNA");
-  const { admin, actor, link } = await fiscalContext(firmaId);
+  if (!firma?.pib || confirmation !== `RETURN_TO_TEST:${firma.pib}`) fiscalDetailFeedback(formData, firmaId, "POTVRDA_NIJE_ISPRAVNA");
+  const { admin, actor, link } = await fiscalContext(formData, firmaId);
   try {
     const result = await fiscalAdminApi.returnToTest(link.fiscal_api_company_id!, confirmation, actor);
     await prisma.fiscalCompanyLink.update({ where: { id: link.id }, data: { onboarding_status: "IN_PROGRESS", fiscal_environment: "Test", last_correlation_id: result.correlationId, updated_by: admin.id } });
-  } catch (error) { handleFiscalActionError(firmaId, error); }
+  } catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=VRACENO_U_TEST`);
+  fiscalDetailFeedback(formData, firmaId, "VRACENO_U_TEST");
+}
+
+export async function linkExistingFiscalProductionEnu(formData: FormData) {
+  const firmaId = text(formData, "firma_id");
+  const { actor, link } = await fiscalContext(formData, firmaId);
+  const firma = await prisma.firma.findFirst({
+    where: { id: firmaId, agencija_id: link.agencija_id, is_deleted: false },
+    select: { pib: true }
+  });
+  if (!firma?.pib || link.is_suspended) fiscalDetailFeedback(formData, firmaId, "PRODUKCIONI_ENU_NEDOSTUPNO");
+
+  const submittedRetryId = text(formData, "retry_device_id");
+  let retryDeviceId = FISCAL_DEVICE_ID_PATTERN.test(submittedRetryId) ? submittedRetryId : undefined;
+  try {
+    await linkProductionEnu(fiscalAdminApi, actor, {
+      companyId: link.fiscal_api_company_id!,
+      pib: firma.pib,
+      businessUnitId: text(formData, "business_unit_id"),
+      businessUnitCode: text(formData, "business_unit_code"),
+      tcrCode: text(formData, "tcr_code"),
+      internalCode: text(formData, "internal_code"),
+      retryDeviceId: submittedRetryId || undefined
+    }, (id) => { retryDeviceId = id; });
+  } catch (error) {
+    if (error instanceof ProductionEnuLinkError) fiscalDetailFeedback(formData, firmaId, error.message, undefined, retryDeviceId);
+    if (error instanceof FiscalAdminApiError) fiscalDetailFeedback(formData, firmaId, error.code, error.correlationId, retryDeviceId);
+    fiscalDetailFeedback(formData, firmaId, "FISCAL_API_GRESKA", undefined, retryDeviceId);
+  }
+  revalidatePath(`/admin/fiskalizacija/${firmaId}`);
+  fiscalDetailFeedback(formData, firmaId, "PRODUKCIONI_ENU_POVEZAN", undefined, undefined, "#produkcioni-enu");
 }
 
 export async function registerFiscalProductionEnu(formData: FormData) {
@@ -461,28 +525,28 @@ export async function registerFiscalProductionEnu(formData: FormData) {
   const confirmation = text(formData, "confirmation");
   const validFrom = text(formData, "valid_from");
   const firma = await prisma.firma.findUnique({ where: { id: firmaId }, select: { pib: true } });
-  if (!firma?.pib || !internalCode || !validFrom || confirmation !== `REGISTER_PRODUCTION_ENU:${firma.pib}:${internalCode}`) fail(firmaId, "POTVRDA_NIJE_ISPRAVNA");
-  const { actor, link } = await fiscalContext(firmaId);
+  if (!firma?.pib || !internalCode || !validFrom || confirmation !== `REGISTER_PRODUCTION_ENU:${firma.pib}:${internalCode}`) fiscalDetailFeedback(formData, firmaId, "POTVRDA_NIJE_ISPRAVNA");
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try {
     await fiscalAdminApi.registerProductionEnu(link.fiscal_api_company_id!, { internalCode, validFrom, confirmation }, actor);
-  } catch (error) { handleFiscalActionError(firmaId, error); }
+  } catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=PRODUKCIONI_ENU_REGISTROVAN`);
+  fiscalDetailFeedback(formData, firmaId, "PRODUKCIONI_ENU_REGISTROVAN");
 }
 
 export async function acknowledgeFiscalCertificateAlert(formData: FormData) {
   const firmaId = text(formData, "firma_id");
   const alertId = text(formData, "alert_id");
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try { await fiscalAdminApi.acknowledgeCertificateAlert(link.fiscal_api_company_id!, alertId, actor); }
-  catch (error) { handleFiscalActionError(firmaId, error); }
+  catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=ALERT_POTVRDJEN`);
+  fiscalDetailFeedback(formData, firmaId, "ALERT_POTVRDJEN");
 }
 
 export async function updateFiscalIdentity(formData: FormData) {
   const firmaId = text(formData, "firma_id");
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   const payload = {
     legalName: text(formData, "legal_name"),
     shortName: text(formData, "short_name") || null,
@@ -492,75 +556,75 @@ export async function updateFiscalIdentity(formData: FormData) {
     isVatPayer: text(formData, "is_vat_payer") === "true",
     confirmation: text(formData, "confirmation")
   };
-  if (!payload.legalName || !payload.confirmation) fail(firmaId, "FISKALNI_IDENTITET_OBAVEZNA_POLJA");
+  if (!payload.legalName || !payload.confirmation) fiscalDetailFeedback(formData, firmaId, "FISKALNI_IDENTITET_OBAVEZNA_POLJA");
   try { await fiscalAdminApi.updateFiscalIdentity(link.fiscal_api_company_id!, payload, actor); }
-  catch (error) { handleFiscalActionError(firmaId, error); }
+  catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=FISKALNI_IDENTITET_SACUVAN`);
+  fiscalDetailFeedback(formData, firmaId, "FISKALNI_IDENTITET_SACUVAN");
 }
 
 export async function updateFiscalBusinessUnit(formData: FormData) {
   const firmaId = text(formData, "firma_id");
   const id = text(formData, "resource_id");
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try { await fiscalAdminApi.updateBusinessUnit(link.fiscal_api_company_id!, id, { code: text(formData, "code"), name: text(formData, "name"), address: text(formData, "address") || null, town: text(formData, "town") || null }, actor); }
-  catch (error) { handleFiscalActionError(firmaId, error); }
+  catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=JEDINICA_SACUVANA`);
+  fiscalDetailFeedback(formData, firmaId, "JEDINICA_SACUVANA");
 }
 
 export async function toggleFiscalBusinessUnit(formData: FormData) {
   const firmaId = text(formData, "firma_id");
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try { await fiscalAdminApi.setBusinessUnitActive(link.fiscal_api_company_id!, text(formData, "resource_id"), text(formData, "active") === "true", actor); }
-  catch (error) { handleFiscalActionError(firmaId, error); }
+  catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=JEDINICA_STATUS_SACUVAN`);
+  fiscalDetailFeedback(formData, firmaId, "JEDINICA_STATUS_SACUVAN");
 }
 
 export async function updateFiscalDevice(formData: FormData) {
   const firmaId = text(formData, "firma_id");
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try { await fiscalAdminApi.updateDevice(link.fiscal_api_company_id!, text(formData, "resource_id"), { businessUnitId: text(formData, "business_unit_id"), tcrCode: text(formData, "tcr_code"), internalCode: text(formData, "internal_code") }, actor); }
-  catch (error) { handleFiscalActionError(firmaId, error); }
+  catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=ENU_SACUVAN`);
+  fiscalDetailFeedback(formData, firmaId, "ENU_SACUVAN");
 }
 
 export async function toggleFiscalDevice(formData: FormData) {
   const firmaId = text(formData, "firma_id");
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try { await fiscalAdminApi.setDeviceActive(link.fiscal_api_company_id!, text(formData, "resource_id"), text(formData, "active") === "true", actor); }
-  catch (error) { handleFiscalActionError(firmaId, error); }
+  catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=ENU_STATUS_SACUVAN`);
+  fiscalDetailFeedback(formData, firmaId, "ENU_STATUS_SACUVAN");
 }
 
 export async function updateFiscalOperator(formData: FormData) {
   const firmaId = text(formData, "firma_id");
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try { await fiscalAdminApi.updateOperator(link.fiscal_api_company_id!, text(formData, "resource_id"), { operatorCode: text(formData, "operator_code"), firstName: text(formData, "first_name") || null, lastName: text(formData, "last_name") || null }, actor); }
-  catch (error) { handleFiscalActionError(firmaId, error); }
+  catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=OPERATER_SACUVAN`);
+  fiscalDetailFeedback(formData, firmaId, "OPERATER_SACUVAN");
 }
 
 export async function toggleFiscalOperator(formData: FormData) {
   const firmaId = text(formData, "firma_id");
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try { await fiscalAdminApi.setOperatorActive(link.fiscal_api_company_id!, text(formData, "resource_id"), text(formData, "active") === "true", actor); }
-  catch (error) { handleFiscalActionError(firmaId, error); }
+  catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=OPERATER_STATUS_SACUVAN`);
+  fiscalDetailFeedback(formData, firmaId, "OPERATER_STATUS_SACUVAN");
 }
 
 export async function deactivateFiscalCertificate(formData: FormData) {
   const firmaId = text(formData, "firma_id");
-  const { actor, link } = await fiscalContext(firmaId);
+  const { actor, link } = await fiscalContext(formData, firmaId);
   try { await fiscalAdminApi.deactivateCertificate(link.fiscal_api_company_id!, text(formData, "certificate_id"), actor); }
-  catch (error) { handleFiscalActionError(firmaId, error); }
+  catch (error) { handleFiscalActionError(formData, firmaId, error); }
   revalidatePath(`/admin/fiskalizacija/${firmaId}`);
-  redirect(`/admin/fiskalizacija/${firmaId}?poruka=SERTIFIKAT_DEAKTIVIRAN`);
+  fiscalDetailFeedback(formData, firmaId, "SERTIFIKAT_DEAKTIVIRAN");
 }
 
 export async function scanFiscalCertificateExpirations() {

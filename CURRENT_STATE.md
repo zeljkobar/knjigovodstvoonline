@@ -1,6 +1,6 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
-> Posljednje ažuriranje: 2026-11-15. Izvor istine za stanje. Detaljna pravila su
+> Posljednje ažuriranje: 2026-11-17. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).
 
@@ -1659,10 +1659,41 @@ proizvođača, naziv/verziju i produkcione kodove softvera i održavaoca,
 sertifikacionu potvrdu, produkcionu poslovnu jedinicu i operatera. Čuvanje
 profila ne mijenja aktivno testno okruženje. Za kontrolni test postoji namjensko
 dugme koje kreira bezgotovinsku testnu uslugu bruto vrijednosti 1,00 EUR preko
-prvog aktivnog testnog objekta/ENU-a/operatera, fiskalizuje je sa stabilnim
+aktivne testne jedinice sa odgovarajućim ENU-om i aktivnim operaterom, fiskalizuje je sa stabilnim
 idempotency ključem i automatski potvrđuje test samo nakon statusa `Fiscalized`
 i dobijenog JIKR-a. Dugme se ne prikazuje kao spremno kada readiness nije prošao
-ili test više nije potreban.
+ili test više nije potreban. Ako EFI odbije kontrolni račun, detalj firme
+prikazuje razlog, kod ako postoji i Correlation ID. Osvježavanje spremnosti
+uzima u obzir potvrđeni test ili aktivnu produkciju pri prikazu i čuvanju
+statusa.
+
+Prije aktivacije produkcije platformski admin može povezati ENU koji je već
+registrovan u produkcionom SEP-u. Unosi kod i internu oznaku, a aplikacija
+vezuje uređaj za jedinicu iz produkcionog profila. Ranije unesen neaktivan
+zapis za isti uređaj prevezuje se i aktivira. Novi ENU se i dalje može
+registrovati zasebnom akcijom.
+
+Detalj fiskalne firme se otvara kao vodič sa jedanaest koraka i uputstvima za SEP.
+Prvi korak uzima PFX/P12 klijenta i lozinku za direktnu prijavu „Nastavi kao
+korisnik“ u testni i produkcioni SEP. PIB se ne šalje pri prijavi. Aplikacija
+interno provjerava da SEP vrati PIB izabrane firme. Preuzima dostupni identitet,
+poslovne jedinice, operatere, ENU i podatke o povezanom softveru
+Summa Fiscal. Prijedlozi su odvojeni po okruženju i privremeni u kartici
+preglednika. Admin bira, provjerava i čuva vrijednosti kroz postojeće korake;
+nedostupna polja mogu se unijeti ručno. Ako admin označi čuvanje za potpisivanje
+i produkcioni SEP potvrdi firmu, isti PFX/P12 i lozinka šalju se u šifrovani
+trezor Fiscal API-ja, a sertifikat se posebno aktivira u vodiču. Za novu firmu
+kojoj je uključena fiskalizacija ova opcija kreira početni testni profil ako još
+nema povezan profil. Ako admin ne označi tu opciju, fajl i lozinka služe samo za
+prijavu i ne čuvaju se. Drugi sertifikat za potpisivanje može se dodati zasebno.
+Kodovi softvera Summa Fiscal za nove profile unaprijed su popunjeni odvojeno
+za test (0.1.0) i produkciju (1.0.1). Sačuvane vrijednosti zadržavaju se, a
+dugme za popunjavanje iz SEP-a prenosi podatke firme bez izmjene kodova softvera.
+Za postojeći profil nastavlja od prvog koraka koji još nije završen, prema
+sačuvanim podacima iz Fiscal API-ja. Produkcioni koraci traže potvrđen test sa
+JIKR-om, a aktivacija traži kompletan produkcioni profil i aktivan ENU te
+jedinice. „Sva podešavanja” otvara direktan pristup održavanju, upozorenjima i
+auditu. Vodič za firmu koja je već u produkciji prikazuje završno stanje.
 
 Lokalni razvojni sajt je povezan sa lokalnim Fiscal API-jem na
 `127.0.0.1:5127` preko posebnog API klijenta čiji je jednokratni ključ smješten

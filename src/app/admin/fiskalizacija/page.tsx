@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { fiscalAdminApi, isFiscalApiConfigured, type FiscalCertificateExpiration } from "@/lib/fiscal-admin-api";
+import { fiscalEnvironmentLabel, fiscalOnboardingLabel } from "@/lib/fiscal-admin-status";
 import { prisma } from "@/lib/prisma";
 import { scanFiscalCertificateExpirations } from "./actions";
 
@@ -36,8 +37,8 @@ export default async function FiscalPlatformPage({ searchParams }: Props) {
       {expirations.length ? <div className="table-wrap"><table><thead><tr><th>Firma</th><th>PIB</th><th>Sertifikat</th><th>Važi do</th><th>Status</th></tr></thead><tbody>{expirations.map((x) => <tr key={x.certificateId}><td>{x.companyName}</td><td>{x.companyTin}</td><td>{x.fileName}</td><td>{new Date(x.validTo).toLocaleDateString("sr-Latn-ME")}</td><td>{x.isExpired ? "Istekao" : `${x.daysRemaining} dana`}</td></tr>)}</tbody></table></div> : <p>Nema aktivnih sertifikata koji ističu u narednih 90 dana.</p>}
     </section>
 
-    {notReady.length ? <section className="admin-panel"><div className="panel-header"><h3>Firme koje nijesu spremne</h3><span>{notReady.length}</span></div>{notReady.map((x) => <p key={x.id}><Link className="table-link" href={`/admin/fiskalizacija/${x.id}`}>{x.naziv}</Link> · {readinessByFirma.get(x.id)?.issues.map((issue) => issue.code).join(", ") || x.fiscalCompanyLink?.onboarding_status}</p>)}</section> : null}
+    {notReady.length ? <section className="admin-panel"><div className="panel-header"><h3>Firme koje nijesu spremne</h3><span>{notReady.length}</span></div>{notReady.map((x) => <p key={x.id}><Link className="table-link" href={`/admin/fiskalizacija/${x.id}`}>{x.naziv}</Link> · {readinessByFirma.get(x.id)?.issues.map((issue) => issue.code).join(", ") || fiscalOnboardingLabel(x.fiscalCompanyLink)}</p>)}</section> : null}
 
-    <section className="admin-panel"><div className="panel-header"><h3>Firme i fiskalni status</h3><span>{firme.length} ukupno</span></div><div className="table-wrap"><table><thead><tr><th>Firma</th><th>Agencija</th><th>PIB</th><th>Okruženje</th><th>Status</th><th>Akcija</th></tr></thead><tbody>{firme.map((firma) => { const link = firma.fiscalCompanyLink; return <tr key={firma.id}><td><strong>{firma.naziv}</strong><small>{firma.aktivan ? "Aktivna u sistemu" : "Neaktivna u sistemu"}</small></td><td>{firma.agencija.is_fiscal_direct_container ? "Direktan klijent" : firma.agencija.naziv}</td><td>{firma.pib || "-"}</td><td>{link?.fiscal_environment || "-"}</td><td>{link?.is_suspended ? "Suspendovana" : link?.onboarding_status || "Nije podešeno"}</td><td><Link className="table-link" href={`/admin/fiskalizacija/${firma.id}`}>Otvori</Link></td></tr>; })}</tbody></table></div></section>
+    <section className="admin-panel"><div className="panel-header"><h3>Firme i fiskalni status</h3><span>{firme.length} ukupno</span></div><div className="table-wrap"><table><thead><tr><th>Firma</th><th>Agencija</th><th>PIB</th><th>Okruženje</th><th>Status</th><th>Akcija</th></tr></thead><tbody>{firme.map((firma) => { const link = firma.fiscalCompanyLink; return <tr key={firma.id}><td><strong>{firma.naziv}</strong><small>{firma.aktivan ? "Aktivna u sistemu" : "Neaktivna u sistemu"}</small></td><td>{firma.agencija.is_fiscal_direct_container ? "Direktan klijent" : firma.agencija.naziv}</td><td>{firma.pib || "-"}</td><td>{fiscalEnvironmentLabel(link?.fiscal_environment)}</td><td>{fiscalOnboardingLabel(link)}</td><td><Link className="table-link" href={`/admin/fiskalizacija/${firma.id}`}>Otvori</Link></td></tr>; })}</tbody></table></div></section>
   </div>;
 }

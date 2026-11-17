@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fiscalEnvironmentLabel, fiscalOnboardingLabel } from "@/lib/fiscal-admin-status";
 import { prisma } from "@/lib/prisma";
 import { approveFiscalCompanyAgencyTransfer, createFiscalClient, rejectFiscalCompanyAgencyTransfer } from "../actions";
 import { FiscalClientActivationForm } from "@/components/FiscalClientActivationForm";
@@ -84,8 +85,8 @@ export default async function FiscalClientsPage({ searchParams }: Props) {
             <td><strong>{company.naziv}</strong><small>PIB {company.pib || "-"}</small></td>
             <td>{company.agencija.is_fiscal_direct_container ? "Direktan klijent — bez agencije" : company.agencija.naziv}</td>
             <td>{client ? <><strong>{client.korisnicko_ime}</strong><small>{client.email} — {client.aktivan ? "aktivan" : "suspendovan"}</small></> : "Nije otvoren"}</td>
-            <td>{company.fiscalCompanyLink?.fiscal_environment || "-"}</td>
-            <td>{company.fiscalCompanyLink?.is_suspended ? "Suspendovana" : company.fiscalCompanyLink?.onboarding_status || "Nije podešeno"}</td>
+            <td>{fiscalEnvironmentLabel(company.fiscalCompanyLink?.fiscal_environment)}</td>
+            <td>{fiscalOnboardingLabel(company.fiscalCompanyLink)}</td>
             <td><Link className="table-link" href={`/admin/fiskalizacija/${company.id}`}>Otvori podešavanja</Link></td>
           </tr>;
         })}

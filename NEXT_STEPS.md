@@ -452,8 +452,21 @@ Osnovni KUF tok je implementiran lokalno. Provjere na stvarnom OneDrive-u su izn
   readiness i globalna suspenzija/reaktivacija.
 - Produkcioni activation workflow, registracija produkcionog ENU-a, fiskalni
   audit i upozorenja o isteku sertifikata sada su dostupni platformskom adminu.
+  ENU prethodno registrovan u produkcionom SEP-u može se povezati na detalju
+  firme prije aktivacije.
 - Kompletan unos produkcionog profila i automatski kontrolni testni račun od
   1,00 EUR sa potvrdom nakon JIKR-a dostupni su na detalju fiskalne firme.
+  Odbijanje iz EFI-ja prikazuje razlog i Correlation ID, a provjera spremnosti
+  poštuje status aktivacije.
+- Detalj firme sada ima vodič od prvog unosa do produkcije, sa odvojenim
+  uputstvima za testni i produkcioni SEP, povratkom na sačuvane korake i
+  pristupom svim podešavanjima za održavanje.
+- Prvi korak čita oba SEP portala direktno sertifikatom klijenta bez unosa PIB-a
+  i prenosi prijedloge u obrasce vodiča. Kodovi Summa Fiscal su unaprijed
+  popunjeni odvojeno za test i produkciju. Sljedeća provjera: stvarna direktna
+  prijava u oba okruženja, poređenje kodova sa SEP-om za firmu sa i bez Summa
+  Fiscal ENU-a i potvrda da opcija čuvanja istog sertifikata za potpisivanje
+  upisuje sertifikat u trezor i ostavlja ga za ručnu aktivaciju.
 - Administracija jedinica, ENU-a, operatera, sertifikata, fiskalnog identiteta,
   centralnih upozorenja, audit filtera i API aplikacija je završena. Produkcijski
   API klijent `KnjigovodstvoOnline Production` je kreiran, postavljen kroz

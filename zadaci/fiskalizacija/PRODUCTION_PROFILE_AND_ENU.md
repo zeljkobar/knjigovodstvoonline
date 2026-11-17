@@ -6,6 +6,8 @@
 
 Test i Production imaju odvojene fiskalne profile, poslovne jedinice, operatere i ENU uređaje. Aktivno okruženje firme određuje koji skup podataka fiskalni engine smije koristiti. Aktivacija ne prepisuje niti briše testne kodove.
 
+Za nove profile aplikacija unaprijed popunjava zajedničke podatke Summa Fiscal za testnu verziju 0.1.0 i sertifikovanu produkcionu verziju 1.0.1. Popunjavanje iz SEP-a služi za podatke koji se razlikuju po firmi, uključujući poslovnu jedinicu, operatera i ENU.
+
 Produkcioni endpoint je `https://efi.tax.gov.me/fs-v1` i podešava se serverski. Klijent ga ne može proizvoljno promijeniti kroz zahtjev za konfiguraciju.
 
 ## Produkcioni profil firme 02825767
@@ -29,6 +31,16 @@ Lični identifikacioni broj operatera se ne čuva jer nije potreban fiskalnom en
 Kada je Production profil aktivan, fiskalizacija odbija račun koji sadrži gotovinu, karticu, vaučer ili drugi način plaćanja. Dozvoljen je samo `BankAccount`, a račun se šalje kao `NONCASH`.
 
 ## Registracija ENU-a
+
+Ako ENU već postoji u produkcionom SEP-u, podaci iz prvog koraka vodiča
+mogu da popune polja **Kod** i **Interna oznaka ENU**. Prvo sačuvajte kompletan
+produkcioni profil. U sekciji **Produkcioni ENU** provjerite da je prikazana
+ista poslovna jedinica kao na SEP-u, provjerite kod i oznaku, pa kliknite
+**Poveži postojeći ENU**. Ako prijedlog nije dostupan, prepišite podatke iz SEP-a.
+Ovaj korak ne šalje registraciju Poreskoj upravi. Kada aplikacija prikaže
+povezani kod, produkciju uključite zasebno kroz **Aktiviraj produkciju**.
+
+Za uređaj koji još nije u SEP-u koristite **Registruj novi produkcioni ENU**.
 
 Zvanična EFI v5 XSD zahtijeva `TCRCode` na računu, pa i API za isključivo bankovne račune mora koristiti registrovan ENU. Interna oznaka je `SUMMA-API-BANK-01`.
 

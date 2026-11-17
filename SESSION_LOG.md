@@ -1,5 +1,23 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-17 — Preuzimanje podešavanja iz oba SEP okruženja
+
+- Prvi korak traži sertifikat klijenta i lozinku jednom, prijavljuje se direktno kao korisnik bez unosa PIB-a u oba SEP okruženja i provjerava da se otvorila izabrana firma. Dostupni podaci popunjavaju postojeće obrasce uz pregled i čuvanje koje pokreće admin.
+- Novi profili imaju unaprijed popunjene podatke softvera Summa Fiscal: testna verzija 0.1.0 i sertifikovana produkciona 1.0.1. Popunjavanje iz SEP-a ne mijenja podatke o softveru.
+- Uz izbor admina i potvrdu firme u produkcionom SEP-u isti sertifikat i lozinka mogu da se sačuvaju u šifrovanom trezoru Fiscal API-ja za potpisivanje. Aktivacija sertifikata je poseban korak. Audit prijave sadrži samo ishod čitanja. Nema migracije ni promjene Fiscal API-ja. Regresije simuliraju prijavu i slanje u trezor; stvarna prijava ostaje za provjeru.
+
+## 2026-11-17 — Vođeno podešavanje fiskalizacije
+
+- Admin dobija deset koraka od provjere firme do aktivacije. Napredak se računa iz sačuvanog stanja; greška ili čuvanje vraćaju na odgovarajući korak. Produkcioni ENU može da se poveže ili registruje u vodiču. Postojeći prikaz svih podešavanja ostaje dostupan za održavanje. Nema migracije.
+
+## 2026-11-16 — Status fiskalizacije i poruke EFI-ja
+
+- Provjera spremnosti koristi aktivaciju iz Fiscal API-ja da zadrži ispravan status firme. Neuspjeli kontrolni račun u adminu prikazuje EFI razlog uz Correlation ID. Provjereni su simulirani EFI odgovori, TypeScript, lint i regresioni testovi.
+
+## 2026-11-16 — Povezivanje postojećeg produkcionog ENU-a
+
+- Na detalju fiskalne firme platformski admin može povezati produkcioni kod i internu oznaku iz SEP-a. Ako je isti ENU ranije unesen kao neaktivan u testu, koristi se postojeći zapis i može se ponoviti aktivacija poslije prekida. Testni uređaj koji je u upotrebi ostaje netaknut.
+
 ## 2026-11-15 — OneDrive izvodi i dokumenti na početnom pregledu
 
 - Dodat pregled povezanog foldera, poređenje sa evidencijom izvoda, uvoz izabranih ili svih novih i link na postojeće knjiženje. Početni pregled dodaje dva OneDrive brojača uz prava aktivne firme i poslovne godine.

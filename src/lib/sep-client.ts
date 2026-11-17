@@ -1,11 +1,8 @@
 import "server-only";
-import https from "node:https";
 import * as XLSX from "xlsx";
 import type { SepCredentials } from "./sep-secrets";
-
-export class SepError extends Error {
-  constructor(readonly code: string) { super(code); }
-}
+import { SepError, withSepTransport, type SepTransport } from "./sep-transport";
+export { SepError } from "./sep-transport";
 export type SepCell = { columnName: string; value?: unknown; valueDisplay?: unknown; valueDisplayLocal?: unknown };
 export type SepRow = { tableRowCells: SepCell[] };
 export type SepTable = {
@@ -13,7 +10,6 @@ export type SepTable = {
   tableColumns: { columnName: string; viewDisabled?: boolean }[];
   exportExcelFromBackend?: boolean;
 };
-type Transport = (path: string, data: unknown, options?: { form?: boolean; binary?: boolean; get?: boolean }) => Promise<unknown>;
 
 export function sepDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -43,7 +39,7 @@ function rowKey(row: SepRow) {
 function shown(cell: SepCell | undefined) { return cell?.valueDisplayLocal ?? cell?.valueDisplay ?? cell?.value ?? ""; }
 
 // This is the same read-only flow used by SEP's public application. No registration calls.
-export async function exportSepExcel(transport: Transport, pib: string, jmbg: string, from: string, to: string) {
+export async function exportSepExcel(transport: SepTransport, pib: string, jmbg: string, from: string, to: string) {
   if (!/^\d{8}$/.test(pib) || !/^\d{13}$/.test(jmbg)) throw new SepError("INVALID_IDENTIFIERS");
   const period = sepPeriod(from, to);
   if (await transport("/eficg/api/checkIfCertificateExists", {}, { form: true }) !== true) throw new SepError("CERTIFICATE_NOT_REGISTERED");
@@ -110,56 +106,10 @@ export async function exportSepExcel(transport: Transport, pib: string, jmbg: st
 export async function downloadSepExcel(credentials: SepCredentials, pib: string, from: string, to: string) {
   sepPeriod(from, to);
   const pfx = Buffer.from(credentials.pfx, "base64");
-  const agent = new https.Agent({ pfx, passphrase: credentials.password, keepAlive: true, maxSockets: 1 });
-  let token = "";
-  const cookies = new Map<string, string>();
-  const deadline = Date.now() + 120000;
-  const transport: Transport = (path, data, options = {}) => new Promise((resolve, reject) => {
-    if (Date.now() >= deadline) { reject(new SepError("TIMEOUT")); return; }
-    const body = options.get ? "" : options.form ? new URLSearchParams(data as Record<string, string>).toString() : JSON.stringify(data);
-    const request = https.request({
-      hostname: "sep.tax.gov.me", port: 443, path, method: options.get ? "GET" : "POST", agent,
-      headers: {
-        ...(path.startsWith("/kickstart/") ? { schema: "CPCM" } : { lang: "ME" }),
-        Accept: "application/json", "Content-Type": options.form ? "application/x-www-form-urlencoded" : "application/json",
-        "Content-Length": Buffer.byteLength(body),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(cookies.size ? { Cookie: [...cookies].map(([name, value]) => `${name}=${value}`).join("; ") } : {}),
-      },
-    }, response => {
-      if (response.statusCode !== 200) { response.resume(); reject(new SepError(`HTTP_${response.statusCode}`)); return; }
-      if (!options.binary && !response.headers["content-type"]?.includes("json")) { response.resume(); reject(new SepError("EXPECTED_JSON")); return; }
-      for (const cookie of response.headers["set-cookie"] ?? []) {
-        const pair = cookie.split(";", 1)[0], split = pair.indexOf("=");
-        if (split > 0) cookies.set(pair.slice(0, split), pair.slice(split + 1));
-      }
-      const chunks: Buffer[] = []; let size = 0;
-      response.on("data", (chunk: Buffer) => {
-        size += chunk.length;
-        if (size > 20 * 1024 * 1024) response.destroy(new SepError("RESPONSE_TOO_LARGE"));
-        else chunks.push(chunk);
-      });
-      response.on("error", () => reject(new SepError("NETWORK_ERROR")));
-      response.on("end", () => {
-        const bytes = Buffer.concat(chunks);
-        if (options.binary) { resolve(bytes); return; }
-        try {
-          const result = JSON.parse(bytes.toString("utf8"));
-          if (path === "/kickstart/login") {
-            if (!result?.user || typeof result.token !== "string" || !result.token) throw new SepError("LOGIN_FAILED");
-            token = result.token;
-          }
-          resolve(result);
-        } catch (error) { reject(error instanceof SepError ? error : new SepError("INVALID_JSON")); }
-      });
-    });
-    const timer = setTimeout(() => request.destroy(new SepError("TIMEOUT")), Math.min(30000, deadline - Date.now()));
-    request.on("close", () => clearTimeout(timer));
-    request.on("error", error => reject(error instanceof SepError ? error : new SepError("NETWORK_ERROR")));
-    request.end(body);
-  });
   try {
-    await transport("/kickstart/login", { username: null, password: null });
-    return await exportSepExcel(transport, pib, credentials.jmbg, from, to);
-  } finally { agent.destroy(); pfx.fill(0); token = ""; cookies.clear(); }
+    return await withSepTransport("production", pfx, credentials.password, async transport => {
+      await transport("/kickstart/login", { username: null, password: null });
+      return exportSepExcel(transport, pib, credentials.jmbg, from, to);
+    });
+  } finally { pfx.fill(0); }
 }
