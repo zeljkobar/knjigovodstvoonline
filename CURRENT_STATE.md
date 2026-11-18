@@ -1726,6 +1726,11 @@ invoice dozvole, pa može pokrenuti testnu fiskalizaciju za svaku sadašnju i
 buduću fiskalnu firmu bez pojedinačnog dopisivanja njenog ID-a na API klijenta.
 Obični API klijenti ostaju ograničeni na eksplicitno dodijeljene firme.
 
+Admin pregled `/admin/fiskalizacija/racuni` čita račune svih firmi preko
+zasebnog globalnog ključa za čitanje. Backend provjerava ulogu `admin`.
+Podešavaju se samo serverske varijable `FISCAL_API_READ_CLIENT_ID` i
+`FISCAL_API_READ_KEY`; bez njih pregled ne koristi postojeći ključ za fiskalizaciju.
+
 Platformski admin ima zaseban ekran `/admin/fiskalizacija/korisnici` za unos
 novog fiskalnog klijenta, gdje fiskalni klijent znači firma. Admin bira agenciju
 koja vodi firmu, unosi osnovne podatke i PIB, a sistem kreira firmu, tekuću

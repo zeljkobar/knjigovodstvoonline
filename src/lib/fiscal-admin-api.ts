@@ -116,6 +116,31 @@ export type FiscalCertificateExpiration = { certificateId: string; companyId: st
 export type FiscalCertificateScan = { certificatesChecked: number; alertsCreated: number; scannedAt: string };
 export type FiscalApiClient = { id: string; clientId: string; name: string; keyPrefix: string; permissions: string[]; companyIds: string[]; isActive: boolean; expiresAt?: string | null; lastUsedAt?: string | null; createdAt: string };
 export type CreatedFiscalApiClient = { client: FiscalApiClient; apiKey: string };
+export type FiscalAdminInvoiceRow = {
+  id: string;
+  companyId: string;
+  companyTin: string;
+  companyName: string;
+  environment: "Production" | "Test" | "Unknown";
+  invoiceNumber: string;
+  officialInvoiceNumber?: string | null;
+  issueDateTime: string;
+  buyer?: { name: string } | null;
+  status: string;
+  totalGrossAmount: string;
+  currency: string;
+  jikr?: string | null;
+};
+
+function fiscalReadConfig() {
+  const baseUrl = process.env.FISCAL_API_BASE_URL?.replace(/\/$/, "");
+  const clientId = process.env.FISCAL_API_READ_CLIENT_ID?.trim();
+  const apiKey = process.env.FISCAL_API_READ_KEY?.trim();
+  if (!baseUrl || !clientId || !apiKey) {
+    throw new FiscalAdminApiError("FISCAL_READ_NOT_CONFIGURED", "Poseban ključ za globalni fiskalni pregled nije podešen.");
+  }
+  return { baseUrl, clientId, apiKey };
+}
 
 function config() {
   const baseUrl = process.env.FISCAL_API_BASE_URL?.replace(/\/$/, "");
@@ -140,9 +165,10 @@ async function fiscalRequest<T>(
   path: string,
   actor: FiscalActor,
   init: RequestInit = {},
-  timeoutMs = 15_000
+  timeoutMs = 15_000,
+  getConfig: () => { baseUrl: string; clientId?: string; apiKey?: string } = config
 ): Promise<{ data: T; correlationId?: string }> {
-  const { baseUrl, clientId, apiKey } = config();
+  const { baseUrl, clientId, apiKey } = getConfig();
   const correlationId = randomUUID();
   const headers = new Headers(init.headers);
   if (clientId && apiKey) {
@@ -194,6 +220,19 @@ async function fiscalRequest<T>(
   }
 
   return { data: envelope.data, correlationId: responseCorrelationId };
+}
+
+export function listFiscalAdminInvoices(actor: FiscalActor, filters: {
+  page: number;
+  environment?: FiscalAdminInvoiceRow["environment"];
+  officialInvoiceNumber?: string;
+}) {
+  const query = new URLSearchParams({ page: String(filters.page), pageSize: "25" });
+  if (filters.environment) query.set("environment", filters.environment);
+  if (filters.officialInvoiceNumber) query.set("officialInvoiceNumber", filters.officialInvoiceNumber);
+  return fiscalRequest<{ items: FiscalAdminInvoiceRow[]; page: number; pageSize: number; totalCount: number }>(
+    `/api/v1/admin/invoices?${query}`, actor, { redirect: "error" }, 15_000, fiscalReadConfig
+  );
 }
 
 export const fiscalAdminApi = {

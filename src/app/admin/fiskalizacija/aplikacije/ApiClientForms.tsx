@@ -55,6 +55,7 @@ const permissionGroups = [
     description: "Dodjeljuj samo centralnom programu kojim ti upravljaš.",
     items: [
       ["clients:admin", "Upravljanje API aplikacijama"],
+      ["platform:fiscal-read", "Fiskalni pregled svih firmi, bez prava upisa"],
       ["platform:admin", "Pristup svim sadašnjim i budućim firmama"]
     ]
   }
@@ -130,6 +131,8 @@ export function CreateApiClientForm({
               Za običnu aplikaciju označi konkretne firme. Ako si gore dao
               <code> platform:admin</code>, ona automatski vidi sve firme i ovaj
               izbor se zanemaruje.
+              Za globalni pregled računa označi samo <code>platform:fiscal-read</code> i
+              <code> invoices:read</code>, bez izbora konkretnih firmi.
             </p>
           </div>
         </div>
