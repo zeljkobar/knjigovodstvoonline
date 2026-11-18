@@ -1,6 +1,10 @@
 import "server-only";
 
 import { randomUUID } from "crypto";
+import { fiscalReviewHref, isFiscalUuid, type FiscalQuery } from "./fiscal-review-filters";
+import type {
+  FiscalApiRequestReview, FiscalExchangeReview, FiscalInvoiceDetail, FiscalReviewPage, FiscalTurnoverDocument, FiscalTurnoverReport
+} from "./fiscal-review-models";
 
 type FiscalApiErrorBody = {
   code?: string;
@@ -130,6 +134,7 @@ export type FiscalAdminInvoiceRow = {
   totalGrossAmount: string;
   currency: string;
   jikr?: string | null;
+  category?: string | null;
 };
 
 function fiscalReadConfig() {
@@ -222,18 +227,43 @@ async function fiscalRequest<T>(
   return { data: envelope.data, correlationId: responseCorrelationId };
 }
 
-export function listFiscalAdminInvoices(actor: FiscalActor, filters: {
-  page: number;
-  environment?: FiscalAdminInvoiceRow["environment"];
-  officialInvoiceNumber?: string;
-}) {
-  const query = new URLSearchParams({ page: String(filters.page), pageSize: "25" });
-  if (filters.environment) query.set("environment", filters.environment);
-  if (filters.officialInvoiceNumber) query.set("officialInvoiceNumber", filters.officialInvoiceNumber);
-  return fiscalRequest<{ items: FiscalAdminInvoiceRow[]; page: number; pageSize: number; totalCount: number }>(
-    `/api/v1/admin/invoices?${query}`, actor, { redirect: "error" }, 15_000, fiscalReadConfig
-  );
+function fiscalReadRequest<T>(path: string, actor: FiscalActor, filters: FiscalQuery = {}) {
+  return fiscalRequest<T>(fiscalReviewHref(path, filters), actor, { method: "GET", redirect: "error" }, 15_000, fiscalReadConfig);
 }
+
+function fiscalResourceId(id: string) {
+  if (!isFiscalUuid(id)) throw new FiscalAdminApiError("FISCAL_INVALID_ID", "Fiskalni identifikator nije validan.");
+  return id;
+}
+
+export const fiscalReviewApi = {
+  invoices(actor: FiscalActor, filters: FiscalQuery) {
+    return fiscalReadRequest<FiscalReviewPage<FiscalAdminInvoiceRow>>("/api/v1/admin/invoices", actor, { ...filters, pageSize: 25 });
+  },
+  invoice(actor: FiscalActor, id: string) {
+    return fiscalReadRequest<FiscalInvoiceDetail>("/api/v1/fiscal/invoices/" + fiscalResourceId(id), actor);
+  },
+  turnover(actor: FiscalActor, filters: FiscalQuery) {
+    return fiscalReadRequest<FiscalTurnoverReport>("/api/v1/admin/reports/turnover", actor, filters);
+  },
+  turnoverDocuments(actor: FiscalActor, filters: FiscalQuery) {
+    return fiscalReadRequest<FiscalReviewPage<FiscalTurnoverDocument>>("/api/v1/admin/reports/turnover/documents", actor, { ...filters, pageSize: 25 });
+  },
+  invoiceExchanges(actor: FiscalActor, invoiceId: string, page: number) {
+    return fiscalReadRequest<FiscalReviewPage<FiscalExchangeReview>>(
+      "/api/v1/admin/invoices/" + fiscalResourceId(invoiceId) + "/exchanges", actor, { page, pageSize: 25 });
+  },
+  exchanges(actor: FiscalActor, filters: FiscalQuery) {
+    return fiscalReadRequest<FiscalReviewPage<FiscalExchangeReview>>("/api/v1/admin/exchanges", actor, { ...filters, pageSize: 25 });
+  },
+  exchange(actor: FiscalActor, id: string) {
+    return fiscalReadRequest<FiscalExchangeReview>("/api/v1/admin/exchanges/" + fiscalResourceId(id), actor);
+  },
+  requests(actor: FiscalActor, filters: FiscalQuery) {
+    return fiscalReadRequest<FiscalReviewPage<FiscalApiRequestReview>>("/api/v1/admin/api-requests", actor,
+      { ...filters, scope: "tenant", pageSize: 25 });
+  }
+};
 
 export const fiscalAdminApi = {
   listCompanies(actor: FiscalActor) {

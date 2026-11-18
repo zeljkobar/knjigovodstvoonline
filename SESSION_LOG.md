@@ -1,5 +1,12 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-18 — Globalni fiskalni pregledi
+
+- Admin lista otvara detalj računa, zvanični QR i istoriju PU pokušaja. Dodati
+  promet/PDV sa dokumentima iza zbirova i dijagnostika povezana preko Correlation ID-a.
+- Svi novi pozivi koriste samo odvojeni serverski ključ za čitanje. Nema novih
+  migracija, izmjene postojećih ključeva ili produkcionog deploya.
+
 ## 2026-11-18 — Uredi globalnog partnera za moju agenciju
 
 - Dodata agencija/komitent tabela sa punim agencijskim podacima i revizijom. Save provjerava prava, firmu/dodjelu, globalni scope i dupli efektivni PIB, zaključava kanonski red i čuva izmjene + firmina podešavanja + audit u istoj transakciji. Original i identitet ne mijenjaju se.

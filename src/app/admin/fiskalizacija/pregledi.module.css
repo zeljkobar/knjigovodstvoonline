@@ -1,0 +1,25 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.8rem 1rem;
+}
+.filters label { display: grid; gap: 0.3rem; font-weight: 600; }
+.filters input, .filters select, .filters button {
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  min-height: 2.25rem;
+  border: 1px solid #8092ac;
+  border-radius: 0.4rem;
+  color: inherit;
+  background: transparent;
+}
+.filters button { cursor: pointer; font-weight: 700; }
+.links { display: flex; flex-wrap: wrap; gap: 0.55rem; align-items: center; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: 0.8rem; }
+.fields dl { display: contents; }
+.fields dt { font-weight: 600; }
+.fields dd { margin: 0.15rem 0 0; overflow-wrap: anywhere; }
+.break { overflow-wrap: anywhere; }
+.numeric { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.qr { display: block; margin: 0.65rem 0; background: white; }

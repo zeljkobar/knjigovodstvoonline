@@ -1731,6 +1731,12 @@ zasebnog globalnog ključa za čitanje. Backend provjerava ulogu `admin`.
 Podešavaju se samo serverske varijable `FISCAL_API_READ_CLIENT_ID` i
 `FISCAL_API_READ_KEY`; bez njih pregled ne koristi postojeći ključ za fiskalizaciju.
 
+Lokalno su dodati detalji računa (stavke, PDV, plaćanja, IKOF/JIKR i zvanični QR),
+izvještaj **Promet i PDV** sa dokumentima iza svakog zbira i ekran **Istorija i
+greške**. Izvještaji odvajaju prodaju, korekcije, avanse i informativne dokumente.
+Dijagnostika razdvaja odgovor PU od lokalnog čuvanja i prikazuje samo API
+zahtjeve pripisane firmama. Nema upisa, slanja PU ili direktnog čitanja fiskalne baze.
+
 Platformski admin ima zaseban ekran `/admin/fiskalizacija/korisnici` za unos
 novog fiskalnog klijenta, gdje fiskalni klijent znači firma. Admin bira agenciju
 koja vodi firmu, unosi osnovne podatke i PIB, a sistem kreira firmu, tekuću

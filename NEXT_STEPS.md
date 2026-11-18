@@ -46,6 +46,11 @@ Osnovni KUF tok je implementiran lokalno. Provjere na stvarnom OneDrive-u su izn
 9. **Prihvat.** Na jednoj testnoj firmi provjeriti desktop i telefon, višestranični PDF, zaseban QR, ručni unos bez QR-a, dopunu, odbijen pristup drugoj firmi, neuspjeli upload, duplikat, zaključan period, sve tri KUF destinacije, naknadno knjiženje i oporavak poslije OneDrive greške. Provjeriti sken ručno ubačen u Primljeno, višestruko osvježavanje bez duplikata i otvaranje istog originala iz KUF-a i stavke naloga poslije premještanja. Potvrditi da fajlovi ne zauzimaju disk servera i da se uvijek mogu otvoriti iz aplikacije. Pokrenuti TypeScript provjeru, relevantne KUF testove, company-purge provjeru i probu trajnog brisanja testne firme. Prva potpuna obrada je KUF. Klijentski prijem može obuhvatiti izlazne račune, izvode i ostalo, a njihovo automatsko arhiviranje treba vezati za odgovarajuće tokove obrade naknadno.
 
 ## Prioritet 0 — neposredni nastavak
+- Poslije objave fiskalnih admin pregleda izdati odvojeni globalni čitač sa
+  `platform:fiscal-read`, `invoices:read`, `reports:read`, `exchanges:read` i
+  `requests:read` (bez pojedinačnih firmi). Zamijeniti samo serverske postavke
+  čitača i provjeriti detalj/QR, promet i njegove dokumente, istoriju i dnevnik.
+  Nema nove migracije, backfill-a ni izmjene ključa za fiskalizaciju.
 - Objaviti dopunu **Admin sajta → Deploy sajta** sa osmim ciljem:
   Summasummarum.me — glavni sajt. Serverski helper/backup/sudo već instalirani,
   glavni sajt ready=true; novi web izbor čeka odobreni commit/push i deploy

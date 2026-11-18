@@ -21,6 +21,15 @@ const permissionGroups = [
     ]
   },
   {
+    title: "Fiskalni izvještaji i dijagnostika",
+    description: "Dozvole samo za čitanje fiskalnih evidencija.",
+    items: [
+      ["reports:read", "Promet, PDV i dokumenti iza zbira"],
+      ["exchanges:read", "Pokušaji i odgovori Poreske uprave"],
+      ["requests:read", "API zahtjevi pripisani firmama"]
+    ]
+  },
+  {
     title: "Firme i podešavanja",
     description: "Administracija firmi i njihove fiskalne konfiguracije.",
     items: [
@@ -131,8 +140,9 @@ export function CreateApiClientForm({
               Za običnu aplikaciju označi konkretne firme. Ako si gore dao
               <code> platform:admin</code>, ona automatski vidi sve firme i ovaj
               izbor se zanemaruje.
-              Za globalni pregled računa označi samo <code>platform:fiscal-read</code> i
-              <code> invoices:read</code>, bez izbora konkretnih firmi.
+              Za globalni pregled označi <code>platform:fiscal-read</code> i <code>invoices:read</code>,
+              bez izbora konkretnih firmi. Dodaj <code>reports:read</code>, <code>exchanges:read</code> i
+              <code>requests:read</code> ako ključ treba da otvara i izvještaje i dijagnostiku. Ne dodaj prava upisa.
             </p>
           </div>
         </div>
