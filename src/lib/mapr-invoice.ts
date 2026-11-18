@@ -1,5 +1,5 @@
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
-import { dateTimeForMapr, maprHttpError } from "@/lib/mapr-request";
+import { dateTimeForMapr, maprHttpError, maprTaxRows } from "@/lib/mapr-request";
 
 export type MaprInvoiceItem = {
   sourceLineKey: string;
@@ -165,9 +165,7 @@ export async function fetchMaprInvoice(qrUrl: string, timeoutMs = 20000): Promis
   const invoice = (await response.json()) as Record<string, unknown>;
   const seller = party(invoice, "seller") ?? { name: "", tin: normalizePib(tin) };
   const buyer = party(invoice, "buyer");
-  const sameTaxes = Array.isArray(invoice.sameTaxes)
-    ? (invoice.sameTaxes as Array<Record<string, unknown>>)
-    : [];
+  const sameTaxes = maprTaxRows(invoice);
   const rawItems = Array.isArray(invoice.items)
     ? (invoice.items as Array<Record<string, unknown>>)
     : [];

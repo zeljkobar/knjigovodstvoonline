@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, isDirectFiscalTenantUser } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
-import { dateTimeForMapr, maprHttpError } from "@/lib/mapr-request";
+import { dateTimeForMapr, maprHttpError, maprTaxRows } from "@/lib/mapr-request";
 import { hasAnyPermission } from "@/lib/permissions";
 import { readWorkContext } from "@/lib/work-context";
 
@@ -109,8 +109,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  type SameTax = { vatRate: unknown; priceBeforeVat: unknown; vatAmount: unknown };
-  const sameTaxes = Array.isArray(invoice.sameTaxes) ? (invoice.sameTaxes as SameTax[]) : [];
+  const sameTaxes = maprTaxRows(invoice);
   const seller = invoice.seller as Record<string, unknown> | null;
 
   return NextResponse.json({

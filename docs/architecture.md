@@ -4,6 +4,25 @@
 > [`zadaci/00_MASTER_SPEC_Racunovodstveni_Program_AZURIRAN_KIF_KUF.md`](../zadaci/00_MASTER_SPEC_Racunovodstveni_Program_AZURIRAN_KIF_KUF.md).
 > Implementacioni status ciljano usklađen 2026-08-31.
 
+### Agencijski prikaz globalnih partnera (2026-11-18)
+
+`agencija_komitent_izmjene` veže agenciju i kanonskog GLOBAL komitenta, sa jedinstvenim
+parom, punim prikaznim podacima i optimističkom revizijom. Poslovni FK ostaje na
+`komitenti.id`; ne kreira se duplikat partnera i ne prepisuju se drugi tenant-i.
+Save koristi raw Prisma transakciju, scope/dodjelu/prava, row lock i audit.
+
+`agency-partner-client.ts` proširuje samo Prisma čitanja. Prema validiranoj sesiji
+ili eksplicitnom `withPartnerAgency` kontekstu dodaje jednu scoped relaciju u isti
+upit i projektuje izabrana polja direktnih/nested partnera. Efektivni WHERE koristi
+izmjenu te agencije, ili globalni red kada ona ne postoji. ID, stvarno vlasništvo,
+status i JSON snapshoti dokumenata ostaju izvorni. Prikazni scope u pretrazi/UI-ju
+je AGENCY za prilagođeni globalni red. Platformski admin i `rawPrisma` čitaju
+kanonske podatke. Pozadinski MAPR i bankovni tokovi koriste AsyncLocalStorage.run,
+bez dijeljenja konteksta paralelnih poslova. Nema keširanja izmjena među zahtjevima.
+Tabela nema firma_id ili firmine podređene FK; purge jedne firme je čuva za ostale
+firme iste agencije. Regresija `check-agency-partner-overrides.cjs` potvrđuje to
+stvarnim purge-om testne firme unutar rollback transakcije.
+
 ## Tehnološki stek
 - **Frontend/Backend:** Next.js 15 (App Router, server komponente, server
   actions) + React 19, TypeScript.

@@ -1,3 +1,4 @@
+import { withPartnerAgency } from "./agency-partner-context";
 import { linkKufDocument, lockDocumentKufTarget } from "@/lib/dokumentacija";
 import { effectiveInvoiceType } from "@/lib/posting-template";
 import "server-only";
@@ -12,7 +13,7 @@ import {
 } from "@/lib/account-plan";
 import { isDirectFiscalTenantUser } from "@/lib/auth";
 import { normalizeFiscalInvoiceNumber } from "@/lib/invoice-number";
-import { dateTimeForMapr, maprHttpError } from "@/lib/mapr-request";
+import { dateTimeForMapr, maprHttpError, maprTaxRows } from "@/lib/mapr-request";
 import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { vatTransactionTypes } from "@/lib/vat-transaction";
@@ -200,8 +201,7 @@ async function verifyMaprInvoice(qrUrl: string): Promise<MaprInvoice | { success
     }
 
     const invoice = (await maprRes.json()) as Record<string, unknown>;
-    type SameTax = { vatRate: unknown; priceBeforeVat: unknown; vatAmount: unknown };
-    const sameTaxes = Array.isArray(invoice.sameTaxes) ? (invoice.sameTaxes as SameTax[]) : [];
+    const sameTaxes = maprTaxRows(invoice);
     const seller = partyFromInvoice(invoice, ["seller"]);
     const buyer = partyFromInvoice(invoice, ["buyer", "customer", "client"]);
 
@@ -1034,6 +1034,10 @@ export type InvoiceImportInput = {
     supplierAccountCodes?: Record<string, string>;
 };
 export async function importInvoiceLinks(body: InvoiceImportInput, execution: InvoiceExecution, beforeWrite?: () => Promise<void>, documentId?: string) {
+  return withPartnerAgency(execution.agencyId, () => runInvoiceLinkImport(body, execution, beforeWrite, documentId));
+}
+
+async function runInvoiceLinkImport(body: InvoiceImportInput, execution: InvoiceExecution, beforeWrite?: () => Promise<void>, documentId?: string) {
   const user = await invoiceExecutionUser(execution);
 
   if (!user || !["admin_agencije", "korisnik_agencije"].includes(user.rola)) {

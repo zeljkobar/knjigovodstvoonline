@@ -1,5 +1,26 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
+## Agencijske izmjene globalnih partnera — 2026-11-18
+
+- Na Nalozi → Partneri globalni red ima Uredi za moju agenciju. Obrazac čuva naziv, PIB, adresu, kontakte i ostale podatke u `agencija_komitent_izmjene`, uz jedinstvenu agencija/komitent vezu i verziju za kontrolu konkurentnih izmjena. `Komitent.id` i postojeći dokumenti ostaju isti; originalni GLOBAL zapis nije mijenjan.
+- Centralni Prisma read sloj primjenjuje samo izmjene prijavljene agencije na direktna/nested čitanja partnera i efektivnu pretragu/count. Identitet, stvarni scope i JSON fiskalni/poslovni snapshoti se ne prepisuju. Admin platforme čita kanonske podatke. MAPR import i zakazani bankovni tok imaju izolovan eksplicitan async kontekst agencije. API pretraga prikazuje prilagođenog partnera kao AGENCY bez drugog rezultata.
+- Lokalna migracija `20261118170000_agencija_komitent_izmjene` je primijenjena, Prisma generisan i dev restartovan. Tabela je agencijska, bez firma_id i djece; ostaje poslije purge jedne firme. Stvarni rollback test pokriva dvije agencije, pretragu/API/count/nested prikaz, nepromijenjen original, verziju, scope, audit rollback i purge testne firme. `npm test`, TSC/ESLint i purge coverage prolaze; stranica se kompajlira (307 bez sesije). Browser vizuelni QA ostaje.
+
+
+## Partneri — serverska pretraga i filteri — 2026-11-18
+
+- Dodatni partner ima Obriši i filter Obrisani/Vrati partnera preko `aktivan=false`, bez fizičkog brisanja i bez promjene istorijskih dokumenata. Backend provjerava firmu/dodjelu, delete/update pravo, agencijski/firmin scope i zaključava red; audit i status su ista transakcija. Pretraga koristi stilove forme i razmak dugmadi. Tri regresije provjeravaju brisanje/vraćanje, prava/scope, idempotenciju i rollback audita.
+
+- Nalozi → Partneri prikazuje paginiranu listu po 50 dostupnih globalnih/agencijskih/firminih partnera. Pretraga naziva, PIB-a, PDV broja, grada i šifre aktivne firme, uz vidljivost i domaći/ino filter. Lista i pretraga su prije obrasca; sopstveni partneri imaju Uredi, globalni imaju Uredi za moju agenciju.
+- Provjereni ograničenje upita, scope i filteri simuliranim ORM-om; TSC/ESLint čisti. Vizuelni browser QA nije izvršen jer browser host nije dostupan.
+
+
+## MAPR računi izdavaoca van PDV-a — 2026-11-18
+
+- Uvoz KIF/KUF i MAPR preview prihvataju SEP račun bez `sameTaxes` kada MAPR izričito vraća `issuerInVat=false`, nulti/izostavljeni PDV i jednake ukupne, osnovne i `taxFreeAmt` iznose. Zajednički normalizator formira 0% red; nedovoljni ili neusaglašeni podaci ostaju odbijeni.
+- Povod je potvrđeni javni MAPR odgovor za DIGITELLA, PIB 03337081, račun 111/2026 od 350 EUR. Provjereno čitanjem bez upisa računa; četiri MAPR regresije i TypeScript prolaze. Korisnik treba ponoviti neuspjele importe.
+
+
 > Posljednje ažuriranje: 2026-11-17. Izvor istine za stanje. Detaljna pravila su
 > u [`AGENTS.md`](AGENTS.md), domen u [`docs/`](docs/), originalna spec u
 > [`zadaci/`](zadaci/).

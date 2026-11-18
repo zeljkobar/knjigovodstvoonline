@@ -1458,3 +1458,64 @@ export async function updatePartner(formData: FormData) {
   revalidatePath("/agencija/nalozi/novi");
   redirect("/agencija/nalozi/partneri?poruka=partner_izmijenjen");
 }
+
+export async function setPartnerActive(formData: FormData) {
+  const user = await requireAnyRole(["admin_agencije", "korisnik_agencije"]);
+  const firmaId = value(formData, "firma_id");
+  const partnerId = value(formData, "partner_id");
+  const operation = value(formData, "operation");
+  const restore = operation === "restore";
+  const search = new URLSearchParams();
+  for (const key of ["q", "scope", "porijeklo", "status", "page"]) {
+    const entry = value(formData, key).slice(0, 150);
+    if (entry) search.set(key, entry);
+  }
+  function finish(message: string): never {
+    search.set("poruka", message);
+    redirect(`/agencija/nalozi/partneri?${search}`);
+  }
+  if (!user.agencija_id || !firmaId || !partnerId || !["delete", "restore"].includes(operation)) {
+    finish("partner_greska");
+  }
+  if (!(await canUseJournals(user, firmaId, restore ? "update" : "delete"))) finish("prava");
+
+  const agencijaId = user.agencija_id;
+  try {
+    await prisma.$transaction(async (tx) => {
+      const firma = await tx.firma.findFirst({
+        where: {
+          id: firmaId, agencija_id: agencijaId, aktivan: true, is_deleted: false,
+          ...(user.rola === "admin_agencije" ? {} : {
+            korisnici: { some: { korisnik_id: user.id, is_deleted: false } }
+          })
+        }, select: { id: true }
+      });
+      if (!firma) throw new Error("partner_scope");
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM komitenti WHERE id = ${partnerId}::uuid AND agencija_id = ${agencijaId}::uuid AND (scope = 'AGENCY' OR (scope = 'COMPANY' AND firma_id = ${firma.id}::uuid)) FOR UPDATE`);
+      const where: Prisma.KomitentWhereInput = {
+        id: partnerId, agencija_id: agencijaId,
+        OR: [{ scope: "AGENCY" }, { scope: "COMPANY", firma_id: firma.id }]
+      };
+      const existing = await tx.komitent.findFirst({
+        where, select: { id: true, naziv: true, scope: true, aktivan: true }
+      });
+      if (!existing) throw new Error("partner_scope");
+      if (existing.aktivan === restore) return;
+      // Keep all accounting references and historical documents intact.
+      await tx.komitent.updateMany({ where, data: { aktivan: restore } });
+      await auditLogInTransaction(tx, {
+        korisnikId: user.id, agencijaId: agencijaId, firmaId: firma.id,
+        modul: "agencija.partneri", akcija: restore ? "restore" : "delete",
+        tipEntiteta: "Komitent", entitetId: existing.id,
+        staraVrijednost: existing, novaVrijednost: { ...existing, aktivan: restore },
+        napomena: restore ? "Vraćen dodatni partner." : "Partner uklonjen iz aktivnog izbora; istorijske veze sačuvane."
+      });
+    });
+  } catch {
+    finish("partner_greska");
+  }
+  revalidatePath("/agencija/nalozi/partneri");
+  revalidatePath("/agencija/izvodi");
+  revalidatePath("/agencija/nalozi/novi");
+  finish(restore ? "partner_vracen" : "partner_obrisan");
+}

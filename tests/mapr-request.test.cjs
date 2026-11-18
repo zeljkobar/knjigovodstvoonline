@@ -48,3 +48,36 @@ test('inventory and authenticated KUF preview send compatible dates and distingu
   assert.equal((await POST({json:async()=>({qrUrl})})).status,403);assert.equal(calls,before);
  }finally{global.fetch=previous;}
 });
+
+test('SEP non-VAT invoices reconstruct tax rows only from explicit matching fiscal amounts',()=>{
+ const {maprTaxRows}=sourceLoader()('src/lib/mapr-request.ts');
+ const invoice={issuerInVat:false,sameTaxes:null,totalPrice:350,totalPriceWithoutVAT:350,taxFreeAmt:350,totalVATAmount:null};
+ assert.deepEqual(maprTaxRows(invoice),[{vatRate:0,priceBeforeVat:350,vatAmount:0}]);
+ assert.deepEqual(maprTaxRows({...invoice,totalPrice:-350,totalPriceWithoutVAT:-350,taxFreeAmt:-350}),[{vatRate:0,priceBeforeVat:-350,vatAmount:0}]);
+ for(const patch of [
+  {issuerInVat:true},{issuerInVat:undefined},{issuerInVat:'false'},
+  {totalPriceWithoutVAT:null},{taxFreeAmt:null},{taxFreeAmt:349},
+  {totalVATAmount:1},{totalVATAmount:'invalid'},{totalPrice:undefined},
+  {totalPrice:0,totalPriceWithoutVAT:0,taxFreeAmt:0}
+ ]) assert.deepEqual(maprTaxRows({...invoice,...patch}),[],JSON.stringify(patch));
+ const taxed=[{vatRate:21,priceBeforeVat:100,vatAmount:21}];
+ assert.deepEqual(maprTaxRows({...invoice,sameTaxes:taxed}),taxed);
+});
+
+test('MAPR preview and inventory reader accept SEP non-VAT response without sameTaxes',async()=>{
+ const previous=global.fetch;
+ global.fetch=async()=>Response.json({...payload,issuerInVat:false,sameTaxes:null,totalPrice:350,totalPriceWithoutVAT:350,totalVATAmount:null,taxFreeAmt:350});
+ try{
+  const load=sourceLoader({
+   '@/lib/auth':{getCurrentUser:async()=>({rola:'admin_agencije'}),isDirectFiscalTenantUser:()=>false},
+   '@/lib/permissions':{hasAnyPermission:async()=>true},
+   '@/lib/work-context':{readWorkContext:async()=>({firmaId:'fixture'})}
+  });
+  const qrUrl=link('2026-10-01T10:07:59+02:00');
+  const expected=[{vatRate:0,priceBeforeVat:350,vatAmount:0}];
+  const inventory=await load('src/lib/mapr-invoice.ts').fetchMaprInvoice(qrUrl);
+  assert.deepEqual(inventory.taxes,expected);
+  const response=await load('src/app/api/mapr/verify/route.ts').POST({json:async()=>({qrUrl})});
+  assert.deepEqual((await response.json()).taxes,expected);
+ }finally{global.fetch=previous;}
+});

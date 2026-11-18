@@ -1,5 +1,23 @@
 # NEXT_STEPS.md — šta dalje raditi
 
+## Agencijske izmjene globalnih partnera — objava 18.11.2026.
+
+- Implementirano lokalno: Uredi za moju agenciju, čuvanje zasebne agencijske verzije uz isti partner ID i dosljedan prikaz/pretraga. Za produkciju primijeniti `20261118170000_agencija_komitent_izmjene`, generisati Prisma i restartovati aplikaciju. Lokalna migracija je završena.
+- Ručno provjeriti ekran: promijeniti naziv/adresu jednog globalnog partnera, pronaći ga po novom nazivu, otvoriti izvod/nalog i potvrditi da se koristi agencijski prikaz. Druga agencija mora vidjeti original. DB rollback i automatske regresije pokrivaju podatke i izolaciju; nijedan stvarni partner nije mijenjan u ovoj sesiji.
+
+
+## Partneri — pretraga 18.11.2026.
+
+- Dodati Obriši/Vrati partnera uz filter Obrisani i potvrdu; pretraga dobila standardni izgled. Provjeriti vizuelno u browseru. Nijedan poslovni partner nije obrisan u ovoj sesiji.
+
+- Implementirani serverska pretraga, filteri vidljivosti/porijekla i paginacija po 50 redova na Nalozi → Partneri. Provjeriti u pregledniku pretragu naziva/PIB-a, Uredi za sopstvenog partnera i vidljive labele modala u izvodima. Kanonske globalne podatke uređuje administrator platforme; agencija može čuvati svoju verziju.
+
+
+## MAPR računi van PDV-a — provjera 18.11.2026.
+
+- Ispravljeno odbijanje SEP računa bez poreskih redova uz eksplicitni `issuerInVat=false` i usaglašene ukupne iznose. Ponoviti deset neuspjelih DIGITELLA računa iz postojećeg izvještaja; provjeriti redove bez PDV-a i eventualna nedostajuća konta. U ovoj sesiji računi nijesu upisivani.
+
+
 > Lista otvorenih zadataka. Kad se nešto završi, prebaci u
 > [`CURRENT_STATE.md`](CURRENT_STATE.md) i dopiši u [`SESSION_LOG.md`](SESSION_LOG.md).
 

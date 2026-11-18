@@ -19,6 +19,7 @@ type AgencyTopBarProps = {
   firms: Array<{
     id: string;
     naziv: string;
+    skraceni_naziv?: string | null;
     pib: string | null;
   }>;
   navigation: NavigationItem[];
@@ -119,13 +120,13 @@ export function AgencyTopBar({
                 if (id === activeFirmId) return;
                 const firm = firms.find(item => item.id === id);
                 if (id && !firm) return;
-                setPendingChange({ type: "firm", id, label: firm ? `${firm.naziv}${firm.pib ? ` (${firm.pib})` : ""}` : "" });
+                setPendingChange({ type: "firm", id, label: firm ? `${firm.skraceni_naziv?.trim() || firm.naziv}${firm.pib ? ` (${firm.pib})` : ""}` : "" });
               }}
             >
               <option value="">Izaberite firmu</option>
               {firms.map((firma) => (
                 <option key={firma.id} value={firma.id}>
-                  {firma.naziv}
+                  {firma.skraceni_naziv?.trim() || firma.naziv}
                   {firma.pib ? ` (${firma.pib})` : ""}
                 </option>
               ))}

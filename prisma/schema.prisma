@@ -34,6 +34,7 @@ enum KomitentScope {
 }
 
 model Agencija {
+  komitentIzmjene AgencijaKomitentIzmjena[]
   arhive_izvoda BankStatementArchiveFolder[]
   dokumentaOneDrive DokumentaOneDrive?
   porez_dobit_konta Json?
@@ -664,6 +665,7 @@ model PoslovnaGodina {
 }
 
 model Komitent {
+  agencijske_izmjene AgencijaKomitentIzmjena[]
   povratiDobavljacu PovratDobavljacu[]
   id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   naziv                 String
@@ -4254,4 +4256,39 @@ model PrimljeniDokument {
   @@index([agencija_id, firma_id, poslovna_godina_id, status])
   @@index([kuf_entry_id])
   @@map("primljeni_dokumenti")
+}
+
+// Agency-wide presentation of a canonical GLOBAL partner. No company ownership;
+// all business documents continue referencing the original Komitent.id.
+model AgencijaKomitentIzmjena {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  agencija Agencija @relation(fields: [agencija_id], references: [id], onDelete: Restrict)
+  komitent_id String @db.Uuid
+  komitent Komitent @relation(fields: [komitent_id], references: [id], onDelete: Restrict)
+  naziv String
+  pib String?
+  maticni_broj String?
+  pdv_broj String?
+  pravna_forma String?
+  sifra_djelatnosti String?
+  datum_registracije DateTime? @db.Date
+  is_foreign Boolean @default(false)
+  country_code String?
+  country_name String?
+  foreign_tax_number String?
+  adresa String?
+  grad String?
+  drzava String?
+  telefon String?
+  email String?
+  web_sajt String?
+  verzija Int @default(1)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  created_by String @db.Uuid
+  updated_by String @db.Uuid
+  @@unique([agencija_id, komitent_id])
+  @@index([komitent_id])
+  @@map("agencija_komitent_izmjene")
 }

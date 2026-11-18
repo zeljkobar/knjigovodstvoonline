@@ -1,5 +1,27 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-18 — Uredi globalnog partnera za moju agenciju
+
+- Dodata agencija/komitent tabela sa punim agencijskim podacima i revizijom. Save provjerava prava, firmu/dodjelu, globalni scope i dupli efektivni PIB, zaključava kanonski red i čuva izmjene + firmina podešavanja + audit u istoj transakciji. Original i identitet ne mijenjaju se.
+- Prisma read projekcija obuhvata direktne i ugniježđene partnere, pretragu i count. Zasebni provjereni session/async konteksti izolovani su po agenciji; platform admin ostaje na originalu. Ne dira JSON dokumentarne snapshote. UI označava agencijsku verziju i zaključava vidljivost na agenciju.
+- Migracija primijenjena lokalno; Prisma/dev restart. Prošli npm test, tri nove unit regresije, stvarni rollback agencijskog sloja sa purge-om testne firme, MAPR cache i bank warnings DB regresije, TSC/ESLint/purge checker. Stranica se kompajlira i bez sesije vraća 307. Browser host je ranije bio nedostupan; vizuelni QA ostaje. Nema izmjene stvarnih partnera, commita ili deploya.
+
+
+## 2026-11-18 — Pretraga partnera i labele brzog unosa
+
+- Dopuna: stilizovani filteri i dugme Pretraži; Obriši uz potvrdu i povratni filter Obrisani. Status koristi postojeći aktivan flag; istorijske reference ostaju, globalni partneri zaštićeni. Transakcioni audit/row lock i prava delete/update; tri nove regresije prolaze i uključene su u npm test. Korisnikov partner nije automatski obrisan.
+
+- CSS pravilo izvoda suženo na neposrednu labelu pretrage, tako da više ne skriva nazive polja u modalu novog partnera.
+- Nalozi → Partneri dobija GET pretragu i scope/domaći-ino filtere, 50 redova po stranici, stabilno sortiranje, count i navigaciju koja čuva filtere. Globalni su read-only; edit čuva kontekst liste i vodi na obrazac ispod nje.
+- TSC/ESLint i simulirani upiti potvrđuju paginaciju, agencijski/firmin scope, pretragu i nevažeće filtere. Nema migracije ni izmjene partnera u bazi. Browser host nije dostupan za vizuelnu probu.
+
+
+## 2026-11-18 — MAPR/SEP računi bez PDV-a
+
+- Uzrok odbijanja DIGITELLA računa: ispravan odgovor sa `issuerInVat=false`, `taxFreeAmt=350` i `sameTaxes=null`; import je bezuslovno zahtijevao poreske redove. Zajedničko mapiranje sada rekonstruiše 0% red samo uz eksplicitni status i usaglašene iznose. Primijenjeno u KIF/KUF batch-u, preview ruti i robnom MAPR čitaču.
+- Četiri regresije provjeravaju pozitivan/negativan iznos, nedostajuće dokaze, neispravne iznose i postojeći oporezivi tok. TSC čist. Nema migracije, upisa poslovnih računa ili automatskog ponavljanja uvoza.
+
+
 ## 2026-11-17 — Preuzimanje podešavanja iz oba SEP okruženja
 
 - Prvi korak traži sertifikat klijenta i lozinku jednom, prijavljuje se direktno kao korisnik bez unosa PIB-a u oba SEP okruženja i provjerava da se otvorila izabrana firma. Dostupni podaci popunjavaju postojeće obrasce uz pregled i čuvanje koje pokreće admin.

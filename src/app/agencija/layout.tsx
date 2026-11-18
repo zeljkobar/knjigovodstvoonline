@@ -58,6 +58,7 @@ export default async function AgencijaLayout({
           select: {
             id: true,
             naziv: true,
+            skraceni_naziv: true,
             pib: true
           }
         })

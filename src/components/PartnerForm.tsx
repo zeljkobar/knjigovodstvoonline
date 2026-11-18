@@ -10,6 +10,8 @@ type PartnerFormProps = {
   initialValues?: PartnerFormValues;
   irmsEndpoint?: string;
   mode?: "agency" | "global";
+  agencyOverride?: boolean;
+  overrideVersion?: number;
 };
 
 export type PartnerFormValues = {
@@ -94,7 +96,9 @@ export function PartnerForm({
   firmaId,
   initialValues,
   irmsEndpoint = "/api/irms/search",
-  mode = "agency"
+  mode = "agency",
+  agencyOverride = false,
+  overrideVersion = 0
 }: PartnerFormProps) {
   const [irmsStatus, setIrmsStatus] = useState<{
     message: string;
@@ -158,6 +162,7 @@ export function PartnerForm({
       {initialValues?.id ? (
         <input name="partner_id" type="hidden" value={initialValues.id} />
       ) : null}
+      {agencyOverride ? <input type="hidden" name="override_version" value={overrideVersion} /> : null}
       {firmaId ? <input name="firma_id" type="hidden" value={firmaId} /> : null}
       <label>
         <span>Naziv partnera</span>
@@ -166,10 +171,10 @@ export function PartnerForm({
       {mode === "agency" ? (
         <label>
           <span>Vidljivost</span>
-          <select name="scope" defaultValue={initialValues?.scope ?? "AGENCY"} required>
+          {agencyOverride ? <input value="Cijela agencija — prilagođen globalni partner" readOnly /> : <select name="scope" defaultValue={initialValues?.scope ?? "AGENCY"} required>
             <option value="AGENCY">Cijela agencija</option>
             <option value="COMPANY">Samo aktivna firma</option>
-          </select>
+          </select>}
         </label>
       ) : null}
       {mode === "agency" ? (

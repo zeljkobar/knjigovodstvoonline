@@ -33,7 +33,9 @@ type LockedCompany = {
  * Pozivalac mora ovu funkciju izvršiti unutar jedne transakcije. Firma se prvo
  * zaključava i ponovo provjerava kroz agencijski scope, pa tek onda počinje
  * brisanje. Zajednički korisnici, kontni planovi i globalni/agencijski partneri
- * ostaju sačuvani.
+ * ostaju sačuvani. AgencijaKomitentIzmjena takođe ostaje: veže agenciju za
+ * globalnog partnera, nema firma_id niti podređene firme/FK. Brisanje jedne firme
+ * ne smije ukloniti agencijski prikaz zajedničkog partnera.
  * AgencijaSepSertifikat je lični pristup administratora na nivou agencije,
  * bez FK ka firmi/godini ili podređenih tabela. Ne briše se sa jednom firmom.
  */

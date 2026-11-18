@@ -3043,11 +3043,11 @@ td small {
   min-width: 0;
 }
 
-.statement-preview-table .partner-search-field label {
+.statement-preview-table .partner-search-field > label {
   margin: 0;
 }
 
-.statement-preview-table .partner-search-field label > span {
+.statement-preview-table .partner-search-field > label > span {
   display: none;
 }
 
@@ -8334,6 +8334,42 @@ td small {
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.partner-list-filters {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(160px, 1fr));
+  margin-bottom: 14px;
+}
+
+.partner-list-filters .admin-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.partner-list-filters .admin-actions button {
+  align-self: auto;
+}
+
+.partner-row-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.partner-row-actions form {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .partner-list-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .quick-partner-checkbox {

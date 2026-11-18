@@ -1,3 +1,4 @@
+import { withPartnerAgency } from "./agency-partner-context";
 import { statementIdentity } from "@/lib/bank-statement-identity";
 import { invoiceSettlementPaid } from "@/lib/settlements";
 import { postBankSettlements, bankSettlementProposals } from "@/lib/bank-settlements";
@@ -2061,6 +2062,11 @@ export async function importBankStatement(formData: FormData) {
 }
 
 async function runBankStatementImport(formData: FormData, mail?: { firmaId: string; yearId: string; bankId?: string }, scheduled?: ScheduledBankContext) {
+  const run = () => executeBankStatementImport(formData, mail, scheduled);
+  return scheduled ? withPartnerAgency(scheduled.agencyId, run) : run();
+}
+
+async function executeBankStatementImport(formData: FormData, mail?: { firmaId: string; yearId: string; bankId?: string }, scheduled?: ScheduledBankContext) {
   const fail: (code: string) => never = (code) => {
     if (mail) {
       const messages: Record<string, string> = {
@@ -3568,6 +3574,11 @@ export async function deleteBankPostingRule(formData: FormData) {
 }
 
 export async function postSelectedBankStatements(formData: FormData, scheduled?: ScheduledBankContext, skipInvalidAmounts = false) {
+  const run = () => executeSelectedBankStatements(formData, scheduled, skipInvalidAmounts);
+  return scheduled ? withPartnerAgency(scheduled.agencyId, run) : run();
+}
+
+async function executeSelectedBankStatements(formData: FormData, scheduled?: ScheduledBankContext, skipInvalidAmounts = false) {
   const { user, firma, poslovnaGodina } = await getActiveContext("post", scheduled);
   const statementIds = formData.getAll("statement_id").map((item) => String(item));
 
