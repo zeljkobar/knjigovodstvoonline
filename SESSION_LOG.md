@@ -1,5 +1,10 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-20 — GitHub DB regresija pazara
+
+- Run 44712733287: TSC i npm test prolaze; DB test check-pazar-import pada jer stare POS fixture nemaju SUMMA režim i Production okruženje koje novi potvrđeni promet zahtijeva. Pad 0,00 / 108,90 reprodukovan lokalno.
+- Fixture eksplicitno označene; dodati Test, null okruženje i drugi fiskalni sistem kao negativni slučajevi. Isti stvarni rollback test sada prolazi, bez ublažavanja produkcionih filtera i bez trajnih upisa/SMTP/fiskalizacije.
+
 ## Završna provjera paketa prije commit-a — 2026-11-20
 
 - `npm test`: 411 uspješnih testova, bez padova; jedan ranije označen preskočen test. Produkcijski `npm run build` i zasebni `tsc --noEmit` prolaze. Build ima postojeća CSS kompatibilnost/lint upozorenja, bez grešaka.
