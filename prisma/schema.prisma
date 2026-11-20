@@ -34,6 +34,8 @@ enum KomitentScope {
 }
 
 model Agencija {
+  fiskalniKontakti FiskalniKontakt[]
+  fiskalneDostave FiskalnaDostava[]
   komitentIzmjene AgencijaKomitentIzmjena[]
   arhive_izvoda BankStatementArchiveFolder[]
   dokumentaOneDrive DokumentaOneDrive?
@@ -214,6 +216,8 @@ model AgencijaBankovniRacun {
 }
 
 model Firma {
+  fiskalniKontakti FiskalniKontakt[]
+  fiskalneDostave FiskalnaDostava[]
   arhive_izvoda BankStatementArchiveFolder[]
   dokumentaFolder DokumentaFolder?
   primljeniDokumenti PrimljeniDokument[]
@@ -519,6 +523,8 @@ model FirmaUgovor {
 }
 
 model KorisnikFirma {
+  fiscal_portal_enabled Boolean @default(false)
+  fiscal_portal_permissions String[] @default([])
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   korisnik_id     String    @db.Uuid
   korisnik        Korisnik  @relation(fields: [korisnik_id], references: [id])
@@ -538,6 +544,7 @@ model KorisnikFirma {
   updated_by      String?   @db.Uuid
 
   @@unique([korisnik_id, firma_id])
+  @@index([korisnik_id, fiscal_portal_enabled], map: "korisnik_firma_fiscal_portal_idx")
   @@map("korisnik_firma")
 }
 
@@ -2046,6 +2053,7 @@ model FiskalniIzlazniRacun {
   iic                     String?
   jikr                    String?
   qr_code_data            String?
+  fiscal_context_snapshot Json?
   issuer_snapshot         Json?
   buyer_snapshot          Json?
   correlation_id          String?
@@ -4291,4 +4299,56 @@ model AgencijaKomitentIzmjena {
   @@unique([agencija_id, komitent_id])
   @@index([komitent_id])
   @@map("agencija_komitent_izmjene")
+}
+
+model FiskalniKontakt {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  agencija Agencija @relation(fields:[agencija_id], references:[id])
+  firma_id String @db.Uuid
+  firma Firma @relation(fields:[firma_id], references:[id])
+  partner_key String @default("FIRMA")
+  naziv String
+  email String
+  podrazumijevan Boolean @default(false)
+  is_deleted Boolean @default(false)
+  deleted_at DateTime?
+  created_by String @db.Uuid
+  updated_by String @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  @@index([agencija_id,firma_id,partner_key])
+  @@map("fiskalni_kontakti")
+}
+model FiskalnaDostava {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agencija_id String @db.Uuid
+  agencija Agencija @relation(fields:[agencija_id], references:[id])
+  firma_id String @db.Uuid
+  firma Firma @relation(fields:[firma_id], references:[id])
+  poslovna_godina_id String @db.Uuid
+  korisnik_id String @db.Uuid
+  povrsina String
+  izvor Json
+  naziv String
+  mime String
+  prilog Bytes?
+  sha256 String
+  velicina Int
+  status String @default("DRAFT")
+  primalac String?
+  kopija String?
+  naslov String?
+  poruka String?
+  message_id String?
+  greska String?
+  queued_at DateTime?
+  started_at DateTime?
+  accepted_at DateTime?
+  expires_at DateTime
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  @@index([status,queued_at])
+  @@index([agencija_id,firma_id,created_at])
+  @@map("fiskalne_dostave")
 }

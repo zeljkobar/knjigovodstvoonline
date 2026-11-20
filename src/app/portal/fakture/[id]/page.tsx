@@ -493,7 +493,7 @@ export default async function PortalInvoiceEditorPage({
             Fiskalizovana je bez KIF-a i naloga. Dostupni su detalj i A4 štampa.
           </p>
           <div className="form-actions">
-            <Link className="primary-button" href={`/portal/racuni/${invoice.id}`}>Otvori fiskalni detalj</Link>
+            <Link className="primary-button" href={`/portal/racuni/${invoice.id}`}>Otvori fiskalni detalj</Link><Link className="secondary-button" href={`/portal/racuni/${invoice.id}/pdf`} prefetch={false}>Preuzmi PDF</Link><Link className="secondary-button" href={`/portal/dostava?racun=${invoice.id}`}>Pošalji mejlom</Link>
           </div>
         </section>
       )}

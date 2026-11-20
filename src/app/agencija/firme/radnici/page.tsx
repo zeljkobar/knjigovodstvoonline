@@ -13,6 +13,7 @@ const poruke: Record<string, string> = {
   firma_dodijeljena: "Radnik je dodijeljen firmi.",
   firma_uklonjena: "Radnik je uklonjen sa firme.",
   dodjela_obavezna: "Radnik i firma su obavezni.",
+  fiskalni_pristup_admin: "Nalog ima fiskalni pristup koji uređuje admin platforme. Možete mijenjati knjigovodstvene preglede, ali za uklanjanje naloga ili promjenu firme obratite se adminu platforme.",
   dodjela_greska: "Dodjela nije uspjela.",
   rola_nevalidna: "Izabrani korisnik nije radnik agencije."
 };

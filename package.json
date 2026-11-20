@@ -45,7 +45,8 @@
     "test:theme-db": "node scripts/check-theme.cjs",
     "test:posting-template-db": "node scripts/check-posting-template.cjs",
     "mail:migrate-env": "node scripts/migrate-imap-account.cjs",
-    "fiscal-portals:key": "node scripts/ensure-fiscal-portal-key.cjs"
+    "fiscal-portals:key": "node scripts/ensure-fiscal-portal-key.cjs",
+    "test:fiscal-pdf": "node scripts/check-fiscal-pdf.cjs"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
@@ -58,6 +59,7 @@
     "next": "^15.0.0",
     "nodemailer": "^8.0.10",
     "pdfjs-dist": "^6.0.227",
+    "puppeteer": "^25.18.1",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

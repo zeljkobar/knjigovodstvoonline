@@ -101,7 +101,7 @@ export default async function DirectPortalInvoiceDetailPage({
           {invoice.fiscal_environment === "Test" ? (
             <span className="status-pill status-pill--warning">TEST</span>
           ) : null}
-          <Link className="secondary-button" href={`/stampa/portal/racuni/${invoice.id}`} target="_blank" prefetch={false}>A4 štampa</Link>
+          <Link className="secondary-button" prefetch={false} href={`/portal/racuni/${invoice.id}/pdf`}>Preuzmi PDF</Link><Link className="secondary-button" href={`/portal/dostava?racun=${invoice.id}`}>Pošalji mejlom</Link><Link className="secondary-button" href={`/stampa/portal/racuni/${invoice.id}`} target="_blank" prefetch={false}>A4 štampa</Link>
           {canPrintThermal ? (
             <>
               <Link className="secondary-button" href={`/stampa/portal/racuni/${invoice.id}/termalni?sirina=58`} target="_blank" prefetch={false}>58 mm</Link>

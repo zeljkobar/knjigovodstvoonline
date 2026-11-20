@@ -1,0 +1,9 @@
+.document { margin: 1.5rem 0; border-top: 1px solid #ccd6e0; padding-top: 1rem; overflow-wrap: anywhere; }
+.document table { width: 100%; border-collapse: collapse; }
+.document th, .document td { padding: .45rem; text-align: left; border-bottom: 1px solid #ccd6e0; }
+@media print {
+  .document h3 { break-after: avoid; }
+  .document thead { display: table-header-group; }
+  .document tr { break-inside: avoid; }
+  .document table { font-size: 9pt; }
+}

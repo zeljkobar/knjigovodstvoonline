@@ -147,3 +147,18 @@ Takav slučaj ide na posebnu administratorsku provjeru.
 3. Postojeći direktni fiskalni klijent koji naknadno angažuje agenciju povezuje
    se preko kontrolisanog zahtjeva pokrenutog podudaranjem PIB-a. Zadržavaju se
    ista firma, fiskalizacija i istorija, bez dupliranja podataka.
+
+## Dopuna 2026-11-20 — ko otvara nalog i ko daje prava
+
+1. Fiskalizaciju firme i fiskalni pristup korisnika dodjeljuje/ukida isključivo admin platforme. Podešena produkcija firme i odobren korisnički pristup su dvije nezavisne stvari.
+2. Za postojeću firmu agencije admin otvara **Fiskalni klijenti → Fiskalni pristup**. Ako klijentski nalog postoji u toj agenciji, bira ga i čuva fiskalna prava. Lozinka, korisničko ime i knjigovodstvena prava ostaju.
+3. Ako nalog ne postoji, tu unosi korisničko ime i e-mail. Kreira se `klijent` iste agencije sa dodjelom iste postojeće firme, bez dupliranja firme ili fiskalne istorije. Pozivnica važi sedam dana; admin može ponoviti slanje.
+4. Admin agencije taj nalog vidi među klijentima i dodjeljuje kartice, dokumentaciju, robne preglede i PDV pregled. To ne uključuje niti uklanja fiskalizaciju. Nalog sa odobrenim fiskalnim pristupom agencija ne može deaktivirati/odvojiti od firme niti dodijeliti drugoj firmi; za to je potreban admin platforme. Knjigovodstvena prava može redovno mijenjati.
+5. Klijent se prijavljuje svojim nalogom na `/klijent`, gdje mu se prikazuje **Otvori fiskalizaciju** odnosno link Fiskalizacija. Zajednički fiskalni UI ostaje `/portal`. Izdavanje računa i dalje zavisi od konfiguracije i zaključavanja godine.
+6. Direktni klijent bez agencije ostaje u direktnom kontejneru, sa direktnim ulazom na `/portal`. Kasnije povezivanje sa agencijom koristi postojeći kontrolisani transfer iste firme i korisnika.
+
+Implementacija: platforma čuva fiskalni grant na `korisnik_firma`, a agencija knjigovodstvena prava na `korisnik_prava`. Lokalna migracija čuva stare eksplicitne fiskalne dodjele; ne daje fiskalni portal svim postojećim klijentima. Objavu i punu browser provjeru uraditi posebno.
+
+### POS aktivacija — dopuna 2026-11-20
+
+Admin platforme otvara **Fiskalni pristup → Podesi POS kasu firme** ili **Podešavanje firme → POS / Kasa**. Bira aktivnu poslovnu jedinicu, njen registrovani ENU i operatera u odgovarajućem okruženju, pa čuva i uključuje POS. Zatim odobrava korisniku POS izdavanje kroz postojeći fiskalni grant. Meni zahtijeva uključen POS firme i korisnički pregled; naplata dodatno zahtijeva pravo izdavanja i fiskalnu spremnost. Fakture ostaju nezavisne i mogu se koristiti zajedno sa POS-om. Agencija ne uključuje/isključuje POS, ali uređuje operativni magacin i računovodstvenu integraciju. Ovaj tok ne registruje fiskalne resurse i ne prijavljuje depozit.

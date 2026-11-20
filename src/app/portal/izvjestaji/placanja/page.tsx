@@ -49,8 +49,8 @@ export default async function DirectPortalPaymentsReportPage({
           <p className="eyebrow">Izvještaji / Plaćanja</p>
           <h2>Promet po načinu plaćanja</h2>
           <p className="muted-text">
-            Naplate po fiskalizovanim OFFICE i POS dokumentima, uz negativne
-            iznose korektivnih dokumenata.
+            Načini plaćanja navedeni na OFFICE i POS dokumentima, uz negativne
+            iznose korektivnih dokumenata. Oznaka na računu nije potvrda stvarne uplate.
           </p>
         </div>
         <div className="header-actions">

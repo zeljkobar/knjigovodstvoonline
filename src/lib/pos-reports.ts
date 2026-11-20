@@ -1,4 +1,5 @@
 import { decimalToScaled } from "@/lib/inventory-calculation";
+import { confirmedSalesWhere, type ReportEnvironment } from "./fiscal-report-policy";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 
@@ -45,15 +46,11 @@ export async function loadPosReport(input: {
   start: Date;
   end: Date;
   registerId?: string;
+  environment?: ReportEnvironment;
 }, db: Pick<Prisma.TransactionClient, "fiskalniIzlazniRacun"> = prisma) {
   const invoices = await db.fiskalniIzlazniRacun.findMany({
     where: {
-      agencija_id: input.agencijaId,
-      firma_id: input.firmaId,
-      poslovna_godina_id: input.yearId,
-      sales_channel: "POS",
-      document_type: { in: ["POS_RECEIPT", "POS_RETURN"] },
-      fiscal_status: { in: ["Fiscalized", "StornoCreated"] },
+      ...confirmedSalesWhere({ ...input, posOnly: true }),
       issued_at: { gte: input.start, lte: input.end },
       ...(input.registerId ? { pos_register_id: input.registerId } : {}),
       is_deleted: false

@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { withAgencyFiscalIdentity } from "@/lib/platform-fiscal-access";
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
@@ -2169,7 +2170,7 @@ export async function assignCompanyAccess(formData: FormData) {
           updated_by: admin.id
         };
 
-  const dodjela = await prisma.korisnikFirma.upsert({
+  const dodjela = await withAgencyFiscalIdentity(korisnikId, agencijaId, firmaId, tx=>tx.korisnikFirma.upsert({
     where: {
       korisnik_id_firma_id: {
         korisnik_id: korisnikId,
@@ -2190,7 +2191,9 @@ export async function assignCompanyAccess(formData: FormData) {
       glavni_radnik: true,
       access_type: true
     }
-  });
+  }));
+
+  if (!dodjela) { redirectAgencyPath(returnTo, "fiskalni_pristup_admin"); }
 
   await auditLog({
     korisnikId: admin.id,
@@ -2241,7 +2244,7 @@ export async function removeCompanyAccess(formData: FormData) {
     redirectAgencyPath(returnTo, "dodjela_greska");
   }
 
-  const uklonjenaDodjela = await prisma.korisnikFirma.update({
+  const uklonjenaDodjela = await withAgencyFiscalIdentity(dodjela.korisnik_id, agencijaId, null, tx=>tx.korisnikFirma.update({
     where: {
       id
     },
@@ -2258,7 +2261,9 @@ export async function removeCompanyAccess(formData: FormData) {
       firma_id: true,
       is_deleted: true
     }
-  });
+  }));
+
+  if (!uklonjenaDodjela) { redirectAgencyPath(returnTo, "fiskalni_pristup_admin"); }
 
   await auditLog({
     korisnikId: admin.id,
@@ -2402,7 +2407,7 @@ export async function toggleAgencyUser(formData: FormData) {
     redirectUsers("korisnik_greska");
   }
 
-  const korisnik = await prisma.korisnik.update({
+  const korisnik = await withAgencyFiscalIdentity(id, agencijaId, null, tx=>tx.korisnik.update({
     where: {
       id
     },
@@ -2415,7 +2420,9 @@ export async function toggleAgencyUser(formData: FormData) {
       korisnicko_ime: true,
       aktivan: true
     }
-  });
+  }));
+
+  if (!korisnik) { redirectUsers("fiskalni_pristup_admin"); }
 
   await auditLog({
     korisnikId: admin.id,
@@ -2494,7 +2501,7 @@ export async function assignCompanyToUser(formData: FormData) {
           updated_by: admin.id
         };
 
-  const dodjela = await prisma.korisnikFirma.upsert({
+  const dodjela = await withAgencyFiscalIdentity(korisnikId, agencijaId, firmaId, tx=>tx.korisnikFirma.upsert({
     where: {
       korisnik_id_firma_id: {
         korisnik_id: korisnikId,
@@ -2514,7 +2521,9 @@ export async function assignCompanyToUser(formData: FormData) {
       firma_id: true,
       glavni_radnik: true
     }
-  });
+  }));
+
+  if (!dodjela) { redirectUsers("fiskalni_pristup_admin"); }
 
   await auditLog({
     korisnikId: admin.id,
@@ -2562,7 +2571,7 @@ export async function removeCompanyFromUser(formData: FormData) {
     redirectUsers("dodjela_greska");
   }
 
-  const uklonjenaDodjela = await prisma.korisnikFirma.update({
+  const uklonjenaDodjela = await withAgencyFiscalIdentity(dodjela.korisnik_id, agencijaId, null, tx=>tx.korisnikFirma.update({
     where: {
       id
     },
@@ -2579,7 +2588,9 @@ export async function removeCompanyFromUser(formData: FormData) {
       firma_id: true,
       is_deleted: true
     }
-  });
+  }));
+
+  if (!uklonjenaDodjela) { redirectUsers("fiskalni_pristup_admin"); }
 
   await auditLog({
     korisnikId: admin.id,

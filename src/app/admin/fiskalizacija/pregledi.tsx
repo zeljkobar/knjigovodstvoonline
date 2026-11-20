@@ -55,6 +55,7 @@ export function ReviewHeader({ title, description, active }: {
       <Link className="table-link" href={routes.home}>Fiskalna platforma</Link>
       <Link className="table-link" href={routes.invoices} aria-current={active === "invoices" ? "page" : undefined}>Fiskalni računi</Link>
       <Link className="table-link" href={routes.turnover} aria-current={active === "turnover" ? "page" : undefined}>Promet i PDV</Link>
+      <Link className="table-link" href="/admin/fiskalizacija/usaglasavanje">Usaglašavanje</Link>
       <Link className="table-link" href={routes.diagnostics} aria-current={active === "diagnostics" ? "page" : undefined}>Istorija i greške</Link>
     </nav>
   </header>;

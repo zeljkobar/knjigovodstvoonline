@@ -15,6 +15,7 @@ export type PortalNavigationItem = {
 };
 
 export const portalNavigation: PortalNavigationItem[] = [
+  {href:"/portal/dostava",icon:"✉",label:"Slanje i adresar",section:"dostava",permissions:[{modul:"fiskalna_dostava",akcija:"create"},{modul:"izvjestaji_dostava",akcija:"create"},{modul:"fiskalni_kontakti",akcija:"manage"}],permissionMode:"any"},
   {
     href: "/portal",
     icon: "⌂",

@@ -1,0 +1,17 @@
+.report { color: #111; background: white; max-width: 1100px; margin: 0 auto; padding: 24px; font: 13px Arial, sans-serif; }
+.report h1 { font-size: 24px; }
+.report h2 { font-size: 17px; margin: 22px 0 10px; }
+.report table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.report th, .report td { border: 1px solid #aaa; padding: 6px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.report th { background: #eee; }
+.number { text-align: right !important; font-variant-numeric: tabular-nums; }
+.meta { display: flex; justify-content: space-between; gap: 20px; }
+.note { font-size: 11px; color: #444; }
+@media print {
+  @page fiscalTurnover { size: A4 landscape; margin: 12mm; }
+  .report { page: fiscalTurnover; max-width: none; margin: 0; padding: 0; font-size: 9pt; }
+  .report thead { display: table-header-group; }
+  .report tr { break-inside: avoid; }
+  .report h2 { break-after: avoid; }
+  .documents { break-before: page; }
+}

@@ -29,6 +29,7 @@ const poruke: Record<string, string> = {
   firma_dodijeljena: "Firma je dodijeljena korisniku.",
   firma_uklonjena: "Pristup firmi je uklonjen.",
   dodjela_obavezna: "Korisnik i firma su obavezni za dodjelu.",
+  fiskalni_pristup_admin: "Nalog ima fiskalni pristup koji uređuje admin platforme. Možete mijenjati knjigovodstvene preglede, ali za uklanjanje naloga ili promjenu firme obratite se adminu platforme.",
   dodjela_greska: "Dodjela firme nije uspjela.",
   prava_sacuvana: "Prava korisnika su sacuvana.",
   prava_obavezna: "Korisnik, firma i modul su obavezni za prava.",
@@ -37,6 +38,7 @@ const poruke: Record<string, string> = {
 };
 
 const moduli = [
+  "fiskalna_dostava", "izvjestaji_dostava", "fiskalni_kontakti",
   "dokumentacija",
   "putni_nalozi",
   "pos",

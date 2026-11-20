@@ -68,7 +68,7 @@ export async function getCurrentUser() {
       firme: {
         where: {
           is_deleted: false,
-          access_type: { in: ["FISCAL_CLIENT", "FISCAL_OPERATOR"] },
+          fiscal_portal_enabled: true,
           firma: {
             aktivan: true,
             is_deleted: false,
@@ -110,7 +110,7 @@ export async function resolveAuthenticatedHome(korisnikId: string) {
       firme: {
         where: {
           is_deleted: false,
-          access_type: { in: ["FISCAL_CLIENT", "FISCAL_OPERATOR"] },
+          fiscal_portal_enabled: true,
           firma: {
             aktivan: true,
             is_deleted: false,

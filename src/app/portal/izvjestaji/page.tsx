@@ -6,17 +6,24 @@ const reportViewPermission = { modul: "izvjestaji", akcija: "view" };
 const reportExportPermission = { modul: "izvjestaji", akcija: "export" };
 
 const reports = [
+  { href: "/portal/izvjestaji/avansi", title: "Avansi", description: "Avansni računi, korišćenje i status umanjenja u lokalnoj evidenciji." },
+  { href: "/portal/izvjestaji/operateri", title: "Operateri", description: "Prodaja i korekcije po istorijskom kodu operatera." },
+  { href: "/portal/izvjestaji/uredjaji", title: "ENU uređaji", description: "Promet po istorijskom ENU-u i poslovnoj jedinici." },
+  { href: "/portal/izvjestaji/jedinice", title: "Poslovne jedinice", description: "Promet prema sačuvanom fiskalnom kodu poslovne jedinice." },
+  { href: "/portal/izvjestaji/kupci", title: "Kupci", description: "Prodaja i korekcije po kupcu, sa osnovicom i PDV-om." },
+  { href: "/portal/izvjestaji/zurnal", title: "Elektronski žurnal", description: "Hronološki računi, stavke i IKOF/JIKR identifikatori." },
+  { href: "/portal/izvjestaji/korekcije", title: "Korektivni žurnal", description: "Storna i veze sa originalnim računima." },
   {
     href: "/portal/izvjestaji/promet",
     title: "Promet",
     description:
-      "Neto promet, računi i storna, poreska rekapitulacija, kanali i kase."
+      "Promet nakon korekcija, računi i storna, poreska rekapitulacija, kanali i kase."
   },
   {
     href: "/portal/izvjestaji/artikli",
     title: "Artikli i usluge",
     description:
-      "Neto količina i prodajna vrijednost po artiklu, usluzi i grupi."
+      "Količina nakon korekcija i prodajna vrijednost po artiklu, usluzi i grupi."
   },
   {
     href: "/portal/izvjestaji/placanja",
@@ -69,8 +76,8 @@ export default async function DirectPortalReportsPage() {
         </p>
         <p className="muted-text">
           {canExport
-            ? "Vaš nalog ima pravo CSV izvoza i A4 štampe izvještaja."
-            : "Pregled je dostupan, dok CSV izvoz i A4 štampa zahtijevaju posebno pravo izvoza."}
+            ? "Vaš nalog ima pravo Excel/CSV izvoza i A4 štampe izvještaja."
+            : "Pregled je dostupan, dok Excel/CSV izvoz i A4 štampa zahtijevaju posebno pravo izvoza."}
         </p>
       </section>
     </div>

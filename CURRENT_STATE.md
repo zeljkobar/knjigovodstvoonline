@@ -1,5 +1,138 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
+## Završna provjera paketa prije commit-a — 2026-11-20
+
+- `npm test`: 411 uspješnih testova, bez padova; jedan ranije označen preskočen test. Produkcijski `npm run build` i zasebni `tsc --noEmit` prolaze. Build ima postojeća CSS kompatibilnost/lint upozorenja, bez grešaka.
+- Lokalna baza ima svih 146 migracija. Ponovljeni rollback testovi dostave, fiskalnog pristupa i POS aktivacije prolaze; testni zapisi nijesu sačuvani i nema stvarnih SMTP/API operacija. Purge pokriva 91 tabelu.
+- Usklađene zastarjele otvorene PDF/mail stavke plana. Za objavu ostaju ciljni Chrome runtime, SMTP konfiguracija/eksplicitno uključivanje i kontrolisani stvarni browser/API/SMTP test; to nije dokazano lokalnim mock testovima. API saldo avansa, istorija gotovine i širi tokovi usaglašavanja ostaju zasebne faze.
+- Ova provjera ne uključuje commit, push ili produkcijski deploy.
+
+## PDF i slanje fiskalnih dokumenata mejlom — 2026-11-20
+
+- Direktan serverski PDF za sve postojeće fiskalne izvještaje i potvrđene račune, uz postojeću A4 štampu. Puppeteer/Chrome ima isključen JavaScript i mrežne zahtjeve. Izvještaji dijele tabelarni dataset sa XLSX-om; PDF ima ponovljena zaglavlja, numeraciju i eksplicitne limite. API detalj je izvor konačnog PDF računa; provjeravaju se identitet/firma/okruženje/IKOF/JIKR i iznosi, uz istorijskog izdavaoca i originalni QR.
+- `/portal/dostava` i `/agencija/fiskalna-dostava`: priprema PDF/XLSX priloga, zaštićen pregled/preuzimanje, primaoc/kopija/naslov/poruka i eksplicitna potvrda. Bajtovi i hash ostaju isti od pregleda do SMTP-a. Posebna prava za mail računa, mail izvještaja i adresar; postojeći klijenti ih ne dobijaju automatski. Linkovi iz izvještaja, detalja fakture i žurnala.
+- Firmni adresar podržava više imenovanih kontakata, kontakte kupca iz računa i opšte kontakte izvještaja, izbor podrazumijevanog primaoca, pretragu/izmjenu/soft-delete. Čuvanje primaoca pri slanju je eksplicitan izbor i ne mijenja globalnog komitenta.
+- Trajan outbox: DRAFT → QUEUED → SENDING → ACCEPTED/FAILED/UNKNOWN/BLOCKED. CAS sprečava dupli klik/obradu, worker ponovo provjerava autora/firmu/prava/hash, nejasan odgovor ne ponavlja automatski. Ponovno slanje pravi novi pregled istih bajtova i zahtijeva potvrdu. ACCEPTED nije dokaz isporuke/pročitanosti. Pozivnice ostaju odvojene od ovog toka.
+- Nova lokalno primijenjena migracija `20261120120000_fiscal_delivery`, Prisma regenerisan i dev restartovan na 3000. Purge usklađen i stvarno testiran za novostvorenu firmu u rollback transakciji; 91 tabela. Pripreme 24h, potvrđeni prilozi 30 dana, zatim se brišu bajtovi uz istoriju.
+- 73 ciljane regresije prolaze; DB rollback potvrđuje scope/atomski audit/duplikate/ponavljanje/soft-delete/purge. Pravi Chrome PDF i PDF.js rasterizacija sintetičke fakture i višestraničnog izvještaja prošli vizuelnu provjeru. TSC i ESLint bez grešaka (5 ranijih upozorenja). Nije bilo pravog SMTP ili fiskalizacije, niti produkcione objave. Stvarna dostava na kontrolisano sanduče i browser flow na serveru ostaju.
+- SMTP je opt-in `FISCAL_MAIL_ENABLED=true` uz postojeća SMTP podešavanja; `.env.example` ostavlja false. Automatska provjera odbila je prelazak na podrazumijevano slanje, pa je zadržano eksplicitno uključivanje. Konfiguracija poštanskog servisa nije mijenjana. Operativne zavisnosti i provjere opisane u `docs/architecture.md`.
+
+## Aktivacija POS-a kroz platformu — 2026-11-20
+
+- `/admin/fiskalizacija/{firmaId}/pos` povezuje postojeću kasu ili kreira KASU-1 sa eksplicitno izabranim resursima fiskalne firme; aktivna jedinica, registrovani ENU te jedinice i operater odgovarajućeg okruženja. Spremnost i resursi se ponovo čitaju prije čuvanja; scope/verzija/Serializable transakcija i atomski audit. Kasa sa istorijom/depozitom ne može promijeniti fiskalnu vezu ovim postupkom.
+- Linkovi iz podešavanja firme i korisničkog Fiskalnog pristupa. Admin odvojeno odobrava POS izdavanje korisniku; fakture i POS mogu zajedno. Uključivanje/isključivanje POS-a je platformsko, agencijski stari mutator više ne aktivira kasu. Operativna portal podešavanja ne mogu kreirati aktivan POS; magacin/integracija ostaju postojeći operativni tokovi.
+- Bez migracije ili stvarnih fiskalnih poziva. Pet regresija + lokalni DB rollback za kasu/default settings/audit failure/isključivanje prolaze, TSC/ESLint i purge 89 čisti. Nije aktiviran produkcioni ili lokalni stvarni klijent; browser QA i objava ostaju.
+
+## Pomoć u fiskalnom portalu — 2026-11-20
+
+- `/portal/pomoc` zamjenjuje placeholder: objašnjenje trenutne spremnosti firme i zaključane godine, uputstva za dostupne odjeljke, česta pitanja i kopiranje podataka za podršku. Prečice prate prava/POS aktivaciju; isti portal scope guard. Nema slanja poruke ili API/baznih upisa. SSR regresije za ograničena prava i test/zaključano stanje prolaze.
+
+## Fiskalni pristup korisnika — 2026-11-20
+
+- Admin: `/admin/fiskalizacija/{firmaId}/pristup`, link iz Fiskalnih klijenata i podešavanja firme. Postojeći nalog iste agencije dobija pristup bez promjene identiteta/lozinke/knjigovodstvenih prava. Ako ga nema, admin kreira `klijent` nalog sa dodjelom postojeće firme; vidi ga i admin agencije u Klijentskim korisnicima. Pozivnica za lozinku i ponovno slanje preko postojeće e-mail infrastrukture.
+- Fiskalna prava su sada odvojena na `korisnik_firma.fiscal_portal_enabled/fiscal_portal_permissions`; portal ih čita direktno. Agencija upravlja `korisnik_prava` za knjigovodstvene preglede i dokumentaciju. Ne može time odobriti/ukinuti fiskalni portal niti deaktivirati/ukloniti dodjelu odobrenog fiskalnog korisnika ili ga vezati za drugu firmu. Backend scope, zajedničko zaključavanje, revizija i atomski audit za dodjelu/ukidanje.
+- Direktni tok ostaje: ista firma u direktnom kontejneru i `/portal`; nalog firme agencije ulazi na `/klijent` i otvara Fiskalizaciju. Spremnost produkcije ostaje nezavisna od prava naloga. Migracija `20261120100000_platform_fiscal_access` kopira samo ranije eksplicitne FISCAL_CLIENT/FISCAL_OPERATOR dodjele; običnim klijentima ne uključuje pristup automatski.
+- Migracija primijenjena lokalno; Prisma regenerisan i dev restartovan na 3000. 58 ciljnih regresija + lokalni DB rollback (vidljivost klijenta, odvojena prava, revoke, audit rollback), TSC i ESLint bez grešaka; 5 ranijih lint upozorenja. Purge pokriva 89 tabela; polja pripadaju postojećoj dodjeli bez novih podređenih FK. Stvarni nalozi, mejlovi i fiskalni API nijesu mijenjani; produkcijska objava i browser/end-to-end prijava ostaju.
+
+## Izvještaj avansa — lokalna evidencija, 2026-11-20
+
+- Dodati `/agencija/pos/promet/avansi` i `/portal/izvjestaji/avansi`, sa paginacijom po 50 avansa. Period/godina biraju izvorne potvrđene SUMMA EUR avansne račune sa API ID/JIKR, odvojeno Test/Production. Obični promet i dalje isključuje avanse i njihova umanjenja.
+- Za izabrane avanse čitaju se trenutno sačuvane veze konačnih računa svih godina iste agencije/firme. Potvrđeno korišćenje traži NORMAL OFFICE INVOICE, Fiscalized/API ID/JIKR, istog kupca/valutu/okruženje i ispravan iznos. Nacrti, greške, StornoCreated, obrisane/neusklađene veze ostaju za provjeru, ne predstavljaju potvrđene rezervacije.
+- Završeno umanjenje se prikazuje iz lokalnog Fiscalized stanja sa zasebnim remote ID/IKOF/JIKR i tačnim zbirom raspodjele; odvojeno je od korišćenja. Prikazuju se veze sa brojem konačnog računa i umanjenja. Nema duplog sabiranja konačnog prometa ili materijalizovanog umanjenja kao nove prodaje.
+- Izvještaj eksplicitno nije istorijski saldo na kraj perioda, dokaz bankovne uplate ni potvrda API raspoloživosti/rezervacija. API saldo i storno/obnova avansa zahtijevaju zaseban read-only pregled. Nepotvrđene veze se sabiraju samo u EUR, a valuta svake veze ostaje vidljiva.
+- Zajednički RepeatableRead snapshot i limiti 5.000 izvora/5.000 povezanih korišćenja/50.000 stavki. Excel dodaje Avansi/Korišćenja avansa; portalski CSV i A4/browser PDF koriste isti obuhvat. Bez migracije, poslovnih upisa ili API poziva. TSC/ESLint i 48 relevantnih regresija prolaze; vizuelni browser QA preostaje.
+
+## Zbirni fiskalni izvještaji po istorijskom kontekstu — 2026-11-19
+
+- Dodati `/agencija/pos/promet/{operateri,uredjaji,jedinice}` i `/portal/izvjestaji/{operateri,uredjaji,jedinice}`. Broj računa/korekcija, prodaja, negativne korekcije, osnovica, PDV i promet nakon korekcija. Isti backend scope agencije/firme/godine/kanala i odvojeno Test/Production okruženje kao fiskalni promet.
+- Grupisanje koristi isključivo validirani firstSend snimak: operator kod; ENU kod sa kodom jedinice; kod jedinice. API firma i okruženje učestvuju u identitetu grupe. Storno koristi sopstveni kontekst, ne kontekst originala. Nepoznati istorijski podaci ostaju u posebnoj grupi i ukupnom zbiru, uz vidljiv broj dokumenata i iznos.
+- Prikaz do 50 grupa po strani nakon obračuna cijelog bounded skupa; bez tihog odsijecanja iznad 5.000 dokumenata/50.000 stavki. XLSX dobija odgovarajući grupisani list, portalski CSV iste grupe; A4/browser PDF ima isti obuhvat. Bez novih migracija ili poslovnih upisa.
+- U zajedničkoj formi presjeka dodata vidljiva POS kasa; agencijski pregled i izvoz prihvataju iste filtere. Regresije provjeravaju pripisivanje korekcije, granice firme/okruženja/jedinice, nepoznate dokumente, zbir prije paginacije i XLSX/CSV/A4. Vizuelni browser QA i pravi serverski PDF preostaju.
+
+## Istorijski fiskalni kontekst računa — 2026-11-19
+
+- Nova nullable JSON kolona `fiscal_context_snapshot` na postojećem fiskalnom računu. Čuva samo API first-send kodove poslovne jedinice/ENU-a/operatera i identitet API dokumenta/firme/okruženja/JIKR. Izvor potvrđen u API `InvoiceDiagnosticFields` i `AdminReadModels` na ec94031cdcabcb1146820ef6133cc9c997c783a1. Trenutne resource labele i preparation snapshot se ne koriste kao istorijski dokaz.
+- Dopuna u postojećim potvrdama OFFICE, POS i storno tokova; POS retry i confirmed-result recovery zadržavaju isti snimak. Podaci bez potvrđenog statusa/JIKR, pogrešnog ID-a/okruženja ili bez punog firstSend ostaju neevidentirani. Nema automatskog backfill-a starih računa. API mora vraćati pune dijagnostičke podatke da bi snimak bio dostupan.
+- Žurnal i detalj prikazuju istorijske kodove ili „nije evidentiran“. XLSX i portalski CSV dodaju tri istorijske kolone. Grupisani izvještaji su dodati u narednom koraku opisanom iznad.
+- Ručna migracija `20261119120000_fiscal_context_snapshot` lokalno primijenjena, Prisma regenerisan i dev restartovan na 3000. Prisma read smoke prošao; purge pokriva svih 89 firmi vezanih tabela. JSON se briše zajedno sa računom, bez novih podređenih FK. Testovi simuliraju API/potvrdu/oporavak; stvarni račun nije fiskalizovan niti naknadno dopunjavan. Produkcija nije mijenjana.
+
+## Fiskalni promet po kupcima — 2026-11-19
+
+- Lokalno `/agencija/pos/promet/kupci` i `/portal/izvjestaji/kupci`, sa prodajom/korekcijama/brojem računa/osnovicom/PDV/prometom. Grupisanje koristi partner ID i istorijsku verziju naziva/poreskog broja iz buyer_snapshot; legacy fallback na adresar je jasno označen. Jednaki nazivi ili PIB različitih partnera se ne spajaju.
+- Pregled grupiše cijeli bounded RepeatableRead skup pa prikazuje do 50 redova po strani. Limit 5.000 računa/50.000 stavki se odbija eksplicitno; nikad nema zbira samo tekuće stranice. Scope firme/godine/agencije i dozvoljenih OFFICE/POS kanala ostaje na backendu. Pretraga kupca obuhvata i istorijski snimak.
+- XLSX dodaje list Kupci; direktni portal ima i CSV, a obje strane A4/browser PDF. Ista autorizacija izvoza, audit, filteri i obračun kao ostali izvještaji. Bez migracije ili poslovnih upisa; browser QA ostaje.
+- Presjek po operateru nije implementiran: invoice nema sačuvan istorijski operator ID/kod. Današnji fiscal_operator_id na POS kasi se ne koristi za pripisivanje starih računa. Potrebna dopuna trajne evidencije potvrđenog zahtjeva i zaseban tok za postojeće račune.
+
+## Elektronski i korektivni žurnal — 2026-11-19
+
+- Lokalno dodati portal pregledi `/portal/izvjestaji/zurnal` i `/portal/izvjestaji/korekcije`; agencija bira vrstu izvještaja na zajedničkom fiskalnom prometu. Hronološki prikaz sa stavkama, IKOF/JIKR, iznosima i vezom/razlogom korekcije kada su evidentirani. Originalna referenca se prikazuje samo unutar iste agencije i firme.
+- Zajednički obračun i SQL paginacija po 50 dokumenata; ista prava, okruženje i period kao promet. Korektivni žurnal izdvaja korektivne dokumente. Excel dodaje originalni broj/IKOF/razlog; A4 koristi zajednički sadržaj žurnala i browser Save as PDF. Izvoz zadržava limite 5.000 dokumenata/50.000 stavki i audit.
+- Bez migracija, fiskalizacije, slanja maila ili promjene poslovnih podataka. Browser/vizuelni QA i pravi serverski PDF ostaju za narednu provjeru.
+
+## Kontrolisana dopuna nedostajućeg fiskalnog okruženja — 2026-11-19
+
+- Iz razlika u admin usaglašavanju otvara se pregled `/admin/fiskalizacija/usaglasavanje/[invoiceId]`. Prikazuje lokalno/API okruženje i razloge dozvole ili blokade. Posebna potvrda u formi i backend platform-admin guard.
+- Dopuna mijenja samo null `fiscal_environment` prema ponovo pročitanom potvrđenom API dokumentu. Zahtijeva jednake API ID/firma, postojeće Fiscalized status/IKOF/JIKR/zvanični broj/vrijeme/iznose/EUR i običnu StandardSale prodaju bez korekcija/avansa. Ne mijenja status, iznose, stavke, identifikatore ili knjiženja.
+- Blokira KIF/nalog/POS batch, nezavršen računovodstveni tok, zaključanu godinu/PDV period, neaktivnu firmu/suspendovanu vezu i zastarjelu verziju pregleda. Serializable transakcija zaključava godinu/firmu/vezu/račun/PDV periode; audit je atomski sa jedinom dopunom.
+- Lokalno implementirano, bez migracije i bez izvršene dopune stvarnog računa. Regresije simuliraju upis i rollback; realni DB/live/browser QA ostaju. Ovo nije opšta sinhronizacija ili oporavak fiskalizacije.
+
+
+## Fiskalno usaglašavanje — read-only admin kontrola, 2026-11-19
+
+- Novi `/admin/fiskalizacija/usaglasavanje` traži platform admin ulogu prije svih upita. Povezanu lokalnu firmu i agenciju izvodi iz FiscalCompanyLink, ne iz korisničkog tenant parametra. Koristi odvojeni serverski ključ za čitanje.
+- API SalesNet dokumenti porede se po API ID-u sa lokalnim SUMMA OFFICE/POS skupom u istom Podgorica periodu. Prikaz nedostajućih veza/dokumenata, razlika statusa, okruženja, valute i osnovice/PDV/bruto; ukupan prodajni zbir odvojen od svih potvrđenih API dokumenata.
+- Potvrđen ugovor iz API izvora ec94031cdcabcb1146820ef6133cc9c997c783a1: turnover-v1; prodaja uključuje StandardSale/FinalWithAdvance/OrderSale i SaleCorrection/OrderCorrection. API partial coverage se ne skriva. Granica 500 API i 5.000 lokalnih kandidata; nepotpune stranice i promjena API zbira odbijaju nalaz.
+- Samo kontrola, bez sinhronizacije/upisa/fiskalizacije. TSC/ESLint i simulirane regresije; živi API i browser nijesu provjereni. Dva sistema nemaju atomski snapshot, što je eksplicitno navedeno.
+
+
+## Klijentski fiskalni izvještaji — Excel (3c), 2026-11-19
+
+- Direktni portal ima Preuzmi Excel na prometu, artiklima i plaćanjima, uz postojeće izvjestaji/export pravo. XLSX dijeli writer sa agencijom i dodaje grupisani list Artikli ili Plaćanja za odgovarajući pregled; filteri i doprinos dokumenta prikazani odvojeno od cijele vrijednosti računa.
+- Zajednički `loadBoundedFiscalExport` koriste agencijski izvozi i portalski Excel/CSV/A4. Isti snapshot i ograničenje 5.000 dokumenata/50.000 stavki; neispravni periodi u izvozu se odbijaju umjesto tihog podrazumijevanog perioda.
+- Kod artikalnog filtera list Stavke sadrži samo matchingLines. Prazna/nepoznata stopa ne izvozi se kao 0%. Browser QA i serverski PDF još otvoreni; nema baze/deploya.
+
+
+## Fiskalni promet — A4 štampa / browser PDF (3b), 2026-11-19
+
+- Novi `/stampa/pos/promet` i dugme A4 / PDF u zajedničkom agencijskom prometu. Sažetak, PDV i kompletna lista računa, oznaka okruženja, firma/PIB, period/obuhvat i vrijeme generisanja. A4 landscape, ponovljena zaglavlja tabela i zaštita redova od preloma.
+- Excel i štampa dijele `loadAgencyFiscalExport`: ista prava, filteri, limiti i RepeatableRead čitanje. Otvaranje štampe auditirano. A4 koristi browser print/Save as PDF; serverski PDF fajl za direktno preuzimanje/e-mail još nije implementiran.
+- TypeScript/ESLint i SSR/route/XLSX regresije prolaze. Vizuelni browser/PDF QA nije izvršen. Nema novih tabela ili poslovnih izmjena.
+
+
+## Fiskalni promet — Excel izvoz (3a), 2026-11-19
+
+- Agencijski promet dobio Preuzmi Excel i zasebnu serversku rutu izvoza. Listovi Sažetak/Računi/Stavke/PDV dijele portalski obračun. Brojevi/PIB/šifre ostaju tekst, novac i količine numerički; datum dokumenta je Excel datum po Podgorici. Računi imaju jedan red po dokumentu, stavke zaseban list radi izbjegavanja duplih ukupnih iznosa.
+- Backend traži view+export po kanalu, uz postojeću dodjelu i scope. Izvoz koristi RepeatableRead, odbija neispravan period i više od 5.000 računa ili 50.000 stavki bez skraćivanja. Uspješno generisanje auditirano, odgovor private/no-store.
+- Ovo je samo agencijski XLSX prometa/pregleda računa, ne svi planirani izvozi. PDF i direktni portal ostaju. Nema baze/fiskalizacije/deploya.
+
+
+## Fiskalni promet — bočni pregled i POS filter, faza 2c, 2026-11-19
+
+- Agencijski promet otvara read-only bočni detalj postojećeg računa uz sačuvane filtere/stranicu. Izdavalac i kupac su iz istorijskih snapshot-a, zatim stavke/PDV/ukupno, IKOF/JIKR, okruženje i plaćanja. Detalj je ograničen istim scope-om i filterima kao lista. Na užem ekranu prelazi ispod liste.
+- Dodat filter postojeće POS kase sa opcijama iste firme/agencije. Nije predstavljen kao istorijski ENU: OFFICE dokument nema zaseban sačuvan ENU snapshot, a trenutna konfiguracija kase nije dokaz istorijskog uređaja. Puni ENU filter preostaje.
+- TSC/ESLint i 10 fokusiranih regresija; browser i produkcioni QA nijesu izvršeni. Nema migracije ili poslovnog upisa.
+
+
+## Fiskalni promet — serverska paginacija (2b), 2026-11-19
+
+- Agencijski `/agencija/pos/promet` sada koristi SQL aggregate za prodaju/korekcije i groupBy poreskih kategorija. Samo dokumenti tekuće stranice čitaju se sa skip/take 50 i stabilnim sortiranjem. Zbir ostaje za cijeli obuhvat, ne za stranicu.
+- Čitanja su u RepeatableRead transakciji radi istog snimka zbira i dokumenata. Backend prava iz 2a ostaju. Portal i puni izvozi još koriste postojeći reader; izmjena nije globalna optimizacija svih izvještaja.
+- TSC/ESLint i osam fokusiranih regresija prolaze (mock infrastruktura; nema DB/live ili browser QA). ENU, bočni detalj, API usaglašavanje i PDF/XLSX ostaju.
+
+
+## Zajednički agencijski fiskalni promet — faza 2a, 2026-11-19
+
+- Novi `/agencija/pos/promet` koristi isti lokalni reader/obračun kao direktni portal. Sva prodaja, OFFICE ili POS, period aktivne godine, kupac i okruženje; zbir cijelog rezultata, PDV i dokumenti po 50 redova. Ulaz iz POS izvještaja i Robno → Izlazne fakture.
+- Pravo pregleda provjerava se odvojeno za robno i pos, uz agenciju/firmu/dodjelu/godinu. Korisniku sa jednim modulom backend prisilno ograničava kanal; query ga ne može proširiti. Zatvorena godina dozvoljava read-only pregled.
+- Ovo nije kompletna faza 2: ENU filter, serverska paginacija čitanja (sada se dijeli samo prikaz nakon zbirnog obračuna), bočni detalj i usaglašavanje sa API-jem ostaju. Nema PDF/XLSX/e-mail dopune ni promjene baze. Browser QA/produkcija nijesu provjereni.
+
+
+## Fiskalni izvještaji — faza 1a, 2026-11-19
+
+- Zajednički `confirmedSalesWhere` ograničava lokalnu prodaju na potvrđene SUMMA dokumente iste agencije/firme/godine, eksplicitno okruženje, EUR i običnu prodaju/korekcije. Portal uključuje OFFICE_STORNO. Avansi, umanjenja i nepoznati tipovi/okruženja nijesu prećutno prodaja.
+- Portal i POS imaju izbor produkcija/test, podrazumijevano produkcija; izbor se prenosi u štampu/CSV. POS reader koji koristi uvoz pazara sada podrazumijevano čita produkciju. Portal razdvaja pozitivnu prodaju i korekcije, precizira plaćanja i naziv prometa.
+- Ovo je lokalna prva podfaza plana u `zadaci/fiskalizacija/PLAN_UNAPREDJENJA_FISKALNIH_PREGLEDA_I_IZVJESTAJA.md`. Nema migracije, izmjena poslovnih podataka, slanja računa/e-maila ili objave. Sinhronizacija i API usaglašavanje nijesu implementirani; zajednički agencijski pregled i ENU filter preostaju.
+
 ## Agencijske izmjene globalnih partnera — 2026-11-18
 
 - Na Nalozi → Partneri globalni red ima Uredi za moju agenciju. Obrazac čuva naziv, PIB, adresu, kontakte i ostale podatke u `agencija_komitent_izmjene`, uz jedinstvenu agencija/komitent vezu i verziju za kontrolu konkurentnih izmjena. `Komitent.id` i postojeći dokumenti ostaju isti; originalni GLOBAL zapis nije mijenjan.

@@ -1,6 +1,14 @@
+import { fiscalAdvanceRows } from "./fiscal-report-advances";
+import { readFiscalContext } from "./fiscal-context-snapshot";
+import { fiscalBuyerSnapshot } from "./fiscal-report-buyers";
 import type { Prisma } from "@prisma/client";
 import { decimalToScaled } from "./inventory-calculation";
-import type { ReadyDirectPortalContext } from "./direct-portal";
+export type FiscalReportContext = {
+  user: { agencija_id: string | null };
+  firma: { id: string };
+  year: { id: string };
+};
+import { confirmedSalesWhere, reportEnvironment, type ReportEnvironment } from "./fiscal-report-policy";
 import {
   podgoricaBusinessDate,
   podgoricaDayUtcRange
@@ -10,7 +18,14 @@ import { prisma } from "./prisma";
 export const DIRECT_PORTAL_REPORT_KINDS = [
   "promet",
   "artikli",
-  "placanja"
+  "placanja",
+  "zurnal",
+  "korekcije",
+  "kupci",
+  "operateri",
+  "uredjaji",
+  "jedinice",
+  "avansi"
 ] as const;
 
 export type DirectPortalReportKind =
@@ -31,6 +46,7 @@ export type DirectPortalReportFilters = {
   item: string;
   itemId: string;
   groupId: string;
+  environment?: ReportEnvironment;
   invalidPeriod: boolean;
 };
 
@@ -49,7 +65,8 @@ export const directPortalReportChannelLabels: Record<string, string> = {
 export const directPortalReportDocumentLabels: Record<string, string> = {
   INVOICE: "Faktura",
   POS_RECEIPT: "POS račun",
-  POS_RETURN: "Storno"
+  POS_RETURN: "POS storno",
+  OFFICE_STORNO: "Storno fakture"
 };
 
 const paymentMethods = new Set(Object.keys(directPortalReportPaymentLabels));
@@ -136,6 +153,7 @@ export function parseDirectPortalReportFilters(
     item: limited(params.artikal, 120),
     itemId: uuid(params.artikal_id),
     groupId: uuid(params.grupa),
+    environment: reportEnvironment(first(params.okruzenje)),
     invalidPeriod: !periodIsValid
   };
 }
@@ -154,7 +172,7 @@ function localDayRange(from: string, to: string) {
   };
 }
 
-function reportScope(context: ReadyDirectPortalContext) {
+function reportScope(context: FiscalReportContext) {
   const agencijaId = context.user.agencija_id;
   if (!agencijaId) throw new Error("Direct portal context nema agenciju.");
 
@@ -166,8 +184,8 @@ function reportScope(context: ReadyDirectPortalContext) {
   } as const;
 }
 
-function reportWhere(
-  context: ReadyDirectPortalContext,
+export function reportWhere(
+  context: FiscalReportContext,
   filters: DirectPortalReportFilters,
   kind: DirectPortalReportKind
 ): Prisma.FiskalniIzlazniRacunWhereInput {
@@ -193,6 +211,8 @@ function reportWhere(
     }
   ];
 
+  if (kind === "korekcije") conditions.push({ OR: [{ original_invoice_id: { not: null } }, { document_type: { in: ["OFFICE_STORNO", "POS_RETURN"] } }, { vrsta_racuna: "CORRECTIVE" }] });
+
   if (filters.registerId) {
     conditions.push({ pos_register_id: filters.registerId });
   }
@@ -215,20 +235,16 @@ function reportWhere(
   }
 
   if (filters.buyer) {
-    conditions.push({
-      kupac: {
-        OR: [
-          { naziv: { contains: filters.buyer, mode: "insensitive" } },
-          { pib: { contains: filters.buyer, mode: "insensitive" } },
-          {
-            foreign_tax_number: {
-              contains: filters.buyer,
-              mode: "insensitive"
-            }
-          }
-        ]
-      }
-    });
+    conditions.push({ OR: [
+      { kupac: { OR: [
+        { naziv: { contains: filters.buyer, mode: "insensitive" } },
+        { pib: { contains: filters.buyer, mode: "insensitive" } },
+        { foreign_tax_number: { contains: filters.buyer, mode: "insensitive" } }
+      ] } },
+      ...["naziv", "pib", "foreignTaxNumber", "foreign_tax_number"].map(key => ({
+        buyer_snapshot: { path: [key], string_contains: filters.buyer, mode: "insensitive" as const }
+      }))
+    ] });
   }
 
   if (
@@ -264,12 +280,9 @@ function reportWhere(
   }
 
   return {
-    ...scope,
-    fiskalizacija_rezim: "SUMMA",
-    fiscal_status: { in: ["Fiscalized", "StornoCreated"] },
-    document_type: { in: ["INVOICE", "POS_RECEIPT", "POS_RETURN"] },
-    vrsta_racuna: { not: "ADVANCE" },
-    sales_channel: { in: ["OFFICE", "POS"] },
+    ...confirmedSalesWhere({ agencijaId: scope.agencija_id, firmaId: scope.firma_id,
+      yearId: scope.poslovna_godina_id, environment: filters.environment }),
+    ...(kind === "avansi" ? { document_type: "INVOICE", vrsta_racuna: "ADVANCE", original_invoice_id: null, fiscal_api_invoice_id: { not: null }, jikr: { not: null } } : {}),
     AND: conditions
   };
 }
@@ -282,6 +295,7 @@ function isCorrection(invoice: {
   return (
     Boolean(invoice.original_invoice_id) ||
     invoice.document_type === "POS_RETURN" ||
+    invoice.document_type === "OFFICE_STORNO" ||
     invoice.vrsta_racuna === "CORRECTIVE"
   );
 }
@@ -323,7 +337,7 @@ function lineMatches(
 }
 
 export async function loadDirectPortalReportOptions(
-  context: ReadyDirectPortalContext,
+  context: FiscalReportContext,
   filters?: Pick<DirectPortalReportFilters, "itemId">
 ) {
   const agencijaId = context.user.agencija_id;
@@ -365,14 +379,18 @@ export async function loadDirectPortalReportOptions(
 }
 
 export async function loadDirectPortalReport(
-  context: ReadyDirectPortalContext,
+  context: FiscalReportContext,
   filters: DirectPortalReportFilters,
-  kind: DirectPortalReportKind
+  kind: DirectPortalReportKind,
+  options?: { skip: number; take: number },
+  db: Pick<Prisma.TransactionClient, "fiskalniIzlazniRacun"> = prisma
 ) {
-  const invoices = await prisma.fiskalniIzlazniRacun.findMany({
+  const invoices = await db.fiskalniIzlazniRacun.findMany({
+    ...(options ? { skip: options.skip, take: options.take } : {}),
     where: reportWhere(context, filters, kind),
     select: {
       id: true,
+      fiscal_context_snapshot: true, fiscal_api_invoice_id: true, fiscal_environment: true, fiscal_status: true,
       interni_broj: true,
       broj_racuna: true,
       official_invoice_number: true,
@@ -383,10 +401,16 @@ export async function loadDirectPortalReport(
       sales_channel: true,
       vrsta_racuna: true,
       original_invoice_id: true,
+      correction_reason: true,
+      original_invoice: { select: { id: true, agencija_id: true, firma_id: true, official_invoice_number: true, iic: true } },
+      iic: true,
+      jikr: true,
       nacin_placanja: true,
       ukupno_osnovica: true,
       ukupno_izlazni_pdv: true,
       ukupno_sa_pdv: true,
+      kupac_id: true,
+      buyer_snapshot: true,
       kupac: {
         select: { id: true, naziv: true, pib: true, foreign_tax_number: true }
       },
@@ -426,12 +450,14 @@ export async function loadDirectPortalReport(
         }
       }
     },
-    orderBy: [{ issued_at: "desc" }, { datum_racuna: "desc" }, { broj: "desc" }]
+    orderBy: (kind === "zurnal" || kind === "korekcije") ? [{ issued_at: "asc" }, { datum_racuna: "asc" }, { broj: "asc" }, { id: "asc" }] : [{ issued_at: "desc" }, { datum_racuna: "desc" }, { broj: "desc" }, { id: "desc" }]
   });
 
   let base = BigInt(0);
   let vat = BigInt(0);
   let gross = BigInt(0);
+  let salesGross = BigInt(0);
+  let correctionsGross = BigInt(0);
   let ordinaryCount = 0;
   let correctionCount = 0;
   const payments = new Map<string, bigint>();
@@ -501,8 +527,8 @@ export async function loadDirectPortalReport(
     base += reportBase;
     vat += reportVat;
     gross += reportGross;
-    if (correction) correctionCount += 1;
-    else ordinaryCount += 1;
+    if (correction) { correctionCount += 1; correctionsGross += reportGross; }
+    else { ordinaryCount += 1; salesGross += reportGross; }
 
     const channel = channels.get(invoice.sales_channel) ?? {
       channel: invoice.sales_channel,
@@ -615,6 +641,7 @@ export async function loadDirectPortalReport(
         ? invoice.placanja.map((payment) => payment.payment_method)
         : [invoice.nacin_placanja];
 
+    const buyer = fiscalBuyerSnapshot(invoice.buyer_snapshot, invoice.kupac);
     return {
       id: invoice.id,
       date: invoice.issued_at ?? invoice.datum_racuna ?? invoice.created_at,
@@ -623,24 +650,46 @@ export async function loadDirectPortalReport(
       documentType: invoice.document_type,
       channel: invoice.sales_channel,
       correction,
-      buyer: invoice.kupac.naziv,
-      buyerTaxNumber:
-        invoice.kupac.pib ?? invoice.kupac.foreign_tax_number ?? "",
+      fiscalContext: readFiscalContext(invoice.fiscal_context_snapshot, invoice),
+      buyerId: invoice.kupac_id,
+      buyer: buyer.name,
+      buyerTaxNumber: buyer.taxNumber,
+      buyerHistorical: buyer.historical,
       register: invoice.pos_register?.naziv ?? "—",
       paymentMethods: [...new Set(paymentMethodsForDocument)],
       base: invoiceBase,
       vat: invoiceVat,
       gross: invoiceGross,
-      reportAmount: reportGross
+      reportAmount: reportGross,
+      originalNumber: invoice.original_invoice?.agencija_id === context.user.agencija_id && invoice.original_invoice.firma_id === context.firma.id ? invoice.original_invoice.official_invoice_number ?? "" : "",
+      originalIic: invoice.original_invoice?.agencija_id === context.user.agencija_id && invoice.original_invoice.firma_id === context.firma.id ? invoice.original_invoice.iic ?? "" : "",
+      correctionReason: invoice.correction_reason ?? "",
+      iic: invoice.iic ?? "",
+      jikr: invoice.jikr ?? "",
+      lines: matchingLines.map(line => ({ code: line.sifra_artikla, name: line.naziv_artikla, unit: line.jedinica_mjere,
+        quantity: signedScaled(line.kolicina, 3, correction),
+        base: signedScaled(line.osnovica, 2, correction), vat: signedScaled(line.pdv_iznos, 2, correction),
+        gross: signedScaled(line.ukupno_sa_pdv, 2, correction) }))
     };
   });
 
+  const usages = kind === "avansi" && invoices.length ? await db.fiskalniIzlazniRacun.findMany({
+    where: { agencija_id: context.user.agencija_id!, firma_id: context.firma.id, avansni_racun_id: { in: invoices.map(invoice=>invoice.id) } },
+    take: 5001,
+    orderBy: [{ datum_racuna: "asc" }, { id: "asc" }],
+    select: { id: true, avansni_racun_id: true, kupac_id: true, ukupno_sa_pdv: true, iznos_avansa: true, fiscal_status: true, fiscal_environment: true, valuta: true, is_deleted: true, document_type: true, vrsta_racuna: true, sales_channel: true, fiscal_api_invoice_id: true, jikr: true, official_invoice_number: true, interni_broj: true, avans_umanjenje: true }
+  }) : [];
+  if (usages.length > 5000) throw new Error("Previše veza korišćenja avansa; suzite period.");
+  const advances = kind === "avansi" ? fiscalAdvanceRows(documents.map((document,index)=>({ id: document.id, number: document.officialNumber || document.localNumber, buyer: document.buyer, buyerId: document.buyerId, gross: document.gross, status: invoices[index].fiscal_status })),usages,filters.environment ?? "Production") : [];
   return {
     filters,
+    advances,
     totals: {
       count: invoices.length,
       ordinaryCount,
       correctionCount,
+      salesGross,
+      correctionsGross,
       base,
       vat,
       gross
@@ -676,11 +725,12 @@ export type DirectPortalReport = Awaited<
 export function directPortalReportQuery(
   filters: DirectPortalReportFilters,
   overrides: Partial<Record<
-    "od" | "do" | "kasa" | "kanal" | "placanje" | "kupac" | "artikal" | "artikal_id" | "grupa",
+    "okruzenje" | "od" | "do" | "kasa" | "kanal" | "placanje" | "kupac" | "artikal" | "artikal_id" | "grupa",
     string | null
   >> = {}
 ) {
   const values: Record<string, string> = {
+    okruzenje: filters.environment ?? "Production",
     od: filters.periodFrom,
     do: filters.periodTo,
     kasa: filters.registerId,

@@ -80,6 +80,9 @@ export async function purgeCompanyData(
   };
 
   // Company portal credentials have no child tables; report files are never stored.
+  // Delivery attachments and company-scoped address book have no child FK; remove before company/partners.
+  await izvrsi("fiskalne_dostave", Prisma.sql`DELETE FROM fiskalne_dostave WHERE firma_id = ${firmaId}::uuid`);
+  await izvrsi("fiskalni_kontakti", Prisma.sql`DELETE FROM fiskalni_kontakti WHERE firma_id = ${firmaId}::uuid`);
   await izvrsi("fiskalni_portali_firmi", Prisma.sql`DELETE FROM fiskalni_portali_firmi WHERE firma_id=${firmaId}::uuid`);
 
   // SEP run summaries/configuration have no children. Remove config before its KIF type;
@@ -263,7 +266,8 @@ export async function purgeCompanyData(
     `
   );
   await izvrsi(
-    // Avansni kontni snapshot is JSON on the same row; it introduces no child FK.
+    // Avansni kontni and fiscal_context_snapshot are JSON on this row; neither adds a child FK.
+    // Deleting fiskalni_izlazni_racuni below also deletes their first-send context.
     "fiskalni_izlazni_racuni_reference_cleanup",
     Prisma.sql`
       UPDATE fiskalni_izlazni_racuni
@@ -527,6 +531,7 @@ export async function purgeCompanyData(
     "firma_ugovori",
     Prisma.sql`DELETE FROM firma_ugovori WHERE firma_id = ${firmaId}::uuid`
   );
+  // Platform-managed fiscal access is stored on this assignment; no extra child FK.
   await izvrsi(
     "korisnik_firma",
     Prisma.sql`DELETE FROM korisnik_firma WHERE firma_id = ${firmaId}::uuid`

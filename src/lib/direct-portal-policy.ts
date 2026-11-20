@@ -58,6 +58,9 @@ export function directPortalPaymentMethods(paymentPolicy?: string | null) {
 }
 
 export const DIRECT_PORTAL_OWNER_PERMISSIONS: DirectPortalPermission[] = [
+  {modul:"fiskalna_dostava",akcija:"create"},
+  {modul:"izvjestaji_dostava",akcija:"create"},
+  {modul:"fiskalni_kontakti",akcija:"manage"},
   { modul: "fiskalizacija", akcija: "view" },
   { modul: "fiskalizacija", akcija: "create" },
   { modul: "fiskalizacija", akcija: "post" },

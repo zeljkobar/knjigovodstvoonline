@@ -1,3 +1,4 @@
+import { confirmedFiscalContext } from "./fiscal-context-snapshot";
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
@@ -172,10 +173,10 @@ export async function createAndFiscalizeOfficeStorno(input: { context: OfficeSto
       if (remote.status !== "Fiscalized" || !remote.iic || !remote.jikr || !remote.qrCodeData) fail("storno_nepotvrdjen");
       await prisma.$transaction(async (tx) => {
         await lock(tx, original.id);
-        await tx.fiskalniIzlazniRacun.update({ where: { id: correction.id }, data: { fiscal_status: "Fiscalized", fiscal_api_invoice_id: remote.id, official_invoice_number: remote.officialInvoiceNumber, broj_racuna: remote.officialInvoiceNumber ?? remote.invoiceNumber, iic: remote.iic, jikr: remote.jikr, qr_code_data: remote.qrCodeData, fiscalized_at: new Date(), fiscal_error_code: null, fiscal_error_message: null, updated_by: ctx.userId } });
+        await tx.fiskalniIzlazniRacun.update({ where: { id: correction.id }, data: { fiscal_status: "Fiscalized", fiscal_context_snapshot: confirmedFiscalContext(remote, remote.id, correction.fiscal_environment ?? "Unknown"), fiscal_api_invoice_id: remote.id, official_invoice_number: remote.officialInvoiceNumber, broj_racuna: remote.officialInvoiceNumber ?? remote.invoiceNumber, iic: remote.iic, jikr: remote.jikr, qr_code_data: remote.qrCodeData, fiscalized_at: new Date(), fiscal_error_code: null, fiscal_error_message: null, updated_by: ctx.userId } });
         await tx.fiscalizationAttempt.update({ where: { idempotency_key: attemptKey! }, data: { status: "SUCCEEDED", finished_at: new Date(), fiscal_api_invoice_id: remote.id } });
         // Preserve original KIF/accounting status; the confirmed correction marks it as reversed in the UI.
-        await audit(tx, ctx, correction.id, "office_storno_fiscalized", { original_invoice_id: original.id, fiscal_api_invoice_id: remote.id, environment: correction.fiscal_environment });
+        await audit(tx, ctx, correction.id, "office_storno_fiscalized", { original_invoice_id: original.id, fiscal_api_invoice_id: remote.id, environment: correction.fiscal_environment, fiscalContext: confirmedFiscalContext(remote, remote.id, correction.fiscal_environment ?? "Unknown") ?? null });
       });
     } catch (error) {
       const code = error instanceof OfficeStornoError ? error.code : error instanceof FiscalAdminApiError ? error.code : "storno_provjera";

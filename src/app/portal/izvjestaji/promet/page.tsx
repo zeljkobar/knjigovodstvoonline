@@ -43,7 +43,7 @@ export default async function DirectPortalTurnoverReportPage({
       <header className="admin-header">
         <div>
           <p className="eyebrow">Izvještaji / Promet</p>
-          <h2>Neto promet</h2>
+          <h2>Promet nakon korekcija</h2>
           <p className="muted-text">
             Fiskalizovane OFFICE fakture i POS računi, umanjeni za povezana
             storna.
@@ -63,6 +63,7 @@ export default async function DirectPortalTurnoverReportPage({
         canExport={canExport}
       />
 
+      <section className="admin-panel"><h3>Prodaja i korekcije (sa PDV-om)</h3><p>Prodaja: <strong>{formatPortalMoney(report.totals.salesGross)} €</strong> · Korekcije: <strong>{formatPortalMoney(report.totals.correctionsGross)} €</strong> · Promet nakon korekcija: <strong>{formatPortalMoney(report.totals.gross)} €</strong></p></section>
       <section className="metric-grid portal-report-metrics" aria-label="Sažetak prometa">
         <article>
           <span>Obični računi</span>
@@ -81,7 +82,7 @@ export default async function DirectPortalTurnoverReportPage({
           <strong>{formatPortalMoney(report.totals.vat)} €</strong>
         </article>
         <article>
-          <span>Neto promet</span>
+          <span>Promet nakon korekcija</span>
           <strong>{formatPortalMoney(report.totals.gross)} €</strong>
         </article>
       </section>
@@ -95,7 +96,7 @@ export default async function DirectPortalTurnoverReportPage({
                 <tr>
                   <th>Kanal</th>
                   <th>Dokumenata</th>
-                  <th>Neto promet</th>
+                  <th>Promet nakon korekcija</th>
                   <th></th>
                 </tr>
               </thead>
@@ -133,7 +134,7 @@ export default async function DirectPortalTurnoverReportPage({
                 <tr>
                   <th>Kasa / kanal</th>
                   <th>Dokumenata</th>
-                  <th>Neto promet</th>
+                  <th>Promet nakon korekcija</th>
                   <th></th>
                 </tr>
               </thead>

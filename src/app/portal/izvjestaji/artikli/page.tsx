@@ -86,7 +86,7 @@ export default async function DirectPortalItemsReportPage({
           <strong>{formatPortalMoney(report.totals.vat)} €</strong>
         </article>
         <article>
-          <span>Neto promet</span>
+          <span>Promet nakon korekcija</span>
           <strong>{formatPortalMoney(report.totals.gross)} €</strong>
         </article>
       </section>
@@ -120,7 +120,7 @@ export default async function DirectPortalItemsReportPage({
                   <th>Dokumenata</th>
                   <th>Osnovica</th>
                   <th>PDV</th>
-                  <th>Neto promet</th>
+                  <th>Promet nakon korekcija</th>
                   <th></th>
                 </tr>
               </thead>

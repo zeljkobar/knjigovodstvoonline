@@ -1,3 +1,4 @@
+import { confirmedFiscalContext } from "./fiscal-context-snapshot";
 import "server-only";
 
 import { randomUUID } from "crypto";
@@ -249,6 +250,7 @@ async function finishTransferAccounting(input: {
 }
 
 type ConfirmedPosFiscalResult = {
+  fiscalContext?: Prisma.InputJsonObject;
   fiscalInvoiceId: string;
   environment: "Test" | "Production";
   officialInvoiceNumber: string | null;
@@ -273,6 +275,7 @@ async function preserveConfirmedPosFiscalResult(input: {
       fiscal_api_invoice_id: input.result.fiscalInvoiceId,
       fiscal_status: "Fiscalized",
       fiscal_environment: input.result.environment,
+      fiscal_context_snapshot: input.result.fiscalContext,
       official_invoice_number: input.result.officialInvoiceNumber,
       broj_racuna: input.result.officialInvoiceNumber ?? undefined,
       iic: input.result.iic,
@@ -323,7 +326,8 @@ async function auditConfirmedPosRecovery(input: {
       novaVrijednost: {
         fiscalInvoiceId: input.result.fiscalInvoiceId,
         environment: input.result.environment,
-        correlationId: input.result.correlationId
+        correlationId: input.result.correlationId,
+        fiscalContext: input.result.fiscalContext ?? null
       }
     });
   } catch {
@@ -930,6 +934,7 @@ export async function createAndFiscalizePosSale(inputData: {
       );
     }
     confirmedFiscalResult = {
+      fiscalContext: confirmedFiscalContext(finalInvoice, created.data.id, environment),
       fiscalInvoiceId: created.data.id,
       environment,
       officialInvoiceNumber: finalInvoice.officialInvoiceNumber ?? null,
@@ -984,6 +989,7 @@ export async function createAndFiscalizePosSale(inputData: {
           fiscal_api_invoice_id: created.data.id,
           fiscal_status: "Fiscalized",
           fiscal_environment: environment,
+          fiscal_context_snapshot: confirmedFiscalResult!.fiscalContext,
           official_invoice_number: finalInvoice.officialInvoiceNumber,
           broj_racuna:
             finalInvoice.officialInvoiceNumber ?? invoice.broj_racuna,
@@ -1047,6 +1053,7 @@ export async function createAndFiscalizePosSale(inputData: {
         paymentMethod,
         total: scaledToDecimal(total, 2),
         jikr: finalInvoice.jikr,
+        fiscalContext: confirmedFiscalResult?.fiscalContext ?? null,
         environment
       }
     });
@@ -1338,6 +1345,7 @@ export async function retryPosFiscalization(inputData: {
       throw new FiscalAdminApiError("FISCAL_RESULT_INCOMPLETE", "Fiscal API nije vratio kompletan fiskalni rezultat.", correlationId ?? undefined);
     }
     confirmed = {
+      fiscalContext: confirmedFiscalContext(remote, remoteInvoiceId, company.environment),
       fiscalInvoiceId: remoteInvoiceId,
       environment: company.environment,
       officialInvoiceNumber: remote.officialInvoiceNumber ?? null,
@@ -1360,10 +1368,10 @@ export async function retryPosFiscalization(inputData: {
       await tx.fiskalniIzlazniRacunPorez.deleteMany({ where: { fiskalni_izlazni_racun_id: invoice.id } });
       await tx.fiskalniIzlazniRacunPorez.createMany({ data: [...groups.entries()].map(([code, group]) => ({ fiskalni_izlazni_racun_id: invoice.id, vat_rate_code: code, vat_rate_name: group.name, vat_rate_percent: group.percent, tax_base: group.base, output_vat_amount: group.vat, total_with_vat: group.total, created_by: context.userId })) });
       await applyPosInventoryMovement(tx, { agencijaId: context.agencijaId, firmaId: context.firmaId, poslovnaGodinaId: context.poslovnaGodinaId, magacinId: invoice.magacin_id, invoiceId: invoice.id, datumPrometa: invoice.datum_prometa, allowNegative, userId: context.userId });
-      await tx.fiskalniIzlazniRacun.update({ where: { id: invoice.id }, data: { fiscal_api_invoice_id: remoteInvoiceId, fiscal_status: "Fiscalized", fiscal_environment: company.environment, official_invoice_number: remote.officialInvoiceNumber, broj_racuna: remote.officialInvoiceNumber ?? invoice.broj_racuna, iic: remote.iic, jikr: remote.jikr, qr_code_data: remote.qrCodeData, correlation_id: correlationId, fiscalized_at: new Date(), last_fiscal_attempt_at: new Date(), fiscal_error_code: null, fiscal_error_message: null, ...(inputData.accountingMode === "FISCAL_ONLY" ? { status: "FINALIZED", kif_status: "NOT_REQUIRED", nalog_id: null, kif_entry_id: null } : {}), updated_by: context.userId } });
+      await tx.fiskalniIzlazniRacun.update({ where: { id: invoice.id }, data: { fiscal_api_invoice_id: remoteInvoiceId, fiscal_status: "Fiscalized", fiscal_environment: company.environment, fiscal_context_snapshot: confirmed!.fiscalContext, official_invoice_number: remote.officialInvoiceNumber, broj_racuna: remote.officialInvoiceNumber ?? invoice.broj_racuna, iic: remote.iic, jikr: remote.jikr, qr_code_data: remote.qrCodeData, correlation_id: correlationId, fiscalized_at: new Date(), last_fiscal_attempt_at: new Date(), fiscal_error_code: null, fiscal_error_message: null, ...(inputData.accountingMode === "FISCAL_ONLY" ? { status: "FINALIZED", kif_status: "NOT_REQUIRED", nalog_id: null, kif_entry_id: null } : {}), updated_by: context.userId } });
       await tx.fiscalizationAttempt.update({ where: { idempotency_key: attemptKey }, data: { status: "SUCCEEDED", fiscal_api_invoice_id: remoteInvoiceId, correlation_id: correlationId, finished_at: new Date(), duration_ms: Date.now() - started } });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    await auditLog({ korisnikId: context.userId, agencijaId: context.agencijaId, firmaId: context.firmaId, modul: posModule, akcija: "retry_pos_fiscalization_succeeded", tipEntiteta: "FiskalniIzlazniRacun", entitetId: invoice.id, novaVrijednost: { attemptKey, fiscalInvoiceId: remoteInvoiceId, jikr: remote.jikr, recoveredExistingRemote: Boolean(invoice.fiscal_api_invoice_id) } });
+    await auditLog({ korisnikId: context.userId, agencijaId: context.agencijaId, firmaId: context.firmaId, modul: posModule, akcija: "retry_pos_fiscalization_succeeded", tipEntiteta: "FiskalniIzlazniRacun", entitetId: invoice.id, novaVrijednost: { attemptKey, fiscalInvoiceId: remoteInvoiceId, jikr: remote.jikr, fiscalContext: confirmed.fiscalContext ?? null, recoveredExistingRemote: Boolean(invoice.fiscal_api_invoice_id) } });
     return { status: "fiscalized", invoiceId: invoice.id, correlationId };
   } catch (error) {
     if (confirmed) {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { reportEnvironments } from "@/lib/fiscal-report-policy";
 import {
   directPortalReportChannelLabels,
   directPortalReportPaymentLabels,
@@ -48,12 +49,14 @@ export function DirectPortalReportFilters({
         <div>
           <h3 id="report-filter-title">Filteri</h3>
           <p className="muted-text">
-            Period je ograničen na izabranu poslovnu godinu. Svi zbirni podaci
-            uključuju fiskalizovana storna kao negativne iznose.
+            {kind === "avansi" ? "Period bira avansne račune iz izabrane godine; veze korišćenja prikazuju trenutno lokalno stanje kroz sve godine iste firme." : "Period je ograničen na izabranu poslovnu godinu. Svi zbirni podaci uključuju fiskalizovana storna kao negativne iznose."}
           </p>
         </div>
         {canExport ? (
           <div className="header-actions">
+            <Link className="secondary-button" href={`/portal/izvjestaji/export?tip=${kind}&format=pdf&${query}`} prefetch={false}>Preuzmi PDF</Link>
+            <Link className="secondary-button" href={`/portal/dostava?tip=${kind}&${query}`}>Pošalji izvještaj mejlom</Link>
+            <Link className="secondary-button" href={`/portal/izvjestaji/export?tip=${kind}&format=xlsx&${query}`} prefetch={false}>Preuzmi Excel</Link>
             <Link
               className="secondary-button"
               href={`/stampa/portal/izvjestaji/${kind}?${query}`}
@@ -91,7 +94,10 @@ export function DirectPortalReportFilters({
         </p>
       ) : null}
 
+      <p className="muted-text">Obuhvat: potvrđena prodaja i njene korekcije u EUR · {reportEnvironments[filters.environment ?? "Production"]}. Avansi, informativni dokumenti i dokumenti bez potvrđenog okruženja nijesu uključeni. Nepoznato okruženje se ne računa u produkciju.</p>
+      {filters.environment === "Test" ? <p className="status-banner">TESTNI PODACI — ne predstavljaju produkcioni promet.</p> : null}
       <form className={`portal-filter-form${showItemFilters ? " portal-filter-form--extended" : ""}`} method="get">
+        <label><span>Okruženje</span><select name="okruzenje" defaultValue={filters.environment ?? "Production"}>{Object.entries(reportEnvironments).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label>
           <span>Od</span>
           <input type="date" name="od" defaultValue={filters.periodFrom} />

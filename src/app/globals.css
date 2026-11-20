@@ -11026,3 +11026,7 @@ button.kuf-delete-icon:focus-visible { outline: 3px solid var(--border, #93c5fd)
 .account-replacement-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
 .account-replacement-fields label { display: flex; flex-direction: column; gap: 6px; }
 @media (max-width: 900px) { .account-replacement-fields { grid-template-columns: 1fr; } }
+
+.fiscal-access-fields { grid-column: 1 / -1; border: 1px solid var(--border); border-radius: 8px; padding: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.fiscal-access-fields > p { grid-column: 1 / -1; margin: 0; }
+.fiscal-access-fields .api-checkbox { display: flex; align-items: flex-start; }

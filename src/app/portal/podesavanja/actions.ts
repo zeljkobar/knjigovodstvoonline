@@ -99,7 +99,7 @@ export async function updatePortalPosSettings(formData: FormData) {
   await prisma.$transaction(async (tx) => {
     await tx.posPodesavanje.upsert({
       where: { firma_id: context.firma.id },
-      create: { agencija_id: context.user.agencija_id!, firma_id: context.firma.id, aktivan: true, zahtijeva_smjenu: formData.get("requires_shift") === "on", automatska_stampa: formData.get("auto_print") === "on", format_stampe: printFormat, podrazumijevani_rok_dana: dueDays, podrazumijevana_kasa_id: register.id, created_by: context.user.id, updated_by: context.user.id },
+      create: { agencija_id: context.user.agencija_id!, firma_id: context.firma.id, aktivan: false, zahtijeva_smjenu: formData.get("requires_shift") === "on", automatska_stampa: formData.get("auto_print") === "on", format_stampe: printFormat, podrazumijevani_rok_dana: dueDays, podrazumijevana_kasa_id: register.id, created_by: context.user.id, updated_by: context.user.id },
       update: { zahtijeva_smjenu: formData.get("requires_shift") === "on", automatska_stampa: formData.get("auto_print") === "on", format_stampe: printFormat, podrazumijevani_rok_dana: dueDays, podrazumijevana_kasa_id: register.id, updated_by: context.user.id }
     });
     await tx.posRegister.update({ where: { id: register.id }, data: { magacin_id: warehouseId || null, podrazumijevano_placanje: paymentMethod, updated_by: context.user.id } });

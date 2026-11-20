@@ -786,7 +786,7 @@ export async function createFiscalClient(formData: FormData) {
       }, select: { id: true, korisnicko_ime: true, email: true } });
       await tx.korisnikFirma.create({ data: {
         korisnik_id: user.id, firma_id: firma.id,
-        access_type: "FISCAL_CLIENT", created_by: admin.id, updated_by: admin.id
+        access_type: "FISCAL_CLIENT", fiscal_portal_enabled: true, fiscal_portal_permissions: DIRECT_PORTAL_OWNER_PERMISSIONS.map(p=>`${p.modul}:${p.akcija}`), created_by: admin.id, updated_by: admin.id
       }});
       const ownerPermissions = clientType === "DIRECT"
         ? DIRECT_PORTAL_OWNER_PERMISSIONS
@@ -863,12 +863,12 @@ export async function createFiscalUser(formData: FormData) {
     user = await prisma.$transaction(async (tx) => {
       const created = await tx.korisnik.create({ data: {
         korisnicko_ime: username, email, lozinka_hash: passwordHash,
-        rola: "korisnik_agencije", agencija_id: firma.agencija_id,
+        rola: firma.agencija.is_fiscal_direct_container ? "korisnik_agencije" : "klijent", agencija_id: firma.agencija_id,
         created_by: admin.id, updated_by: admin.id
       }, select: { id: true, korisnicko_ime: true, email: true } });
       await tx.korisnikFirma.create({ data: {
         korisnik_id: created.id, firma_id: firma.id,
-        access_type: "FISCAL_OPERATOR", created_by: admin.id, updated_by: admin.id
+        access_type: firma.agencija.is_fiscal_direct_container ? "FISCAL_OPERATOR" : "client", fiscal_portal_enabled: true, fiscal_portal_permissions: [...fiscalPermissionActions.filter(action=>enabled.has(action)).map(action=>`fiskalizacija:${action}`), ...directPortalOperatorPermissions(enabled).map(p=>`${p.modul}:${p.akcija}`)], created_by: admin.id, updated_by: admin.id
       }});
       const permissionRows = [
         ...fiscalPermissionActions.map((action) => ({

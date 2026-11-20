@@ -1,5 +1,94 @@
 # NEXT_STEPS.md — šta dalje raditi
 
+## Aktuelno poslije PDF/mail paketa — 2026-11-20
+
+- Lokalno završeno: serverski PDF izvještaja/računa, pregled istog priloga, PDF/XLSX dostava, adresar i istorija, worker/CAS/aktuelna prava/UNKNOWN ishod. Stare bilješke ispod koje navode serverski PDF i mail kao neimplementirane zamijenjene su ovim stanjem.
+- Prije objave: kompletan browser tok admin → korisnik → račun/izvještaj → PDF → priprema → pregled → slanje na kontrolisano sanduče; provjera realnog API ugovora na testnoj firmi i Chrome runtime-a na ciljnom serveru. Stvarni SMTP još nije korišćen u provjerama.
+- Objava zahtijeva tri lokalne migracije: `20261119120000_fiscal_context_snapshot`, `20261120100000_platform_fiscal_access`, `20261120120000_fiscal_delivery`; Prisma generate/restart; npm ci sa Puppeteer browserom ili sistemski Chrome putanja. SMTP domen/parametri i eksplicitni `FISCAL_MAIL_ENABLED=true` nakon kontrolisanog testa. Postojećim klijentima odobriti potrebne zasebne mail/adresar grupe.
+- Zatim nastaviti API saldo avansa (raspoloživo/rezervisano/obnova), šire razrješavanje razlika i istoriju gotovine. Automatska dostava poslije fiskalizacije, potvrde isporuke/read receipts i serverless izdvojeni worker nijesu implementirani niti uključeni ovim ručnim tokom.
+
+## POS aktivacija
+
+- Lokalno završen admin ekran POS/Kasa uz fiskalni pristup. U korisničkoj sesiji provjeriti tok povezivanje kase → odobrenje POS izdavanja → prikaz POS menija. Fiskalni profil mora biti spreman; aktivacija ne registruje nove fiskalne resurse i ne prijavljuje depozit. Produkciona objava nije izvršena.
+
+## Pomoć u portalu
+
+- Lokalno završena stranica `/portal/pomoc`. Provjeriti prikaz na telefonu i u korisničkoj sesiji; slanje zahtjeva podršci nije dio ove stranice.
+
+## Fiskalni pristup — provjera i objava
+
+- Lokalno završeno: admin dodjela postojećem klijentu ili kreiranje novog naloga za fiskalnu firmu agencije; nezavisna fiskalna prava, pozivnica i ukidanje bez brisanja naloga. Direktni tok je sačuvan.
+- Na testnoj firmi provjeriti browser tok admin → novi/postojeći klijent → `/klijent` → „Otvori fiskalizaciju“ → fakture/izvještaji, uz testno slanje pozivnice. Zasebno provjeriti ranije planirani transfer direktnog klijenta u agenciju. Ne fiskalizovati produkcioni račun radi QA.
+- Pri odobrenoj objavi primijeniti i migraciju `20261120100000_platform_fiscal_access`, regenerisati Prisma i restartovati aplikaciju. Nijedan produkcioni klijent nije aktiviran ovom lokalnom implementacijom.
+
+## Poslije žurnala
+
+- Završeno lokalno: elektronski i korektivni žurnal za agenciju i direktni portal, XLSX i A4/browser PDF. Serverski PDF je dodat; sintetički višestranični PDF vizuelno provjeren. Provjeriti još stvarne račune na ciljnom serveru.
+- Završeno lokalno: presjek po kupcu, istorijske verzije i označen fallback; paginacija, XLSX/CSV i A4/browser PDF.
+- Završeno lokalno: istorijski API firstSend snimak uz potvrdu računa, prikaz u detalju/žurnalu i izvozu. Migracija `20261119120000_fiscal_context_snapshot` primijenjena lokalno; pri objavi primijeniti i u ciljnoj bazi.
+- Završeno lokalno: grupisani presjeci operateri/ENU/jedinice za agenciju i direktni portal, XLSX/portalski CSV/A4/browser PDF; nepoznata grupa ostaje u ukupnom zbiru.
+- Završeno lokalno: odvojeni avansi i lokalna evidencija korišćenja/umanjenja, XLSX/CSV/A4/browser PDF.
+- Sljedeće: zaseban read-only API saldo izabranog avansa (raspoloživo/rezervisano/nerazriješeno/obnova uz vrijeme provjere i prava). Lokalni izvještaj ne zamjenjuje taj saldo. Serverski PDF i ručni e-mail/adresar su implementirani; stvarni SMTP/browser QA ostaje prema vrhu ovog dokumenta. Postojeći snimci zavise od dostupnog API firstSend konteksta. Ne koristiti sadašnju konfiguraciju ili originalni račun kao zamjenu za kontekst storna.
+- Provjeriti punu invoice dijagnostiku/permissions na testnoj firmi i browser prikaz; stare račune dopunjavati samo kroz zaseban kontrolisani tok, bez ponovne fiskalizacije.
+
+## Usklađivanje — poslije dopune okruženja
+
+- Završeno lokalno: admin pregled i potvrda dopune isključivo nedostajućeg okruženja za već potvrđenu običnu prodaju bez računovodstvenih veza. Dopuna nije izvršena na stvarnim podacima; potreban kontrolisani DB rollback i browser/live QA.
+- Ostale razlike se ne popravljaju ovim tokom: nedostajući lokalni/API račun, status, iznosi, identifikatori, KIF/nalog, avansi/ORDER/korekcije zahtijevaju zasebne poslovne tokove. Ne pozivati fiscalize kao generičku sinhronizaciju.
+- Nastaviti potvrđeno istorijsko ENU mapiranje i ostale izvještaje, pa zasebno odobrene tokove za preostale klase razlika.
+
+
+## Fiskalno usaglašavanje — poslije read-only kontrole
+
+- Lokalno dostupan admin ekran Usaglašavanje. Prije upotrebe provjeriti poseban read ključ i permissions reports:read + invoices:read; kontrola ne mijenja fiskalni ključ ili podatke. Ručno provjeriti stvarni nalaz na povezanoj testnoj firmi.
+- Sljedeće: detaljno razrješavanje razlika i kontrolisana sinhronizacija potvrđenih metapodataka bez izmjene POSTED KIF/naloga; pravila izdvajanja avansa/ORDER i istorijski ENU. Automatska sinhronizacija nije završena ovim korakom.
+- API kontrola ima 500 prodajnih dokumenata po zahtjevu i traži uži period iznad limita. Nepotpuna API istorija nije dokaz usaglašenosti cijele firme.
+
+
+## Klijentski izvoz — poslije podfaze 3c
+
+- Završeno lokalno: Excel za sva tri postojeća portalska izvještaja; zajednički limiti/period/snapshot za CSV/A4/XLSX. Ranije stavke „prenijeti XLSX na portal“ su završene ovim korakom.
+- Žurnali, presjeci kupac/operater/uređaj, istorijski ENU snimak, read-only API usaglašavanje, serverski PDF i ručni e-mail/adresar sada postoje. Preostaju kontrolisani QA i preostali poslovni tokovi razrješavanja razlika. Vizuelno provjeriti stvarni portalski izvoz i artikalni filter u browseru.
+
+
+## Fiskalni promet — poslije podfaze 3b
+
+- Lokalno A4 / PDF otvara čistu landscape štampu sa browser Save as PDF. Excel i štampa imaju zajednički zaštićeni loader. Provjeriti vizuelno duge nazive, više stranica i realni print preview.
+- Pravi serverski PDF za prilog i direktno preuzimanje je dodat odvojeno od A4 browser štampe. Nastaviti direktni portal i ostale izvještaje po planu, uz API usaglašavanje i istorijski ENU.
+
+
+## Fiskalni izvoz — poslije podfaze 3a
+
+- Lokalno dodat agencijski XLSX sa sažetkom, računima, stavkama i PDV-om. Preostaje PDF istog obuhvata i prenos XLSX na direktni portal uz njegova prava. Zatim žurnal/korekcije i presjeci prema planu.
+- Izvoz trenutno sinhron uz eksplicitne limite 5.000 računa/50.000 stavki. Za veće skupove potreban pozadinski posao; nema tihog odsijecanja. Browser provjera preuzimanja ostaje.
+
+
+## Fiskalni promet — poslije podfaze 2c
+
+- Lokalno dodati bočni pregled i filter POS kase na agencijskom fiskalnom prometu. Nastaviti istorijsko ENU mapiranje i zajednički prikaz na direktnom portalu. Ne koristiti današnji produkcioni profil za dodjeljivanje uređaja starim OFFICE računima.
+- Preostaju API usaglašavanje, PDF/pravi XLSX izvoz, žurnal i ostali presjeci, adresar/slanje. Ručno provjeriti desktop/mobile prikaz detalja i vraćanje filtera.
+
+
+## Fiskalni pregled — poslije podfaze 2b
+
+- Agencijska serverska paginacija i SQL zbir su lokalno završeni. Prenijeti odgovarajuće paginiranje i na direktni portal, bez gubitka kanalnih/kasnih/artikalnih presjeka.
+- Izvještaji i PDF/XLSX ostaju definisani u poglavljima 8 i 10 detaljnog plana. Implementirati jedinstven izvoz poslije ENU filtera i provjere obuhvata; ništa od planiranih dodatnih izvoza još nije završeno.
+
+
+## Fiskalni promet — nastavak poslije faze 2a
+
+- Lokalno dodat zajednički agencijski promet na `/agencija/pos/promet`, povezan sa POS izvještajem i izlaznim fakturama, nad istim readerom kao portal. Dva testa pokrivaju module/scope i pokušaj proširenja kanala preko URL-a.
+- Nastaviti API usaglašavanje/sinhronizaciju iz faze 1 i puni obuhvat faze 2: ENU mapiranje/filter, objedinjeni server-side agregati i paginacija, bočni detalj i zajednički filteri na portalu. Trenutna lista dijeli prikaz po 50, ali reader i dalje čita cijeli filtrirani skup za obračun. Ne proglasiti punu fazu završenom.
+- Ručno provjeriti na testnoj firmi da OFFICE faktura ulazi u Sva prodaja/Fakture, da je nema pod POS i da Test/Produkcija daju različite skupove. Nema automatske pretpostavke da stari dokument bez okruženja pripada produkciji.
+
+
+## Fiskalni pregledi i izvještaji — nastavak faze 1
+
+- Pratiti [detaljni plan](zadaci/fiskalizacija/PLAN_UNAPREDJENJA_FISKALNIH_PREGLEDA_I_IZVJESTAJA.md). Faza 1a lokalno završena: zajednički filter potvrđene prodaje, OFFICE_STORNO i eksplicitna produkcija/test na portalu i POS-u.
+- Prije objave provjeriti stare dokumente bez `fiscal_environment`, bez nagađanja iz trenutnog profila firme. Takvi dokumenti se sada isključuju. Kontrolisano uskladiti samo iz potvrđenog API rezultata.
+- Sljedeće: API ugovor i mapa kategorija/avansa/ORDER, read-only poređenje lokalnog i API zbira za isti obuhvat, pa bezbjedna sinhronizacija. Ne proglašavati fazu 1 završenom prije toga.
+- Faza 2: zajednički pregled svih faktura/POS-a u agenciji i portalu, ENU i poslovne jedinice, paginacija i bočni detalj. Faza 3: PDF/XLSX i presjeci. Faza 4: adresar i ručno slanje. Browser QA ovih izmjena nije izvršen.
+
 ## Agencijske izmjene globalnih partnera — objava 18.11.2026.
 
 - Implementirano lokalno: Uredi za moju agenciju, čuvanje zasebne agencijske verzije uz isti partner ID i dosljedan prikaz/pretraga. Za produkciju primijeniti `20261118170000_agencija_komitent_izmjene`, generisati Prisma i restartovati aplikaciju. Lokalna migracija je završena.

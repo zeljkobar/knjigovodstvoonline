@@ -100,3 +100,7 @@ Ponovno generisanje PDF-a koristi isti sačuvani fiskalni zapis. Ispravka se rad
 - PDF prikazuje valutu EUR i iznose sa dvije decimale.
 
 Potpisani SOAP/XML zahtjev i odgovor PU služe auditu i ne ugrađuju se u PDF.
+
+## Lokalna implementacija preuzimanja/dostave — 20.11.2026.
+
+Serverski PDF generator čita GET detalj potvrđenog API računa i lokalni issuer snapshot. Nepotpuni ili neusklađeni podaci zaustavljaju generisanje; nema zamjene aktuelnim podacima firme. Anonimni POS kupac koji nije naveden u API-ju označava se kao takav. Generisanje, pregled, preuzimanje i slanje nikad ne pozivaju create/fiscalize. Dostava čuva pripremljene bajtove i hash, pa SMTP dobija isti prilog koji je korisnik pregledao. Ponovno slanje koristi isti već pripremljeni prilog do isteka roka ili novu eksplicitnu pripremu kroz isti API read ugovor. Runtime, limiti i testovi su u arhitekturi.

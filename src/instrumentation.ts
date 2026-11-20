@@ -8,6 +8,8 @@ export async function register() {
     startBankAutomation();
   }
   if (process.env.NEXT_RUNTIME === "nodejs" && process.env.NEXT_PHASE !== "phase-production-build") {
+    const {startFiscalDeliveryWorker}=await import("./lib/fiscal-delivery-worker");
+    startFiscalDeliveryWorker();
     const { startDocumentationMaintenance } = await import("./lib/dokumentacija-arhiva");
     startDocumentationMaintenance();
     const { startBankStatementArchive } = await import("./lib/bank-statement-archive");

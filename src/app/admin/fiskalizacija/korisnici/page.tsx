@@ -1,4 +1,5 @@
 import Link from "next/link";
+import {requireRole} from "@/lib/auth";
 import { fiscalEnvironmentLabel, fiscalOnboardingLabel } from "@/lib/fiscal-admin-status";
 import { prisma } from "@/lib/prisma";
 import { approveFiscalCompanyAgencyTransfer, createFiscalClient, rejectFiscalCompanyAgencyTransfer } from "../actions";
@@ -17,6 +18,7 @@ const messages: Record<string, string> = {
 };
 
 export default async function FiscalClientsPage({ searchParams }: Props) {
+  await requireRole("admin");
   const query = await searchParams;
   const [agencies, companies, availableCompanies, transferRequests] = await Promise.all([
     prisma.agencija.findMany({
@@ -32,7 +34,7 @@ export default async function FiscalClientsPage({ searchParams }: Props) {
         agencija: { select: { naziv: true, is_fiscal_direct_container: true } },
         fiscalCompanyLink: { select: { is_suspended: true, onboarding_status: true, fiscal_environment: true } },
         korisnici: {
-          where: { access_type: "FISCAL_CLIENT", is_deleted: false },
+          where: { fiscal_portal_enabled: true, is_deleted: false },
           select: { korisnik: { select: { korisnicko_ime: true, email: true, aktivan: true } } },
           take: 1
         }
@@ -87,7 +89,7 @@ export default async function FiscalClientsPage({ searchParams }: Props) {
             <td>{client ? <><strong>{client.korisnicko_ime}</strong><small>{client.email} — {client.aktivan ? "aktivan" : "suspendovan"}</small></> : "Nije otvoren"}</td>
             <td>{fiscalEnvironmentLabel(company.fiscalCompanyLink?.fiscal_environment)}</td>
             <td>{fiscalOnboardingLabel(company.fiscalCompanyLink)}</td>
-            <td><Link className="table-link" href={`/admin/fiskalizacija/${company.id}`}>Otvori podešavanja</Link></td>
+            <td><div className="table-actions"><Link className="table-link" href={`/admin/fiskalizacija/${company.id}/pristup`}>Fiskalni pristup</Link><Link className="table-link" href={`/admin/fiskalizacija/${company.id}`}>Otvori podešavanja</Link></div></td>
           </tr>;
         })}
       </tbody></table></div>

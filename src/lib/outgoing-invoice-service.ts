@@ -1,3 +1,4 @@
+import { confirmedFiscalContext } from "./fiscal-context-snapshot";
 import "server-only";
 
 import { randomUUID } from "crypto";
@@ -1123,6 +1124,7 @@ async function persistFiscalResult(input: {
         fiscal_api_invoice_id: input.fiscalInvoiceId,
         fiscal_status: "Fiscalized",
         fiscal_environment: input.environment,
+        fiscal_context_snapshot: confirmedFiscalContext(input.finalInvoice, input.fiscalInvoiceId, input.environment),
         official_invoice_number: input.finalInvoice.officialInvoiceNumber,
         broj_racuna:
           input.finalInvoice.officialInvoiceNumber ?? invoice.broj_racuna,
@@ -1175,6 +1177,7 @@ async function preserveConfirmedOutgoingFiscalResult(input: {
       fiscal_api_invoice_id: input.result.fiscalInvoiceId,
       fiscal_status: "Fiscalized",
       fiscal_environment: input.result.environment,
+      fiscal_context_snapshot: confirmedFiscalContext(input.result.finalInvoice, input.result.fiscalInvoiceId, input.result.environment),
       official_invoice_number:
         input.result.finalInvoice.officialInvoiceNumber,
       broj_racuna:
@@ -1601,6 +1604,7 @@ export async function fiscalizeOutgoingInvoiceDocument(input: {
       newValue: {
         fiscalInvoiceId: remoteInvoiceId,
         environment: company.environment,
+        fiscalContext: confirmedFiscalContext(finalInvoice, remoteInvoiceId!, environmentSnapshot) ?? null,
         officialInvoiceNumber: finalInvoice.officialInvoiceNumber,
         iic: finalInvoice.iic,
         jikr: finalInvoice.jikr,

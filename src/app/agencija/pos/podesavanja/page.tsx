@@ -3,11 +3,12 @@ import { requireRole } from "@/lib/auth";
 import { getPosContext } from "@/lib/pos";
 import { warehouseSalesTypeLabel } from "@/lib/pos-pricing";
 import { prisma } from "@/lib/prisma";
-import { configureDefaultPosRegister, registerInitialCashDeposit, updatePosAccountingIntegration, updatePosRegisterWarehouse } from "./actions";
+import { registerInitialCashDeposit, updatePosAccountingIntegration, updatePosRegisterWarehouse } from "./actions";
 
 const successMessages = new Set(["sacuvano", "depozit_sacuvan", "integracija_sacuvana", "magacin_sacuvan"]);
 
 function messageText(message: string, code?: string) {
+  if (message === "platform_admin") return "Uključivanje i fiskalno povezivanje POS kase radi admin platforme. Agencija uređuje operativna i računovodstvena podešavanja.";
   if (message === "sacuvano") return "Kasa je povezana i POS je aktiviran.";
   if (message === "magacin_sacuvan") return "Magacin kase je sačuvan.";
   if (message === "lager_magacin") return "Izabrani magacin nije dostupan ovoj firmi.";
@@ -34,7 +35,7 @@ export default async function PosSettingsPage({ searchParams }: { searchParams: 
   return <div className="admin-stack">
     <header className="admin-header"><div><p className="eyebrow">POS / Podešavanja</p><h2>Povezivanje kase</h2><p className="muted-text">Kasa koristi aktivnu poslovnu jedinicu, ENU i operatora iz Fiscal API-ja.</p></div><Link className="secondary-button" href="/agencija/pos">Otvori POS</Link></header>
     {poruka ? <p className={`status-banner ${successMessages.has(poruka) ? "success" : "error"}`}>{messageText(poruka, kod)}</p> : null}
-    <section className="admin-panel"><div className="panel-header"><h3>Aktivacija</h3><span>{settings?.aktivan ? "POS aktivan" : "POS nije aktivan"}</span></div><p>Automatsko povezivanje bira prvi aktivni objekat, pripadajući ENU i aktivnog operatora iz istog Test ili Production okruženja. Ova akcija ne mijenja izabrani magacin kase.</p><form action={configureDefaultPosRegister}><button className="primary-button" type="submit">Poveži / osvježi KASU-1</button></form></section>
+    <section className="admin-panel"><div className="panel-header"><h3>Aktivacija</h3><span>{settings?.aktivan ? "POS aktivan" : "POS nije aktivan"}</span></div><p>Uključivanje POS-a i fiskalno povezivanje kase radi admin platforme kroz Fiskalne klijente → POS / Kasa. Ovdje uređujete magacin, računovodstvenu integraciju i operativni rad postojeće kase.</p></section>
     <section className="admin-panel"><div className="panel-header"><h3>Računovodstvena integracija</h3><span>{settings?.racunovodstvena_integracija ? "Uključena" : "Isključena"}</span></div><p className="muted-text">Kada je uključena, fiskalizovani virmani se pojedinačno pripremaju za KIF po šemi izlaznih računa. Gotovina i kartica ulaze u kontrolisani zbirni pazar i zbirni nalog istog perioda.</p><form action={updatePosAccountingIntegration} className="form-grid"><label><input name="accounting_integration" type="checkbox" defaultChecked={settings?.racunovodstvena_integracija ?? false}/> Uključi povezivanje POS-a sa KIF-om i glavnom knjigom</label><label>Period zbirne obrade<select name="kif_mode" defaultValue={settings?.kif_rezim ?? "DAILY"}><option value="DAILY">Dnevno</option><option value="MONTHLY">Mjesečno</option></select></label><button className="primary-button" type="submit">Sačuvaj integraciju</button></form><p><Link href="/agencija/pos/obrada">Otvori zbirnu obradu POS računa</Link></p></section>
     <section className="admin-panel"><div className="panel-header"><h3>Kase, magacini i početni depozit</h3><span>{registers.length} ukupno</span></div><p className="muted-text">Za prodaju robe koja prati zalihe izaberite magacin kase. Usluge i artikli koji ne prate zalihe mogu se prodavati bez magacina.</p>
       {registers.map((register) => {

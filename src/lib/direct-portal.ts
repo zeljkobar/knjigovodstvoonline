@@ -7,8 +7,6 @@ import {
 } from "./auth";
 import {
   classifyDirectCompanyCount,
-  DIRECT_PORTAL_ACCESS_TYPES,
-  directPortalPermissionKey,
   hasDirectPortalPermission,
   mapDirectPortalReadiness,
   podgoricaBusinessDate,
@@ -61,9 +59,7 @@ export async function getDirectPortalContext() {
     where: {
       korisnik_id: user.id,
       is_deleted: false,
-      access_type: {
-        in: [...DIRECT_PORTAL_ACCESS_TYPES]
-      },
+      fiscal_portal_enabled: true,
       AND: [
         {
           OR: [
@@ -87,6 +83,7 @@ export async function getDirectPortalContext() {
     take: 2,
     select: {
       access_type: true,
+      fiscal_portal_permissions: true,
       firma: {
         select: {
           id: true,
@@ -149,26 +146,9 @@ export async function getDirectPortalContext() {
 
   const assignment = assignments[0];
   const firma = assignment.firma;
-  const [permissionRows, workContext] = await Promise.all([
-    prisma.korisnikPravo.findMany({
-      where: {
-        agencija_id: user.agencija_id,
-        korisnik_id: user.id,
-        firma_id: firma.id
-      },
-      select: {
-        modul: true,
-        akcija: true,
-        dozvoljeno: true
-      }
-    }),
-    readWorkContext()
-  ]);
-  const permissionKeys = new Set(
-    permissionRows
-      .filter((permission) => permission.dozvoljeno)
-      .map(directPortalPermissionKey)
-  );
+  const workContext = await readWorkContext();
+  // Only platform-managed grants authorize the fiscal portal. Agency bookkeeping rights are independent.
+  const permissionKeys = new Set(assignment.fiscal_portal_permissions);
 
   if (
     !hasDirectPortalPermission(
