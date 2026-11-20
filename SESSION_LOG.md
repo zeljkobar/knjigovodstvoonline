@@ -1,5 +1,10 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-20 — Ulaz iz klijentskog u fiskalni portal
+
+- Dugme i bočni link Fiskalizacija sada rade punu browser navigaciju na postojeći /portal/kontekst prije /portal. Time se aktivna firma/godina postave prije učitavanja fiskalnog layout-a, bez Next Link prefetch-a i klijentskog redirect lanca kroz cookie-mutating rutu. Isti backend provjerava sesiju, fiskalnu dodjelu i firmu; prava/statusi se ne mijenjaju.
+- Prijavljena produkciona prazna stranica nastaje na ovom prelasku; browser produkcijska potvrda ispravke ostaje nakon objave.
+
 ## 2026-11-20 — GitHub DB regresija pazara
 
 - Run 44712733287: TSC i npm test prolaze; DB test check-pazar-import pada jer stare POS fixture nemaju SUMMA režim i Production okruženje koje novi potvrđeni promet zahtijeva. Pad 0,00 / 108,90 reprodukovan lokalno.

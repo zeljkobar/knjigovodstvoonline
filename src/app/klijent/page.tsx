@@ -56,6 +56,6 @@ export default async function ClientPage({ searchParams }: {
       <p className="client-dashboard-note">Stanje prema proknjiženim nalozima izabrane poslovne godine. Prikazana su pozitivna potraživanja i obaveze, bez avansa i preplata.</p>
     </> : null}
     {pos && fiscal.state !== "READY" ? <Link className="primary-button" href="/agencija/pos">Otvori POS / Kasa</Link> : null}
-    {fiscal.state === "READY" ? <section className="admin-panel"><h2>Fiskalizacija</h2><p>POS, fakture i prodajni izvještaji za {fiscal.firma.naziv}.</p><Link className="primary-button" href="/portal">Otvori fiskalizaciju</Link></section> : null}
+    {fiscal.state === "READY" ? <section className="admin-panel"><h2>Fiskalizacija</h2><p>POS, fakture i prodajni izvještaji za {fiscal.firma.naziv}.</p><a className="primary-button" href="/portal/kontekst?returnTo=%2Fportal">Otvori fiskalizaciju</a></section> : null}
   </div>;
 }

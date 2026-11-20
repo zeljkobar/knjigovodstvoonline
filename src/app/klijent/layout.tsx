@@ -19,7 +19,7 @@ export default async function ClientLayout({ children }: { children: React.React
       <nav className="client-navigation" aria-label="Klijentski meni">
         <Link href="/klijent">Početna</Link>
         {visible.filter((item) => item.allowed).map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}
-        {fiscal.state === "READY" ? <Link href="/portal">Fiskalizacija</Link> : null}
+        {fiscal.state === "READY" ? <a href="/portal/kontekst?returnTo=%2Fportal">Fiskalizacija</a> : null}
       </nav>
       <form action={logout}><button className="portal-logout" type="submit">Odjava</button></form>
     </aside>
