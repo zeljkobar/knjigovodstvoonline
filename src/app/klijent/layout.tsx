@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages -- Fiscal portal entry must use document navigation through the cookie-setting context route, without Link prefetch/router caching. */
 import Link from "next/link";
 import { ThemePicker } from "@/components/ThemePicker";
 import { logout } from "@/app/actions";

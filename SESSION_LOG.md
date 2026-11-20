@@ -1,5 +1,9 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-20 — Deploy lint za puni ulaz u fiskalni portal
+
+- Produkcijski build je odbio namjerne native anchor linkove pravilom no-html-link-for-pages. Dodato usko izuzeće tog pravila samo u dva klijentska ulazna fajla, sa razlogom: document navigacija kroz cookie-setting rutu bez Link prefetch-a. Ostali lint/type/build guardovi ostaju uključeni. GitHub test job sada pokreće i npm run lint prije TSC-a, da ova klasa greške ne čeka produkcijski deploy.
+
 ## 2026-11-20 — Ulaz iz klijentskog u fiskalni portal
 
 - Dugme i bočni link Fiskalizacija sada rade punu browser navigaciju na postojeći /portal/kontekst prije /portal. Time se aktivna firma/godina postave prije učitavanja fiskalnog layout-a, bez Next Link prefetch-a i klijentskog redirect lanca kroz cookie-mutating rutu. Isti backend provjerava sesiju, fiskalnu dodjelu i firmu; prava/statusi se ne mijenjaju.
