@@ -1,5 +1,11 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
+## 2026-11-21 — Ispravka SQL ograničenja brisanja dokumentacije
+
+- Uzrok produkcione greške je propuštena migracija CHECK ograničenja statusa. Ranija tvrdnja „bez migracije“ nije bila tačna. Migracija `20261121120000_incoming_document_removal_status` dozvoljava BRISANJE i UKLONJENO uz sve stare statuse; obavezna je pri deploy-u.
+- Stvarni PostgreSQL rollback test sada izvršava lokalno uklanjanje, cloud namjeru, neuspjeli simulirani DELETE, ponovni pokušaj i završetak, te provjerava da sync ne vraća uklonjeno. Stvarni OneDrive nije mijenjan. Obje ciljane testne grupe uključene su u standardni test runner.
+
+
 ## 2026-11-21 — Opcionalno brisanje originala sa OneDrive-a
 
 - Uz lokalno uklanjanje dodato eksplicitno potvrđeno premještanje originala u OneDrive korpu. Backend provjerava scope/pravo izmjene, otvorenu godinu, nepovezan PRIMLJENO dokument bez dopuna, stvarni folder firma/godina/primljeno i eTag kroz If-Match. Nema permanentDelete poziva.

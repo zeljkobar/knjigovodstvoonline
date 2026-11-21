@@ -334,6 +334,7 @@ export async function purgeCompanyData(
     `
   );
 
+  // Includes soft-removed UKLONJENO and pending BRISANJE records; no cloud DELETE during purge.
   await izvrsi(
     "primljeni_dokumenti",
     Prisma.sql`DELETE FROM primljeni_dokumenti WHERE firma_id = ${firmaId}::uuid`

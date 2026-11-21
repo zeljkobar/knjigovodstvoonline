@@ -1,5 +1,11 @@
 # NEXT_STEPS.md — šta dalje raditi
 
+## 2026-11-21 — Ispravka SQL ograničenja brisanja dokumentacije
+
+- Uzrok produkcione greške je propuštena migracija CHECK ograničenja statusa. Ranija tvrdnja „bez migracije“ nije bila tačna. Migracija `20261121120000_incoming_document_removal_status` dozvoljava BRISANJE i UKLONJENO uz sve stare statuse; obavezna je pri deploy-u.
+- Stvarni PostgreSQL rollback test sada izvršava lokalno uklanjanje, cloud namjeru, neuspjeli simulirani DELETE, ponovni pokušaj i završetak, te provjerava da sync ne vraća uklonjeno. Stvarni OneDrive nije mijenjan. Obje ciljane testne grupe uključene su u standardni test runner.
+
+
 ## Primljena dokumentacija — 2026-11-21
 
 - Lokalno završene dvije potvrđene opcije: uklanjanje samo iz evidencije i premještanje originala u OneDrive korpu. Poslije objave provjeriti na testnom fajlu folder Primljeno, korpu, nestanak iz aktivnog spiska i osvježavanje bez povratka. Stvarni cloud DELETE nije izvršen tokom razvoja.

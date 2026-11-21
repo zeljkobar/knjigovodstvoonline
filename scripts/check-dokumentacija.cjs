@@ -29,10 +29,18 @@ async function check(tx) {
   const files = new Map();
   const moves = [];
   let oneDriveFailure = false;
+  let deleteFails = false;
+  const deletes = [];
   const load = sourceLoader({
     "@/lib/prisma": { prisma: transactionProxy(tx) },
     "@/lib/dokumentacija-onedrive": {
       oneDriveAccess: async () => ({ token: "test", driveId }),
+      graphResponse: async (_token, id, options) => {
+        assert.equal(options.method, "DELETE");
+        assert.equal(options.headers["If-Match"], "test-etag");
+        if (deleteFails) throw new Error("cloud unavailable");
+        deletes.push(id); files.delete(id);
+      },
       ensureDriveFolder: async (_token, _drive, root, segments) => [root, ...segments].join("/"),
       driveItemPath: (_drive, id) => id,
       driveChildren: async (_token, _drive, parent) => [...files.values()].filter(item => item.parentReference.id === parent),
@@ -63,7 +71,7 @@ async function check(tx) {
   assert.throws(() => readFiscalLink(qr.replace("mapr.tax.gov.me", "mapr.tax.gov.me.other.test")), /MAPR/);
 
   function file(id, name, size = 100) {
-    const item = { id, name, size, file: { mimeType: "application/pdf" }, parentReference: { id: inbox, driveId } };
+    const item = { id, name, size, eTag: "test-etag", file: { mimeType: "application/pdf" }, parentReference: { id: inbox, driveId } };
     files.set(id, item);
     return item;
   }
@@ -83,6 +91,33 @@ async function check(tx) {
   file("scan-1", "scan.pdf");
   assert.equal(await syncIncoming(scope, 2026), 1);
   assert.equal(await syncIncoming(scope, 2026), 0);
+
+  // Real PostgreSQL constraints must accept both durable removal states.
+  const removalLoad = sourceLoader({
+    "@/lib/prisma": { prisma: transactionProxy(tx) },
+    "next/cache": { revalidatePath: () => {} },
+    "next/navigation": { redirect: url => { throw new Error(url); } },
+    "@/lib/dokumentacija": { ...load("src/lib/dokumentacija.ts"),
+      dokumentaContext: async () => ({ scope, user: admin }) },
+    "@/lib/dokumentacija-brisanje": {}, "@/lib/dokumentacija-onedrive": {},
+    "@/lib/dokumentacija-arhiva": {},
+    "@/lib/audit": load("src/lib/audit.ts")
+  });
+  const form = new FormData();
+  form.set("id", upload.id); form.set("firma", firm.id); form.set("godina", year.id);
+  await assert.rejects(() => removalLoad("src/app/agencija/dokumentacija/actions.ts").removeIncomingDocument(form), /onedrive=uklonjeno/);
+  assert.equal((await tx.primljeniDokument.findUniqueOrThrow({ where: { id: upload.id } })).status, "UKLONJENO");
+  assert.ok(files.has("portal-upload"), "Local removal preserves cloud file");
+  const cloudDoc = await tx.primljeniDokument.findFirstOrThrow({ where: { ...scope, item_id: "scan-1" } });
+  const { deleteIncomingCloudDocument } = load("src/lib/dokumentacija-brisanje.ts");
+  deleteFails = true;
+  await assert.rejects(() => deleteIncomingCloudDocument(scope, cloudDoc.id, admin.id), /cloud unavailable/);
+  assert.equal((await tx.primljeniDokument.findUniqueOrThrow({ where: { id: cloudDoc.id } })).status, "BRISANJE");
+  deleteFails = false;
+  await deleteIncomingCloudDocument(scope, cloudDoc.id, admin.id);
+  assert.equal((await tx.primljeniDokument.findUniqueOrThrow({ where: { id: cloudDoc.id } })).status, "UKLONJENO");
+  assert.deepEqual(deletes, ["scan-1"]);
+  assert.equal(await syncIncoming(scope, 2026), 0, "Sync does not resurrect removed records");
 
   let number = 0;
   for (const [code, destination] of [["VIRMANI", "09"], ["KARTICA", "09/kartica"], ["GOTOVINA", "09/gotovina"]]) {

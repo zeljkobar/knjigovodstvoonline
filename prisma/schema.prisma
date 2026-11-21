@@ -4253,6 +4253,7 @@ model PrimljeniDokument {
   qr_link String?
   qr_status String?
   izvor String
+  // SQL CHECK: UPLOAD, PRIMLJENO, DOPUNA, ARHIVIRANO, BRISANJE, UKLONJENO.
   status String
   zahtjev_dopune String?
   greska_arhive String?
