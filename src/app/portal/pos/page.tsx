@@ -393,6 +393,7 @@ export default async function PortalPosPage({
       ) : null}
 
       <PosTerminal
+        exitHref="/portal"
         blockedReason={blockedReason}
         canCreate={canCreate}
         items={items}

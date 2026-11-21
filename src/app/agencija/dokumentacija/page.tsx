@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RemoveIncomingDocument } from "@/components/RemoveIncomingDocument";
 import { prisma } from "@/lib/prisma";
 import { dokumentaContext, dokumentaKategorije } from "@/lib/dokumentacija";
 import { driveChildren, driveItemPath, graph, oneDriveAccess, type DriveItem } from "@/lib/dokumentacija-onedrive";
@@ -16,7 +17,7 @@ export default async function DokumentacijaPage({ searchParams }: {
   const query = await searchParams;
   const archiveResult = /^\d+$/.test(query.arhivirano ?? "") && /^\d+$/.test(query.preostalo ?? "");
   const [documents, books, connection, mapping, canUpdate, canKuf] = await Promise.all([
-    prisma.primljeniDokument.findMany({ where: { ...scope, status: { not: "UPLOAD" } },
+    prisma.primljeniDokument.findMany({ where: { ...scope, status: { notIn: ["UPLOAD", "UKLONJENO"] } },
       include: { kuf_entry: { select: { id: true, is_deleted: true, journal_id: true, posting_status: true, internal_kuf_number: true, kuf_book_id: true } } },
       orderBy: [{ created_at: "desc" }] }),
     prisma.kufBook.findMany({ where: { ...scope, is_deleted: false, status: "OPEN" },
@@ -54,6 +55,10 @@ export default async function DokumentacijaPage({ searchParams }: {
   }
   const messages: Record<string, string> = { folder: "Folder je povezan.", povezano: "OneDrive je povezan.",
     greska_folder: "Folder nije sačuvan. Provjerite da li je već dodijeljen ili firma ima primljene dokumente.",
+    obrisano_oblak: "Dokument je uklonjen. OneDrive fajl je premješten u korpu ili već nedostaje.",
+    brisanje_oblak_greska: "Brisanje nije potvrđeno. Provjerite OneDrive vezu i lokaciju fajla, pa ponovite brisanje. Dokument na čekanju nije dostupan za obradu.",
+    uklonjeno: "Dokument je uklonjen iz evidencije. Fajl na OneDrive-u nije obrisan.",
+    uklanjanje_blokirano: "Dokument nije uklonjen: provjerite zaključavanje godine, vezu sa KUF-om ili dopunama i osvježite prikaz.",
     greska: "OneDrive operacija nije uspjela.", osvjezeno: "Primljena dokumentacija je osvježena." };
   return <div className="admin-stack">
     <header className="admin-header"><div><h2>Primljena dokumentacija</h2><p>{firma.naziv} · {year.godina}</p></div></header>
@@ -80,7 +85,7 @@ export default async function DokumentacijaPage({ searchParams }: {
         <tbody>{documents.filter(doc => group === "ARHIVIRANO" ? doc.status === group && !doc.greska_arhive : doc.status !== "ARHIVIRANO" || doc.greska_arhive).map(doc => {
           const entry = doc.kuf_entry?.is_deleted ? null : doc.kuf_entry;
           const posted = entry?.posting_status === "POSTED" && entry.journal_id && postedJournals.has(entry.journal_id);
-          const status = doc.greska_arhive ?? (doc.status === "ARHIVIRANO" ? "Obrađeno" : posted ? "Proknjiženo · čeka premještanje" :
+          const status = doc.status === "BRISANJE" ? "Brisanje sa OneDrive-a čeka potvrdu" : doc.greska_arhive ?? (doc.status === "ARHIVIRANO" ? "Obrađeno" : posted ? "Proknjiženo · čeka premještanje" :
             entry ? "Uneseno u KUF" : doc.status === "DOPUNA" ? "Potrebna dopuna" : "Primljeno");
           return <tr key={doc.id}>
             <td><strong>{doc.naziv}</strong><small>{dokumentaKategorije.find(([id]) => id === doc.kategorija)?.[1]} · {doc.izvor === "PORTAL" ? "Klijentski portal" : "OneDrive"}</small>
@@ -97,6 +102,14 @@ export default async function DokumentacijaPage({ searchParams }: {
               {canUpdate && !entry && doc.poslao_id && !doc.dopuna_za_id && <form action={requestSupplement}>
                 <input type="hidden" name="id" value={doc.id} /><input name="comment" required maxLength={1000} placeholder="Šta treba dopuniti" aria-label="Šta treba dopuniti" />
                 <button type="submit">Zatraži dopunu</button></form>}
+              {canUpdate && !year.zakljucena && !doc.kuf_entry_id && !doc.dopuna_za_id && !doc.greska_arhive &&
+                doc.status === "PRIMLJENO" && !documents.some(item => item.dopuna_za_id === doc.id) &&
+                <div className="table-actions">
+                  <RemoveIncomingDocument id={doc.id} companyId={firma.id} yearId={year.id} />
+                  {doc.item_id && <RemoveIncomingDocument id={doc.id} companyId={firma.id} yearId={year.id} cloud />}
+                </div>}
+              {canUpdate && !year.zakljucena && doc.status === "BRISANJE" &&
+                <RemoveIncomingDocument id={doc.id} companyId={firma.id} yearId={year.id} cloud retry />}
             </td>
           </tr>;
         })}</tbody>

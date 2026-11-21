@@ -1,5 +1,20 @@
 # SESSION_LOG.md — bilješke poslije većih sesija
 
+## 2026-11-21 — Opcionalno brisanje originala sa OneDrive-a
+
+- Uz lokalno uklanjanje dodato eksplicitno potvrđeno premještanje originala u OneDrive korpu. Backend provjerava scope/pravo izmjene, otvorenu godinu, nepovezan PRIMLJENO dokument bez dopuna, stvarni folder firma/godina/primljeno i eTag kroz If-Match. Nema permanentDelete poziva.
+- Trajan auditirani status BRISANJE prethodi mrežnom pozivu i blokira obradu. Timeout ili DB/audit greška ostavljaju ručni ponovni pokušaj; potvrđen nestanak fajla dovršava meko uklanjanje. OneDrive sync ne oživljava uklonjen zapis. Bez migracije i stvarnog cloud brisanja tokom razvoja. Dvanaest ciljnih testova, TSC i ESLint prolaze; objava i kontrolisana cloud proba ostaju.
+
+## 2026-11-21 — Uklanjanje testne primljene dokumentacije
+
+- Agencija može uz postojeće pravo izmjene ukloniti nepovezan dokument statusa PRIMLJENO iz otvorene godine. Potvrda jasno ostavlja OneDrive fajl. Status UKLONJENO predstavlja meko brisanje; zapis i atomski audit ostaju. KUF veze, dopune i namjera arhiviranja blokiraju radnju, uz isti redoslijed zaključavanja firme/godine kao KUF import i provjeru konteksta forme.
+- Uklonjeno se ne prikazuje agenciji/klijentu, ne broji na dashboardu i ne otvara originalnom rutom; povezivanje/arhiviranje ga odbija. OneDrive sync čuva postojeći zapis pa se fajl ne vraća u listu. Nema migracije ili cloud brisanja. Šest ciljanih regresija prolazi.
+
+## 2026-11-21 — Mobilna navigacija fiskalnog portala
+
+- Meni „Više“ zatvara se pri izboru linka, promjeni putanje i pritisku Escape. POS portala ima povratak „← Portal“; neprazna korpa traži potvrdu odbacivanja, bez zatvaranja smjene ili odjave. Agencijski POS ostaje bez tog dodatnog linka.
+- TSC i ciljani ESLint prolaze. Bez promjena baze, fiskalizacije ili slanja mejlova.
+
 ## 2026-11-20 — Deploy lint za puni ulaz u fiskalni portal
 
 - Produkcijski build je odbio namjerne native anchor linkove pravilom no-html-link-for-pages. Dodato usko izuzeće tog pravila samo u dva klijentska ulazna fajla, sa razlogom: document navigacija kroz cookie-setting rutu bez Link prefetch-a. Ostali lint/type/build guardovi ostaju uključeni. GitHub test job sada pokreće i npm run lint prije TSC-a, da ova klasa greške ne čeka produkcijski deploy.

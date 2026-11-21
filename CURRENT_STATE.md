@@ -1,5 +1,14 @@
 # CURRENT_STATE.md — trenutno stanje projekta
 
+## 2026-11-21 — Opcionalno brisanje originala sa OneDrive-a
+
+- Uz lokalno uklanjanje dodato eksplicitno potvrđeno premještanje originala u OneDrive korpu. Backend provjerava scope/pravo izmjene, otvorenu godinu, nepovezan PRIMLJENO dokument bez dopuna, stvarni folder firma/godina/primljeno i eTag kroz If-Match. Nema permanentDelete poziva.
+- Trajan auditirani status BRISANJE prethodi mrežnom pozivu i blokira obradu. Timeout ili DB/audit greška ostavljaju ručni ponovni pokušaj; potvrđen nestanak fajla dovršava meko uklanjanje. OneDrive sync ne oživljava uklonjen zapis. Bez migracije i stvarnog cloud brisanja tokom razvoja. Dvanaest ciljnih testova, TSC i ESLint prolaze; objava i kontrolisana cloud proba ostaju.
+
+## Uklanjanje primljene dokumentacije — 2026-11-21
+
+- Lokalno dodato „Ukloni iz evidencije“ za nepovezane primljene dokumente bez dopuna u otvorenoj godini, uz potvrdu, backend scope/prava i audit. Meko brisanje statusom UKLONJENO ostavlja fajl na OneDrive-u i sprečava povratak zapisa pri osvježavanju. Bez migracije; nije objavljeno.
+
 ## Završna provjera paketa prije commit-a — 2026-11-20
 
 - `npm test`: 411 uspješnih testova, bez padova; jedan ranije označen preskočen test. Produkcijski `npm run build` i zasebni `tsc --noEmit` prolaze. Build ima postojeća CSS kompatibilnost/lint upozorenja, bez grešaka.

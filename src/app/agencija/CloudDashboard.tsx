@@ -55,6 +55,7 @@ export async function IncomingCloudCard({ scope, year }: { scope: DokumentaScope
       value.agencija_id === scope.agencija_id && value.firma_id === scope.firma_id && value.poslovna_godina_id === scope.poslovna_godina_id;
     for (const item of items) {
       const doc = byItem.get(item.id) ?? uploads.get(item.name);
+      if (doc && ["UKLONJENO", "BRISANJE"].includes(doc.status)) continue;
       const invoiceType = doc?.kategorija === "ULAZNI" || doc?.kategorija === "IZLAZNI";
       if (!invoiceType && ((doc && doc.kategorija !== "OSTALO") || !/\.(pdf|tiff?|jpe?g|png)$/i.test(item.name))) continue;
       const entry = doc?.kuf_entry;

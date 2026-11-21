@@ -225,11 +225,11 @@ export async function linkKufDocument(tx: Prisma.TransactionClient, scope: Dokum
   if (!entry) throw new DokumentaError("KUF račun nije dostupan u aktivnoj firmi i godini.");
   const source = await tx.primljeniDokument.findFirst({ where: { ...scope, id: documentId },
     select: { id: true, dopuna_za_id: true, status: true, kuf_entry_id: true } });
-  if (!source || (source.kuf_entry_id && source.kuf_entry_id !== entryId) || source.status === "DOPUNA" || source.status === "UPLOAD") {
+  if (!source || (source.kuf_entry_id && source.kuf_entry_id !== entryId) || source.status === "DOPUNA" || source.status === "UPLOAD" || source.status === "UKLONJENO" || source.status === "BRISANJE") {
     throw new DokumentaError("Dokument je već povezan ili čeka dopunu.");
   }
   const originalId = source.dopuna_za_id ?? source.id;
-  const family = await tx.primljeniDokument.findMany({ where: { ...scope, status: { not: "UPLOAD" },
+  const family = await tx.primljeniDokument.findMany({ where: { ...scope, status: { notIn: ["UPLOAD", "UKLONJENO"] },
     OR: [{ id: originalId }, { dopuna_za_id: originalId }] }, select: { id: true, kuf_entry_id: true, status: true } });
   for (const doc of family.sort((left, right) => left.id.localeCompare(right.id))) {
     if (doc.kuf_entry_id === entryId) continue;

@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const kuf = request.nextUrl.searchParams.get("kuf");
   const value = id ?? kuf;
   if (!value || !uuidPattern.test(value) || (kuf && !uuidPattern.test(kuf))) return new Response(null, { status: 404 });
-  const where = { agencija_id: user.agencija_id, status: { not: "UPLOAD" },
+  const where = { agencija_id: user.agencija_id, status: { notIn: ["UPLOAD", "UKLONJENO", "BRISANJE"] },
     firma: { aktivan: true, is_deleted: false, agencija_id: user.agencija_id },
     ...(id ? { id } : {}),
     ...(kuf ? { kuf_entry_id: kuf, kuf_entry: { is_deleted: false } } : {}),

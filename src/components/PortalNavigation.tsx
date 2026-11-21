@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import type { PortalNavigationItem } from "@/lib/portal-navigation";
 
@@ -18,6 +19,9 @@ function isActive(pathname: string, href: string) {
 
 export function PortalNavigation({ items }: PortalNavigationProps) {
   const pathname = usePathname();
+  const moreMenu = useRef<HTMLDetailsElement>(null);
+  const closeMoreMenu = () => { if (moreMenu.current) moreMenu.current.open = false; };
+  useEffect(() => { if (moreMenu.current) moreMenu.current.open = false; }, [pathname]);
   const primaryHrefs = new Set([
     "/portal",
     "/portal/pos",
@@ -43,7 +47,7 @@ export function PortalNavigation({ items }: PortalNavigationProps) {
         ))}
       </nav>
 
-      <nav className="portal-mobile-nav" aria-label="Mobilna navigacija portala">
+      <nav className="portal-mobile-nav" aria-label="Mobilna navigacija portala" onClick={(event) => { if ((event.target as HTMLElement).closest("a")) closeMoreMenu(); }} onKeyDown={(event) => { if (event.key === "Escape") { closeMoreMenu(); moreMenu.current?.querySelector("summary")?.focus(); } }}>
         {primaryItems.map((item) => (
           <Link
             aria-current={isActive(pathname, item.href) ? "page" : undefined}
@@ -56,7 +60,7 @@ export function PortalNavigation({ items }: PortalNavigationProps) {
           </Link>
         ))}
         {moreItems.length > 0 ? (
-          <details className="portal-mobile-more">
+          <details className="portal-mobile-more" ref={moreMenu}>
             <summary>
               <span aria-hidden="true">•••</span>
               Više

@@ -35,7 +35,7 @@ export async function reconcileDocument(id: string, postedOnly = false) {
       include: { firma: { select: { aktivan: true, is_deleted: true, agencija_id: true } }, poslovna_godina: true,
         kuf_entry: { include: { kuf_book: { include: { racun_vrsta: true } } } } } });
     if (!doc || !doc.firma.aktivan || doc.firma.is_deleted || doc.firma.agencija_id !== doc.agencija_id ||
-        doc.status === "UPLOAD") return;
+        ["UPLOAD", "UKLONJENO", "BRISANJE"].includes(doc.status)) return;
     const entry = doc.kuf_entry;
     if (entry && (entry.agencija_id !== doc.agencija_id || entry.firma_id !== doc.firma_id ||
       entry.poslovna_godina_id !== doc.poslovna_godina_id)) return;

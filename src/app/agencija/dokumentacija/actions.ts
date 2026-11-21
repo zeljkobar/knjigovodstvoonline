@@ -6,6 +6,7 @@ import { auditDocument, dokumentaContext, syncIncoming, uuidPattern } from "@/li
 import { driveItemPath, graph, oneDriveAccess, type DriveItem } from "@/lib/dokumentacija-onedrive";
 import { findPostedDocuments, reconcileDocument } from "@/lib/dokumentacija-arhiva";
 import { auditLogInTransaction } from "@/lib/audit";
+import { deleteIncomingCloudDocument } from "@/lib/dokumentacija-brisanje";
 import { redirect } from "next/navigation";
 
 export async function saveDocumentFolder(form: FormData) {
@@ -83,4 +84,53 @@ export async function archivePostedDocuments(form: FormData) {
   const remaining = (await findPostedDocuments(scope)).length;
   revalidatePath("/agencija/dokumentacija");
   redirect(`/agencija/dokumentacija?arhivirano=${archived}&preostalo=${remaining}`);
+}
+
+
+export async function removeIncomingDocument(form: FormData) {
+  const { user, scope } = await dokumentaContext("update");
+  const id = String(form.get("id") ?? "");
+  if (user.rola === "klijent" || !uuidPattern.test(id) ||
+      form.get("firma") !== scope.firma_id || form.get("godina") !== scope.poslovna_godina_id) return;
+  const removed = await prisma.$transaction(async tx => {
+    // Same lock order as KUF import: an import cannot attach the document while it is removed.
+    const company = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM firme
+      WHERE id = ${scope.firma_id}::uuid AND agencija_id = ${scope.agencija_id}::uuid
+        AND aktivan AND NOT is_deleted FOR UPDATE`;
+    const [year] = await tx.$queryRaw<{ zakljucena: boolean }[]>`SELECT zakljucena FROM poslovne_godine
+      WHERE id = ${scope.poslovna_godina_id}::uuid AND firma_id = ${scope.firma_id}::uuid FOR UPDATE`;
+    if (!company.length || !year || year.zakljucena) return false;
+    const doc = await tx.primljeniDokument.findFirst({ where: { ...scope, id,
+      status: "PRIMLJENO", kuf_entry_id: null, dopuna_za_id: null, greska_arhive: null } });
+    if (!doc || await tx.primljeniDokument.count({ where: { agencija_id: scope.agencija_id,
+      firma_id: scope.firma_id, dopuna_za_id: id } })) return false;
+    const result = await tx.primljeniDokument.updateMany({ where: { ...scope, id,
+      status: doc.status, kuf_entry_id: null, dopuna_za_id: null, greska_arhive: null },
+      data: { status: "UKLONJENO" } });
+    if (!result.count) return false;
+    await auditLogInTransaction(tx, { korisnikId: user.id, agencijaId: scope.agencija_id,
+      firmaId: scope.firma_id, modul: "dokumentacija", akcija: "ukloni_iz_evidencije",
+      tipEntiteta: "PrimljeniDokument", entitetId: id,
+      staraVrijednost: { status: doc.status, naziv: doc.naziv, item_id: doc.item_id },
+      novaVrijednost: { status: "UKLONJENO", onedrive_obrisan: false } });
+    return true;
+  });
+  revalidatePath("/agencija/dokumentacija");
+  revalidatePath("/klijent/dokumentacija");
+  redirect(`/agencija/dokumentacija?onedrive=${removed ? "uklonjeno" : "uklanjanje_blokirano"}`);
+}
+
+
+export async function deleteIncomingDocumentFromCloud(form: FormData) {
+  const { user, scope } = await dokumentaContext("update");
+  const id = String(form.get("id") ?? "");
+  if (user.rola === "klijent" || !uuidPattern.test(id) || form.get("potvrda") !== "onedrive" ||
+      form.get("firma") !== scope.firma_id || form.get("godina") !== scope.poslovna_godina_id) return;
+  let result = "obrisano_oblak";
+  try { await deleteIncomingCloudDocument(scope, id, user.id); }
+  catch { result = "brisanje_oblak_greska"; }
+  revalidatePath("/agencija/dokumentacija");
+  revalidatePath("/klijent/dokumentacija");
+  revalidatePath("/agencija");
+  redirect(`/agencija/dokumentacija?onedrive=${result}`);
 }

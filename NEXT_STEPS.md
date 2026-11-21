@@ -1,5 +1,9 @@
 # NEXT_STEPS.md — šta dalje raditi
 
+## Primljena dokumentacija — 2026-11-21
+
+- Lokalno završene dvije potvrđene opcije: uklanjanje samo iz evidencije i premještanje originala u OneDrive korpu. Poslije objave provjeriti na testnom fajlu folder Primljeno, korpu, nestanak iz aktivnog spiska i osvježavanje bez povratka. Stvarni cloud DELETE nije izvršen tokom razvoja.
+
 ## Aktuelno poslije PDF/mail paketa — 2026-11-20
 
 - Lokalno završeno: serverski PDF izvještaja/računa, pregled istog priloga, PDF/XLSX dostava, adresar i istorija, worker/CAS/aktuelna prava/UNKNOWN ishod. Stare bilješke ispod koje navode serverski PDF i mail kao neimplementirane zamijenjene su ovim stanjem.

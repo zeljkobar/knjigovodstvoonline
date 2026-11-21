@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
+import Link from "next/link";
 import { PartnerSearchInput } from "@/components/PartnerSearchInput";
 import { createAndFiscalizePosSale } from "./actions";
 
@@ -47,6 +48,7 @@ type PosTerminalProps = {
   canCreate?: boolean;
   requiresShift?: boolean;
   blockedReason?: string | null;
+  exitHref?: string;
 };
 
 const defaultPaymentMethods: readonly PaymentMethod[] = [
@@ -95,7 +97,8 @@ export function PosTerminal({
   partnerCompanyOnly = false,
   canCreate = true,
   requiresShift = false,
-  blockedReason = null
+  blockedReason = null,
+  exitHref
 }: PosTerminalProps) {
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState("Sve");
@@ -257,6 +260,10 @@ export function PosTerminal({
   );
 
   return (
+    <>
+      {exitHref ? <div className="pos-exit"><Link className="secondary-button" href={exitHref} onClick={(event) => {
+        if (cart.length > 0 && !window.confirm("Korpa nije prazna. Želite li da odbacite stavke i vratite se na portal? Smjena ostaje otvorena.")) event.preventDefault();
+      }}>← Portal</Link></div> : null}
     <div className="pos-shell">
       <div className="pos-catalog">
         <div className="pos-toolbar">
@@ -313,5 +320,6 @@ export function PosTerminal({
         <strong>{money(totalCents / 100)} €</strong>
       </button>
     </div>
+    </>
   );
 }

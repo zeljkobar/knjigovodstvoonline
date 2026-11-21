@@ -11,7 +11,7 @@ export default async function KlijentDokumentacija({ searchParams }: { searchPar
   if (!context?.client) notFound();
   const { user, year, years, scope, firma } = context;
   const [sent, canSend, folder] = await Promise.all([
-    prisma.primljeniDokument.findMany({ where: { ...scope, poslao_id: user.id, status: { not: "UPLOAD" } },
+    prisma.primljeniDokument.findMany({ where: { ...scope, poslao_id: user.id, status: { notIn: ["UPLOAD", "UKLONJENO"] } },
       orderBy: { created_at: "desc" } }),
     hasPermission(user, { firmaId: firma.id, modul: "dokumentacija", akcija: "create" }),
     prisma.dokumentaFolder.findFirst({ where: { firma_id: firma.id, agencija_id: scope.agencija_id }, select: { firma_id: true } })
@@ -30,7 +30,7 @@ export default async function KlijentDokumentacija({ searchParams }: { searchPar
       <ul>{sent.map(doc => <li key={doc.id}>
         <a href={`/api/dokumentacija/original?id=${doc.id}`} target="_blank" rel="noreferrer">{doc.naziv}</a>
         {" · "}{doc.created_at.toLocaleDateString("sr-Latn", { timeZone: "Europe/Podgorica" })}{" · "}
-        {doc.status === "ARHIVIRANO" ? "Obrađeno" : doc.status === "DOPUNA" ? "Potrebna dopuna" : "Primljeno"}
+        {doc.status === "BRISANJE" ? "Brisanje u toku" : doc.status === "ARHIVIRANO" ? "Obrađeno" : doc.status === "DOPUNA" ? "Potrebna dopuna" : "Primljeno"}
         {doc.zahtjev_dopune && <p>{doc.zahtjev_dopune}</p>}
         {doc.status === "DOPUNA" && <Link href={`?godina=${year.id}&dopuna=${doc.id}`}>Pošalji dopunu</Link>}
       </li>)}</ul>
